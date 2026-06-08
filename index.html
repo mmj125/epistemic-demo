@@ -3,738 +3,237 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mystery Specimen | Primate Locomotion Investigation</title>
-<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<title>Primate Locomotion Investigation | epiSTEMic</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
     --bone:#e8e0d0; --bone-dark:#c9bfaa; --ink:#1a1612; --ink-soft:#4a3f35;
     --field:#f5f0e8; --accent:#c0392b; --accent-warm:#e67e22; --muted:#7a6f63;
-    --panel:#ffffff; --border:#d4c9b8; --mystery:#2980b9; --reveal:#27ae60; --ai:#6c3483;
+    --panel:#ffffff; --border:#d4c9b8; --mystery:#2980b9;
+    --hominoidea:#8e44ad; --cercopithecoidea:#27ae60; --ceboidea:#e67e22; --lemuroidea:#2980b9;
   }
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:"DM Sans",sans-serif;background:var(--field);color:var(--ink);min-height:100vh;font-size:15px;}
-  body::before{content:"";position:fixed;inset:0;background-image:linear-gradient(var(--bone-dark) 1px,transparent 1px),linear-gradient(90deg,var(--bone-dark) 1px,transparent 1px);background-size:32px 32px;opacity:.18;pointer-events:none;z-index:0;}
-  .app{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 24px 80px;}
+  body{font-family:"DM Sans",sans-serif;background:var(--field);color:var(--ink);min-height:100vh;}
+  body::before{content:"";position:fixed;inset:0;background-image:linear-gradient(var(--bone-dark) 1px,transparent 1px),linear-gradient(90deg,var(--bone-dark) 1px,transparent 1px);background-size:32px 32px;opacity:.15;pointer-events:none;z-index:0;}
+  .app{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:0 24px 80px;}
 
-  /* Header */
-  header{padding:36px 0 24px;border-bottom:2px solid var(--ink);margin-bottom:28px;}
-  .header-eyebrow{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
-  header h1{font-family:"DM Serif Display",serif;font-size:clamp(26px,4vw,40px);line-height:1.1;}
-  header h1 em{font-style:italic;color:var(--accent);}
-  .header-sub{margin-top:8px;color:var(--ink-soft);font-weight:300;max-width:680px;line-height:1.6;font-size:14px;}
+  /* Hero */
+  .hero{padding:56px 0 40px;border-bottom:2px solid var(--ink);margin-bottom:48px;}
+  .hero-eyebrow{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}
+  .hero h1{font-family:"DM Serif Display",serif;font-size:clamp(32px,5vw,54px);line-height:1.08;margin-bottom:16px;}
+  .hero h1 em{font-style:italic;color:var(--accent);}
+  .hero-sub{font-size:16px;line-height:1.7;color:var(--ink-soft);max-width:660px;font-weight:300;}
 
-  /* Loading */
-  #loading{position:fixed;inset:0;background:var(--field);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;transition:opacity .5s;}
-  #loading.hidden{opacity:0;pointer-events:none;}
-  .loading-title{font-family:"DM Serif Display",serif;font-size:20px;}
-  .loading-status{font-family:"DM Mono",monospace;font-size:12px;color:var(--muted);letter-spacing:.08em;}
-  .loading-bar-wrap{width:240px;height:3px;background:var(--border);border-radius:2px;overflow:hidden;}
-  .loading-bar{height:100%;background:var(--accent);animation:lpulse 1.8s ease-in-out infinite;}
-  @keyframes lpulse{0%{width:0%}50%{width:70%}100%{width:100%}}
+  /* Scenario */
+  .scenario{background:var(--ink);color:var(--bone);border-radius:6px;padding:36px 40px;margin-bottom:48px;position:relative;overflow:hidden;}
+  .scenario::before{content:"";position:absolute;top:-40px;right:-40px;width:200px;height:200px;border:40px solid rgba(255,255,255,.04);border-radius:50%;}
+  .scenario-label{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--bone-dark);margin-bottom:14px;}
+  .scenario h2{font-family:"DM Serif Display",serif;font-size:clamp(20px,3vw,28px);margin-bottom:16px;line-height:1.2;}
+  .scenario p{font-size:14.5px;line-height:1.75;color:#c8bfb0;max-width:700px;}
+  .scenario p+p{margin-top:12px;}
 
-  /* Tabs */
-  .tabs{display:flex;border-bottom:2px solid var(--ink);margin-bottom:24px;}
-  .tab{padding:10px 24px;font-family:"DM Mono",monospace;font-size:12px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;border:none;background:transparent;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;}
-  .tab.active{color:var(--ink);border-bottom-color:var(--accent);font-weight:500;}
-  .tab:hover:not(.active){color:var(--ink-soft);}
-  .tab:disabled{opacity:.4;cursor:not-allowed;}
+  /* Section headers */
+  .section-label{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:20px;padding-bottom:8px;border-bottom:1px solid var(--border);}
 
-  /* Panes */
-  .pane{display:none;} .pane.active{display:block;}
+  /* Locomotion grid */
+  .loco-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:48px;}
+  .loco-card{background:var(--panel);border:1.5px solid var(--border);border-radius:4px;padding:18px 16px;text-align:center;}
+  .loco-icon{font-size:36px;margin-bottom:10px;display:block;}
+  .loco-name{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);font-weight:500;margin-bottom:6px;}
+  .loco-desc{font-size:12px;color:var(--muted);line-height:1.5;}
+  .loco-imi{display:inline-block;margin-top:8px;font-family:"DM Mono",monospace;font-size:10px;padding:2px 8px;border-radius:12px;background:var(--field);border:1px solid var(--border);color:var(--ink-soft);}
 
-  /* Layout */
-  .layout{display:grid;grid-template-columns:1fr 320px;gap:22px;align-items:start;}
-  @media(max-width:820px){.layout{grid-template-columns:1fr;}}
+  /* Video section */
+  .video-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-bottom:48px;}
+  .video-card{background:var(--panel);border:1.5px solid var(--border);border-radius:4px;overflow:hidden;}
+  .video-embed{position:relative;padding-bottom:56.25%;height:0;overflow:hidden;}
+  .video-embed iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:none;}
+  .video-caption{padding:12px 14px;}
+  .video-title{font-size:13px;font-weight:500;color:var(--ink);margin-bottom:3px;}
+  .video-sub{font-size:12px;color:var(--muted);}
 
-  /* Panel */
-  .panel{background:var(--panel);border:1.5px solid var(--border);border-radius:4px;overflow:hidden;margin-bottom:20px;}
-  .panel:last-child{margin-bottom:0;}
-  .panel-header{padding:12px 18px;background:var(--ink);display:flex;align-items:center;justify-content:space-between;}
-  .panel-header h2{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--bone);font-weight:500;}
-  .panel-body{padding:18px;}
+  /* Specimen cards */
+  .specimens-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;margin-bottom:16px;}
+  .specimen-card{background:var(--panel);border:1.5px solid var(--border);border-radius:4px;overflow:hidden;cursor:pointer;transition:transform .15s,box-shadow .15s;text-decoration:none;display:block;}
+  .specimen-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.1);}
+  .specimen-header{padding:16px 18px;background:var(--ink);}
+  .specimen-id{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--bone-dark);margin-bottom:4px;}
+  .specimen-name{font-family:"DM Serif Display",serif;font-size:18px;color:var(--bone);line-height:1.2;}
+  .specimen-body{padding:16px 18px;}
+  .specimen-location{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+  .specimen-context{font-size:13px;line-height:1.6;color:var(--ink-soft);}
+  .specimen-cta{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-top:1px solid var(--bone);margin-top:4px;}
+  .specimen-cta span{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mystery);}
+  .specimen-arrow{font-size:16px;color:var(--mystery);}
 
-  /* Controls */
-  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
-  .control-label{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
-  .btn-group{display:flex;border:1.5px solid var(--border);border-radius:3px;overflow:hidden;}
-  .btn-group button{padding:5px 13px;font-family:"DM Sans",sans-serif;font-size:13px;font-weight:500;background:var(--panel);color:var(--ink-soft);border:none;cursor:pointer;transition:all .15s;}
-  .btn-group button+button{border-left:1.5px solid var(--border);}
-  .btn-group button.active,.btn-group button:hover{background:var(--ink);color:var(--bone);}
-  select{padding:5px 10px;font-family:"DM Sans",sans-serif;font-size:13px;background:var(--panel);border:1.5px solid var(--border);border-radius:3px;color:var(--ink);cursor:pointer;}
-  #chart{width:100%;min-height:400px;}
-  .axis-pickers{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px;}
-  .axis-pickers label{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:4px;}
-
-  /* Sidebar */
-  .context-block{font-size:13px;line-height:1.65;color:var(--ink-soft);padding:13px 16px;background:#fdf8f0;border-left:3px solid var(--accent-warm);}
-  .context-block strong{color:var(--ink);font-weight:500;}
-  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0;}
-  .field label{display:block;font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
-  .field input{width:100%;padding:7px 9px;font-family:"DM Mono",monospace;font-size:13px;background:var(--field);border:1.5px solid var(--border);border-radius:3px;color:var(--ink);transition:border-color .15s;}
-  .field input:focus{outline:none;border-color:var(--mystery);}
-  .field input.filled{border-color:var(--mystery);background:#eef6fc;}
-  .imi-display{font-family:"DM Mono",monospace;font-size:12px;padding:8px 12px;background:var(--field);border:1.5px solid var(--border);border-radius:3px;color:var(--muted);margin-bottom:12px;}
-  .imi-display span{color:var(--mystery);font-size:15px;font-weight:500;}
-
-  .btn-primary{width:100%;padding:10px;font-family:"DM Sans",sans-serif;font-size:13px;font-weight:500;background:var(--mystery);color:white;border:none;border-radius:3px;cursor:pointer;transition:background .15s,transform .1s;margin-bottom:8px;}
-  .btn-primary:hover{background:#1a6fa0;}
-  .btn-primary:active{transform:scale(.98);}
-  .btn-primary:disabled{background:var(--border);color:var(--muted);cursor:not-allowed;}
-  .btn-reveal{width:100%;padding:10px;font-family:"DM Serif Display",serif;font-size:14px;background:var(--field);color:var(--muted);border:1.5px dashed var(--border);border-radius:3px;cursor:not-allowed;transition:all .2s;}
-  .btn-reveal.ready{background:var(--reveal);color:white;border:none;cursor:pointer;}
-  .btn-reveal.ready:hover{background:#1e8449;}
-
-  /* Reveal */
-  #reveal-panel{display:none;animation:fadeIn .4s ease;}
-  #reveal-panel.visible{display:block;}
-  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-  .reveal-content{padding:16px 18px;}
-  .reveal-name{font-family:"DM Serif Display",serif;font-size:20px;color:var(--ink);margin-bottom:2px;}
-  .reveal-sci{font-style:italic;font-size:12px;color:var(--muted);margin-bottom:10px;}
-  .reveal-fact{font-size:13px;line-height:1.6;color:var(--ink-soft);}
-  .reveal-stat{display:inline-block;background:var(--reveal);color:white;font-family:"DM Mono",monospace;font-size:10px;padding:2px 7px;border-radius:2px;}
-
-  /* Body mass tool */
-  .bm-input-row{display:flex;gap:10px;align-items:flex-end;margin-bottom:16px;}
-  .bm-input-row .field{flex:1;}
-  .bm-input-row .field input{font-size:15px;padding:9px 10px;}
-  .bm-calc-btn{padding:9px 16px;font-family:"DM Sans",sans-serif;font-size:13px;font-weight:500;background:var(--ink);color:var(--bone);border:none;border-radius:3px;cursor:pointer;white-space:nowrap;transition:background .15s;}
-  .bm-calc-btn:hover{background:var(--ink-soft);}
-
-  .bm-results{display:none;}
-  .bm-results.visible{display:block;animation:fadeIn .3s ease;}
-  .bm-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:10px;}
-  .bm-table th{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:left;padding:6px 10px;border-bottom:1.5px solid var(--border);}
-  .bm-table td{padding:8px 10px;border-bottom:1px solid var(--bone);}
-  .bm-table tr:last-child td{border-bottom:none;}
-  .bm-table tr.highlight td{background:#eef6fc;font-weight:500;color:var(--mystery);}
-  .bm-table tr.highlight-human td{background:#fdf0f0;color:var(--accent);}
-  .bm-note{font-size:12px;color:var(--muted);font-style:italic;line-height:1.5;padding:10px 12px;background:var(--field);border-radius:3px;border:1px solid var(--bone);}
-
-  /* Argument pane */
-  .investigation-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
-  @media(max-width:900px){.investigation-grid{grid-template-columns:1fr;}}
-  .prompt-block{margin-bottom:18px;}
-  .prompt-label{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
-  .prompt-num{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:var(--ink);color:var(--bone);font-size:10px;border-radius:50%;flex-shrink:0;}
-  .prompt-question{font-size:13.5px;font-weight:500;color:var(--ink);margin-bottom:6px;line-height:1.4;}
-  .prompt-hint{font-size:12px;color:var(--muted);margin-bottom:8px;line-height:1.5;font-style:italic;}
-  textarea{width:100%;min-height:90px;padding:10px 12px;font-family:"DM Sans",sans-serif;font-size:13px;line-height:1.6;background:var(--field);border:1.5px solid var(--border);border-radius:3px;color:var(--ink);resize:vertical;transition:border-color .15s;}
-  textarea:focus{outline:none;border-color:var(--mystery);}
-
-  .submit-row{display:flex;align-items:center;gap:14px;margin-top:6px;flex-wrap:wrap;}
-  .btn-submit{padding:10px 24px;font-family:"DM Sans",sans-serif;font-size:14px;font-weight:500;background:var(--ai);color:white;border:none;border-radius:3px;cursor:pointer;transition:background .15s;}
-  .btn-submit:hover{background:#5b2c6f;}
-  .btn-submit:disabled{background:var(--border);color:var(--muted);cursor:not-allowed;}
-  .submit-note{font-size:12px;color:var(--muted);font-style:italic;}
-
-  #feedback-area{margin-top:22px;display:none;animation:fadeIn .4s ease;}
-  #feedback-area.visible{display:block;}
-  .feedback-panel{background:#f8f4fd;border:1.5px solid #c39bd3;border-radius:4px;overflow:hidden;}
-  .feedback-header{padding:10px 16px;background:var(--ai);display:flex;align-items:center;gap:10px;}
-  .feedback-header h3{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:white;font-weight:500;}
-  .feedback-body{padding:16px 18px;font-size:13.5px;line-height:1.7;color:var(--ink-soft);white-space:pre-wrap;}
-  .feedback-body.loading{color:var(--muted);font-style:italic;}
-
-  .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .7s linear infinite;}
-  @keyframes spin{to{transform:rotate(360deg)}}
-
-  .ms-stats{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 16px;}
-  .stat-pill{font-family:"DM Mono",monospace;font-size:11px;padding:3px 10px;background:var(--field);border:1.5px solid var(--border);border-radius:20px;color:var(--ink-soft);}
-  .stat-pill.ms{background:#eef6fc;border-color:var(--mystery);color:var(--mystery);}
-  .status-dot{font-family:"DM Mono",monospace;font-size:10px;color:var(--muted);}
-
-  .locked-notice{font-size:13px;color:var(--muted);font-style:italic;padding:20px;text-align:center;}
+  .intro-note{font-size:13px;color:var(--muted);font-style:italic;line-height:1.6;max-width:680px;}
 </style>
 </head>
 <body>
-
-<div id="loading">
-  <div class="loading-title">Initializing Python runtime…</div>
-  <div class="loading-bar-wrap"><div class="loading-bar"></div></div>
-  <div class="loading-status" id="load-status">Loading Pyodide</div>
-</div>
-
 <div class="app">
-  <header>
-    <div class="header-eyebrow">Primate Locomotion Investigation · Mystery Specimen MS-13</div>
-    <h1>What did <em>MS-13</em> look like,<br>and how did it move?</h1>
-    <p class="header-sub">A primate specimen was recovered from a dense, closed-canopy forest. Using limb proportion and body mass data from 478 modern primates, analyze the evidence and construct a defensible argument about this animal's locomotion and ecology.</p>
-  </header>
 
-  <div class="tabs">
-    <button class="tab active" id="tab-explore" onclick="switchTab('explore')">1 · Explore Data</button>
-    <button class="tab" id="tab-mass" onclick="switchTab('mass')">2 · Body Mass</button>
-    <button class="tab" id="tab-argument" onclick="switchTab('argument')">3 · Build Argument</button>
+  <div class="hero">
+    <div class="hero-eyebrow">Biological Anthropology · Primate Locomotion</div>
+    <h1>Who called, and what did<br>they <em>find</em>?</h1>
+    <p class="hero-sub">You are a biological anthropologist. Your phone rings. Someone has found fossilized primate bones and needs your expert analysis: how did this animal move, and how big was it? All you have are the bones — and 478 modern primate specimens to compare them to.</p>
   </div>
 
-  <!-- TAB 1: EXPLORE -->
-  <div class="pane active" id="pane-explore">
-    <div class="layout">
-      <div>
-        <div class="panel">
-          <div class="panel-header">
-            <h2 id="chart-title">Scatter Plot</h2>
-            <span class="status-dot" id="python-status">Python ✓</span>
-          </div>
-          <div class="panel-body">
-            <div class="controls">
-              <span class="control-label">View</span>
-              <div class="btn-group">
-                <button class="active" onclick="setView('scatter')">Scatter</button>
-                <button onclick="setView('box')">Box (IMI)</button>
-              </div>
-              <span class="control-label">Group by</span>
-              <select id="grouping" onchange="redraw()">
-                <option value="superfamily">Superfamily</option>
-                <option value="common_name" selected>Common Name</option>
-                <option value="genus">Genus</option>
-              </select>
-            </div>
-            <div class="axis-pickers" id="axis-pickers">
-              <label>X axis</label>
-              <select id="x-axis" onchange="redraw()">
-                <option value="hindlimb" selected>Hindlimb (mm)</option>
-                <option value="femur">Femur (mm)</option>
-                <option value="tibia">Tibia (mm)</option>
-                <option value="forelimb">Forelimb (mm)</option>
-                <option value="humerus">Humerus (mm)</option>
-                <option value="radius">Radius (mm)</option>
-                <option value="imi">IMI</option>
-              </select>
-              <label>Y axis</label>
-              <select id="y-axis" onchange="redraw()">
-                <option value="forelimb" selected>Forelimb (mm)</option>
-                <option value="humerus">Humerus (mm)</option>
-                <option value="radius">Radius (mm)</option>
-                <option value="hindlimb">Hindlimb (mm)</option>
-                <option value="femur">Femur (mm)</option>
-                <option value="tibia">Tibia (mm)</option>
-                <option value="imi">IMI</option>
-              </select>
-            </div>
-            <div id="chart"></div>
-          </div>
-        </div>
-      </div>
+  <div class="scenario">
+    <div class="scenario-label">Your Mission</div>
+    <h2>Analyze the bones. Build the case.</h2>
+    <p>Using limb proportion data from hundreds of modern primates, you will measure the mystery specimen's bones, plot them against the comparative dataset, estimate body mass, and construct a scientific argument about how this animal moved through its environment.</p>
+    <p>There is no single right answer. The evidence will point in multiple directions. Your job is to reason through the tension, acknowledge what doesn't fit, and make the strongest defensible claim the data supports.</p>
+  </div>
 
-      <div>
-        <div class="panel">
-          <div class="panel-header"><h2>Mystery Specimen MS-13</h2></div>
-          <div class="context-block">
-            <strong>Field context:</strong> Recovered from a dense, closed-canopy forest. Enter your Morphosource measurements to plot this specimen against the comparative dataset.
-          </div>
-          <div class="panel-body">
-            <div class="form-grid">
-              <div class="field"><label>Humerus (mm)</label><input type="number" id="humerus" placeholder="—" step="0.1" oninput="updateIMI()"></div>
-              <div class="field"><label>Radius (mm)</label><input type="number" id="radius" placeholder="—" step="0.1" oninput="updateIMI()"></div>
-              <div class="field"><label>Femur (mm)</label><input type="number" id="femur" placeholder="—" step="0.1" oninput="updateIMI()"></div>
-              <div class="field"><label>Tibia (mm)</label><input type="number" id="tibia" placeholder="—" step="0.1" oninput="updateIMI()"></div>
-            </div>
-            <div class="imi-display">IMI = <span id="imi-val">—</span></div>
-            <button class="btn-primary" id="btn-plot" onclick="plotMystery()" disabled>Plot Mystery Specimen</button>
-            <button class="btn-reveal" id="btn-reveal">Reveal identity — submit argument first</button>
-          </div>
-        </div>
-
-        <div class="panel" id="reveal-panel">
-          <div class="panel-header" style="background:var(--reveal)"><h2>Identity Revealed</h2></div>
-          <div class="reveal-content">
-            <div class="reveal-name">Indri</div>
-            <div class="reveal-sci">Indri indri</div>
-            <div class="reveal-fact">
-              The largest living lemur, native to the rainforests of northeastern <strong>Madagascar</strong>. A vertical clinger and leaper: massive hindlimbs launch it between tree trunks while forelimbs stabilize landings.<br><br>
-              Its IMI of <span class="reveal-stat">~66.5</span> sits near humans and sifaka — hindlimb-dominated for entirely different evolutionary reasons. What does that tell you about using a single metric to classify an unknown animal?
-            </div>
-          </div>
-        </div>
-      </div>
+  <!-- Locomotion types -->
+  <div class="section-label">Primate Locomotor Patterns</div>
+  <div class="loco-grid">
+    <div class="loco-card">
+      <span class="loco-icon">🌿</span>
+      <div class="loco-name">Arboreal Quadruped</div>
+      <div class="loco-desc">Moves on all fours through tree branches; forelimbs and hindlimbs roughly equal in length</div>
+      <span class="loco-imi">IMI ~85–100</span>
+    </div>
+    <div class="loco-card">
+      <span class="loco-icon">🦍</span>
+      <div class="loco-name">Knuckle-Walker</div>
+      <div class="loco-desc">Walks on knuckles on the ground; long forelimbs relative to hindlimbs</div>
+      <span class="loco-imi">IMI ~100–120</span>
+    </div>
+    <div class="loco-card">
+      <span class="loco-icon">🤸</span>
+      <div class="loco-name">Brachiator</div>
+      <div class="loco-desc">Swings below branches using forelimbs; dramatically longer forelimbs than hindlimbs</div>
+      <span class="loco-imi">IMI ~120–160</span>
+    </div>
+    <div class="loco-card">
+      <span class="loco-icon">🧍</span>
+      <div class="loco-name">Biped</div>
+      <div class="loco-desc">Walks upright on two legs; short forelimbs relative to long hindlimbs</div>
+      <span class="loco-imi">IMI ~60–75</span>
+    </div>
+    <div class="loco-card">
+      <span class="loco-icon">🦘</span>
+      <div class="loco-name">Vertical Clinger & Leaper</div>
+      <div class="loco-desc">Clings vertically to trunks and leaps between them; hindlimb-dominated like bipeds</div>
+      <span class="loco-imi">IMI ~55–70</span>
+    </div>
+    <div class="loco-card">
+      <span class="loco-icon">🏃</span>
+      <div class="loco-name">Terrestrial Quadruped</div>
+      <div class="loco-desc">Moves on all fours on the ground; limb proportions reflect speed over climbing</div>
+      <span class="loco-imi">IMI ~80–95</span>
     </div>
   </div>
 
-  <!-- TAB 2: BODY MASS -->
-  <div class="pane" id="pane-mass">
-    <div class="panel" style="max-width:680px">
-      <div class="panel-header"><h2>Body Mass Estimation from Femoral Head Size</h2></div>
-      <div class="panel-body">
-        <p style="font-size:13.5px;line-height:1.65;color:var(--ink-soft);margin-bottom:18px;">
-          Body mass can be estimated from the superoinferior diameter of the femoral head (FHSI). Because different primate groups have different body proportions, each group has its own regression equation. Enter your measurement below to see all five estimates — which one is most appropriate depends on your hypothesis about this animal's classification.
-        </p>
-        <div class="bm-input-row">
-          <div class="field">
-            <label>Femoral Head SI Diameter (mm)</label>
-            <input type="number" id="fhsi-input" placeholder="e.g. 14.0" step="0.1" min="1" max="100">
-          </div>
-          <button class="bm-calc-btn" onclick="calcBodyMass()">Calculate</button>
-        </div>
-
-        <div class="bm-results" id="bm-results">
-          <table class="bm-table">
-            <thead>
-              <tr>
-                <th>Group</th>
-                <th>Estimated Mass</th>
-                <th>Equation</th>
-              </tr>
-            </thead>
-            <tbody id="bm-tbody"></tbody>
-          </table>
-          <div class="bm-note" id="bm-note"></div>
-        </div>
+  <!-- Videos -->
+  <div class="section-label">Watch How Primates Move</div>
+  <div class="video-grid">
+    <div class="video-card">
+      <div class="video-embed">
+        <iframe src="https://www.youtube.com/embed/rNvR0UBGkKI" allowfullscreen loading="lazy"></iframe>
+      </div>
+      <div class="video-caption">
+        <div class="video-title">Gibbon brachiation</div>
+        <div class="video-sub">Extreme forelimb dominance — notice arm-to-leg ratio</div>
+      </div>
+    </div>
+    <div class="video-card">
+      <div class="video-embed">
+        <iframe src="https://www.youtube.com/embed/3LqoE9q7KA0" allowfullscreen loading="lazy"></iframe>
+      </div>
+      <div class="video-caption">
+        <div class="video-title">Gorilla knuckle-walking</div>
+        <div class="video-sub">Long forelimbs, terrestrial movement</div>
+      </div>
+    </div>
+    <div class="video-card">
+      <div class="video-embed">
+        <iframe src="https://www.youtube.com/embed/lNjEBLCdHoU" allowfullscreen loading="lazy"></iframe>
+      </div>
+      <div class="video-caption">
+        <div class="video-title">Sifaka vertical clinging and leaping</div>
+        <div class="video-sub">Hindlimb power — compare to human bipedalism</div>
+      </div>
+    </div>
+    <div class="video-card">
+      <div class="video-embed">
+        <iframe src="https://www.youtube.com/embed/NKvRnfg6paw" allowfullscreen loading="lazy"></iframe>
+      </div>
+      <div class="video-caption">
+        <div class="video-title">Patas monkey — fastest primate on the ground</div>
+        <div class="video-sub">Terrestrial cursorial locomotion</div>
       </div>
     </div>
   </div>
 
-  <!-- TAB 3: ARGUMENT -->
-  <div class="pane" id="pane-argument">
-    <div class="panel" style="margin-bottom:22px">
-      <div class="panel-header"><h2>Your Mystery Specimen Data</h2></div>
-      <div class="panel-body">
-        <div id="ms-stats-display" class="ms-stats">
-          <span class="stat-pill">Plot your specimen in Tab 1 first</span>
-        </div>
-      </div>
-    </div>
+  <!-- Specimen cards -->
+  <div class="section-label">Choose Your Mystery Specimen</div>
+  <p class="intro-note" style="margin-bottom:20px;">Each specimen was recovered from a different environment. Select one to begin your analysis. You will measure the bones, compare them to 478 modern primates, estimate body mass, and build a scientific argument about how this animal moved.</p>
+  <div class="specimens-grid">
 
-    <div class="investigation-grid">
-      <div>
-        <div class="prompt-block">
-          <div class="prompt-label"><span class="prompt-num">1</span> Claim</div>
-          <div class="prompt-question">What is your best claim about how MS-13 moved through its environment?</div>
-          <div class="prompt-hint">Name a specific locomotor pattern. You don't need certainty — make the strongest claim the evidence supports and be explicit about your confidence level.</div>
-          <textarea id="q1" placeholder="My claim is that MS-13 was a…"></textarea>
-        </div>
-        <div class="prompt-block">
-          <div class="prompt-label"><span class="prompt-num">2</span> Supporting Evidence</div>
-          <div class="prompt-question">Which measurements or comparisons most strongly support your claim?</div>
-          <div class="prompt-hint">Reference specific numbers. Which species does MS-13 cluster with? What do the IMI and body mass estimates suggest when compared to species averages in the plots?</div>
-          <textarea id="q2" placeholder="The data supports my claim because…"></textarea>
-        </div>
+    <a class="specimen-card" href="investigation.html?specimen=MS11">
+      <div class="specimen-header">
+        <div class="specimen-id">Mystery Specimen MS-11</div>
+        <div class="specimen-name">Western Amazon Basin</div>
       </div>
-      <div>
-        <div class="prompt-block">
-          <div class="prompt-label"><span class="prompt-num">3</span> Conflicting Evidence</div>
-          <div class="prompt-question">What evidence does NOT fit your claim, or makes you less certain?</div>
-          <div class="prompt-hint">A strong scientific argument names what doesn't fit. Are there species with similar values that move completely differently? Does any single measurement point in a different direction?</div>
-          <textarea id="q3" placeholder="Evidence that complicates my claim includes…"></textarea>
-        </div>
-        <div class="prompt-block">
-          <div class="prompt-label"><span class="prompt-num">4</span> Adaptation &amp; Natural Selection</div>
-          <div class="prompt-question">Why would natural selection produce this limb structure and body size in this animal's environment?</div>
-          <div class="prompt-hint">Connect structure to function and selective pressure. What would favor these specific proportions in a dense forest? Think survival, reproduction, resource access.</div>
-          <textarea id="q4" placeholder="These proportions would be adaptive because…"></textarea>
-        </div>
+      <div class="specimen-body">
+        <div class="specimen-location">Rio Verde Forest Reserve, Colombia</div>
+        <div class="specimen-context">Bones discovered in a gallery forest near the Rio Verde River. Dense primary lowland rainforest, seasonally flooded várzea forest, and mangrove swamps suggest a highly arboreal environment rich in foliage and fruit.</div>
       </div>
-    </div>
+      <div class="specimen-cta">
+        <span>Begin Analysis</span>
+        <span class="specimen-arrow">→</span>
+      </div>
+    </a>
 
-    <div class="submit-row">
-      <button class="btn-submit" id="btn-submit" onclick="submitArgument()">Get Feedback →</button>
-      <span class="submit-note">Your written responses will be reviewed by an AI tutor. This is not a grade.</span>
-    </div>
-
-    <div id="feedback-area">
-      <div class="feedback-panel">
-        <div class="feedback-header">
-          <h3>Argument Feedback</h3>
-          <span id="feedback-spinner"></span>
-        </div>
-        <div class="feedback-body" id="feedback-body"></div>
+    <a class="specimen-card" href="investigation.html?specimen=MS12">
+      <div class="specimen-header">
+        <div class="specimen-id">Mystery Specimen MS-12</div>
+        <div class="specimen-name">Peninsular Malaysia</div>
       </div>
-    </div>
+      <div class="specimen-body">
+        <div class="specimen-location">Bukit Hijau National Park, Malaysia</div>
+        <div class="specimen-context">Unearthed in a dense forest canopy environment marked by high humidity and lush vegetation. Sub-groups of primates actively divide and forage during the day, suggesting a leaf and fruit diet among the trees.</div>
+      </div>
+      <div class="specimen-cta">
+        <span>Begin Analysis</span>
+        <span class="specimen-arrow">→</span>
+      </div>
+    </a>
+
+    <a class="specimen-card" href="investigation.html?specimen=MS13">
+      <div class="specimen-header">
+        <div class="specimen-id">Mystery Specimen MS-13</div>
+        <div class="specimen-name">West African Forest</div>
+      </div>
+      <div class="specimen-body">
+        <div class="specimen-location">Dense closed-canopy forest, West Africa</div>
+        <div class="specimen-context">Recovered from a dense, closed-canopy forest environment. The habitat suggests vertical movement through the forest understory, but the limb proportions tell a more complicated story.</div>
+      </div>
+      <div class="specimen-cta">
+        <span>Begin Analysis</span>
+        <span class="specimen-arrow">→</span>
+      </div>
+    </a>
+
+    <a class="specimen-card" href="investigation.html?specimen=MS14">
+      <div class="specimen-header">
+        <div class="specimen-id">Mystery Specimen MS-14</div>
+        <div class="specimen-name">Sub-Saharan Africa</div>
+      </div>
+      <div class="specimen-body">
+        <div class="specimen-location">Kiboko Savanna, Sub-Saharan Africa</div>
+        <div class="specimen-context">Found in open grassland with tall grasses and scattered thickets. Semi-arid conditions, limited water sources, and predominantly terrestrial vegetation suggest a very different lifestyle from the forest-dwelling specimens.</div>
+      </div>
+      <div class="specimen-cta">
+        <span>Begin Analysis</span>
+        <span class="specimen-arrow">→</span>
+      </div>
+    </a>
+
   </div>
 </div>
-
-<script>
-const DATA = [{"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 348.0, "radius": 291.0, "femur": 314.0, "tibia": 255.0, "forelimb": 639.0, "hindlimb": 569.0, "imi": 112.302}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 367.0, "radius": 290.0, "femur": 319.0, "tibia": 249.0, "forelimb": 657.0, "hindlimb": 568.0, "imi": 115.669}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 372.0, "radius": 295.0, "femur": 306.0, "tibia": 249.0, "forelimb": 667.0, "hindlimb": 555.0, "imi": 120.18}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 384.0, "radius": 303.0, "femur": 324.0, "tibia": 256.0, "forelimb": 687.0, "hindlimb": 580.0, "imi": 118.448}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 372.0, "radius": 301.0, "femur": 311.0, "tibia": 251.0, "forelimb": 673.0, "hindlimb": 562.0, "imi": 119.751}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 352.0, "radius": 290.0, "femur": 292.0, "tibia": 233.0, "forelimb": 642.0, "hindlimb": 525.0, "imi": 122.286}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 379.0, "radius": 305.0, "femur": 331.0, "tibia": 277.0, "forelimb": 684.0, "hindlimb": 608.0, "imi": 112.5}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 356.0, "radius": 276.0, "femur": 294.0, "tibia": 229.0, "forelimb": 632.0, "hindlimb": 523.0, "imi": 120.841}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 368.0, "radius": 326.0, "femur": 316.0, "tibia": 256.0, "forelimb": 694.0, "hindlimb": 572.0, "imi": 121.329}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 351.0, "radius": 295.0, "femur": 312.0, "tibia": 249.0, "forelimb": 646.0, "hindlimb": 561.0, "imi": 115.152}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 355.0, "radius": 285.0, "femur": 296.0, "tibia": 251.0, "forelimb": 640.0, "hindlimb": 547.0, "imi": 117.002}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 377.0, "radius": 320.0, "femur": 313.0, "tibia": 250.0, "forelimb": 697.0, "hindlimb": 563.0, "imi": 123.801}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 359.0, "radius": 306.0, "femur": 308.0, "tibia": 248.0, "forelimb": 665.0, "hindlimb": 556.0, "imi": 119.604}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 356.0, "radius": 290.0, "femur": 301.0, "tibia": 251.0, "forelimb": 646.0, "hindlimb": 552.0, "imi": 117.029}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 366.0, "radius": 296.0, "femur": 306.0, "tibia": 256.0, "forelimb": 662.0, "hindlimb": 562.0, "imi": 117.794}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 364.0, "radius": 298.0, "femur": 312.0, "tibia": 261.0, "forelimb": 662.0, "hindlimb": 573.0, "imi": 115.532}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 382.0, "radius": 299.0, "femur": 325.0, "tibia": 262.0, "forelimb": 681.0, "hindlimb": 587.0, "imi": 116.014}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 379.0, "radius": 301.0, "femur": 312.0, "tibia": 262.0, "forelimb": 680.0, "hindlimb": 574.0, "imi": 118.467}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 403.0, "radius": 316.0, "femur": 331.0, "tibia": 284.0, "forelimb": 719.0, "hindlimb": 615.0, "imi": 116.911}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 384.0, "radius": 300.0, "femur": 320.0, "tibia": 260.0, "forelimb": 684.0, "hindlimb": 580.0, "imi": 117.931}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 402.0, "radius": 319.0, "femur": 327.0, "tibia": 271.0, "forelimb": 721.0, "hindlimb": 598.0, "imi": 120.569}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 346.0, "radius": 274.0, "femur": 291.0, "tibia": 247.0, "forelimb": 620.0, "hindlimb": 538.0, "imi": 115.242}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 371.0, "radius": 309.0, "femur": 332.0, "tibia": 269.0, "forelimb": 680.0, "hindlimb": 601.0, "imi": 113.145}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 370.0, "radius": 289.0, "femur": 310.0, "tibia": 251.0, "forelimb": 659.0, "hindlimb": 561.0, "imi": 117.469}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "F", "humerus": 389.0, "radius": 295.0, "femur": 322.0, "tibia": 260.0, "forelimb": 684.0, "hindlimb": 582.0, "imi": 117.526}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 408.0, "radius": 332.0, "femur": 349.0, "tibia": 287.0, "forelimb": 740.0, "hindlimb": 636.0, "imi": 116.352}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 403.0, "radius": 337.0, "femur": 359.0, "tibia": 301.0, "forelimb": 740.0, "hindlimb": 660.0, "imi": 112.121}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 413.0, "radius": 324.0, "femur": 353.0, "tibia": 293.0, "forelimb": 737.0, "hindlimb": 646.0, "imi": 114.087}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 419.0, "radius": 341.0, "femur": 367.0, "tibia": 287.0, "forelimb": 760.0, "hindlimb": 654.0, "imi": 116.208}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 410.0, "radius": 313.0, "femur": 345.0, "tibia": 288.0, "forelimb": 723.0, "hindlimb": 633.0, "imi": 114.218}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 434.0, "radius": 360.0, "femur": 375.0, "tibia": 312.0, "forelimb": 794.0, "hindlimb": 687.0, "imi": 115.575}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 407.0, "radius": 346.0, "femur": 375.0, "tibia": 293.0, "forelimb": 753.0, "hindlimb": 668.0, "imi": 112.725}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 450.0, "radius": 358.0, "femur": 383.0, "tibia": 310.0, "forelimb": 808.0, "hindlimb": 693.0, "imi": 116.595}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 426.0, "radius": 351.0, "femur": 367.0, "tibia": 305.0, "forelimb": 777.0, "hindlimb": 672.0, "imi": 115.625}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 453.0, "radius": 373.0, "femur": 372.0, "tibia": 320.0, "forelimb": 826.0, "hindlimb": 692.0, "imi": 119.364}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 447.0, "radius": 357.0, "femur": 373.0, "tibia": 309.0, "forelimb": 804.0, "hindlimb": 682.0, "imi": 117.889}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 428.0, "radius": 353.0, "femur": 374.0, "tibia": 290.0, "forelimb": 781.0, "hindlimb": 664.0, "imi": 117.62}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 455.0, "radius": 357.0, "femur": 376.0, "tibia": 301.0, "forelimb": 812.0, "hindlimb": 677.0, "imi": 119.941}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 449.0, "radius": 369.0, "femur": 380.0, "tibia": 323.0, "forelimb": 818.0, "hindlimb": 703.0, "imi": 116.358}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 420.0, "radius": 350.0, "femur": 350.0, "tibia": 292.0, "forelimb": 770.0, "hindlimb": 642.0, "imi": 119.938}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 417.0, "radius": 357.0, "femur": 386.0, "tibia": 305.0, "forelimb": 774.0, "hindlimb": 691.0, "imi": 112.012}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 430.0, "radius": 362.0, "femur": 384.0, "tibia": 306.0, "forelimb": 792.0, "hindlimb": 690.0, "imi": 114.783}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 410.0, "radius": 348.0, "femur": 366.0, "tibia": 310.0, "forelimb": 758.0, "hindlimb": 676.0, "imi": 112.13}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 439.0, "radius": 344.0, "femur": 371.0, "tibia": 295.0, "forelimb": 783.0, "hindlimb": 666.0, "imi": 117.568}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 458.0, "radius": 369.0, "femur": 383.0, "tibia": 334.0, "forelimb": 827.0, "hindlimb": 717.0, "imi": 115.342}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 430.0, "radius": 345.0, "femur": 380.0, "tibia": 323.0, "forelimb": 775.0, "hindlimb": 703.0, "imi": 110.242}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 465.0, "radius": 366.0, "femur": 386.0, "tibia": 311.0, "forelimb": 831.0, "hindlimb": 697.0, "imi": 119.225}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 434.0, "radius": 365.0, "femur": 384.0, "tibia": 308.0, "forelimb": 799.0, "hindlimb": 692.0, "imi": 115.462}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 471.0, "radius": 384.0, "femur": 396.0, "tibia": 337.0, "forelimb": 855.0, "hindlimb": 733.0, "imi": 116.644}, {"superfamily": "Hominoidea", "genus": "Gorilla", "species": "gorilla", "common_name": "Gorilla", "sex": "M", "humerus": 463.0, "radius": 356.0, "femur": 375.0, "tibia": 335.0, "forelimb": 819.0, "hindlimb": 710.0, "imi": 115.352}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "F", "humerus": 295.0, "radius": 217.0, "femur": 409.0, "tibia": 342.0, "forelimb": 512.0, "hindlimb": 751.0, "imi": 68.176}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "F", "humerus": 264.0, "radius": 195.0, "femur": 394.0, "tibia": 315.0, "forelimb": 459.0, "hindlimb": 709.0, "imi": 64.739}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "F", "humerus": 310.0, "radius": 231.0, "femur": 386.0, "tibia": 359.0, "forelimb": 541.0, "hindlimb": 745.0, "imi": 72.617}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "F", "humerus": 291.0, "radius": 214.0, "femur": 386.0, "tibia": 322.0, "forelimb": 505.0, "hindlimb": 708.0, "imi": 71.328}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "F", "humerus": 300.0, "radius": 227.0, "femur": 436.0, "tibia": 352.0, "forelimb": 527.0, "hindlimb": 788.0, "imi": 66.878}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "F", "humerus": 298.0, "radius": 214.0, "femur": 431.0, "tibia": 342.0, "forelimb": 512.0, "hindlimb": 773.0, "imi": 66.235}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "F", "humerus": 297.0, "radius": 222.0, "femur": 416.0, "tibia": 340.0, "forelimb": 519.0, "hindlimb": 756.0, "imi": 68.651}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "F", "humerus": 309.0, "radius": 235.0, "femur": 430.0, "tibia": 363.0, "forelimb": 544.0, "hindlimb": 793.0, "imi": 68.6}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "F", "humerus": 288.0, "radius": 199.0, "femur": 427.0, "tibia": 368.0, "forelimb": 487.0, "hindlimb": 795.0, "imi": 61.258}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "F", "humerus": 307.0, "radius": 224.0, "femur": 432.0, "tibia": 351.0, "forelimb": 531.0, "hindlimb": 783.0, "imi": 67.816}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "F", "humerus": 290.0, "radius": 216.0, "femur": 430.0, "tibia": 348.0, "forelimb": 506.0, "hindlimb": 778.0, "imi": 65.039}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "F", "humerus": 307.0, "radius": 235.0, "femur": 445.0, "tibia": 371.0, "forelimb": 542.0, "hindlimb": 816.0, "imi": 66.422}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "F", "humerus": 300.0, "radius": 231.0, "femur": 443.0, "tibia": 359.0, "forelimb": 531.0, "hindlimb": 802.0, "imi": 66.209}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "F", "humerus": 306.0, "radius": 237.0, "femur": 435.0, "tibia": 381.0, "forelimb": 543.0, "hindlimb": 816.0, "imi": 66.544}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "F", "humerus": 305.0, "radius": 235.0, "femur": 468.0, "tibia": 376.0, "forelimb": 540.0, "hindlimb": 844.0, "imi": 63.981}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "F", "humerus": 286.0, "radius": 212.0, "femur": 403.0, "tibia": 324.0, "forelimb": 498.0, "hindlimb": 727.0, "imi": 68.501}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "F", "humerus": 320.0, "radius": 247.0, "femur": 446.0, "tibia": 387.0, "forelimb": 567.0, "hindlimb": 833.0, "imi": 68.067}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "F", "humerus": 305.0, "radius": 222.0, "femur": 429.0, "tibia": 346.0, "forelimb": 527.0, "hindlimb": 775.0, "imi": 68.0}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "M", "humerus": 333.0, "radius": 253.0, "femur": 462.0, "tibia": 383.0, "forelimb": 586.0, "hindlimb": 845.0, "imi": 69.349}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "M", "humerus": 347.0, "radius": 264.0, "femur": 491.0, "tibia": 407.0, "forelimb": 611.0, "hindlimb": 898.0, "imi": 68.04}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "M", "humerus": 304.0, "radius": 234.0, "femur": 422.0, "tibia": 359.0, "forelimb": 538.0, "hindlimb": 781.0, "imi": 68.886}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "M", "humerus": 336.0, "radius": 244.0, "femur": 465.0, "tibia": 383.0, "forelimb": 580.0, "hindlimb": 848.0, "imi": 68.396}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "M", "humerus": 347.0, "radius": 264.0, "femur": 469.0, "tibia": 394.0, "forelimb": 611.0, "hindlimb": 863.0, "imi": 70.8}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "M", "humerus": 327.0, "radius": 253.0, "femur": 456.0, "tibia": 377.0, "forelimb": 580.0, "hindlimb": 833.0, "imi": 69.628}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "M", "humerus": 323.0, "radius": 259.0, "femur": 435.0, "tibia": 356.0, "forelimb": 582.0, "hindlimb": 791.0, "imi": 73.578}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "M", "humerus": 330.0, "radius": 260.0, "femur": 474.0, "tibia": 396.0, "forelimb": 590.0, "hindlimb": 870.0, "imi": 67.816}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "M", "humerus": 342.0, "radius": 276.0, "femur": 488.0, "tibia": 434.0, "forelimb": 618.0, "hindlimb": 922.0, "imi": 67.028}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "M", "humerus": 357.0, "radius": 285.0, "femur": 502.0, "tibia": 437.0, "forelimb": 642.0, "hindlimb": 939.0, "imi": 68.371}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "M", "humerus": 339.0, "radius": 263.0, "femur": 449.0, "tibia": 399.0, "forelimb": 602.0, "hindlimb": 848.0, "imi": 70.991}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "M", "humerus": 313.0, "radius": 227.0, "femur": 456.0, "tibia": 376.0, "forelimb": 540.0, "hindlimb": 832.0, "imi": 64.904}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "M", "humerus": 343.0, "radius": 263.0, "femur": 490.0, "tibia": 421.0, "forelimb": 606.0, "hindlimb": 911.0, "imi": 66.52}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "M", "humerus": 351.0, "radius": 275.0, "femur": 471.0, "tibia": 435.0, "forelimb": 626.0, "hindlimb": 906.0, "imi": 69.095}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "M", "humerus": 320.0, "radius": 246.0, "femur": 456.0, "tibia": 400.0, "forelimb": 566.0, "hindlimb": 856.0, "imi": 66.121}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "M", "humerus": 365.0, "radius": 268.0, "femur": 489.0, "tibia": 416.0, "forelimb": 633.0, "hindlimb": 905.0, "imi": 69.945}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "M", "humerus": 350.0, "radius": 263.0, "femur": 496.0, "tibia": 420.0, "forelimb": 613.0, "hindlimb": 916.0, "imi": 66.921}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "M", "humerus": 367.0, "radius": 270.0, "femur": 491.0, "tibia": 401.0, "forelimb": 637.0, "hindlimb": 892.0, "imi": 71.413}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "M", "humerus": 359.0, "radius": 266.0, "femur": 505.0, "tibia": 406.0, "forelimb": 625.0, "hindlimb": 911.0, "imi": 68.606}, {"superfamily": "Hominoidea", "genus": "Homo", "species": "sapiens", "common_name": "Human", "sex": "M", "humerus": 339.0, "radius": 261.0, "femur": 494.0, "tibia": 402.0, "forelimb": 600.0, "hindlimb": 896.0, "imi": 66.964}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "f", "humerus": 250.5, "radius": 267.5, "femur": 220.0, "tibia": 177.5, "forelimb": 518.0, "hindlimb": 397.5, "imi": 130.314}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "f", "humerus": 237.94, "radius": 263.74, "femur": 200.33, "tibia": 173.39, "forelimb": 501.68, "hindlimb": 373.72, "imi": 134.24}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "f", "humerus": 235.0, "radius": 253.0, "femur": 209.5, "tibia": 170.0, "forelimb": 488.0, "hindlimb": 379.5, "imi": 128.59}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "f", "humerus": 242.0, "radius": 262.5, "femur": 207.5, "tibia": 180.0, "forelimb": 504.5, "hindlimb": 387.5, "imi": 130.194}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "f", "humerus": 241.5, "radius": 256.0, "femur": 211.0, "tibia": 178.5, "forelimb": 497.5, "hindlimb": 389.5, "imi": 127.728}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "f", "humerus": 231.5, "radius": 261.0, "femur": 207.5, "tibia": 176.5, "forelimb": 492.5, "hindlimb": 384.0, "imi": 128.255}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "f", "humerus": 221.5, "radius": 242.5, "femur": 196.5, "tibia": 168.5, "forelimb": 464.0, "hindlimb": 365.0, "imi": 127.123}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "f", "humerus": 235.5, "radius": 263.0, "femur": 209.0, "tibia": 174.0, "forelimb": 498.5, "hindlimb": 383.0, "imi": 130.157}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "f", "humerus": 242.0, "radius": 248.0, "femur": 213.5, "tibia": 173.0, "forelimb": 490.0, "hindlimb": 386.5, "imi": 126.779}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "f", "humerus": 237.0, "radius": 255.5, "femur": 200.0, "tibia": 176.5, "forelimb": 492.5, "hindlimb": 376.5, "imi": 130.81}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "f", "humerus": 235.5, "radius": 253.5, "femur": 205.0, "tibia": 181.5, "forelimb": 489.0, "hindlimb": 386.5, "imi": 126.52}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "f", "humerus": 240.0, "radius": 265.5, "femur": 225.5, "tibia": 191.0, "forelimb": 505.5, "hindlimb": 416.5, "imi": 121.369}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "f", "humerus": 231.0, "radius": 255.5, "femur": 204.0, "tibia": 172.5, "forelimb": 486.5, "hindlimb": 376.5, "imi": 129.216}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 239.0, "radius": 237.5, "femur": 203.0, "tibia": 171.5, "forelimb": 476.5, "hindlimb": 374.5, "imi": 127.236}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 248.5, "radius": 264.0, "femur": 212.5, "tibia": 183.5, "forelimb": 512.5, "hindlimb": 396.0, "imi": 129.419}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 216.5, "radius": 250.5, "femur": 188.5, "tibia": 158.5, "forelimb": 467.0, "hindlimb": 347.0, "imi": 134.582}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 211.5, "radius": 236.5, "femur": 197.0, "tibia": 168.0, "forelimb": 448.0, "hindlimb": 365.0, "imi": 122.74}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 211.0, "radius": 252.0, "femur": 191.0, "tibia": 174.0, "forelimb": 463.0, "hindlimb": 365.0, "imi": 126.849}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 223.0, "radius": 263.0, "femur": 212.5, "tibia": 182.0, "forelimb": 486.0, "hindlimb": 394.5, "imi": 123.194}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 251.0, "radius": 281.5, "femur": 226.5, "tibia": 191.0, "forelimb": 532.5, "hindlimb": 417.5, "imi": 127.545}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 217.5, "radius": 250.0, "femur": 192.0, "tibia": 165.0, "forelimb": 467.5, "hindlimb": 357.0, "imi": 130.952}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 244.5, "radius": 267.5, "femur": 221.5, "tibia": 182.5, "forelimb": 512.0, "hindlimb": 404.0, "imi": 126.733}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 237.5, "radius": 255.0, "femur": 222.0, "tibia": 161.5, "forelimb": 492.5, "hindlimb": 383.5, "imi": 128.422}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 252.5, "radius": 282.0, "femur": 218.5, "tibia": 186.5, "forelimb": 534.5, "hindlimb": 405.0, "imi": 131.975}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 249.5, "radius": 278.5, "femur": 209.5, "tibia": 185.5, "forelimb": 528.0, "hindlimb": 395.0, "imi": 133.671}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 236.09, "radius": 256.38, "femur": 198.38, "tibia": 171.75, "forelimb": 492.47, "hindlimb": 370.13, "imi": 133.053}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 227.0, "radius": 267.0, "femur": 211.0, "tibia": 182.5, "forelimb": 494.0, "hindlimb": 393.5, "imi": 125.54}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 237.66, "radius": 257.49, "femur": 208.86, "tibia": 176.78, "forelimb": 495.15, "hindlimb": 385.64, "imi": 128.397}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 240.0, "radius": 252.0, "femur": 205.5, "tibia": 178.0, "forelimb": 492.0, "hindlimb": 383.5, "imi": 128.292}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 251.0, "radius": 278.0, "femur": 220.5, "tibia": 187.0, "forelimb": 529.0, "hindlimb": 407.5, "imi": 129.816}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 246.98, "radius": 265.95, "femur": 209.43, "tibia": 181.0, "forelimb": 512.93, "hindlimb": 390.43, "imi": 131.376}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 241.0, "radius": 256.5, "femur": 203.0, "tibia": 176.5, "forelimb": 497.5, "hindlimb": 379.5, "imi": 131.094}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 243.5, "radius": 262.0, "femur": 211.5, "tibia": 181.5, "forelimb": 505.5, "hindlimb": 393.0, "imi": 128.626}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 207.0, "radius": 225.5, "femur": 186.5, "tibia": 155.5, "forelimb": 432.5, "hindlimb": 342.0, "imi": 126.462}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 234.5, "radius": 251.0, "femur": 195.5, "tibia": 167.5, "forelimb": 485.5, "hindlimb": 363.0, "imi": 133.747}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 232.0, "radius": 242.5, "femur": 197.0, "tibia": 165.0, "forelimb": 474.5, "hindlimb": 362.0, "imi": 131.077}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 242.5, "radius": 254.5, "femur": 202.5, "tibia": 176.5, "forelimb": 497.0, "hindlimb": 379.0, "imi": 131.135}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 235.5, "radius": 253.0, "femur": 206.5, "tibia": 176.0, "forelimb": 488.5, "hindlimb": 382.5, "imi": 127.712}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 212.5, "radius": 237.0, "femur": 188.5, "tibia": 159.0, "forelimb": 449.5, "hindlimb": 347.5, "imi": 129.353}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 236.5, "radius": 252.0, "femur": 201.5, "tibia": 168.0, "forelimb": 488.5, "hindlimb": 369.5, "imi": 132.206}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 237.5, "radius": 255.0, "femur": 208.0, "tibia": 178.0, "forelimb": 492.5, "hindlimb": 386.0, "imi": 127.591}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 230.5, "radius": 243.5, "femur": 195.5, "tibia": 164.5, "forelimb": 474.0, "hindlimb": 360.0, "imi": 131.667}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 232.5, "radius": 265.0, "femur": 204.5, "tibia": 173.5, "forelimb": 497.5, "hindlimb": 378.0, "imi": 131.614}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 243.0, "radius": 265.0, "femur": 209.5, "tibia": 178.0, "forelimb": 508.0, "hindlimb": 387.5, "imi": 131.097}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 235.28, "radius": 273.16, "femur": 216.35, "tibia": 190.73, "forelimb": 508.44, "hindlimb": 407.08, "imi": 124.899}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 235.5, "radius": 206.0, "femur": 200.5, "tibia": 172.0, "forelimb": 441.5, "hindlimb": 372.5, "imi": 118.523}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 243.5, "radius": 280.5, "femur": 217.0, "tibia": 194.5, "forelimb": 524.0, "hindlimb": 411.5, "imi": 127.339}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 243.5, "radius": 280.0, "femur": 215.5, "tibia": 187.5, "forelimb": 523.5, "hindlimb": 403.0, "imi": 129.901}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 239.5, "radius": 254.0, "femur": 205.0, "tibia": 194.5, "forelimb": 493.5, "hindlimb": 399.5, "imi": 123.529}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 207.5, "radius": 214.0, "femur": 184.5, "tibia": 161.0, "forelimb": 421.5, "hindlimb": 345.5, "imi": 121.997}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 251.0, "radius": 267.5, "femur": 212.5, "tibia": 181.5, "forelimb": 518.5, "hindlimb": 394.0, "imi": 131.599}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "m", "humerus": 235.5, "radius": 270.0, "femur": 211.0, "tibia": 183.0, "forelimb": 505.5, "hindlimb": 394.0, "imi": 128.299}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "uk", "humerus": 214.0, "radius": 246.0, "femur": 191.0, "tibia": 167.0, "forelimb": 460.0, "hindlimb": 358.0, "imi": 128.492}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "uk", "humerus": 224.0, "radius": 246.0, "femur": 198.0, "tibia": 164.0, "forelimb": 470.0, "hindlimb": 362.0, "imi": 129.834}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "uk", "humerus": 233.0, "radius": 252.0, "femur": 203.0, "tibia": 172.0, "forelimb": 485.0, "hindlimb": 375.0, "imi": 129.333}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "uk", "humerus": 232.0, "radius": 262.0, "femur": 208.0, "tibia": 180.0, "forelimb": 494.0, "hindlimb": 388.0, "imi": 127.32}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "uk", "humerus": 247.0, "radius": 263.0, "femur": 216.0, "tibia": 183.0, "forelimb": 510.0, "hindlimb": 399.0, "imi": 127.82}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "uk", "humerus": 243.0, "radius": 268.0, "femur": 220.0, "tibia": 181.0, "forelimb": 511.0, "hindlimb": 401.0, "imi": 127.431}, {"superfamily": "Hominoidea", "genus": "Hylobates", "species": "lar", "common_name": "Gibbon", "sex": "uk", "humerus": 232.0, "radius": 243.0, "femur": 203.0, "tibia": 171.0, "forelimb": 475.0, "hindlimb": 374.0, "imi": 127.005}, {"superfamily": "Hominoidea", "genus": "Nomascus ", "species": "gabriellae", "common_name": "Gibbon", "sex": "F", "humerus": 250.0, "radius": 275.0, "femur": 190.0, "tibia": 170.0, "forelimb": 525.0, "hindlimb": 360.0, "imi": 145.833}, {"superfamily": "Hominoidea", "genus": "Nomascus ", "species": "gabriellae", "common_name": "Gibbon", "sex": "M", "humerus": 255.0, "radius": 292.0, "femur": 204.0, "tibia": 191.0, "forelimb": 547.0, "hindlimb": 395.0, "imi": 138.481}, {"superfamily": "Hominoidea", "genus": "Nomascus ", "species": "gabriellae", "common_name": "Gibbon", "sex": "F", "humerus": 220.0, "radius": 245.0, "femur": 153.0, "tibia": 153.0, "forelimb": 465.0, "hindlimb": 306.0, "imi": 151.961}, {"superfamily": "Hominoidea", "genus": "Nomascus ", "species": "gabriellae", "common_name": "Gibbon", "sex": "F", "humerus": 231.0, "radius": 290.0, "femur": 167.0, "tibia": 167.0, "forelimb": 521.0, "hindlimb": 334.0, "imi": 155.988}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 288.0, "radius": 244.0, "femur": 277.0, "tibia": 236.0, "forelimb": 532.0, "hindlimb": 513.0, "imi": 103.704}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 251.0, "radius": 235.0, "femur": 252.0, "tibia": 214.0, "forelimb": 486.0, "hindlimb": 466.0, "imi": 104.292}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 280.0, "radius": 261.0, "femur": 282.0, "tibia": 235.0, "forelimb": 541.0, "hindlimb": 517.0, "imi": 104.642}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 286.0, "radius": 261.0, "femur": 285.0, "tibia": 243.0, "forelimb": 547.0, "hindlimb": 528.0, "imi": 103.598}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 308.0, "radius": 268.0, "femur": 294.0, "tibia": 239.0, "forelimb": 576.0, "hindlimb": 533.0, "imi": 108.068}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 295.0, "radius": 268.0, "femur": 287.0, "tibia": 240.0, "forelimb": 563.0, "hindlimb": 527.0, "imi": 106.831}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 290.0, "radius": 276.0, "femur": 284.0, "tibia": 238.0, "forelimb": 566.0, "hindlimb": 522.0, "imi": 108.429}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 301.0, "radius": 270.0, "femur": 297.0, "tibia": 246.0, "forelimb": 571.0, "hindlimb": 543.0, "imi": 105.157}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 306.0, "radius": 286.0, "femur": 306.0, "tibia": 261.0, "forelimb": 592.0, "hindlimb": 567.0, "imi": 104.409}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 296.0, "radius": 260.0, "femur": 299.0, "tibia": 243.0, "forelimb": 556.0, "hindlimb": 542.0, "imi": 102.583}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 281.0, "radius": 264.0, "femur": 274.0, "tibia": 230.0, "forelimb": 545.0, "hindlimb": 504.0, "imi": 108.135}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 291.0, "radius": 258.0, "femur": 282.0, "tibia": 228.0, "forelimb": 549.0, "hindlimb": 510.0, "imi": 107.647}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 282.0, "radius": 259.0, "femur": 279.0, "tibia": 230.0, "forelimb": 541.0, "hindlimb": 509.0, "imi": 106.287}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 296.0, "radius": 279.0, "femur": 279.0, "tibia": 237.0, "forelimb": 575.0, "hindlimb": 516.0, "imi": 111.434}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 279.0, "radius": 260.0, "femur": 287.0, "tibia": 247.0, "forelimb": 539.0, "hindlimb": 534.0, "imi": 100.936}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 332.0, "radius": 304.0, "femur": 314.0, "tibia": 273.0, "forelimb": 636.0, "hindlimb": 587.0, "imi": 108.348}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 294.0, "radius": 272.0, "femur": 292.0, "tibia": 240.0, "forelimb": 566.0, "hindlimb": 532.0, "imi": 106.391}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 301.0, "radius": 274.0, "femur": 300.0, "tibia": 251.0, "forelimb": 575.0, "hindlimb": 551.0, "imi": 104.356}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 321.0, "radius": 284.0, "femur": 299.0, "tibia": 252.0, "forelimb": 605.0, "hindlimb": 551.0, "imi": 109.8}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 317.0, "radius": 287.0, "femur": 303.0, "tibia": 262.0, "forelimb": 604.0, "hindlimb": 565.0, "imi": 106.903}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 302.0, "radius": 283.0, "femur": 295.0, "tibia": 259.0, "forelimb": 585.0, "hindlimb": 554.0, "imi": 105.596}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 319.0, "radius": 305.0, "femur": 302.0, "tibia": 265.0, "forelimb": 624.0, "hindlimb": 567.0, "imi": 110.053}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 302.0, "radius": 266.0, "femur": 303.0, "tibia": 248.0, "forelimb": 568.0, "hindlimb": 551.0, "imi": 103.085}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "F", "humerus": 297.0, "radius": 288.0, "femur": 307.0, "tibia": 259.0, "forelimb": 585.0, "hindlimb": 566.0, "imi": 103.357}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 308.0, "radius": 280.0, "femur": 307.0, "tibia": 253.0, "forelimb": 588.0, "hindlimb": 560.0, "imi": 105.0}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 302.0, "radius": 265.0, "femur": 294.0, "tibia": 235.0, "forelimb": 567.0, "hindlimb": 529.0, "imi": 107.183}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 293.0, "radius": 292.0, "femur": 292.0, "tibia": 256.0, "forelimb": 585.0, "hindlimb": 548.0, "imi": 106.752}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 297.0, "radius": 267.0, "femur": 295.0, "tibia": 241.0, "forelimb": 564.0, "hindlimb": 536.0, "imi": 105.224}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 306.0, "radius": 282.0, "femur": 308.0, "tibia": 256.0, "forelimb": 588.0, "hindlimb": 564.0, "imi": 104.255}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 270.0, "radius": 247.0, "femur": 281.0, "tibia": 229.0, "forelimb": 517.0, "hindlimb": 510.0, "imi": 101.373}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 299.0, "radius": 274.0, "femur": 294.0, "tibia": 246.0, "forelimb": 573.0, "hindlimb": 540.0, "imi": 106.111}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 332.0, "radius": 291.0, "femur": 319.0, "tibia": 274.0, "forelimb": 623.0, "hindlimb": 593.0, "imi": 105.059}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 283.0, "radius": 275.0, "femur": 276.0, "tibia": 240.0, "forelimb": 558.0, "hindlimb": 516.0, "imi": 108.14}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 301.0, "radius": 289.0, "femur": 295.0, "tibia": 249.0, "forelimb": 590.0, "hindlimb": 544.0, "imi": 108.456}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 318.0, "radius": 303.0, "femur": 318.0, "tibia": 268.0, "forelimb": 621.0, "hindlimb": 586.0, "imi": 105.973}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 327.0, "radius": 300.0, "femur": 319.0, "tibia": 272.0, "forelimb": 627.0, "hindlimb": 591.0, "imi": 106.091}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 327.0, "radius": 293.0, "femur": 309.0, "tibia": 256.0, "forelimb": 620.0, "hindlimb": 565.0, "imi": 109.735}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 311.0, "radius": 281.0, "femur": 304.0, "tibia": 256.0, "forelimb": 592.0, "hindlimb": 560.0, "imi": 105.714}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 314.0, "radius": 295.0, "femur": 299.0, "tibia": 257.0, "forelimb": 609.0, "hindlimb": 556.0, "imi": 109.532}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 313.0, "radius": 307.0, "femur": 319.0, "tibia": 265.0, "forelimb": 620.0, "hindlimb": 584.0, "imi": 106.164}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 295.0, "radius": 272.0, "femur": 288.0, "tibia": 243.0, "forelimb": 567.0, "hindlimb": 531.0, "imi": 106.78}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 320.0, "radius": 296.0, "femur": 326.0, "tibia": 273.0, "forelimb": 616.0, "hindlimb": 599.0, "imi": 102.838}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 296.0, "radius": 280.0, "femur": 294.0, "tibia": 250.0, "forelimb": 576.0, "hindlimb": 544.0, "imi": 105.882}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 327.0, "radius": 296.0, "femur": 318.0, "tibia": 273.0, "forelimb": 623.0, "hindlimb": 591.0, "imi": 105.415}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 321.0, "radius": 300.0, "femur": 310.0, "tibia": 270.0, "forelimb": 621.0, "hindlimb": 580.0, "imi": 107.069}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 328.0, "radius": 296.0, "femur": 328.0, "tibia": 268.0, "forelimb": 624.0, "hindlimb": 596.0, "imi": 104.698}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 330.0, "radius": 299.0, "femur": 338.0, "tibia": 281.0, "forelimb": 629.0, "hindlimb": 619.0, "imi": 101.616}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 312.0, "radius": 289.0, "femur": 304.0, "tibia": 260.0, "forelimb": 601.0, "hindlimb": 564.0, "imi": 106.56}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "M", "humerus": 305.0, "radius": 291.0, "femur": 314.0, "tibia": 252.0, "forelimb": 596.0, "hindlimb": 566.0, "imi": 105.3}, {"superfamily": "Hominoidea", "genus": "Pan", "species": "troglodytes", "common_name": "Chimpanzee", "sex": "U", "humerus": 293.0, "radius": 265.0, "femur": 289.0, "tibia": 245.0, "forelimb": 558.0, "hindlimb": 534.0, "imi": 104.494}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "F", "humerus": 334.0, "radius": 313.0, "femur": 243.0, "tibia": 201.0, "forelimb": 647.0, "hindlimb": 444.0, "imi": 145.721}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "F", "humerus": 343.0, "radius": 349.0, "femur": 258.0, "tibia": 223.0, "forelimb": 692.0, "hindlimb": 481.0, "imi": 143.867}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "F", "humerus": 327.0, "radius": 323.0, "femur": 244.0, "tibia": 219.0, "forelimb": 650.0, "hindlimb": 463.0, "imi": 140.389}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "F", "humerus": 327.0, "radius": 333.0, "femur": 264.0, "tibia": 232.0, "forelimb": 660.0, "hindlimb": 496.0, "imi": 133.065}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "F", "humerus": 333.0, "radius": 331.0, "femur": 256.0, "tibia": 224.0, "forelimb": 664.0, "hindlimb": 480.0, "imi": 138.333}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "F", "humerus": 352.0, "radius": 349.0, "femur": 255.0, "tibia": 222.0, "forelimb": 701.0, "hindlimb": 477.0, "imi": 146.96}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "F", "humerus": 316.0, "radius": 315.0, "femur": 241.0, "tibia": 201.0, "forelimb": 631.0, "hindlimb": 442.0, "imi": 142.76}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "F", "humerus": 333.0, "radius": 335.0, "femur": 264.0, "tibia": 222.0, "forelimb": 668.0, "hindlimb": 486.0, "imi": 137.449}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "F", "humerus": 322.0, "radius": 330.0, "femur": 253.0, "tibia": 227.0, "forelimb": 652.0, "hindlimb": 480.0, "imi": 135.833}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "F", "humerus": 322.0, "radius": 345.0, "femur": 247.0, "tibia": 213.0, "forelimb": 667.0, "hindlimb": 460.0, "imi": 145.0}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "F", "humerus": 326.0, "radius": 340.0, "femur": 260.0, "tibia": 230.0, "forelimb": 666.0, "hindlimb": 490.0, "imi": 135.918}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "F", "humerus": 332.0, "radius": 330.0, "femur": 256.0, "tibia": 228.0, "forelimb": 662.0, "hindlimb": 484.0, "imi": 136.777}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "F", "humerus": 343.0, "radius": 354.0, "femur": 270.0, "tibia": 240.0, "forelimb": 697.0, "hindlimb": 510.0, "imi": 136.667}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "F", "humerus": 311.0, "radius": 333.0, "femur": 242.0, "tibia": 212.0, "forelimb": 644.0, "hindlimb": 454.0, "imi": 141.85}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "F", "humerus": 339.0, "radius": 352.0, "femur": 259.0, "tibia": 234.0, "forelimb": 691.0, "hindlimb": 493.0, "imi": 140.162}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "F", "humerus": 341.0, "radius": 339.0, "femur": 257.0, "tibia": 237.0, "forelimb": 680.0, "hindlimb": 494.0, "imi": 137.652}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "F", "humerus": 333.0, "radius": 343.0, "femur": 247.0, "tibia": 227.0, "forelimb": 676.0, "hindlimb": 474.0, "imi": 142.616}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "M", "humerus": 361.0, "radius": 353.0, "femur": 274.0, "tibia": 244.0, "forelimb": 714.0, "hindlimb": 518.0, "imi": 137.838}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "M", "humerus": 375.0, "radius": 365.0, "femur": 296.0, "tibia": 250.0, "forelimb": 740.0, "hindlimb": 546.0, "imi": 135.531}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "M", "humerus": 411.0, "radius": 378.0, "femur": 301.0, "tibia": 264.0, "forelimb": 789.0, "hindlimb": 565.0, "imi": 139.646}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "M", "humerus": 377.0, "radius": 370.0, "femur": 293.0, "tibia": 244.0, "forelimb": 747.0, "hindlimb": 537.0, "imi": 139.106}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "M", "humerus": 380.0, "radius": 390.0, "femur": 288.0, "tibia": 254.0, "forelimb": 770.0, "hindlimb": 542.0, "imi": 142.066}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "M", "humerus": 347.0, "radius": 370.0, "femur": 284.0, "tibia": 253.0, "forelimb": 717.0, "hindlimb": 537.0, "imi": 133.52}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "M", "humerus": 355.0, "radius": 345.0, "femur": 283.0, "tibia": 246.0, "forelimb": 700.0, "hindlimb": 529.0, "imi": 132.325}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "M", "humerus": 366.0, "radius": 377.0, "femur": 281.0, "tibia": 256.0, "forelimb": 743.0, "hindlimb": 537.0, "imi": 138.361}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "M", "humerus": 385.0, "radius": 383.0, "femur": 304.0, "tibia": 263.0, "forelimb": 768.0, "hindlimb": 567.0, "imi": 135.45}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "M", "humerus": 390.0, "radius": 400.0, "femur": 298.0, "tibia": 271.0, "forelimb": 790.0, "hindlimb": 569.0, "imi": 138.84}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "M", "humerus": 366.0, "radius": 387.0, "femur": 277.0, "tibia": 253.0, "forelimb": 753.0, "hindlimb": 530.0, "imi": 142.075}, {"superfamily": "Hominoidea", "genus": "Pongo", "species": "pygmeaus", "common_name": "Orangutan", "sex": "M", "humerus": 368.0, "radius": 392.0, "femur": 292.0, "tibia": 266.0, "forelimb": 760.0, "hindlimb": 558.0, "imi": 136.201}, {"superfamily": "Ceboidea", "genus": "Alouatta", "species": "caraya", "common_name": "Howler Monkey", "sex": "f", "humerus": 144.04, "radius": 130.06, "femur": 149.01, "tibia": 139.15, "forelimb": 274.1, "hindlimb": 288.16, "imi": 95.121}, {"superfamily": "Ceboidea", "genus": "Alouatta", "species": "caraya", "common_name": "Howler Monkey", "sex": "f", "humerus": 131.13, "radius": 114.87, "femur": 139.77, "tibia": 121.93, "forelimb": 246.0, "hindlimb": 261.7, "imi": 94.001}, {"superfamily": "Ceboidea", "genus": "Alouatta", "species": "caraya", "common_name": "Howler Monkey", "sex": "f", "humerus": 114.78, "radius": 99.5, "femur": 120.83, "tibia": 103.07, "forelimb": 214.28, "hindlimb": 223.9, "imi": 95.703}, {"superfamily": "Ceboidea", "genus": "Alouatta", "species": "caraya", "common_name": "Howler Monkey", "sex": "m", "humerus": 166.47, "radius": 150.54, "femur": 172.0, "tibia": 158.18, "forelimb": 317.01, "hindlimb": 330.18, "imi": 96.011}, {"superfamily": "Ceboidea", "genus": "Alouatta", "species": "caraya", "common_name": "Howler Monkey", "sex": "m", "humerus": 158.06, "radius": 150.31, "femur": 169.63, "tibia": 151.15, "forelimb": 308.37, "hindlimb": 320.78, "imi": 96.131}, {"superfamily": "Ceboidea", "genus": "Alouatta", "species": "caraya", "common_name": "Howler Monkey", "sex": "u", "humerus": 150.58, "radius": 142.61, "femur": 155.97, "tibia": 142.4, "forelimb": 293.19, "hindlimb": 298.37, "imi": 98.264}, {"superfamily": "Ceboidea", "genus": "Alouatta", "species": "palliata", "common_name": "Howler Monkey", "sex": "f", "humerus": 151.2, "radius": 144.57, "femur": 159.08, "tibia": 134.24, "forelimb": 295.77, "hindlimb": 293.32, "imi": 100.835}, {"superfamily": "Ceboidea", "genus": "Alouatta", "species": "palliata", "common_name": "Howler Monkey", "sex": "f", "humerus": 142.6, "radius": 134.81, "femur": 141.0, "tibia": 125.59, "forelimb": 277.41, "hindlimb": 266.59, "imi": 104.059}, {"superfamily": "Ceboidea", "genus": "Alouatta", "species": "palliata", "common_name": "Howler Monkey", "sex": "m", "humerus": 155.77, "radius": 142.31, "femur": 157.9, "tibia": 131.35, "forelimb": 298.08, "hindlimb": 289.25, "imi": 103.053}, {"superfamily": "Ceboidea", "genus": "Alouatta", "species": "palliata", "common_name": "Howler Monkey", "sex": "m", "humerus": 145.56, "radius": 135.05, "femur": 148.12, "tibia": 128.13, "forelimb": 280.61, "hindlimb": 276.25, "imi": 101.578}, {"superfamily": "Ceboidea", "genus": "Alouatta", "species": "palliata", "common_name": "Howler Monkey", "sex": "m", "humerus": 155.49, "radius": 137.53, "femur": 155.32, "tibia": 131.24, "forelimb": 293.02, "hindlimb": 286.56, "imi": 102.254}, {"superfamily": "Ceboidea", "genus": "Aotus", "species": "trivirgatus", "common_name": "Owl Monkey", "sex": "f", "humerus": 70.46, "radius": 64.52, "femur": 89.55, "tibia": 89.88, "forelimb": 134.98, "hindlimb": 179.43, "imi": 75.227}, {"superfamily": "Ceboidea", "genus": "Aotus", "species": "trivirgatus", "common_name": "Owl Monkey", "sex": "f", "humerus": 76.4, "radius": 68.32, "femur": 99.77, "tibia": 96.98, "forelimb": 144.72, "hindlimb": 196.75, "imi": 73.555}, {"superfamily": "Ceboidea", "genus": "Aotus", "species": "trivirgatus", "common_name": "Owl Monkey", "sex": "f", "humerus": 57.09, "radius": 52.37, "femur": 72.49, "tibia": 73.88, "forelimb": 109.46, "hindlimb": 146.37, "imi": 74.783}, {"superfamily": "Ceboidea", "genus": "Aotus", "species": "trivirgatus", "common_name": "Owl Monkey", "sex": "m", "humerus": 75.05, "radius": 67.0, "femur": 94.11, "tibia": 92.82, "forelimb": 142.05, "hindlimb": 186.93, "imi": 75.991}, {"superfamily": "Ceboidea", "genus": "Aotus", "species": "trivirgatus", "common_name": "Owl Monkey", "sex": "m", "humerus": 73.29, "radius": 69.2, "femur": 98.83, "tibia": 99.1, "forelimb": 142.49, "hindlimb": 197.93, "imi": 71.99}, {"superfamily": "Ceboidea", "genus": "Aotus", "species": "trivirgatus", "common_name": "Owl Monkey", "sex": "m", "humerus": 75.87, "radius": 71.71, "femur": 100.94, "tibia": 100.94, "forelimb": 147.58, "hindlimb": 201.88, "imi": 73.103}, {"superfamily": "Ceboidea", "genus": "Ateles", "species": "fusciceps", "common_name": "Spider Monkey", "sex": "f", "humerus": 200.0, "radius": 202.65, "femur": 202.32, "tibia": 191.66, "forelimb": 402.65, "hindlimb": 393.98, "imi": 102.201}, {"superfamily": "Ceboidea", "genus": "Ateles", "species": "fusciceps", "common_name": "Spider Monkey", "sex": "f", "humerus": 189.88, "radius": 204.0, "femur": 190.64, "tibia": 181.59, "forelimb": 393.88, "hindlimb": 372.23, "imi": 105.816}, {"superfamily": "Ceboidea", "genus": "Ateles", "species": "fusciceps", "common_name": "Spider Monkey", "sex": "f", "humerus": 204.94, "radius": 221.4, "femur": 208.51, "tibia": 191.74, "forelimb": 426.34, "hindlimb": 400.25, "imi": 106.518}, {"superfamily": "Ceboidea", "genus": "Ateles", "species": "fusciceps", "common_name": "Spider Monkey", "sex": "m", "humerus": 204.97, "radius": 196.67, "femur": 194.37, "tibia": 189.29, "forelimb": 401.64, "hindlimb": 383.66, "imi": 104.686}, {"superfamily": "Ceboidea", "genus": "Ateles", "species": "fusciceps", "common_name": "Spider Monkey", "sex": "m", "humerus": 205.0, "radius": 200.78, "femur": 198.09, "tibia": 188.55, "forelimb": 405.78, "hindlimb": 386.64, "imi": 104.95}, {"superfamily": "Ceboidea", "genus": "Ateles", "species": "fusciceps", "common_name": "Spider Monkey", "sex": "m", "humerus": 165.35, "radius": 157.52, "femur": 160.55, "tibia": 156.09, "forelimb": 322.87, "hindlimb": 316.64, "imi": 101.968}, {"superfamily": "Ceboidea", "genus": "Ateles", "species": "geoffroyi", "common_name": "Spider Monkey", "sex": "f", "humerus": 220.5, "radius": 218.5, "femur": 220.75, "tibia": 195.55, "forelimb": 439.0, "hindlimb": 416.3, "imi": 105.453}, {"superfamily": "Ceboidea", "genus": "Ateles", "species": "geoffroyi", "common_name": "Spider Monkey", "sex": "m", "humerus": 199.86, "radius": 207.89, "femur": 196.31, "tibia": 184.84, "forelimb": 407.75, "hindlimb": 381.15, "imi": 106.979}, {"superfamily": "Ceboidea", "genus": "Ateles", "species": "geoffroyi", "common_name": "Spider Monkey", "sex": "u", "humerus": 200.54, "radius": 221.75, "femur": 190.29, "tibia": 195.51, "forelimb": 422.29, "hindlimb": 385.8, "imi": 109.458}, {"superfamily": "Ceboidea", "genus": "Ateles", "species": "geoffroyi", "common_name": "Spider Monkey", "sex": "u", "humerus": 220.3, "radius": 220.1, "femur": 220.0, "tibia": 221.5, "forelimb": 440.4, "hindlimb": 441.5, "imi": 99.751}, {"superfamily": "Ceboidea", "genus": "Callicebus", "species": "moloch", "common_name": "Titi", "sex": "f", "humerus": 80.67, "radius": 66.77, "femur": 99.83, "tibia": 91.03, "forelimb": 147.44, "hindlimb": 190.86, "imi": 77.25}, {"superfamily": "Ceboidea", "genus": "Callicebus", "species": "moloch", "common_name": "Titi", "sex": "f", "humerus": 84.36, "radius": 71.21, "femur": 105.51, "tibia": 101.1, "forelimb": 155.57, "hindlimb": 206.61, "imi": 75.296}, {"superfamily": "Ceboidea", "genus": "Callicebus", "species": "moloch", "common_name": "Titi", "sex": "m", "humerus": 79.98, "radius": 67.72, "femur": 96.67, "tibia": 93.38, "forelimb": 147.7, "hindlimb": 190.05, "imi": 77.716}, {"superfamily": "Ceboidea", "genus": "Callicebus", "species": "moloch", "common_name": "Titi", "sex": "m", "humerus": 72.64, "radius": 57.22, "femur": 89.19, "tibia": 83.01, "forelimb": 129.86, "hindlimb": 172.2, "imi": 75.412}, {"superfamily": "Ceboidea", "genus": "Callicebus", "species": "moloch", "common_name": "Titi", "sex": "m", "humerus": 77.21, "radius": 66.43, "femur": 97.42, "tibia": 90.2, "forelimb": 143.64, "hindlimb": 187.62, "imi": 76.559}, {"superfamily": "Ceboidea", "genus": "Callimico", "species": "goeldii", "common_name": "Titi", "sex": "f", "humerus": 52.88, "radius": 48.13, "femur": 72.41, "tibia": 72.19, "forelimb": 101.01, "hindlimb": 144.6, "imi": 69.855}, {"superfamily": "Ceboidea", "genus": "Callimico", "species": "goeldii", "common_name": "Titi", "sex": "f", "humerus": 55.16, "radius": 50.14, "femur": 74.41, "tibia": 74.77, "forelimb": 105.3, "hindlimb": 149.18, "imi": 70.586}, {"superfamily": "Ceboidea", "genus": "Callimico", "species": "goeldii", "common_name": "Titi", "sex": "f", "humerus": 56.41, "radius": 50.28, "femur": 75.93, "tibia": 75.52, "forelimb": 106.69, "hindlimb": 151.45, "imi": 70.446}, {"superfamily": "Ceboidea", "genus": "Callimico", "species": "goeldii", "common_name": "Titi", "sex": "m", "humerus": 54.99, "radius": 51.48, "femur": 73.94, "tibia": 75.39, "forelimb": 106.47, "hindlimb": 149.33, "imi": 71.298}, {"superfamily": "Ceboidea", "genus": "Callimico", "species": "goeldii", "common_name": "Titi", "sex": "m", "humerus": 56.26, "radius": 51.93, "femur": 75.97, "tibia": 75.39, "forelimb": 108.19, "hindlimb": 151.36, "imi": 71.479}, {"superfamily": "Ceboidea", "genus": "Callithrix", "species": "jacchus", "common_name": "Titi", "sex": "f", "humerus": 45.08, "radius": 39.75, "femur": 58.81, "tibia": 58.69, "forelimb": 84.83, "hindlimb": 117.5, "imi": 72.196}, {"superfamily": "Ceboidea", "genus": "Callithrix", "species": "jacchus", "common_name": "Titi", "sex": "f", "humerus": 41.52, "radius": 37.08, "femur": 53.25, "tibia": 53.0, "forelimb": 78.6, "hindlimb": 106.25, "imi": 73.976}, {"superfamily": "Ceboidea", "genus": "Callithrix", "species": "jacchus", "common_name": "Titi", "sex": "m", "humerus": 45.24, "radius": 39.07, "femur": 55.34, "tibia": 56.44, "forelimb": 84.31, "hindlimb": 111.78, "imi": 75.425}, {"superfamily": "Ceboidea", "genus": "Callithrix", "species": "jacchus", "common_name": "Titi", "sex": "m", "humerus": 46.41, "radius": 42.03, "femur": 59.21, "tibia": 60.95, "forelimb": 88.44, "hindlimb": 120.16, "imi": 73.602}, {"superfamily": "Ceboidea", "genus": "Cebus", "species": "albifrons", "common_name": "Capuchin", "sex": "f", "humerus": 100.23, "radius": 95.3, "femur": 124.79, "tibia": 120.33, "forelimb": 195.53, "hindlimb": 245.12, "imi": 79.769}, {"superfamily": "Ceboidea", "genus": "Cebus", "species": "albifrons", "common_name": "Capuchin", "sex": "f", "humerus": 97.55, "radius": 99.53, "femur": 124.71, "tibia": 119.28, "forelimb": 197.08, "hindlimb": 243.99, "imi": 80.774}, {"superfamily": "Ceboidea", "genus": "Cebus", "species": "albifrons", "common_name": "Capuchin", "sex": "f", "humerus": 104.62, "radius": 100.57, "femur": 130.75, "tibia": 123.66, "forelimb": 205.19, "hindlimb": 254.41, "imi": 80.653}, {"superfamily": "Ceboidea", "genus": "Cebus", "species": "albifrons", "common_name": "Capuchin", "sex": "m", "humerus": 114.84, "radius": 115.36, "femur": 141.3, "tibia": 142.79, "forelimb": 230.2, "hindlimb": 284.09, "imi": 81.031}, {"superfamily": "Ceboidea", "genus": "Cebus", "species": "albifrons", "common_name": "Capuchin", "sex": "m", "humerus": 93.82, "radius": 87.91, "femur": 112.67, "tibia": 105.36, "forelimb": 181.73, "hindlimb": 218.03, "imi": 83.351}, {"superfamily": "Ceboidea", "genus": "Cebus", "species": "albifrons", "common_name": "Capuchin", "sex": "m", "humerus": 96.67, "radius": 89.05, "femur": 117.85, "tibia": 100.48, "forelimb": 185.72, "hindlimb": 218.33, "imi": 85.064}, {"superfamily": "Ceboidea", "genus": "Cebus", "species": "apella", "common_name": "Capuchin", "sex": "f", "humerus": 99.33, "radius": 90.42, "femur": 120.0, "tibia": 113.41, "forelimb": 189.75, "hindlimb": 233.41, "imi": 81.295}, {"superfamily": "Ceboidea", "genus": "Cebus", "species": "apella", "common_name": "Capuchin", "sex": "f", "humerus": 78.53, "radius": 70.63, "femur": 93.66, "tibia": 89.15, "forelimb": 149.16, "hindlimb": 182.81, "imi": 81.593}, {"superfamily": "Ceboidea", "genus": "Cebus", "species": "apella", "common_name": "Capuchin", "sex": "f", "humerus": 96.09, "radius": 91.67, "femur": 116.52, "tibia": 108.29, "forelimb": 187.76, "hindlimb": 224.81, "imi": 83.519}, {"superfamily": "Ceboidea", "genus": "Cebus", "species": "apella", "common_name": "Capuchin", "sex": "m", "humerus": 91.01, "radius": 82.71, "femur": 112.32, "tibia": 106.7, "forelimb": 173.72, "hindlimb": 219.02, "imi": 79.317}, {"superfamily": "Ceboidea", "genus": "Cebus", "species": "apella", "common_name": "Capuchin", "sex": "m", "humerus": 104.44, "radius": 101.4, "femur": 130.54, "tibia": 120.94, "forelimb": 205.84, "hindlimb": 251.48, "imi": 81.851}, {"superfamily": "Ceboidea", "genus": "Leontopithecus", "species": "chrysomela", "common_name": "Tamarin", "sex": "f", "humerus": 65.19, "radius": 62.69, "femur": 73.03, "tibia": 74.56, "forelimb": 127.88, "hindlimb": 147.59, "imi": 86.645}, {"superfamily": "Ceboidea", "genus": "Leontopithecus", "species": "chrysomela", "common_name": "Tamarin", "sex": "f", "humerus": 66.84, "radius": 68.31, "femur": 75.32, "tibia": 77.12, "forelimb": 135.15, "hindlimb": 152.44, "imi": 88.658}, {"superfamily": "Ceboidea", "genus": "Leontopithecus", "species": "chrysomela", "common_name": "Tamarin", "sex": "m", "humerus": 65.59, "radius": 64.95, "femur": 74.63, "tibia": 79.03, "forelimb": 130.54, "hindlimb": 153.66, "imi": 84.954}, {"superfamily": "Ceboidea", "genus": "Leontopithecus", "species": "chrysomela", "common_name": "Tamarin", "sex": "m", "humerus": 67.66, "radius": 65.74, "femur": 75.38, "tibia": 77.95, "forelimb": 133.4, "hindlimb": 153.33, "imi": 87.002}, {"superfamily": "Ceboidea", "genus": "Leontopithecus", "species": "chrysomela", "common_name": "Tamarin", "sex": "m", "humerus": 64.88, "radius": 65.69, "femur": 75.9, "tibia": 77.34, "forelimb": 130.57, "hindlimb": 153.24, "imi": 85.206}, {"superfamily": "Ceboidea", "genus": "Leontopithecus", "species": "rosalia", "common_name": "Tamarin", "sex": "f", "humerus": 61.14, "radius": 60.89, "femur": 68.8, "tibia": 72.13, "forelimb": 122.03, "hindlimb": 140.93, "imi": 86.589}, {"superfamily": "Ceboidea", "genus": "Leontopithecus", "species": "rosalia", "common_name": "Tamarin", "sex": "f", "humerus": 65.65, "radius": 63.99, "femur": 73.05, "tibia": 74.11, "forelimb": 129.64, "hindlimb": 147.16, "imi": 88.095}, {"superfamily": "Ceboidea", "genus": "Leontopithecus", "species": "rosalia", "common_name": "Tamarin", "sex": "m", "humerus": 64.97, "radius": 64.12, "femur": 72.14, "tibia": 79.23, "forelimb": 129.09, "hindlimb": 151.37, "imi": 85.281}, {"superfamily": "Ceboidea", "genus": "Leontopithecus", "species": "rosalia", "common_name": "Tamarin", "sex": "m", "humerus": 64.03, "radius": 63.22, "femur": 69.51, "tibia": 74.65, "forelimb": 127.25, "hindlimb": 144.16, "imi": 88.27}, {"superfamily": "Ceboidea", "genus": "Leontopithecus", "species": "rosalia", "common_name": "Tamarin", "sex": "u", "humerus": 63.05, "radius": 64.15, "femur": 71.38, "tibia": 75.02, "forelimb": 127.2, "hindlimb": 146.4, "imi": 86.885}, {"superfamily": "Ceboidea", "genus": "Saguinus", "species": "fuscicolis", "common_name": "Tamarin", "sex": "f", "humerus": 52.48, "radius": 49.55, "femur": 64.6, "tibia": 63.98, "forelimb": 102.03, "hindlimb": 128.58, "imi": 79.351}, {"superfamily": "Ceboidea", "genus": "Saguinus", "species": "fuscicolis", "common_name": "Tamarin", "sex": "m", "humerus": 46.32, "radius": 44.82, "femur": 59.52, "tibia": 63.15, "forelimb": 91.14, "hindlimb": 122.67, "imi": 74.297}, {"superfamily": "Ceboidea", "genus": "Saguinus", "species": "fuscicolis", "common_name": "Tamarin", "sex": "m", "humerus": 51.01, "radius": 48.16, "femur": 62.98, "tibia": 66.03, "forelimb": 99.17, "hindlimb": 129.01, "imi": 76.87}, {"superfamily": "Ceboidea", "genus": "Saguinus", "species": "labiatus", "common_name": "Tamarin", "sex": "f", "humerus": 49.97, "radius": 45.15, "femur": 64.52, "tibia": 65.39, "forelimb": 95.12, "hindlimb": 129.91, "imi": 73.22}, {"superfamily": "Ceboidea", "genus": "Saguinus", "species": "labiatus", "common_name": "Tamarin", "sex": "f", "humerus": 50.87, "radius": 45.96, "femur": 68.44, "tibia": 66.72, "forelimb": 96.83, "hindlimb": 135.16, "imi": 71.641}, {"superfamily": "Ceboidea", "genus": "Saguinus", "species": "labiatus", "common_name": "Tamarin", "sex": "f", "humerus": 45.94, "radius": 41.78, "femur": 59.6, "tibia": 61.88, "forelimb": 87.72, "hindlimb": 121.48, "imi": 72.209}, {"superfamily": "Ceboidea", "genus": "Saguinus", "species": "labiatus", "common_name": "Tamarin", "sex": "m", "humerus": 48.8, "radius": 44.76, "femur": 64.83, "tibia": 64.11, "forelimb": 93.56, "hindlimb": 128.94, "imi": 72.561}, {"superfamily": "Ceboidea", "genus": "Saguinus", "species": "labiatus", "common_name": "Tamarin", "sex": "m", "humerus": 53.03, "radius": 47.47, "femur": 68.96, "tibia": 69.33, "forelimb": 100.5, "hindlimb": 138.29, "imi": 72.673}, {"superfamily": "Ceboidea", "genus": "Saguinus", "species": "labiatus", "common_name": "Tamarin", "sex": "m", "humerus": 54.48, "radius": 50.34, "femur": 72.7, "tibia": 74.01, "forelimb": 104.82, "hindlimb": 146.71, "imi": 71.447}, {"superfamily": "Ceboidea", "genus": "Saguinus", "species": "oedipus", "common_name": "Tamarin", "sex": "f", "humerus": 52.36, "radius": 45.33, "femur": 64.02, "tibia": 64.4, "forelimb": 97.69, "hindlimb": 128.42, "imi": 76.071}, {"superfamily": "Ceboidea", "genus": "Saguinus", "species": "oedipus", "common_name": "Tamarin", "sex": "f", "humerus": 47.78, "radius": 47.65, "femur": 71.12, "tibia": 71.49, "forelimb": 95.43, "hindlimb": 142.61, "imi": 66.917}, {"superfamily": "Ceboidea", "genus": "Saguinus", "species": "oedipus", "common_name": "Tamarin", "sex": "m", "humerus": 49.14, "radius": 43.94, "femur": 62.31, "tibia": 60.76, "forelimb": 93.08, "hindlimb": 123.07, "imi": 75.632}, {"superfamily": "Ceboidea", "genus": "Saguinus", "species": "oedipus", "common_name": "Tamarin", "sex": "u", "humerus": 48.02, "radius": 43.69, "femur": 61.42, "tibia": 70.45, "forelimb": 91.71, "hindlimb": 131.87, "imi": 69.546}, {"superfamily": "Ceboidea", "genus": "Saimiri", "species": "sciureus", "common_name": "Squirrel Monkey", "sex": "f", "humerus": 71.4, "radius": 65.3, "femur": 88.77, "tibia": 85.57, "forelimb": 136.7, "hindlimb": 174.34, "imi": 78.41}, {"superfamily": "Ceboidea", "genus": "Saimiri", "species": "sciureus", "common_name": "Squirrel Monkey", "sex": "f", "humerus": 64.54, "radius": 58.9, "femur": 77.54, "tibia": 78.07, "forelimb": 123.44, "hindlimb": 155.61, "imi": 79.327}, {"superfamily": "Ceboidea", "genus": "Saimiri", "species": "sciureus", "common_name": "Squirrel Monkey", "sex": "f", "humerus": 68.35, "radius": 64.98, "femur": 83.49, "tibia": 85.16, "forelimb": 133.33, "hindlimb": 168.65, "imi": 79.057}, {"superfamily": "Ceboidea", "genus": "Saimiri", "species": "sciureus", "common_name": "Squirrel Monkey", "sex": "m", "humerus": 54.55, "radius": 48.3, "femur": 72.79, "tibia": 71.26, "forelimb": 102.85, "hindlimb": 144.05, "imi": 71.399}, {"superfamily": "Ceboidea", "genus": "Saimiri", "species": "sciureus", "common_name": "Squirrel Monkey", "sex": "m", "humerus": 69.25, "radius": 62.37, "femur": 83.13, "tibia": 82.22, "forelimb": 131.62, "hindlimb": 165.35, "imi": 79.601}, {"superfamily": "Ceboidea", "genus": "Saimiri", "species": "sciureus", "common_name": "Squirrel Monkey", "sex": "m", "humerus": 73.89, "radius": 69.17, "femur": 90.96, "tibia": 89.72, "forelimb": 143.06, "hindlimb": 180.68, "imi": 79.179}, {"superfamily": "Cercopithecoidea", "genus": "Cercopithecus", "species": "albogularis", "common_name": "Samango Monkey", "sex": "f", "humerus": 117.58, "radius": 110.73, "femur": 138.24, "tibia": 136.09, "forelimb": 228.31, "hindlimb": 274.33, "imi": 83.225}, {"superfamily": "Cercopithecoidea", "genus": "Cercopithecus", "species": "albogularis", "common_name": "Samango Monkey", "sex": "f", "humerus": 121.27, "radius": 111.16, "femur": 147.4, "tibia": 144.16, "forelimb": 232.43, "hindlimb": 291.56, "imi": 79.719}, {"superfamily": "Cercopithecoidea", "genus": "Cercopithecus", "species": "albogularis", "common_name": "Samango Monkey", "sex": "f", "humerus": 121.53, "radius": 107.61, "femur": 144.25, "tibia": 139.77, "forelimb": 229.14, "hindlimb": 284.02, "imi": 80.677}, {"superfamily": "Cercopithecoidea", "genus": "Cercopithecus", "species": "albogularis", "common_name": "Samango Monkey", "sex": "f", "humerus": 115.79, "radius": 114.12, "femur": 142.69, "tibia": 137.53, "forelimb": 229.91, "hindlimb": 280.22, "imi": 82.046}, {"superfamily": "Cercopithecoidea", "genus": "Cercopithecus", "species": "albogularis", "common_name": "Samango Monkey", "sex": "m", "humerus": 140.43, "radius": 133.35, "femur": 167.85, "tibia": 169.21, "forelimb": 273.78, "hindlimb": 337.06, "imi": 81.226}, {"superfamily": "Cercopithecoidea", "genus": "Cercopithecus", "species": "albogularis", "common_name": "Samango Monkey", "sex": "m", "humerus": 160.29, "radius": 149.6, "femur": 194.35, "tibia": 192.84, "forelimb": 309.89, "hindlimb": 387.19, "imi": 80.036}, {"superfamily": "Cercopithecoidea", "genus": "Cercopithecus", "species": "albogularis", "common_name": "Samango Monkey", "sex": "m", "humerus": 142.94, "radius": 132.52, "femur": 169.87, "tibia": 166.01, "forelimb": 275.46, "hindlimb": 335.88, "imi": 82.011}, {"superfamily": "Cercopithecoidea", "genus": "Cercopithecus", "species": "albogularis", "common_name": "Samango Monkey", "sex": "m", "humerus": 140.78, "radius": 138.05, "femur": 175.64, "tibia": 171.93, "forelimb": 278.83, "hindlimb": 347.57, "imi": 80.223}, {"superfamily": "Cercopithecoidea", "genus": "Cercopithecus", "species": "albogularis", "common_name": "Samango Monkey", "sex": "m", "humerus": 140.84, "radius": 130.27, "femur": 164.78, "tibia": 170.83, "forelimb": 271.11, "hindlimb": 335.61, "imi": 80.781}, {"superfamily": "Cercopithecoidea", "genus": "Colobus", "species": "guereza", "common_name": "Guereza", "sex": "f", "humerus": 158.71, "radius": 141.5, "femur": 194.98, "tibia": 174.1, "forelimb": 300.21, "hindlimb": 369.08, "imi": 81.34}, {"superfamily": "Cercopithecoidea", "genus": "Colobus", "species": "guereza", "common_name": "Guereza", "sex": "f", "humerus": 153.36, "radius": 141.4, "femur": 189.45, "tibia": 174.38, "forelimb": 294.76, "hindlimb": 363.83, "imi": 81.016}, {"superfamily": "Cercopithecoidea", "genus": "Colobus", "species": "guereza", "common_name": "Guereza", "sex": "f", "humerus": 144.58, "radius": 143.96, "femur": 190.32, "tibia": 175.31, "forelimb": 288.54, "hindlimb": 365.63, "imi": 78.916}, {"superfamily": "Cercopithecoidea", "genus": "Colobus", "species": "guereza", "common_name": "Guereza", "sex": "f", "humerus": 152.02, "radius": 145.78, "femur": 196.3, "tibia": 177.21, "forelimb": 297.8, "hindlimb": 373.51, "imi": 79.73}, {"superfamily": "Cercopithecoidea", "genus": "Colobus", "species": "guereza", "common_name": "Guereza", "sex": "f", "humerus": 150.99, "radius": 142.63, "femur": 192.17, "tibia": 171.54, "forelimb": 293.62, "hindlimb": 363.71, "imi": 80.729}, {"superfamily": "Cercopithecoidea", "genus": "Colobus", "species": "guereza", "common_name": "Guereza", "sex": "f", "humerus": 152.15, "radius": 152.32, "femur": 189.94, "tibia": 178.07, "forelimb": 304.47, "hindlimb": 368.01, "imi": 82.734}, {"superfamily": "Cercopithecoidea", "genus": "Colobus", "species": "guereza", "common_name": "Guereza", "sex": "f", "humerus": 156.5, "radius": 151.4, "femur": 197.56, "tibia": 180.94, "forelimb": 307.9, "hindlimb": 378.5, "imi": 81.347}, {"superfamily": "Cercopithecoidea", "genus": "Colobus", "species": "guereza", "common_name": "Guereza", "sex": "f", "humerus": 149.35, "radius": 149.34, "femur": 194.77, "tibia": 179.69, "forelimb": 298.69, "hindlimb": 374.46, "imi": 79.766}, {"superfamily": "Cercopithecoidea", "genus": "Colobus", "species": "guereza", "common_name": "Guereza", "sex": "f", "humerus": 161.94, "radius": 152.29, "femur": 209.06, "tibia": 183.71, "forelimb": 314.23, "hindlimb": 392.77, "imi": 80.004}, {"superfamily": "Cercopithecoidea", "genus": "Colobus", "species": "guereza", "common_name": "Guereza", "sex": "m", "humerus": 164.09, "radius": 158.2, "femur": 206.74, "tibia": 191.77, "forelimb": 322.29, "hindlimb": 398.51, "imi": 80.874}, {"superfamily": "Cercopithecoidea", "genus": "Colobus", "species": "guereza", "common_name": "Guereza", "sex": "m", "humerus": 168.48, "radius": 167.6, "femur": 219.99, "tibia": 196.92, "forelimb": 336.08, "hindlimb": 416.91, "imi": 80.612}, {"superfamily": "Cercopithecoidea", "genus": "Colobus", "species": "guereza", "common_name": "Guereza", "sex": "m", "humerus": 150.72, "radius": 146.26, "femur": 197.77, "tibia": 180.59, "forelimb": 296.98, "hindlimb": 378.36, "imi": 78.491}, {"superfamily": "Cercopithecoidea", "genus": "Colobus", "species": "guereza", "common_name": "Guereza", "sex": "m", "humerus": 158.5, "radius": 154.93, "femur": 202.84, "tibia": 184.81, "forelimb": 313.43, "hindlimb": 387.65, "imi": 80.854}, {"superfamily": "Cercopithecoidea", "genus": "Colobus", "species": "guereza", "common_name": "Guereza", "sex": "m", "humerus": 156.31, "radius": 149.08, "femur": 198.27, "tibia": 178.15, "forelimb": 305.39, "hindlimb": 376.42, "imi": 81.13}, {"superfamily": "Cercopithecoidea", "genus": "Colobus", "species": "guereza", "common_name": "Guereza", "sex": "m", "humerus": 156.95, "radius": 144.85, "femur": 202.27, "tibia": 185.08, "forelimb": 301.8, "hindlimb": 387.35, "imi": 77.914}, {"superfamily": "Cercopithecoidea", "genus": "Colobus", "species": "guereza", "common_name": "Guereza", "sex": "m", "humerus": 144.92, "radius": 140.3, "femur": 186.53, "tibia": 165.45, "forelimb": 285.22, "hindlimb": 351.98, "imi": 81.033}, {"superfamily": "Cercopithecoidea", "genus": "Colobus", "species": "guereza", "common_name": "Guereza", "sex": "m", "humerus": 154.85, "radius": 145.78, "femur": 195.04, "tibia": 177.07, "forelimb": 300.63, "hindlimb": 372.11, "imi": 80.791}, {"superfamily": "Cercopithecoidea", "genus": "Colobus", "species": "guereza", "common_name": "Guereza", "sex": "uk", "humerus": 149.0, "radius": 138.0, "femur": 188.0, "tibia": 169.0, "forelimb": 287.0, "hindlimb": 357.0, "imi": 80.392}, {"superfamily": "Cercopithecoidea", "genus": "Colobus", "species": "guereza", "common_name": "Guereza", "sex": "uk", "humerus": 143.0, "radius": 134.0, "femur": 195.0, "tibia": 168.0, "forelimb": 277.0, "hindlimb": 363.0, "imi": 76.309}, {"superfamily": "Cercopithecoidea", "genus": "Colobus", "species": "guereza", "common_name": "Guereza", "sex": "uk", "humerus": 142.0, "radius": 140.0, "femur": 186.0, "tibia": 171.0, "forelimb": 282.0, "hindlimb": 357.0, "imi": 78.992}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "fascicularis", "common_name": "Macaque", "sex": "f", "humerus": 111.0, "radius": 106.0, "femur": 125.0, "tibia": 113.0, "forelimb": 217.0, "hindlimb": 238.0, "imi": 91.176}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "fascicularis", "common_name": "Macaque", "sex": "f", "humerus": 121.0, "radius": 112.0, "femur": 133.0, "tibia": 124.0, "forelimb": 233.0, "hindlimb": 257.0, "imi": 90.661}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "fascicularis", "common_name": "Macaque", "sex": "f", "humerus": 110.0, "radius": 103.0, "femur": 121.0, "tibia": 113.0, "forelimb": 213.0, "hindlimb": 234.0, "imi": 91.026}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "fascicularis", "common_name": "Macaque", "sex": "f", "humerus": 106.0, "radius": 103.0, "femur": 119.0, "tibia": 109.0, "forelimb": 209.0, "hindlimb": 228.0, "imi": 91.667}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "fascicularis", "common_name": "Macaque", "sex": "f", "humerus": 117.0, "radius": 111.0, "femur": 131.0, "tibia": 121.0, "forelimb": 228.0, "hindlimb": 252.0, "imi": 90.476}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "fascicularis", "common_name": "Macaque", "sex": "f", "humerus": 113.0, "radius": 111.0, "femur": 126.0, "tibia": 117.0, "forelimb": 224.0, "hindlimb": 243.0, "imi": 92.181}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "fascicularis", "common_name": "Macaque", "sex": "f", "humerus": 107.0, "radius": 105.0, "femur": 116.0, "tibia": 109.0, "forelimb": 212.0, "hindlimb": 225.0, "imi": 94.222}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "fascicularis", "common_name": "Macaque", "sex": "f", "humerus": 112.0, "radius": 107.0, "femur": 119.0, "tibia": 110.0, "forelimb": 219.0, "hindlimb": 229.0, "imi": 95.633}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "fascicularis", "common_name": "Macaque", "sex": "f", "humerus": 117.0, "radius": 110.0, "femur": 124.0, "tibia": 116.0, "forelimb": 227.0, "hindlimb": 240.0, "imi": 94.583}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "fascicularis", "common_name": "Macaque", "sex": "f", "humerus": 119.0, "radius": 115.0, "femur": 133.0, "tibia": 122.0, "forelimb": 234.0, "hindlimb": 255.0, "imi": 91.765}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "fascicularis", "common_name": "Macaque", "sex": "m", "humerus": 120.0, "radius": 111.0, "femur": 131.0, "tibia": 119.0, "forelimb": 231.0, "hindlimb": 250.0, "imi": 92.4}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "fascicularis", "common_name": "Macaque", "sex": "m", "humerus": 130.0, "radius": 129.0, "femur": 147.0, "tibia": 135.0, "forelimb": 259.0, "hindlimb": 282.0, "imi": 91.844}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "fascicularis", "common_name": "Macaque", "sex": "m", "humerus": 129.0, "radius": 124.0, "femur": 143.0, "tibia": 134.0, "forelimb": 253.0, "hindlimb": 277.0, "imi": 91.336}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "fascicularis", "common_name": "Macaque", "sex": "m", "humerus": 138.0, "radius": 130.0, "femur": 142.0, "tibia": 132.0, "forelimb": 268.0, "hindlimb": 274.0, "imi": 97.81}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "fascicularis", "common_name": "Macaque", "sex": "m", "humerus": 130.0, "radius": 130.0, "femur": 148.0, "tibia": 136.0, "forelimb": 260.0, "hindlimb": 284.0, "imi": 91.549}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "fascicularis", "common_name": "Macaque", "sex": "m", "humerus": 126.0, "radius": 122.0, "femur": 145.0, "tibia": 133.0, "forelimb": 248.0, "hindlimb": 278.0, "imi": 89.209}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "fascicularis", "common_name": "Macaque", "sex": "m", "humerus": 133.0, "radius": 133.0, "femur": 148.0, "tibia": 136.0, "forelimb": 266.0, "hindlimb": 284.0, "imi": 93.662}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "fascicularis", "common_name": "Macaque", "sex": "m", "humerus": 139.0, "radius": 133.0, "femur": 157.0, "tibia": 142.0, "forelimb": 272.0, "hindlimb": 299.0, "imi": 90.97}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "fascicularis", "common_name": "Macaque", "sex": "m", "humerus": 127.0, "radius": 121.0, "femur": 139.0, "tibia": 129.0, "forelimb": 248.0, "hindlimb": 268.0, "imi": 92.537}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "fascicularis", "common_name": "Macaque", "sex": "m", "humerus": 126.0, "radius": 123.0, "femur": 141.0, "tibia": 130.0, "forelimb": 249.0, "hindlimb": 271.0, "imi": 91.882}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "nemestrina", "common_name": "Macaque", "sex": "f", "humerus": 157.0, "radius": 158.0, "femur": 178.0, "tibia": 162.0, "forelimb": 315.0, "hindlimb": 340.0, "imi": 92.647}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "nemestrina", "common_name": "Macaque", "sex": "f", "humerus": 144.0, "radius": 150.0, "femur": 166.0, "tibia": 152.0, "forelimb": 294.0, "hindlimb": 318.0, "imi": 92.453}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "nemestrina", "common_name": "Macaque", "sex": "f", "humerus": 169.0, "radius": 166.0, "femur": 183.0, "tibia": 170.0, "forelimb": 335.0, "hindlimb": 353.0, "imi": 94.901}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "nemestrina", "common_name": "Macaque", "sex": "f", "humerus": 144.0, "radius": 149.0, "femur": 163.0, "tibia": 153.0, "forelimb": 293.0, "hindlimb": 316.0, "imi": 92.722}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "nemestrina", "common_name": "Macaque", "sex": "f", "humerus": 157.0, "radius": 156.0, "femur": 172.0, "tibia": 164.0, "forelimb": 313.0, "hindlimb": 336.0, "imi": 93.155}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "nemestrina", "common_name": "Macaque", "sex": "f", "humerus": 156.0, "radius": 159.0, "femur": 171.0, "tibia": 159.0, "forelimb": 315.0, "hindlimb": 330.0, "imi": 95.455}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "nemestrina", "common_name": "Macaque", "sex": "m", "humerus": 183.0, "radius": 178.0, "femur": 203.0, "tibia": 184.0, "forelimb": 361.0, "hindlimb": 387.0, "imi": 93.282}, {"superfamily": "Cercopithecoidea", "genus": "Macaca", "species": "nemestrina", "common_name": "Macaque", "sex": "m", "humerus": 173.0, "radius": 177.0, "femur": 197.0, "tibia": 177.0, "forelimb": 350.0, "hindlimb": 374.0, "imi": 93.583}, {"superfamily": "Cercopithecoidea", "genus": "Nasalis", "species": "larvatus", "common_name": "Proboscis Monkey", "sex": "f", "humerus": 193.0, "radius": 201.0, "femur": 225.0, "tibia": 199.0, "forelimb": 394.0, "hindlimb": 424.0, "imi": 92.925}, {"superfamily": "Cercopithecoidea", "genus": "Nasalis", "species": "larvatus", "common_name": "Proboscis Monkey", "sex": "f", "humerus": 177.0, "radius": 183.0, "femur": 205.0, "tibia": 181.0, "forelimb": 360.0, "hindlimb": 386.0, "imi": 93.264}, {"superfamily": "Cercopithecoidea", "genus": "Nasalis", "species": "larvatus", "common_name": "Proboscis Monkey", "sex": "f", "humerus": 185.0, "radius": 188.0, "femur": 207.0, "tibia": 188.0, "forelimb": 373.0, "hindlimb": 395.0, "imi": 94.43}, {"superfamily": "Cercopithecoidea", "genus": "Nasalis", "species": "larvatus", "common_name": "Proboscis Monkey", "sex": "f", "humerus": 199.0, "radius": 203.0, "femur": 232.0, "tibia": 213.0, "forelimb": 402.0, "hindlimb": 445.0, "imi": 90.337}, {"superfamily": "Cercopithecoidea", "genus": "Nasalis", "species": "larvatus", "common_name": "Proboscis Monkey", "sex": "f", "humerus": 177.0, "radius": 188.0, "femur": 210.0, "tibia": 189.0, "forelimb": 365.0, "hindlimb": 399.0, "imi": 91.479}, {"superfamily": "Cercopithecoidea", "genus": "Nasalis", "species": "larvatus", "common_name": "Proboscis Monkey", "sex": "m", "humerus": 218.0, "radius": 223.0, "femur": 244.0, "tibia": 219.0, "forelimb": 441.0, "hindlimb": 463.0, "imi": 95.248}, {"superfamily": "Cercopithecoidea", "genus": "Nasalis", "species": "larvatus", "common_name": "Proboscis Monkey", "sex": "m", "humerus": 222.0, "radius": 238.0, "femur": 265.0, "tibia": 236.0, "forelimb": 460.0, "hindlimb": 501.0, "imi": 91.816}, {"superfamily": "Cercopithecoidea", "genus": "Nasalis", "species": "larvatus", "common_name": "Proboscis Monkey", "sex": "m", "humerus": 213.0, "radius": 227.0, "femur": 247.0, "tibia": 224.0, "forelimb": 440.0, "hindlimb": 471.0, "imi": 93.418}, {"superfamily": "Cercopithecoidea", "genus": "Nasalis", "species": "larvatus", "common_name": "Proboscis Monkey", "sex": "uk", "humerus": 221.0, "radius": 227.0, "femur": 249.0, "tibia": 225.0, "forelimb": 448.0, "hindlimb": 474.0, "imi": 94.515}, {"superfamily": "Cercopithecoidea", "genus": "Nasalis", "species": "larvatus", "common_name": "Proboscis Monkey", "sex": "uk", "humerus": 214.0, "radius": 224.0, "femur": 252.0, "tibia": 228.0, "forelimb": 438.0, "hindlimb": 480.0, "imi": 91.25}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "f", "humerus": 187.0, "radius": 200.0, "femur": 220.0, "tibia": 193.0, "forelimb": 387.0, "hindlimb": 413.0, "imi": 93.705}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "f", "humerus": 196.0, "radius": 205.0, "femur": 229.0, "tibia": 198.0, "forelimb": 401.0, "hindlimb": 427.0, "imi": 93.911}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "f", "humerus": 188.0, "radius": 199.0, "femur": 216.0, "tibia": 185.0, "forelimb": 387.0, "hindlimb": 401.0, "imi": 96.509}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "f", "humerus": 182.0, "radius": 193.0, "femur": 211.0, "tibia": 186.0, "forelimb": 375.0, "hindlimb": 397.0, "imi": 94.458}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "f", "humerus": 185.0, "radius": 206.0, "femur": 216.0, "tibia": 189.0, "forelimb": 391.0, "hindlimb": 405.0, "imi": 96.543}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "f", "humerus": 178.0, "radius": 195.0, "femur": 231.0, "tibia": 196.0, "forelimb": 373.0, "hindlimb": 427.0, "imi": 87.354}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "f", "humerus": 191.0, "radius": 202.0, "femur": 228.0, "tibia": 201.0, "forelimb": 393.0, "hindlimb": 429.0, "imi": 91.608}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "f", "humerus": 208.0, "radius": 218.0, "femur": 239.0, "tibia": 211.0, "forelimb": 426.0, "hindlimb": 450.0, "imi": 94.667}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "f", "humerus": 184.0, "radius": 196.0, "femur": 223.0, "tibia": 192.0, "forelimb": 380.0, "hindlimb": 415.0, "imi": 91.566}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "f", "humerus": 189.0, "radius": 201.0, "femur": 218.0, "tibia": 198.0, "forelimb": 390.0, "hindlimb": 416.0, "imi": 93.75}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "f", "humerus": 181.83, "radius": 188.28, "femur": 215.08, "tibia": 190.11, "forelimb": 370.11, "hindlimb": 405.19, "imi": 91.342}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "f", "humerus": 179.18, "radius": 196.27, "femur": 214.72, "tibia": 189.04, "forelimb": 375.45, "hindlimb": 403.76, "imi": 92.988}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "f", "humerus": 183.2, "radius": 197.17, "femur": 220.24, "tibia": 195.29, "forelimb": 380.37, "hindlimb": 415.53, "imi": 91.539}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "f", "humerus": 189.57, "radius": 201.7, "femur": 215.38, "tibia": 187.97, "forelimb": 391.27, "hindlimb": 403.35, "imi": 97.005}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "f", "humerus": 187.84, "radius": 197.87, "femur": 220.76, "tibia": 191.99, "forelimb": 385.71, "hindlimb": 412.75, "imi": 93.449}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "f", "humerus": 184.81, "radius": 192.07, "femur": 207.82, "tibia": 185.68, "forelimb": 376.88, "hindlimb": 393.5, "imi": 95.776}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "f", "humerus": 187.79, "radius": 202.64, "femur": 222.82, "tibia": 193.33, "forelimb": 390.43, "hindlimb": 416.15, "imi": 93.82}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "f", "humerus": 196.61, "radius": 205.18, "femur": 219.83, "tibia": 193.62, "forelimb": 401.79, "hindlimb": 413.45, "imi": 97.18}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "m", "humerus": 240.0, "radius": 259.0, "femur": 282.0, "tibia": 250.0, "forelimb": 499.0, "hindlimb": 532.0, "imi": 93.797}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "m", "humerus": 216.0, "radius": 234.0, "femur": 262.0, "tibia": 228.0, "forelimb": 450.0, "hindlimb": 490.0, "imi": 91.837}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "m", "humerus": 224.0, "radius": 248.0, "femur": 262.0, "tibia": 233.0, "forelimb": 472.0, "hindlimb": 495.0, "imi": 95.354}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "m", "humerus": 236.5, "radius": 249.0, "femur": 284.0, "tibia": 250.0, "forelimb": 485.5, "hindlimb": 534.0, "imi": 90.918}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "m", "humerus": 220.0, "radius": 241.0, "femur": 262.0, "tibia": 235.0, "forelimb": 461.0, "hindlimb": 497.0, "imi": 92.757}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "m", "humerus": 215.5, "radius": 229.0, "femur": 257.0, "tibia": 235.0, "forelimb": 444.5, "hindlimb": 492.0, "imi": 90.346}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "m", "humerus": 233.0, "radius": 240.0, "femur": 277.0, "tibia": 236.0, "forelimb": 473.0, "hindlimb": 513.0, "imi": 92.203}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "m", "humerus": 228.0, "radius": 256.0, "femur": 274.0, "tibia": 241.0, "forelimb": 484.0, "hindlimb": 515.0, "imi": 93.981}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "m", "humerus": 240.0, "radius": 251.0, "femur": 285.5, "tibia": 246.0, "forelimb": 491.0, "hindlimb": 531.5, "imi": 92.38}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "m", "humerus": 219.0, "radius": 234.0, "femur": 260.0, "tibia": 223.0, "forelimb": 453.0, "hindlimb": 483.0, "imi": 93.789}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "m", "humerus": 221.19, "radius": 236.17, "femur": 258.24, "tibia": 222.44, "forelimb": 457.36, "hindlimb": 480.68, "imi": 95.149}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "m", "humerus": 230.87, "radius": 246.99, "femur": 271.74, "tibia": 240.84, "forelimb": 477.86, "hindlimb": 512.58, "imi": 93.226}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "m", "humerus": 227.8, "radius": 254.65, "femur": 272.29, "tibia": 240.18, "forelimb": 482.45, "hindlimb": 512.47, "imi": 94.142}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "m", "humerus": 227.01, "radius": 245.96, "femur": 267.64, "tibia": 223.77, "forelimb": 472.97, "hindlimb": 491.41, "imi": 96.248}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "m", "humerus": 217.83, "radius": 228.36, "femur": 249.87, "tibia": 218.16, "forelimb": 446.19, "hindlimb": 468.03, "imi": 95.334}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "m", "humerus": 231.97, "radius": 237.78, "femur": 258.66, "tibia": 232.83, "forelimb": 469.75, "hindlimb": 491.49, "imi": 95.577}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "m", "humerus": 218.23, "radius": 231.6, "femur": 257.25, "tibia": 222.53, "forelimb": 449.83, "hindlimb": 479.78, "imi": 93.758}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "m", "humerus": 233.12, "radius": 238.33, "femur": 274.71, "tibia": 229.06, "forelimb": 471.45, "hindlimb": 503.77, "imi": 93.584}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "cynocephalus", "common_name": "Baboon", "sex": "m", "humerus": 243.8, "radius": 254.57, "femur": 278.14, "tibia": 224.53, "forelimb": 498.37, "hindlimb": 502.67, "imi": 99.145}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "hamadrays", "common_name": "Baboon", "sex": "f", "humerus": 175.21, "radius": 186.16, "femur": 201.26, "tibia": 177.69, "forelimb": 361.37, "hindlimb": 378.95, "imi": 95.361}, {"superfamily": "Cercopithecoidea", "genus": "Papio", "species": "hamadrays", "common_name": "Baboon", "sex": "f", "humerus": 172.12, "radius": 180.26, "femur": 196.45, "tibia": 172.55, "forelimb": 352.38, "hindlimb": 369.0, "imi": 95.496}, {"superfamily": "Cercopithecoidea", "genus": "Presbytis", "species": "rubicunda", "common_name": "Langur", "sex": "f", "humerus": 135.0, "radius": 155.0, "femur": 195.0, "tibia": 180.0, "forelimb": 290.0, "hindlimb": 375.0, "imi": 77.333}, {"superfamily": "Cercopithecoidea", "genus": "Presbytis", "species": "rubicunda", "common_name": "Langur", "sex": "f", "humerus": 125.0, "radius": 145.0, "femur": 187.0, "tibia": 170.0, "forelimb": 270.0, "hindlimb": 357.0, "imi": 75.63}, {"superfamily": "Cercopithecoidea", "genus": "Presbytis", "species": "rubicunda", "common_name": "Langur", "sex": "f", "humerus": 138.0, "radius": 156.0, "femur": 202.0, "tibia": 183.0, "forelimb": 294.0, "hindlimb": 385.0, "imi": 76.364}, {"superfamily": "Cercopithecoidea", "genus": "Presbytis", "species": "rubicunda", "common_name": "Langur", "sex": "f", "humerus": 130.0, "radius": 149.0, "femur": 192.0, "tibia": 171.0, "forelimb": 279.0, "hindlimb": 363.0, "imi": 76.86}, {"superfamily": "Cercopithecoidea", "genus": "Presbytis", "species": "rubicunda", "common_name": "Langur", "sex": "f", "humerus": 136.0, "radius": 151.0, "femur": 195.0, "tibia": 178.0, "forelimb": 287.0, "hindlimb": 373.0, "imi": 76.944}, {"superfamily": "Cercopithecoidea", "genus": "Presbytis", "species": "rubicunda", "common_name": "Langur", "sex": "m", "humerus": 138.0, "radius": 161.0, "femur": 208.0, "tibia": 191.0, "forelimb": 299.0, "hindlimb": 399.0, "imi": 74.937}, {"superfamily": "Cercopithecoidea", "genus": "Presbytis", "species": "rubicunda", "common_name": "Langur", "sex": "m", "humerus": 132.0, "radius": 151.0, "femur": 195.0, "tibia": 179.0, "forelimb": 283.0, "hindlimb": 374.0, "imi": 75.668}, {"superfamily": "Cercopithecoidea", "genus": "Presbytis", "species": "rubicunda", "common_name": "Langur", "sex": "m", "humerus": 133.0, "radius": 145.0, "femur": 195.0, "tibia": 174.0, "forelimb": 278.0, "hindlimb": 369.0, "imi": 75.339}, {"superfamily": "Cercopithecoidea", "genus": "Presbytis", "species": "rubicunda", "common_name": "Langur", "sex": "m", "humerus": 136.0, "radius": 159.0, "femur": 201.0, "tibia": 189.0, "forelimb": 295.0, "hindlimb": 390.0, "imi": 75.641}, {"superfamily": "Cercopithecoidea", "genus": "Presbytis", "species": "rubicunda", "common_name": "Langur", "sex": "m", "humerus": 136.0, "radius": 160.0, "femur": 202.0, "tibia": 186.0, "forelimb": 296.0, "hindlimb": 388.0, "imi": 76.289}, {"superfamily": "Cercopithecoidea", "genus": "Procolobus", "species": "badius", "common_name": "Colobus", "sex": "f", "humerus": 156.27, "radius": 155.48, "femur": 185.43, "tibia": 162.23, "forelimb": 311.75, "hindlimb": 347.66, "imi": 89.671}, {"superfamily": "Cercopithecoidea", "genus": "Procolobus", "species": "badius", "common_name": "Colobus", "sex": "f", "humerus": 169.38, "radius": 163.99, "femur": 195.16, "tibia": 183.83, "forelimb": 333.37, "hindlimb": 378.99, "imi": 87.963}, {"superfamily": "Cercopithecoidea", "genus": "Procolobus", "species": "badius", "common_name": "Colobus", "sex": "f", "humerus": 159.71, "radius": 155.5, "femur": 187.44, "tibia": 168.22, "forelimb": 315.21, "hindlimb": 355.66, "imi": 88.627}, {"superfamily": "Cercopithecoidea", "genus": "Procolobus", "species": "badius", "common_name": "Colobus", "sex": "f", "humerus": 157.98, "radius": 153.82, "femur": 189.85, "tibia": 165.65, "forelimb": 311.8, "hindlimb": 355.5, "imi": 87.707}, {"superfamily": "Cercopithecoidea", "genus": "Procolobus", "species": "badius", "common_name": "Colobus", "sex": "f", "humerus": 161.07, "radius": 155.05, "femur": 190.5, "tibia": 171.73, "forelimb": 316.12, "hindlimb": 362.23, "imi": 87.271}, {"superfamily": "Cercopithecoidea", "genus": "Procolobus", "species": "badius", "common_name": "Colobus", "sex": "f", "humerus": 162.57, "radius": 153.78, "femur": 186.57, "tibia": 171.45, "forelimb": 316.35, "hindlimb": 358.02, "imi": 88.361}, {"superfamily": "Cercopithecoidea", "genus": "Procolobus", "species": "badius", "common_name": "Colobus", "sex": "f", "humerus": 162.04, "radius": 153.85, "femur": 191.55, "tibia": 169.11, "forelimb": 315.89, "hindlimb": 360.66, "imi": 87.587}, {"superfamily": "Cercopithecoidea", "genus": "Procolobus", "species": "badius", "common_name": "Colobus", "sex": "f", "humerus": 161.12, "radius": 137.38, "femur": 195.82, "tibia": 173.97, "forelimb": 298.5, "hindlimb": 369.79, "imi": 80.721}, {"superfamily": "Cercopithecoidea", "genus": "Procolobus", "species": "badius", "common_name": "Colobus", "sex": "f", "humerus": 160.21, "radius": 154.07, "femur": 185.36, "tibia": 168.78, "forelimb": 314.28, "hindlimb": 354.14, "imi": 88.745}, {"superfamily": "Cercopithecoidea", "genus": "Procolobus", "species": "badius", "common_name": "Colobus", "sex": "f", "humerus": 151.75, "radius": 148.49, "femur": 191.61, "tibia": 166.09, "forelimb": 300.24, "hindlimb": 357.7, "imi": 83.936}, {"superfamily": "Cercopithecoidea", "genus": "Procolobus", "species": "badius", "common_name": "Colobus", "sex": "f", "humerus": 166.15, "radius": 141.97, "femur": 194.66, "tibia": 171.19, "forelimb": 308.12, "hindlimb": 365.85, "imi": 84.22}, {"superfamily": "Cercopithecoidea", "genus": "Procolobus", "species": "badius", "common_name": "Colobus", "sex": "m", "humerus": 147.43, "radius": 145.28, "femur": 178.95, "tibia": 162.77, "forelimb": 292.71, "hindlimb": 341.72, "imi": 85.658}, {"superfamily": "Cercopithecoidea", "genus": "Procolobus", "species": "badius", "common_name": "Colobus", "sex": "m", "humerus": 144.99, "radius": 147.17, "femur": 176.01, "tibia": 161.46, "forelimb": 292.16, "hindlimb": 337.47, "imi": 86.574}, {"superfamily": "Cercopithecoidea", "genus": "Theropithecus", "species": "gelada", "common_name": "Gelada", "sex": "f", "humerus": 181.64, "radius": 192.39, "femur": 192.65, "tibia": 191.22, "forelimb": 374.03, "hindlimb": 383.87, "imi": 97.437}, {"superfamily": "Cercopithecoidea", "genus": "Theropithecus", "species": "gelada", "common_name": "Gelada", "sex": "f", "humerus": 166.37, "radius": 178.39, "femur": 174.43, "tibia": 174.92, "forelimb": 344.76, "hindlimb": 349.35, "imi": 98.686}, {"superfamily": "Cercopithecoidea", "genus": "Theropithecus", "species": "gelada", "common_name": "Gelada", "sex": "f", "humerus": 182.47, "radius": 193.92, "femur": 201.3, "tibia": 193.87, "forelimb": 376.39, "hindlimb": 395.17, "imi": 95.248}, {"superfamily": "Cercopithecoidea", "genus": "Theropithecus", "species": "gelada", "common_name": "Gelada", "sex": "f", "humerus": 171.9, "radius": 185.31, "femur": 189.38, "tibia": 185.42, "forelimb": 357.21, "hindlimb": 374.8, "imi": 95.307}, {"superfamily": "Cercopithecoidea", "genus": "Theropithecus", "species": "gelada", "common_name": "Gelada", "sex": "f", "humerus": 178.04, "radius": 189.22, "femur": 186.08, "tibia": 185.17, "forelimb": 367.26, "hindlimb": 371.25, "imi": 98.925}, {"superfamily": "Cercopithecoidea", "genus": "Theropithecus", "species": "gelada", "common_name": "Gelada", "sex": "f", "humerus": 180.33, "radius": 194.22, "femur": 192.18, "tibia": 192.18, "forelimb": 374.55, "hindlimb": 384.36, "imi": 97.448}, {"superfamily": "Cercopithecoidea", "genus": "Theropithecus", "species": "gelada", "common_name": "Gelada", "sex": "f", "humerus": 185.81, "radius": 199.21, "femur": 193.07, "tibia": 190.6, "forelimb": 385.02, "hindlimb": 383.67, "imi": 100.352}, {"superfamily": "Cercopithecoidea", "genus": "Theropithecus", "species": "gelada", "common_name": "Gelada", "sex": "f", "humerus": 181.27, "radius": 199.43, "femur": 200.36, "tibia": 198.57, "forelimb": 380.7, "hindlimb": 398.93, "imi": 95.43}, {"superfamily": "Cercopithecoidea", "genus": "Theropithecus", "species": "gelada", "common_name": "Gelada", "sex": "f", "humerus": 175.87, "radius": 184.26, "femur": 187.25, "tibia": 188.04, "forelimb": 360.13, "hindlimb": 375.29, "imi": 95.96}, {"superfamily": "Cercopithecoidea", "genus": "Theropithecus", "species": "gelada", "common_name": "Gelada", "sex": "f", "humerus": 179.23, "radius": 194.83, "femur": 195.78, "tibia": 195.93, "forelimb": 374.06, "hindlimb": 391.71, "imi": 95.494}, {"superfamily": "Cercopithecoidea", "genus": "Theropithecus", "species": "gelada", "common_name": "Gelada", "sex": "f", "humerus": 177.92, "radius": 187.02, "femur": 182.47, "tibia": 185.89, "forelimb": 364.94, "hindlimb": 368.36, "imi": 99.072}, {"superfamily": "Cercopithecoidea", "genus": "Theropithecus", "species": "gelada", "common_name": "Gelada", "sex": "f", "humerus": 209.0, "radius": 218.76, "femur": 226.43, "tibia": 222.13, "forelimb": 427.76, "hindlimb": 448.56, "imi": 95.363}, {"superfamily": "Cercopithecoidea", "genus": "Theropithecus", "species": "gelada", "common_name": "Gelada", "sex": "f", "humerus": 182.52, "radius": 193.41, "femur": 190.21, "tibia": 197.38, "forelimb": 375.93, "hindlimb": 387.59, "imi": 96.992}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 100.131, "radius": 101.781, "femur": 163.071, "tibia": 139.815, "forelimb": 201.912, "hindlimb": 302.886, "imi": 66.663}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 98.015, "radius": 107.414, "femur": 166.091, "tibia": 148.354, "forelimb": 205.429, "hindlimb": 314.444, "imi": 65.331}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 95.276, "radius": 107.486, "femur": 176.308, "tibia": 149.82, "forelimb": 202.762, "hindlimb": 326.128, "imi": 62.173}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 98.436, "radius": 105.443, "femur": 172.738, "tibia": 146.975, "forelimb": 203.878, "hindlimb": 319.713, "imi": 63.769}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 102.135, "radius": 100.508, "femur": 163.445, "tibia": 140.12, "forelimb": 202.644, "hindlimb": 303.565, "imi": 66.755}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 94.255, "radius": 102.321, "femur": 164.521, "tibia": 142.848, "forelimb": 196.576, "hindlimb": 307.369, "imi": 63.954}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 94.388, "radius": 101.131, "femur": 166.061, "tibia": 141.474, "forelimb": 195.518, "hindlimb": 307.534, "imi": 63.576}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 95.318, "radius": 106.087, "femur": 174.844, "tibia": 148.619, "forelimb": 201.405, "hindlimb": 323.463, "imi": 62.265}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 95.978, "radius": 105.574, "femur": 182.137, "tibia": 149.037, "forelimb": 201.552, "hindlimb": 331.174, "imi": 60.86}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 100.754, "radius": 102.774, "femur": 170.174, "tibia": 145.952, "forelimb": 203.528, "hindlimb": 316.126, "imi": 64.382}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 97.565, "radius": 98.728, "femur": 167.354, "tibia": 140.468, "forelimb": 196.293, "hindlimb": 307.822, "imi": 63.768}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 97.611, "radius": 99.356, "femur": 170.727, "tibia": 141.925, "forelimb": 196.967, "hindlimb": 312.652, "imi": 62.999}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 100.951, "radius": 107.021, "femur": 174.327, "tibia": 153.256, "forelimb": 207.973, "hindlimb": 327.583, "imi": 63.487}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 105.383, "radius": 108.114, "femur": 170.011, "tibia": 154.971, "forelimb": 213.497, "hindlimb": 324.982, "imi": 65.695}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 102.349, "radius": 98.096, "femur": 169.033, "tibia": 141.96, "forelimb": 200.445, "hindlimb": 310.993, "imi": 64.453}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 94.751, "radius": 106.603, "femur": 171.982, "tibia": 155.039, "forelimb": 201.355, "hindlimb": 327.02, "imi": 61.573}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 91.296, "radius": 97.387, "femur": 170.979, "tibia": 142.756, "forelimb": 188.683, "hindlimb": 313.735, "imi": 60.141}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 94.298, "radius": 99.179, "femur": 163.72, "tibia": 145.39, "forelimb": 193.476, "hindlimb": 309.11, "imi": 62.591}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 89.79, "radius": 98.166, "femur": 166.68, "tibia": 145.927, "forelimb": 187.956, "hindlimb": 312.607, "imi": 60.125}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 91.436, "radius": 99.802, "femur": 174.112, "tibia": 148.458, "forelimb": 191.238, "hindlimb": 322.57, "imi": 59.286}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 95.381, "radius": 103.668, "femur": 178.196, "tibia": 154.262, "forelimb": 199.049, "hindlimb": 332.458, "imi": 59.872}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 90.876, "radius": 94.014, "femur": 153.919, "tibia": 140.834, "forelimb": 184.89, "hindlimb": 294.753, "imi": 62.727}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 91.206, "radius": 101.093, "femur": 161.11, "tibia": 152.107, "forelimb": 192.299, "hindlimb": 313.217, "imi": 61.395}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 99.035, "radius": 90.053, "femur": 160.235, "tibia": 135.886, "forelimb": 189.089, "hindlimb": 296.121, "imi": 63.855}, {"superfamily": "Lemuroidea", "genus": "Propithecus", "species": "verreauxi verreauxi", "common_name": "Sifaka", "sex": "U", "humerus": 98.397, "radius": 101.514, "femur": 170.278, "tibia": 153.288, "forelimb": 199.912, "hindlimb": 323.566, "imi": 61.784}]
-;
-
-let currentView = "scatter";
-let mysteryPlotted = false;
-let argumentSubmitted = false;
-let pyodideReady = false;
-let pyodide = null;
-let mysteryData = null;
-
-// ── Body mass formulas ────────────────────────────────────────────────────────
-const BM_GROUPS = [
-  {
-    name: "Lemurs",
-    fn: fhsi => (Math.exp(2.548 * Math.log(fhsi) + 1.696)) / 1000,
-    eq: "exp(2.548 × ln(FHSI) + 1.696) ÷ 1000"
-  },
-  {
-    name: "South American Monkeys",
-    fn: fhsi => (Math.exp(2.729 * Math.log(fhsi) + 1.42)) / 1000,
-    eq: "exp(2.729 × ln(FHSI) + 1.420) ÷ 1000"
-  },
-  {
-    name: "Old World Monkeys",
-    fn: fhsi => Math.exp(2.388 * Math.log(fhsi) - 4.56),
-    eq: "exp(2.388 × ln(FHSI) − 4.560)"
-  },
-  {
-    name: "Apes",
-    fn: fhsi => Math.pow(10, 2.6465 * Math.log10(fhsi) - 2.4093),
-    eq: "10^(2.6465 × log₁₀(FHSI) − 2.4093)"
-  },
-  {
-    name: "Humans",
-    fn: fhsi => Math.pow(10, 1.7125 * Math.log10(fhsi) - 1.048),
-    eq: "10^(1.7125 × log₁₀(FHSI) − 1.048)"
-  }
-];
-
-// ── Pyodide ───────────────────────────────────────────────────────────────────
-async function initPyodide() {
-  setStatus("Loading Pyodide runtime…");
-  pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.2/full/" });
-  setStatus("Installing packages…");
-  await pyodide.loadPackage(["numpy", "pandas"]);
-  setStatus("Preparing dataset…");
-  pyodide.globals.set("raw_data", pyodide.toPy(DATA));
-  await pyodide.runPythonAsync(`
-import pandas as pd, numpy as np, json
-df = pd.DataFrame(raw_data)
-df["imi"] = (df["forelimb"] / df["hindlimb"]) * 100
-  `);
-  pyodideReady = true;
-  document.getElementById("python-status").textContent = "Python ✓";
-  document.getElementById("load-status").textContent = "Ready";
-  document.getElementById("loading").classList.add("hidden");
-  redraw();
-}
-function setStatus(m){ document.getElementById("load-status").textContent = m; }
-
-// ── Tabs ──────────────────────────────────────────────────────────────────────
-function switchTab(tab) {
-  ["explore","mass","argument"].forEach(t => {
-    document.getElementById("tab-" + t).classList.toggle("active", t === tab);
-    document.getElementById("pane-" + t).classList.toggle("active", t === tab);
-  });
-  if (tab === "argument") updateStatsDisplay();
-}
-
-function updateStatsDisplay() {
-  const el = document.getElementById("ms-stats-display");
-  if (!mysteryData) {
-    el.innerHTML = '<span class="stat-pill">Plot your specimen in Tab 1 first</span>';
-    return;
-  }
-  const d = mysteryData;
-  el.innerHTML = `
-    <span class="stat-pill ms">Humerus: ${d.humerus}mm</span>
-    <span class="stat-pill ms">Radius: ${d.radius}mm</span>
-    <span class="stat-pill ms">Femur: ${d.femur}mm</span>
-    <span class="stat-pill ms">Tibia: ${d.tibia}mm</span>
-    <span class="stat-pill ms">Forelimb: ${d.forelimb}mm</span>
-    <span class="stat-pill ms">Hindlimb: ${d.hindlimb}mm</span>
-    <span class="stat-pill ms">IMI: ${d.imi}</span>
-  `;
-}
-
-// ── IMI ───────────────────────────────────────────────────────────────────────
-function updateIMI() {
-  const vals = ["humerus","radius","femur","tibia"].map(id => {
-    const v = parseFloat(document.getElementById(id).value);
-    document.getElementById(id).classList.toggle("filled", !isNaN(v) && v > 0);
-    return v;
-  });
-  const ok = vals.every(v => !isNaN(v) && v > 0);
-  document.getElementById("btn-plot").disabled = !ok || !pyodideReady;
-  if (ok) {
-    const [h,r,f,t] = vals;
-    document.getElementById("imi-val").textContent = ((h+r)/(f+t)*100).toFixed(2);
-  } else {
-    document.getElementById("imi-val").textContent = "—";
-  }
-}
-
-// ── Chart ─────────────────────────────────────────────────────────────────────
-function setView(v) {
-  currentView = v;
-  document.querySelectorAll(".btn-group button").forEach((b,i) => b.classList.toggle("active",(i===0)===(v==="scatter")));
-  document.getElementById("chart-title").textContent = v === "scatter" ? "Scatter Plot" : "IMI Distribution by Group";
-  document.getElementById("axis-pickers").style.display = v === "scatter" ? "flex" : "none";
-  redraw();
-}
-
-async function redraw() {
-  if (!pyodideReady) return;
-  const g = document.getElementById("grouping").value;
-  currentView === "scatter" ? await drawScatter(g) : await drawBox(g);
-}
-
-function getMysteryTrace() {
-  return (mysteryPlotted && mysteryData) ? mysteryData : null;
-}
-
-async function drawScatter(grouping) {
-  const xF = document.getElementById("x-axis").value;
-  const yF = document.getElementById("y-axis").value;
-  const xL = document.getElementById("x-axis").options[document.getElementById("x-axis").selectedIndex].text;
-  const yL = document.getElementById("y-axis").options[document.getElementById("y-axis").selectedIndex].text;
-
-  const result = await pyodide.runPythonAsync(`
-import json
-out=[]
-for name,grp in df.groupby("${grouping}"):
-    out.append({"x":grp["${xF}"].tolist(),"y":grp["${yF}"].tolist(),"name":str(name),
-        "text":(grp["common_name"]+" ("+grp["sex"].fillna("?")+")").tolist()})
-json.dumps(out)
-  `);
-  const groups = JSON.parse(result);
-  const traces = groups.map(g => ({
-    x:g.x, y:g.y, name:g.name, text:g.text,
-    mode:"markers", type:"scatter",
-    marker:{size:6, opacity:0.7},
-    hovertemplate:"<b>%{text}</b><br>${xF}: %{x:.1f}<br>${yF}: %{y:.1f}<extra></extra>"
-  }));
-
-  const ms = getMysteryTrace();
-  if (ms) {
-    const xVal = ms[xF] !== undefined ? ms[xF] : null;
-    const yVal = ms[yF] !== undefined ? ms[yF] : null;
-    traces.push({
-      x:[xVal], y:[yVal], name:"MS-13 (Mystery)", mode:"markers", type:"scatter",
-      marker:{size:14, symbol:"star", color:"#2980b9", line:{color:"#1a5276",width:1.5}},
-      text:["Mystery Specimen MS-13"],
-      hovertemplate:"<b>MS-13</b><br>${xF}: %{x:.1f}<br>${yF}: %{y:.1f}<extra></extra>"
-    });
-  }
-
-  Plotly.react("chart", traces, {
-    xaxis:{title:xL, zeroline:false, gridcolor:"#e8e0d0"},
-    yaxis:{title:yL, zeroline:false, gridcolor:"#e8e0d0"},
-    plot_bgcolor:"#fafaf7", paper_bgcolor:"transparent",
-    legend:{font:{size:11}, bgcolor:"rgba(255,255,255,0.85)"},
-    margin:{t:10,r:10,b:50,l:60},
-    font:{family:"DM Sans, sans-serif", color:"#1a1612"},
-    hovermode:"closest"
-  },{responsive:true, displayModeBar:false});
-}
-
-async function drawBox(grouping) {
-  const result = await pyodide.runPythonAsync(`
-import json
-out=[]
-for name,grp in df.groupby("${grouping}"):
-    out.append({"y":grp["imi"].tolist(),"name":str(name),"mean":float(grp["imi"].mean())})
-out.sort(key=lambda t:t["mean"])
-json.dumps(out)
-  `);
-  const groups = JSON.parse(result);
-  const traces = groups.map(g => ({
-    y:g.y, name:g.name, type:"box", boxpoints:"outliers",
-    marker:{size:4, opacity:0.6},
-    hovertemplate:"<b>"+g.name+"</b><br>IMI: %{y:.1f}<extra></extra>"
-  }));
-
-  const ms = getMysteryTrace();
-  if (ms) {
-    traces.push({
-      y:[ms.imi], name:"MS-13", type:"box",
-      marker:{size:12, symbol:"star", color:"#2980b9"},
-      hovertemplate:"<b>MS-13</b><br>IMI: %{y:.2f}<extra></extra>"
-    });
-  }
-
-  Plotly.react("chart", traces, {
-    yaxis:{title:"Intermembral Index (IMI)", zeroline:false, gridcolor:"#e8e0d0"},
-    xaxis:{tickangle:-35},
-    plot_bgcolor:"#fafaf7", paper_bgcolor:"transparent",
-    showlegend:false,
-    margin:{t:10,r:10,b:110,l:60},
-    font:{family:"DM Sans, sans-serif", color:"#1a1612"}
-  },{responsive:true, displayModeBar:false});
-}
-
-// ── Mystery specimen plot ─────────────────────────────────────────────────────
-async function plotMystery() {
-  const h = parseFloat(document.getElementById("humerus").value);
-  const r = parseFloat(document.getElementById("radius").value);
-  const f = parseFloat(document.getElementById("femur").value);
-  const t = parseFloat(document.getElementById("tibia").value);
-  mysteryData = {
-    humerus:h, radius:r, femur:f, tibia:t,
-    forelimb:+(h+r).toFixed(1), hindlimb:+(f+t).toFixed(1),
-    imi:+((h+r)/(f+t)*100).toFixed(2)
-  };
-  mysteryPlotted = true;
-  await redraw();
-}
-
-// ── Body mass calculator ──────────────────────────────────────────────────────
-function calcBodyMass() {
-  const fhsi = parseFloat(document.getElementById("fhsi-input").value);
-  if (isNaN(fhsi) || fhsi <= 0) {
-    alert("Please enter a valid femoral head diameter in mm.");
-    return;
-  }
-
-  const tbody = document.getElementById("bm-tbody");
-  tbody.innerHTML = "";
-
-  // Sort by mass so table reads low to high
-  const results = BM_GROUPS.map(g => ({
-    name: g.name,
-    mass: g.fn(fhsi),
-    eq: g.eq
-  })).sort((a,b) => a.mass - b.mass);
-
-  const masses = results.map(r => r.mass);
-  const minMass = Math.min(...masses);
-  const maxMass = Math.max(...masses);
-
-  results.forEach(r => {
-    const tr = document.createElement("tr");
-    const isHuman = r.name === "Humans";
-    if (isHuman) tr.classList.add("highlight-human");
-
-    tr.innerHTML = `
-      <td>${r.name}</td>
-      <td><strong>${r.mass.toFixed(2)} kg</strong></td>
-      <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${r.eq}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  // Contextual note
-  const note = document.getElementById("bm-note");
-  const humanMass = BM_GROUPS.find(g => g.name === "Humans").fn(fhsi);
-  let noteText = `At FHSI = ${fhsi}mm, estimates range from ${minMass.toFixed(2)}–${maxMass.toFixed(2)} kg depending on which regression you apply. `;
-  if (humanMass > 40) {
-    noteText += `The human estimate (${humanMass.toFixed(1)} kg) is plausible for a modern human. Consider whether other evidence supports or contradicts a human classification.`;
-  } else {
-    noteText += `The human equation gives ${humanMass.toFixed(2)} kg — far below any known adult human body mass. This is strong evidence against a human classification regardless of IMI similarity.`;
-  }
-  note.textContent = noteText;
-
-  document.getElementById("bm-results").classList.add("visible");
-}
-
-// ── AI Feedback ───────────────────────────────────────────────────────────────
-async function submitArgument() {
-  const responses = {
-    claim: document.getElementById("q1").value.trim(),
-    evidence: document.getElementById("q2").value.trim(),
-    conflicting: document.getElementById("q3").value.trim(),
-    adaptation: document.getElementById("q4").value.trim()
-  };
-
-  if (Object.values(responses).some(v => !v)) {
-    alert("Please respond to all four prompts before submitting.");
-    return;
-  }
-
-  const btn = document.getElementById("btn-submit");
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Analyzing…';
-
-  const feedbackArea = document.getElementById("feedback-area");
-  const feedbackBody = document.getElementById("feedback-body");
-  feedbackArea.classList.add("visible");
-  feedbackBody.classList.add("loading");
-  feedbackBody.textContent = "Reviewing your argument…";
-
-  const ms = mysteryData || {};
-
-  // Build body mass context if student used that tab
-  const fhsiVal = document.getElementById("fhsi-input").value;
-  let bmContext = "The student may or may not have used the body mass estimation tool.";
-  if (fhsiVal) {
-    const lemurMass = BM_GROUPS.find(g => g.name === "Lemurs").fn(parseFloat(fhsiVal));
-    const humanMass = BM_GROUPS.find(g => g.name === "Humans").fn(parseFloat(fhsiVal));
-    bmContext = `The student entered a femoral head diameter of ${fhsiVal}mm. The lemur regression gives ~${lemurMass.toFixed(2)}kg; the human regression gives ~${humanMass.toFixed(2)}kg.`;
-  }
-
-  const systemPrompt = `You are a science instructor giving formative feedback to a college freshman on a primate locomotion investigation. Your tone is direct, collegial, and specific. You are not grading — you are helping the student strengthen their scientific argument.
-
-The investigation: Students analyzed limb proportions and body mass estimates from 478 modern primates to make and defend a claim about an unknown specimen's locomotion and ecology.
-
-Key IMI reference values (mean):
-- Sifaka: ~63, Human: ~68 (hindlimb-dominated)
-- Baboon: ~94, Howler monkey: ~99 (quadrupeds)
-- Chimpanzee: ~106, Gorilla: ~117 (knuckle-walkers)
-- Gibbon: ~130, Orangutan: ~139 (brachiators)
-
-Mystery Specimen MS-13 measurements:
-- Humerus: ${ms.humerus || "?"}mm, Radius: ${ms.radius || "?"}mm
-- Femur: ${ms.femur || "?"}mm, Tibia: ${ms.tibia || "?"}mm
-- Forelimb: ${ms.forelimb || "?"}mm, Hindlimb: ${ms.hindlimb || "?"}mm
-- IMI: ${ms.imi || "?"}
-
-Body mass context: ${bmContext}
-
-The actual identity is Indri indri (largest living lemur, vertical clinger and leaper, native to Madagascar — NOT West Africa). Its low IMI reflects hindlimb-dominated leaping, convergent with humans for entirely different reasons. Its body mass is ~6-9.5kg.
-
-Your feedback must:
-1. Assess claim specificity — is it falsifiable and precise about locomotor pattern?
-2. Check evidence use — did the student cite actual numbers, not just general impressions?
-3. Evaluate conflicting evidence — did they genuinely engage with what doesn't fit, especially the IMI-human similarity trap?
-4. Assess the adaptation reasoning — does it connect specific structure to specific function and selective pressure?
-5. Note whether body mass evidence was used, and if so whether correctly — a ~5-8kg animal cannot be a human regardless of IMI
-6. End with one prioritized revision suggestion
-
-Do NOT reveal the actual identity (Indri) unless the student already named it correctly.
-Length: 220-280 words. Paragraph form only, no bullet points. Address the student as "you."`;
-
-  const userPrompt = `CLAIM: ${responses.claim}
-
-SUPPORTING EVIDENCE: ${responses.evidence}
-
-CONFLICTING EVIDENCE: ${responses.conflicting}
-
-ADAPTATION AND NATURAL SELECTION: ${responses.adaptation}`;
-
-  try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1000,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userPrompt }]
-      })
-    });
-    const data = await response.json();
-    const text = data.content?.find(b => b.type === "text")?.text || "No feedback returned.";
-    feedbackBody.classList.remove("loading");
-    feedbackBody.textContent = text;
-
-    // Unlock reveal now that argument is submitted
-    argumentSubmitted = true;
-    const revealBtn = document.getElementById("btn-reveal");
-    revealBtn.classList.add("ready");
-    revealBtn.textContent = "Reveal identity →";
-    revealBtn.onclick = doReveal;
-
-  } catch(err) {
-    feedbackBody.classList.remove("loading");
-    feedbackBody.textContent = "Feedback unavailable — make sure you are serving this file over HTTP, not opening it directly as a file://  URL. Run: python3 -m http.server 8000";
-  }
-
-  btn.disabled = false;
-  btn.textContent = "Revise and Resubmit →";
-}
-
-function doReveal() {
-  document.getElementById("reveal-panel").classList.add("visible");
-  const btn = document.getElementById("btn-reveal");
-  btn.textContent = "Identity revealed";
-  btn.classList.remove("ready");
-  btn.onclick = null;
-}
-
-// ── Boot ──────────────────────────────────────────────────────────────────────
-window.addEventListener("DOMContentLoaded", () => {
-  const s = document.createElement("script");
-  s.src = "https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js";
-  s.onload = initPyodide;
-  document.head.appendChild(s);
-});
-</script>
 </body>
 </html>
