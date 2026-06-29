@@ -150,7 +150,7 @@
 <body>
 
 <div id="loading">
-  <div class="loading-title">Initializing Python runtime\u2026</div>
+  <div class="loading-title">Initializing Python runtime…</div>
   <div class="loading-bar-wrap"><div class="loading-bar"></div></div>
   <div class="loading-status" id="load-status">Loading Pyodide</div>
 </div>
@@ -164,14 +164,14 @@
 
   <header>
     <div class="header-eyebrow" id="header-eyebrow">Primate Locomotion Investigation</div>
-    <h1 id="header-title">Loading specimen\u2026</h1>
+    <h1 id="header-title">Loading specimen…</h1>
     <p class="header-sub" id="header-sub"></p>
   </header>
 
   <div class="tabs">
-    <button class="tab active" id="tab-explore" onclick="switchTab('explore')">1 \xb7 Explore Data</button>
-    <button class="tab" id="tab-mass" onclick="switchTab('mass')">2 \xb7 Body Mass</button>
-    <button class="tab" id="tab-argument" onclick="switchTab('argument')">3 \xb7 Build Argument</button>
+    <button class="tab active" id="tab-explore" onclick="switchTab('explore')">1 · Explore Data</button>
+    <button class="tab" id="tab-mass" onclick="switchTab('mass')">2 · Body Mass</button>
+    <button class="tab" id="tab-argument" onclick="switchTab('argument')">3 · Build Argument</button>
   </div>
 
   <!-- TAB 1 -->
@@ -181,7 +181,7 @@
         <div class="panel">
           <div class="panel-header">
             <h2 id="chart-title">Scatter Plot</h2>
-            <span class="status-dot" id="python-status">Python \u2713</span>
+            <span class="status-dot" id="python-status">Python ✓</span>
           </div>
           <div class="panel-body">
             <div class="controls">
@@ -230,14 +230,14 @@
           <div class="context-block" id="context-block"></div>
           <div class="panel-body">
             <div class="form-grid">
-              <div class="field"><label>Humerus (mm)</label><input type="number" id="humerus" placeholder="\u2014" step="0.1" oninput="updateIMI()"></div>
-              <div class="field"><label>Radius (mm)</label><input type="number" id="radius" placeholder="\u2014" step="0.1" oninput="updateIMI()"></div>
-              <div class="field"><label>Femur (mm)</label><input type="number" id="femur" placeholder="\u2014" step="0.1" oninput="updateIMI()"></div>
-              <div class="field"><label>Tibia (mm)</label><input type="number" id="tibia" placeholder="\u2014" step="0.1" oninput="updateIMI()"></div>
+              <div class="field"><label>Humerus (mm)</label><input type="number" id="humerus" placeholder="—" step="0.1" oninput="updateIMI()"></div>
+              <div class="field"><label>Radius (mm)</label><input type="number" id="radius" placeholder="—" step="0.1" oninput="updateIMI()"></div>
+              <div class="field"><label>Femur (mm)</label><input type="number" id="femur" placeholder="—" step="0.1" oninput="updateIMI()"></div>
+              <div class="field"><label>Tibia (mm)</label><input type="number" id="tibia" placeholder="—" step="0.1" oninput="updateIMI()"></div>
             </div>
-            <div class="imi-display">IMI = <span id="imi-val">\u2014</span></div>
+            <div class="imi-display">IMI = <span id="imi-val">—</span></div>
             <button class="btn-primary" id="btn-plot" onclick="plotMystery()" disabled>Plot Mystery Specimen</button>
-            <button class="btn-reveal" id="btn-reveal">Reveal identity \u2014 submit argument first</button>
+            <button class="btn-reveal" id="btn-reveal">Reveal identity — submit argument first</button>
           </div>
         </div>
         <div class="panel" id="reveal-panel">
@@ -288,14 +288,14 @@
         <div class="prompt-block">
           <div class="prompt-label"><span class="prompt-num">1</span> Claim</div>
           <div class="prompt-question">What is your best claim about how this specimen moved through its environment?</div>
-          <div class="prompt-hint">Name a specific locomotor pattern. Be explicit about your confidence level. You don't need certainty \u2014 make the strongest claim the evidence supports.</div>
-          <textarea id="q1" placeholder="My claim is that this specimen was a\u2026"></textarea>
+          <div class="prompt-hint">Name a specific locomotor pattern. Be explicit about your confidence level. You don't need certainty — make the strongest claim the evidence supports.</div>
+          <textarea id="q1" placeholder="My claim is that this specimen was a…"></textarea>
         </div>
         <div class="prompt-block">
           <div class="prompt-label"><span class="prompt-num">2</span> Supporting Evidence</div>
           <div class="prompt-question">Which measurements or comparisons most strongly support your claim?</div>
           <div class="prompt-hint">Reference specific numbers. Which species does the specimen cluster with? What do the IMI and body mass estimates suggest when compared to species averages?</div>
-          <textarea id="q2" placeholder="The data supports my claim because\u2026"></textarea>
+          <textarea id="q2" placeholder="The data supports my claim because…"></textarea>
         </div>
       </div>
       <div>
@@ -303,18 +303,18 @@
           <div class="prompt-label"><span class="prompt-num">3</span> Conflicting Evidence</div>
           <div class="prompt-question">What evidence does NOT fit your claim, or makes you less certain?</div>
           <div class="prompt-hint">A strong scientific argument names what doesn't fit. Are there species with similar values that move differently? Does any measurement point in a different direction?</div>
-          <textarea id="q3" placeholder="Evidence that complicates my claim includes\u2026"></textarea>
+          <textarea id="q3" placeholder="Evidence that complicates my claim includes…"></textarea>
         </div>
         <div class="prompt-block">
           <div class="prompt-label"><span class="prompt-num">4</span> Adaptation &amp; Natural Selection</div>
           <div class="prompt-question">Why would natural selection produce this limb structure and body size in this animal's environment?</div>
           <div class="prompt-hint">Connect structure to function and selective pressure. What specific features of the habitat would favor these proportions? Think survival, reproduction, resource access.</div>
-          <textarea id="q4" placeholder="These proportions would be adaptive because\u2026"></textarea>
+          <textarea id="q4" placeholder="These proportions would be adaptive because…"></textarea>
         </div>
       </div>
     </div>
     <div class="submit-row">
-      <button class="btn-submit" id="btn-submit" onclick="submitArgument()">Get Feedback \u2192</button>
+      <button class="btn-submit" id="btn-submit" onclick="submitArgument()">Get Feedback →</button>
       <span class="submit-note">Your written responses will be reviewed by an AI tutor. This is not a grade.</span>
     </div>
     <div id="feedback-area">
@@ -375,7 +375,7 @@ df = pd.DataFrame(raw_data)
 df["imi"] = (df["forelimb"] / df["hindlimb"]) * 100
   `);
   pyodideReady = true;
-  document.getElementById("python-status").textContent = "Python \u2713";
+  document.getElementById("python-status").textContent = "Python ✓";
   document.getElementById("load-status").textContent = "Ready";
   document.getElementById("loading").classList.add("hidden");
   redraw();
