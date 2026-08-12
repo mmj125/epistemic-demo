@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Instructor Guide | Primate Locomotion Investigation | epiSTEMic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bone:#e8e0d0;--bone-dark:#c9bfaa;--ink:#1a1612;--ink-soft:#4a3f35;
+    --field:#f5f0e8;--accent:#c0392b;--muted:#7a6f63;--panel:#ffffff;
+    --border:#d4c9b8;--teacher:#1a6f8a;--teacher-light:#eef6fc;
+    --gold:#c9920a;--gold-light:#fff8e8;--reveal:#27ae60;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:"DM Sans",sans-serif;background:var(--field);color:var(--ink);min-height:100vh;}
+  body::before{content:"";position:fixed;inset:0;background-image:linear-gradient(var(--bone-dark) 1px,transparent 1px),linear-gradient(90deg,var(--bone-dark) 1px,transparent 1px);background-size:32px 32px;opacity:.15;pointer-events:none;z-index:0;}
+  .app{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:0 24px 80px;}
+
+  /* Teacher badge */
+  .teacher-bar{background:var(--teacher);color:white;text-align:center;padding:8px;font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.15em;text-transform:uppercase;position:sticky;top:0;z-index:50;}
+
+  /* Header */
+  header{padding:40px 0 28px;border-bottom:2px solid var(--ink);margin-bottom:40px;}
+  .header-eyebrow{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--teacher);margin-bottom:10px;}
+  header h1{font-family:"DM Serif Display",serif;font-size:clamp(28px,5vw,46px);line-height:1.08;margin-bottom:14px;}
+  header h1 em{font-style:italic;color:var(--accent);}
+  .header-sub{font-size:15px;line-height:1.7;color:var(--ink-soft);max-width:720px;font-weight:300;}
+
+  /* Overview */
+  .overview{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:48px;}
+  @media(max-width:700px){.overview{grid-template-columns:1fr;}}
+  .overview-card{background:var(--panel);border:1.5px solid var(--border);border-radius:4px;padding:24px;}
+  .overview-card h3{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+  .overview-card p{font-size:14px;line-height:1.7;color:var(--ink-soft);}
+  .overview-card.highlight{background:var(--teacher);border-color:var(--teacher);}
+  .overview-card.highlight h3{color:rgba(255,255,255,.7);}
+  .overview-card.highlight p{color:rgba(255,255,255,.9);}
+
+  /* Section headers */
+  .section-header{margin-bottom:20px;padding-bottom:10px;border-bottom:1.5px solid var(--border);}
+  .section-label{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+  .section-title{font-family:"DM Serif Display",serif;font-size:clamp(22px,3vw,30px);color:var(--ink);}
+
+  /* Module cards */
+  .modules{display:flex;flex-direction:column;gap:20px;margin-bottom:48px;}
+  .module{background:var(--panel);border:1.5px solid var(--border);border-radius:4px;overflow:hidden;}
+  .module-header{padding:16px 22px;display:flex;align-items:center;gap:16px;border-bottom:1px solid var(--bone);}
+  .module-num{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:var(--teacher);color:white;font-family:"DM Mono",monospace;font-size:13px;font-weight:500;flex-shrink:0;}
+  .module-title{font-family:"DM Serif Display",serif;font-size:20px;color:var(--ink);}
+  .module-subtitle{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:2px;}
+  .module-body{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;}
+  @media(max-width:800px){.module-body{grid-template-columns:1fr;}}
+  .module-col{padding:18px 22px;}
+  .module-col+.module-col{border-left:1px solid var(--bone);}
+  @media(max-width:800px){.module-col+.module-col{border-left:none;border-top:1px solid var(--bone);}}
+  .col-label{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+  .col-content{font-size:13.5px;line-height:1.65;color:var(--ink-soft);}
+  .col-content strong{color:var(--ink);font-weight:500;}
+  .col-content ul{padding-left:16px;margin-top:6px;}
+  .col-content li{margin-bottom:4px;}
+
+  /* Download button */
+  .dl-btn{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:var(--field);border:1.5px solid var(--border);border-radius:3px;font-family:"DM Sans",sans-serif;font-size:13px;font-weight:500;color:var(--ink-soft);text-decoration:none;transition:all .15s;margin-top:10px;}
+  .dl-btn:hover{background:var(--teacher);border-color:var(--teacher);color:white;}
+  .dl-btn .dl-icon{font-size:14px;}
+
+  /* Student entry */
+  .specimen-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:48px;}
+  @media(max-width:800px){.specimen-grid{grid-template-columns:repeat(2,1fr);}}
+  .specimen-card{background:var(--panel);border:1.5px solid var(--border);border-radius:4px;overflow:hidden;text-decoration:none;display:block;transition:transform .15s,box-shadow .15s;}
+  .specimen-card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.09);}
+  .specimen-card-header{padding:12px 14px;background:var(--ink);}
+  .specimen-card-id{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--bone-dark);margin-bottom:3px;}
+  .specimen-card-name{font-family:"DM Serif Display",serif;font-size:15px;color:var(--bone);line-height:1.2;}
+  .specimen-card-body{padding:12px 14px;}
+  .specimen-card-loc{font-family:"DM Mono",monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+  .specimen-card-desc{font-size:12px;line-height:1.55;color:var(--ink-soft);}
+  .specimen-card-cta{padding:8px 14px;border-top:1px solid var(--bone);font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--teacher);}
+
+  /* Resources */
+  .resources-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:48px;}
+  .resource-card{background:var(--panel);border:1.5px solid var(--border);border-radius:4px;padding:18px;}
+  .resource-icon{font-size:24px;margin-bottom:10px;}
+  .resource-title{font-weight:600;font-size:14px;color:var(--ink);margin-bottom:5px;}
+  .resource-desc{font-size:12px;line-height:1.5;color:var(--muted);margin-bottom:10px;}
+  .resource-link{display:inline-block;font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--teacher);text-decoration:none;border-bottom:1px solid var(--teacher);}
+  .resource-link:hover{color:var(--accent);border-bottom-color:var(--accent);}
+
+  /* Pedagogy note */
+  .pedagogy-note{background:var(--gold-light);border:1.5px solid var(--gold);border-radius:4px;padding:22px 26px;margin-bottom:48px;}
+  .pedagogy-note h3{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:10px;}
+  .pedagogy-note p{font-size:14px;line-height:1.7;color:var(--ink-soft);margin-bottom:8px;}
+  .pedagogy-note p:last-child{margin-bottom:0;}
+  .pedagogy-note strong{color:var(--ink);}
+
+  /* Footer */
+  footer{border-top:1px solid var(--border);padding-top:24px;font-size:12px;color:var(--muted);line-height:1.7;}
+  footer a{color:var(--teacher);text-decoration:none;}
+</style>
+</head>
+<body>
+
+<div class="teacher-bar">Instructor Resources — Not for Student Distribution</div>
+
+<div class="app">
+  <header>
+    <div class="header-eyebrow">epiSTEMic · Primate Locomotion Investigation</div>
+    <h1>Instructor Guide &amp;<br><em>Resource Library</em></h1>
+    <p class="header-sub">Everything you need to run the Primate Locomotion Investigation in your classroom. This is an in-class, instructor-led activity — not a self-paced course. The platform is designed to be used alongside your instruction, not instead of it.</p>
+  </header>
+
+  <!-- Overview cards -->
+  <div class="overview" style="margin-bottom:16px;">
+    <div class="overview-card highlight">
+      <h3>About this investigation</h3>
+      <p>Students are told a fossilized primate specimen has been found and they must determine how it moved and how big it was — using only the bones and a comparative dataset of 478 modern primates. There is no single correct answer. Students must synthesize four lines of quantitative evidence and construct a defensible written argument under genuine uncertainty.</p>
+    </div>
+    <div class="overview-card">
+      <h3>Core pedagogical approach</h3>
+      <p><strong>Teach a thing, do a thing.</strong> Each module follows the same pattern: you introduce a concept through direct instruction and class discussion, then students apply it in the platform using real data. The platform handles computation and visualization so students can focus on scientific reasoning rather than software.<br><br><strong>Productive ambiguity is intentional.</strong> No single metric resolves the investigation. Students who expect a matching game will be surprised. That surprise is the learning.</p>
+    </div>
+  </div>
+
+  <div class="pedagogy-note" style="margin-bottom:48px;">
+    <h3>A note on the "right answer"</h3>
+    <p>The mystery specimens are chosen so that no single analytical method produces a confident identification. The intermembral index will cluster near species with different locomotor strategies. Body mass estimates will rule out some possibilities but not others. The olecranon index and bone geometry each add information without resolving the question. This is deliberate — it models how actual paleontological inference works.</p>
+    <p>The reveal at the end of the investigation is gated behind argument submission specifically so students cannot skip to the answer. When the identity is revealed, the follow-up question — <strong>"What does this tell you about the limits of your evidence?"</strong> — is where the deepest learning happens.</p>
+  </div>
+
+  <!-- Instructional sequence -->
+  <div class="section-header" style="margin-bottom:24px;">
+    <div class="section-label">Instructional Sequence</div>
+    <div class="section-title">Four modules, flexible pacing</div>
+  </div>
+
+  <div class="modules">
+
+    <!-- Module 1 -->
+    <div class="module">
+      <div class="module-header">
+        <div class="module-num">1</div>
+        <div>
+          <div class="module-title">Limb Proportions &amp; Locomotion</div>
+          <div class="module-subtitle">Teach · Morphosource · Platform Tab 1</div>
+        </div>
+      </div>
+      <div class="module-body">
+        <div class="module-col">
+          <div class="col-label">You teach</div>
+          <div class="col-content">
+            Locomotor diversity and why it exists (form follows function, natural selection). The bones of interest: humerus, radius, femur, tibia. How to compare limb proportions across body sizes using the intermembral index. Students observe locomotion videos and form hypotheses before seeing any data.
+          </div>
+        </div>
+        <div class="module-col">
+          <div class="col-label">Students do</div>
+          <div class="col-content">
+            Measure limb bone lengths for their mystery specimen in <strong>Morphosource</strong>. Enter measurements into the platform. Explore scatter plots and IMI distributions across 478 comparative specimens. Begin noticing where their specimen clusters — and what that does and doesn't tell them.
+          </div>
+        </div>
+        <div class="module-col">
+          <div class="col-label">Slide deck</div>
+          <div class="col-content">
+            Covers tetrapod origins, locomotor diversity, bones of interest, the IMI formula, and measurement protocol. Includes activity prompts (Parts A–D) for class discussion and hypothesis formation.
+            <br>
+            <a class="dl-btn" href="slides-limb-proportions.pptx" download>
+              <span class="dl-icon">⬇</span> Download PPTX
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Module 2 -->
+    <div class="module">
+      <div class="module-header">
+        <div class="module-num">2</div>
+        <div>
+          <div class="module-title">Body Mass &amp; Biomechanics</div>
+          <div class="module-subtitle">Teach · Morphosource · Platform Tabs 2–3</div>
+        </div>
+      </div>
+      <div class="module-body">
+        <div class="module-col">
+          <div class="col-label">You teach</div>
+          <div class="col-content">
+            Body mass estimation from skeletal measurements and why size matters for locomotion. Levers, mechanical advantage, and how the elbow joint functions as a third-class lever. The olecranon process as the triceps insertion point — a longer olecranon means more force, less speed.
+          </div>
+        </div>
+        <div class="module-col">
+          <div class="col-label">Students do</div>
+          <div class="col-content">
+            Measure the femoral head diameter in Morphosource and estimate body mass using five taxon-specific regression equations. Measure olecranon length and ulnar diaphyseal length to calculate OUI. Plot their OUI against reference ranges from the literature and interpret what the mechanical advantage implies about forelimb use.
+          </div>
+        </div>
+        <div class="module-col">
+          <div class="col-label">Slide decks</div>
+          <div class="col-content">
+            Two decks for this module: the Biomechanics lecture covers lever classes, mechanical advantage, and body joints. The Post-Discussion deck covers ulnar morphology across locomotor groups with comparative data from published literature.
+            <br>
+            <a class="dl-btn" href="slides-biomechanics.pptx" download>
+              <span class="dl-icon">⬇</span> Biomechanics PPTX
+            </a>
+            <br style="margin-bottom:6px;">
+            <a class="dl-btn" href="slides-post-discussion.pptx" download>
+              <span class="dl-icon">⬇</span> Post-Discussion PPTX
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Module 3 -->
+    <div class="module">
+      <div class="module-header">
+        <div class="module-num">3</div>
+        <div>
+          <div class="module-title">Cross-Sectional Geometry</div>
+          <div class="module-subtitle">Teach · ImageJ · Platform Tab 4</div>
+        </div>
+      </div>
+      <div class="module-body">
+        <div class="module-col">
+          <div class="col-label">You teach</div>
+          <div class="col-content">
+            Bone as a living tissue that responds to mechanical loading. Wolff's Law and bone plasticity: habitual movement leaves a structural record in cortical bone. Cortical area as a proxy for overall bone robusticity. Imax/Imin as a measure of loading directionality — circular cross-sections indicate multidirectional loading, elliptical sections indicate planar loading.
+          </div>
+        </div>
+        <div class="module-col">
+          <div class="col-label">Students do</div>
+          <div class="col-content">
+            Open CT cross-section images of the femur and humerus midshaft in <strong>ImageJ</strong> (browser-based). Run the MomentMacro to extract cortical area, Imax, Imin, Imax/Imin, and polar moment J. Upload the log files to the platform. Compare femur and humerus values across species using log-scale box plots and a humerus vs. femur J scatter plot with a 1:1 reference line.
+          </div>
+        </div>
+        <div class="module-col">
+          <div class="col-label">Slide deck &amp; files</div>
+          <div class="col-content">
+            The CSG lecture covers bone biology, cross-sectional properties, and the MomentMacro workflow. Students also need the MomentMacro .txt file and their specimen's CT images (distributed separately).
+            <br>
+            <a class="dl-btn" href="slides-csg.pptx" download>
+              <span class="dl-icon">⬇</span> Download PPTX
+            </a>
+            <br style="margin-bottom:6px;">
+            <a class="dl-btn" href="MomentMacro_CSATS.txt" download>
+              <span class="dl-icon">⬇</span> MomentMacro .txt
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Module 4 -->
+    <div class="module">
+      <div class="module-header">
+        <div class="module-num">4</div>
+        <div>
+          <div class="module-title">Argument Construction &amp; Reveal</div>
+          <div class="module-subtitle">Platform Tab 5 · Class Discussion</div>
+        </div>
+      </div>
+      <div class="module-body">
+        <div class="module-col">
+          <div class="col-label">You teach</div>
+          <div class="col-content">
+            Scientific argumentation: what makes a claim defensible, how evidence is weighed against competing interpretations, and why acknowledging conflicting evidence strengthens rather than weakens an argument. Review the structure-function connection across all four metrics students have collected.
+          </div>
+        </div>
+        <div class="module-col">
+          <div class="col-label">Students do</div>
+          <div class="col-content">
+            Write a four-part argument: claim, supporting evidence (with specific numbers from all four analyses), conflicting evidence, and adaptation/natural selection reasoning. Submit for AI formative feedback. Revise. Then and only then, reveal the specimen identity. Class discussion follows: what did we get right, where were we wrong, and what does that tell us about the limits of skeletal evidence?
+          </div>
+        </div>
+        <div class="module-col">
+          <div class="col-label">Discussion questions</div>
+          <div class="col-content">
+            <ul>
+              <li>Which metric was most useful? Which was most misleading?</li>
+              <li>What additional evidence would have helped?</li>
+              <li>How does this relate to how paleontologists actually work?</li>
+              <li>What would change if the specimen were from a different habitat?</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Student investigation entry -->
+  <div class="section-header" style="margin-bottom:20px;">
+    <div class="section-label">Student Entry Points</div>
+    <div class="section-title">Four mystery specimens</div>
+  </div>
+  <p style="font-size:14px;color:var(--muted);margin-bottom:20px;line-height:1.6;">Each specimen has a different field context and produces different analytical tensions. Assign different specimens to different student groups for richer class discussion — groups will have partially overlapping but not identical results.</p>
+
+  <div class="specimen-grid">
+    <a class="specimen-card" href="investigation.html?specimen=MS11" target="_blank">
+      <div class="specimen-card-header">
+        <div class="specimen-card-id">MS-11</div>
+        <div class="specimen-card-name">Western Amazon Basin</div>
+      </div>
+      <div class="specimen-card-body">
+        <div class="specimen-card-loc">Rio Verde Forest Reserve, Colombia</div>
+        <div class="specimen-card-desc">Dense primary lowland rainforest. IMI places specimen in arboreal quadruped range. Body mass distinguishes it from larger species with similar proportions.</div>
+      </div>
+      <div class="specimen-card-cta">Open investigation →</div>
+    </a>
+
+    <a class="specimen-card" href="investigation.html?specimen=MS12" target="_blank">
+      <div class="specimen-card-header">
+        <div class="specimen-card-id">MS-12</div>
+        <div class="specimen-card-name">Peninsular Malaysia</div>
+      </div>
+      <div class="specimen-card-body">
+        <div class="specimen-card-loc">Bukit Hijau National Park</div>
+        <div class="specimen-card-desc">High-canopy rainforest. IMI sits squarely in cercopithecoid territory — but multiple locomotor strategies produce similar values. Students must look beyond a single metric.</div>
+      </div>
+      <div class="specimen-card-cta">Open investigation →</div>
+    </a>
+
+    <a class="specimen-card" href="investigation.html?specimen=MS13" target="_blank">
+      <div class="specimen-card-header">
+        <div class="specimen-card-id">MS-13</div>
+        <div class="specimen-card-name">West African Forest</div>
+      </div>
+      <div class="specimen-card-body">
+        <div class="specimen-card-loc">Dense closed-canopy forest</div>
+        <div class="specimen-card-desc">The most analytically complex specimen. IMI clusters near humans and sifaka for unrelated evolutionary reasons. Field context is a deliberate misdirection.</div>
+      </div>
+      <div class="specimen-card-cta">Open investigation →</div>
+    </a>
+
+    <a class="specimen-card" href="investigation.html?specimen=MS14" target="_blank">
+      <div class="specimen-card-header">
+        <div class="specimen-card-id">MS-14</div>
+        <div class="specimen-card-name">Sub-Saharan Africa</div>
+      </div>
+      <div class="specimen-card-body">
+        <div class="specimen-card-loc">Kiboko Savanna</div>
+        <div class="specimen-card-desc">Open grassland habitat. IMI overlaps with arboreal species despite strongly terrestrial lifestyle. Habitat context is essential evidence that raw metrics alone cannot provide.</div>
+      </div>
+      <div class="specimen-card-cta">Open investigation →</div>
+    </a>
+  </div>
+
+  <!-- Resources -->
+  <div class="section-header" style="margin-bottom:20px;">
+    <div class="section-label">External Tools &amp; Resources</div>
+    <div class="section-title">What students will use</div>
+  </div>
+
+  <div class="resources-grid">
+    <div class="resource-card">
+      <div class="resource-icon">🦴</div>
+      <div class="resource-title">Morphosource</div>
+      <div class="resource-desc">Browser-based 3D specimen viewer for measuring limb bone lengths, femoral head diameter, and olecranon dimensions. Students need a free account.</div>
+      <a class="resource-link" href="https://www.morphosource.org" target="_blank">morphosource.org</a>
+    </div>
+    <div class="resource-card">
+      <div class="resource-icon">🔬</div>
+      <div class="resource-title">ImageJ (Web)</div>
+      <div class="resource-desc">Browser-based image analysis tool for cross-sectional geometry. Students install the MomentMacro to extract cortical area and polar moment from CT cross-sections.</div>
+      <a class="resource-link" href="https://ij.imjoy.io/" target="_blank">ij.imjoy.io</a>
+    </div>
+    <div class="resource-card">
+      <div class="resource-icon">⚙️</div>
+      <div class="resource-title">MomentMacro</div>
+      <div class="resource-desc">ImageJ macro for computing cross-sectional geometric properties. Outputs cortical area, Imax, Imin, Imax/Imin ratio, and polar moment J as a tab-separated log file.</div>
+      <a class="resource-link" href="MomentMacro_CSATS.txt" download>Download .txt file</a>
+    </div>
+    <div class="resource-card">
+      <div class="resource-icon">📊</div>
+      <div class="resource-title">epiSTEMic Platform</div>
+      <div class="resource-desc">The student-facing investigation tool. Runs Python in the browser via Pyodide — no login, no installation, no external server required. Share the URL directly with students.</div>
+      <a class="resource-link" href="index.html" target="_blank">Open student landing page</a>
+    </div>
+  </div>
+
+  <!-- Reveal answers (instructor only) -->
+  <div class="section-header" style="margin-bottom:20px;">
+    <div class="section-label">Instructor Reference</div>
+    <div class="section-title">Specimen identities &amp; key tensions</div>
+  </div>
+
+  <div style="background:var(--panel);border:1.5px solid var(--border);border-radius:4px;overflow:hidden;margin-bottom:48px;">
+    <table style="width:100%;border-collapse:collapse;font-size:13.5px;">
+      <thead>
+        <tr style="background:var(--ink);">
+          <th style="padding:12px 16px;text-align:left;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--bone);font-weight:500;">Specimen</th>
+          <th style="padding:12px 16px;text-align:left;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--bone);font-weight:500;">Identity</th>
+          <th style="padding:12px 16px;text-align:left;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--bone);font-weight:500;">Key pedagogical tension</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid var(--bone);">
+          <td style="padding:14px 16px;font-family:'DM Mono',monospace;font-size:12px;color:var(--teacher);font-weight:500;">MS-11</td>
+          <td style="padding:14px 16px;"><em>Alouatta seniculus</em><br><span style="font-size:12px;color:var(--muted);">Red Howler Monkey</span></td>
+          <td style="padding:14px 16px;color:var(--ink-soft);">IMI falls in mid-range arboreal quadruped zone shared by several species. Body mass (~5–10 kg) is the key discriminator — students must use size estimates to narrow the field.</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--bone);">
+          <td style="padding:14px 16px;font-family:'DM Mono',monospace;font-size:12px;color:var(--teacher);font-weight:500;">MS-12</td>
+          <td style="padding:14px 16px;"><em>Presbytis obscura</em><br><span style="font-size:12px;color:var(--muted);">Dusky Leaf Monkey</span></td>
+          <td style="padding:14px 16px;color:var(--ink-soft);">IMI ~90–91 sits in dense cercopithecoid overlap zone. Students cannot distinguish arboreal from terrestrial quadrupeds on IMI alone — must integrate habitat context and bone geometry.</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--bone);">
+          <td style="padding:14px 16px;font-family:'DM Mono',monospace;font-size:12px;color:var(--teacher);font-weight:500;">MS-13</td>
+          <td style="padding:14px 16px;"><em>Indri indri</em><br><span style="font-size:12px;color:var(--muted);">Indri (largest living lemur)</span></td>
+          <td style="padding:14px 16px;color:var(--ink-soft);">IMI ~66.5 clusters near humans and sifaka — hindlimb dominance from vertical clinging, not bipedalism. Field context (West Africa) is deliberately incorrect; Indri is Malagasy. Two misdirections to navigate.</td>
+        </tr>
+        <tr>
+          <td style="padding:14px 16px;font-family:'DM Mono',monospace;font-size:12px;color:var(--teacher);font-weight:500;">MS-14</td>
+          <td style="padding:14px 16px;"><em>Erythrocebus patas</em><br><span style="font-size:12px;color:var(--muted);">Patas Monkey</span></td>
+          <td style="padding:14px 16px;color:var(--ink-soft);">IMI overlaps with arboreal cercopithecoids despite highly terrestrial, cursorial lifestyle. Open savanna habitat is the essential additional evidence. Fastest primate on the ground (~55 km/h).</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>
+    <p>epiSTEMic · Primate Locomotion Investigation · Penn State College of Education</p>
+    <p style="margin-top:6px;">Questions or feedback: contact the development team. This instructor page is not linked from student-facing pages and should not be shared with students prior to the reveal.</p>
+  </footer>
+</div>
+</body>
+</html>

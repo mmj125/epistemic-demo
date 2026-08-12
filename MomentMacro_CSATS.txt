@@ -1,0 +1,271 @@
+//	MomentMacroJ_v1_4.txt,a version of the MomentMacro modified for use with ImageJ.
+//	Runs best with 8-bit images of white cross-sections on black background.
+//	Requires ImageJ version 1.34g or later.  See http://rsb.info.nih.gov/ij/upgrade/index.html 
+//	for the latest version of ImageJ.
+
+var threshl=0;
+var threshu=255;
+var scalar=1;
+var units="mm"; 
+var Sn,Sx,Sy,Sxx,Syy,Sxy,rot2,density,Centrex,Centrey,Theta,J,Zp,maxRad;
+import java.lang.Math
+
+macro "Moment Calculation" {
+// This macro calculates the anisometry and bulkiness of binary particles
+// based on the dynamically equivalent ellipse as defined by Medalia (1970).
+// Currently set to work with 8-bit files only
+	requires("1.34g"); //add prompt for earlier versions
+	title=getTitle();
+	rename(title+"^");
+	title=getTitle();
+	selectWindow(title);
+	snapshot(); 
+	// scale=getBoolean("Reset scale?  ("+scalar+units+"/pixel)");
+	//if(scale==1) {
+	ResetUnits();
+	//}
+	drawaxes=0;
+	// drawaxes=getBoolean("Draw principal axes?");
+	name=getString('Enter name of sample, max 14 chars:',"sample");
+	threshl=getNumber('Lower Threshold:  ',threshl);   	//set threshold limits
+	// threshu=getNumber('Upper Threshold:  ',threshu);
+
+	getSelectionBounds(xmin,ymin,xmax,ymax);	//  ymin is measured from top,xmin from left
+//  xmax & ymax= diameters along x & y axes
+//Calculate Moments
+
+	run("Copy");				
+	newImage('Calculating Moments','8-bit black' ,xmax+2,ymax+2,1);
+	run("Paste");
+	CalcSums();
+		if (Sn==0) {
+			showMessage('Threshold limits too narrow'); 
+			selectWindow('Calculating TA');
+			close();
+			selectWindow('Calculating Moments');
+			//close();
+			exit; 
+		}
+
+	Cx=Sx/Sn+xmin-1;		//x-coord. of Centroid
+	Cy=Sy/Sn+ymin-1;  		//y-coord. of Centroid
+// x-coord of Centoid and y-coord of Centroid held for calculation of max radius
+
+SxSnhold = Sx/Sn;
+SySnhold = Sy/Sn;
+xminhold = xmin;
+yminhold = ymin;
+
+// following  code calculates y (dist from neutral axis)
+	if (((ymax + ymin) - Cy) > (Cy - ymin)) {
+		Ymaxrad= ymax + ymin - Cy;
+		Yminrad= Cy - ymin;
+		BigY= Ymaxrad;
+	}
+	else {
+		Ymaxrad= Cy - ymin;
+		Yminrad= ymax + ymin - Cy;
+		BigY= Ymaxrad;
+	}
+
+// following code calculates x (dist from neutral axis)
+	if (((xmax + xmin) - Cx) > (Cx - xmin)) {
+		Xmaxrad= xmax + xmin - Cx;
+		Xminrad= Cx - xmin;
+		BigX= Xmaxrad;	
+	}
+	else {
+		Xmaxrad= Cx - xmin;
+		Xminrad= xmax + xmin - Cx;
+		BigX= Xmaxrad;
+	}
+
+	Xmaxrad= Xmaxrad/scalar;		//calibrating radii
+	Xminrad= Xminrad/scalar;
+	Ymaxrad= Ymaxrad/scalar;
+	Yminrad= Yminrad/scalar;
+	Parea=Sn;
+	Myy=Sxx-(Sx*Sx/Sn);
+	Mxx=Syy-(Sy*Sy/Sn);
+	Mxy=Sxy-(Sx*Sy/Sn);
+
+	if (Mxy==0) {
+		Theta=0;
+	}
+	else {
+		Theta=atan(((Mxx-Myy)+sqrt(sqr(Mxx-Myy)+(4*sqr(Mxy))))/(2*Mxy))*180/3.141592654;
+	}
+	CA= Parea/sqr(scalar);
+//end CA
+
+ 	Cx = Cx/scalar;			//save x-coord of centroid
+	Cy= Cy/scalar;			//save y-coord of centroid
+	BigX= BigX/scalar;			//calibrating x,y,Cx,Cy
+	BigY= BigY/scalar;
+	Ix= Mxx/(sqr(sqr(scalar))); 		//save mom about x-axis
+	Iy= Myy/(sqr(sqr(scalar)));
+	Zx= Ix/BigY;			//save section moduli
+	Zy= Iy/BigX;
+
+	selectWindow('Calculating Moments');
+	rot2=Theta*3.141592654/180;
+	CalcSums();
+	M1=Sxx-(Sx*Sx/Sn);
+	M2=Syy-(Sy*Sy/Sn);
+	R1=sqrt(M1/Parea);
+	R2=sqrt(M2/Parea);
+	Imax= M1/(sqr(sqr(scalar)));
+	Imin= M2/(sqr(sqr(scalar )));
+	Rmaks= R1/scalar;
+	Rmyn= R2/scalar;
+	rot2=0;
+	//Theta= -Theta; REMOVED due to no apparent function and gives incorrect principal axes (5/24/2005)
+
+	selectWindow('Calculating Moments');  
+	close();  
+
+//calculate TA
+	newImage("Calculating TA", "8-bit White", xmax,ymax, 1);
+	run("Restore Selection");
+	setForegroundColor(1, 1, 1);
+	run("Fill");
+	run("Measure");
+	Area=getResult("Area");
+	TA = Area/sqr(scalar);	
+	close();
+
+//end TA
+	selectWindow("Results");
+	run("Close");
+
+//Draw principal axes
+	if(drawaxes==1) {
+		selectWindow(title);
+		DrawAxis();
+	}
+
+//Calculate the maximum distance of any pixel from the center
+run("Copy");				
+newImage('Calculating Max Radius','8-bit black' ,xmax+2,ymax+2,1);
+run("Paste");
+MAXRAD();	
+close();
+
+//Calculate the polar moment of inertia
+J = Ix+Iy;
+
+//Calculate polar modulus
+Zp = J / maxRad;	
+var maxmin = Imax/Imin;
+
+//displays the results in the upper left corner of the text window
+	setFont('Monaco',10);
+	tab=fromCharCode(0009);
+	if(!isOpen("Log")) {
+	//	print("Name"+tab+"Scale"+tab+"TA"+tab+"CA"+tab+"Xbar"+tab+"Ybar"+tab+"Ix"+tab+"Iy"+tab+"Imax"+tab+"Imin"+tab+"Theta"+tab+"Zx"+tab+"Zy"+tab+"MaxXrad"+tab+"MaxYrad"+tab+"J"+tab+"Zp"+tab+"MaxRad");
+	print("Name"+tab+"CA"+tab+"Imax"+tab+"Imin"+tab+"Imax/Imin"+tab+"J");
+	}
+
+	// print(name+tab+scalar+"pixels/"+units+tab+TA+tab+CA+tab+Cx+tab+Cy+tab+Ix+tab+Iy+tab+Imax+tab+Imin+tab+Theta+tab+Zx+tab+Zy+tab+Xmaxrad+tab+Ymaxrad+tab+J+tab+Zp+tab+maxRad);
+	print(name+tab+CA+tab+Imax+tab+Imin+tab+maxmin+tab+J);
+	saveLog();
+	selectWindow(title);
+	reset();
+}
+
+//  End of main macro "Calculating Moments"
+//  Begin functions
+
+function CalcSums() {
+	Sn=0; Sx=0; Sy=0; Sxx=0; Syy=0; Sxy=0;
+	for (y=1; y<=ymax; y=y+1)  {
+      		for (x=1; x<=xmax;x=x+1) {
+        			if ((getPixel(x,y) >= threshl) && (getPixel(x,y) <= threshu)) {
+            				Sn=Sn+1;
+              				Sx=Sx+(x*cos(rot2)+y*sin(rot2));
+              				Sy=Sy+(y*cos(rot2)-x*sin(rot2));
+              				Sxx=Sxx+sqr((x*cos(rot2)+y*sin(rot2)));
+              				Syy=Syy+sqr((y*cos(rot2)-x*sin(rot2)));
+              				Sxy=Sxy+((y*cos(rot2)-x*sin(rot2))*(x*cos(rot2)+y*sin(rot2)));
+			}
+		}
+	}
+  }
+
+//Find pixel furthest away from the center and calculated the distance to that pixel
+
+function MAXRAD() {
+	maxRad=0; 
+	for (y=1; y<=ymax; y=y+1)  {
+      		for (x=1; x<=xmax;x=x+1) {
+        			if ((getPixel(x,y) >= threshl) && (getPixel(x,y) <= threshu)) {
+					maxRad1 = (x - SxSnhold)*(x - SxSnhold);
+					maxRad2 = (y - SySnhold)*(y - SySnhold);
+					maxRad3 = (sqrt(maxRad2+maxRad1)) / scalar;
+							if(maxRad3>maxRad){
+								maxRad = maxRad3;
+				}
+			}
+		}
+	}
+  }  
+
+function CalcTA() {
+	Sn=0;
+	for (y=1;y<=ymax; y=y+1) {
+		for (x=1; x<=xmax;x=x+1) {
+//			if (getPixel(x,y)<255) {
+				Sn=Sn+1;
+			}
+		}
+	}
+  }
+
+function saveLog() {
+        selectWindow("Log");
+        run("Text..."); // File>Save As>Text
+   }
+
+function sqr(n) {
+	return n*n;
+  }
+
+function ResetUnits() {
+//optional function to set the units to be used in the results for the Moment Calculation Macro.
+	//units=getString('Enter alternate units as desired:',units);
+	units="mm";
+	// scalar=getNumber('Enter number of pixels per '+units+':',scalar);
+	scalar=getNumber('Enter mm per pixel:',scalar);
+	scalar=1/scalar;
+  }
+
+function DrawAxis() {
+//optional function to draw major/minor axis of ellipse
+  moveTo(Centrex,Centrey);
+  setColor(255,255,255);
+  lineTo(Centrex-(cos((0-Theta)*3.141592654/180)*2*R1),
+         Centrey+(sin((0-Theta)*3.141592654/180)*2*R1));
+  moveTo(Centrex,Centrey);
+  lineTo(Centrex-(cos((Theta+90)*3.141592654/180)*2*R2),
+         Centrey-(sin((Theta+90)*3.141592654/180)*2*R2));
+  moveTo(Centrex,Centrey);
+  lineTo(Centrex+(cos((0-Theta)*3.141592654/180)*2*R1),
+         Centrey-(sin((0-Theta)*3.141592654/180)*2*R1));
+  moveTo(Centrex,Centrey);
+  lineTo(Centrex+(cos((Theta+90)*3.141592654/180)*2*R2),
+         Centrey+(sin((Theta+90)*3.141592654/180)*2*R2));
+  setThreshold(255,255);
+  }
+
+
+// Written by: Matthew Warfel  - Cornell University - 4/4/97
+// Modified by: Stanley Serafin- Johns Hopkins University - 6/30/00
+// Modified and adapted for ImageJ by:  Valerie Burke DeLeon - 2/21/05
+// Modified and adapted fro ImageJ by: Adam David Sylvester - 9/28/2012
+// Updates:
+// 5/24/2005 - v1.2 added "DrawAxis" function modified from MomentMacro (VBD)
+// 3/17/2006 - v1.2 renamed "neutral axes" to more correct term "principal axes" (VBD)
+// 7/21/2006 - v1.3 replaced "/*" with "//" character to define initial comment lines, following reports of comments read as code (VBD)
+// 9/28/2012 - v1.4 added function MAXRAD and calculations of J and Zp (ADS)
+// 9/1/2013 - v1.4B corrected function MAXRAD and calculations of J and Zp (ADS)
+
