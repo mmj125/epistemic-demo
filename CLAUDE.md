@@ -58,7 +58,7 @@ Instructor view/dashboard: deferred to v1.5. CSV export is interim solution. LMS
 
 Immediate outstanding issues
 
-FEEDBACK_ENDPOINT in anthropology/investigation.html is still a placeholder ("https://REPLACE-WITH-YOUR-WORKER-URL.workers.dev") until the Cloudflare Worker in cloudflare-worker/worker.js is actually deployed (Cloudflare dashboard, no CLI needed) with a GEMINI_API_KEY secret set, and the real worker URL swapped in. Until then Tab 5's AI feedback fails gracefully with a "try again" message instead of returning real feedback. When the meteorology unit is ready to bring into the repo, it should get its own top-level folder (meteorology/, matching anthropology/) and the splash page's meteorology tile needs to change from a static "Coming Soon" div to a real link.
+FEEDBACK_ENDPOINT in anthropology/investigation.html now points at the deployed Cloudflare Worker (https://epistemic-feedback.mmjohnson0505.workers.dev/, source in cloudflare-worker/worker.js). Confirm the GEMINI_API_KEY secret is set on that worker if Tab 5 feedback stops working. When the meteorology unit is ready to bring into the repo, it should get its own top-level folder (meteorology/, matching anthropology/) and the splash page's meteorology tile needs to change from a static "Coming Soon" div to a real link.
 
 How Matt works
 
