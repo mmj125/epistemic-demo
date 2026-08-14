@@ -40,6 +40,11 @@ export default {
       return json({ error: "systemPrompt and userPrompt are required" }, 400, allowOrigin);
     }
 
+    if (!env.GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY secret is missing or empty on this worker");
+      return json({ error: "Server is not configured with an API key" }, 500, allowOrigin);
+    }
+
     let geminiResp;
     try {
       geminiResp = await fetch(
@@ -58,17 +63,20 @@ export default {
         }
       );
     } catch (err) {
+      console.error("Fetch to Gemini failed:", err);
       return json({ error: "Could not reach Gemini API", detail: String(err) }, 502, allowOrigin);
     }
 
     if (!geminiResp.ok) {
       const errText = await geminiResp.text();
+      console.error("Gemini API returned", geminiResp.status, errText);
       return json({ error: "Gemini API error", detail: errText }, 502, allowOrigin);
     }
 
     const data = await geminiResp.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
     if (!text) {
+      console.error("Gemini response had no text:", JSON.stringify(data));
       return json({ error: "No feedback returned", detail: data }, 502, allowOrigin);
     }
 

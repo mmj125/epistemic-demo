@@ -1002,6 +1002,7 @@ Length: 240-290 words. Paragraph form, no bullet points. Address student as "you
     const revealBtn=document.getElementById("btn-reveal");
     revealBtn.classList.add("ready");revealBtn.textContent="Reveal identity →";revealBtn.onclick=doReveal;
   }catch(err){
+    console.error("Feedback request failed:",err);
     feedbackBody.classList.remove("loading");
     feedbackBody.textContent="Feedback unavailable right now. Please try again in a moment.";
   }
