@@ -882,8 +882,8 @@ function drawCSGScatter(){
   }
 
   Plotly.react("csg-scatter",traces,{
-    xaxis:{title:"Femur Polar Moment J (mm⁴)",type:"log",gridcolor:"#e8e0d0",zeroline:false},
-    yaxis:{title:"Humerus Polar Moment J (mm⁴)",type:"log",gridcolor:"#e8e0d0",zeroline:false},
+    xaxis:{title:"Femur Polar Moment J (mm⁴)",type:"log",gridcolor:"#e8e0d0",zeroline:false,automargin:true},
+    yaxis:{title:"Humerus Polar Moment J (mm⁴)",type:"log",gridcolor:"#e8e0d0",zeroline:false,automargin:true},
     annotations:[{x:0.02,y:0.98,xref:"paper",yref:"paper",text:"Above line: more humerus loading<br>Below line: more femur loading",
       showarrow:false,font:{size:10,color:"#888"},align:"left",bgcolor:"rgba(255,255,255,0.8)"}],
     plot_bgcolor:"#fafaf7",paper_bgcolor:"transparent",
