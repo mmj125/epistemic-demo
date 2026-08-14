@@ -14,7 +14,11 @@ const ALLOWED_ORIGINS = [
 ];
 const LOCALHOST_ORIGIN = /^http:\/\/localhost:\d+$/;
 
-const GEMINI_MODEL = "gemini-2.5-flash";
+// Google's free-tier model lineup shifts and old aliases get sunset for new
+// API keys without much warning (gemini-2.5-flash 404'd within weeks of this
+// being written). If this starts 404ing again, check the current models at
+// https://ai.google.dev/gemini-api/docs/models and update this constant.
+const GEMINI_MODEL = "gemini-3.5-flash";
 
 export default {
   async fetch(request, env) {
