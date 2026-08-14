@@ -579,17 +579,43 @@ function drawOUIChart(){
   const canvas = document.getElementById("oui-canvas");
   const ctx = canvas.getContext("2d");
   const dpr = window.devicePixelRatio||1;
-  const W = canvas.offsetWidth||700, H=220;
+  const W = canvas.offsetWidth||700;
+
+  const minV=3, maxV=16;
+  const pad={l:20,r:20,t:10,b:30};
+  const axisLen=W-pad.l-pad.r;
+  function xPos(v){ return ouiXPos(v,W,pad,axisLen,minV,maxV); }
+
+  // Greedily stagger group labels across as many rows as needed so labels
+  // never collide, regardless of how many groups cluster together on the axis
+  const groups=OUI_GROUPS_ASSESS;
+  const barH=10, rowHeight=36, labelPad=6;
+  ctx.font="bold 9px 'DM Sans', sans-serif";
+  const order=groups.map((g,i)=>i).sort((a,b)=>groups[a].mean-groups[b].mean);
+  const rowIntervals=[];
+  const rowAssign=new Array(groups.length);
+  order.forEach(i=>{
+    const g=groups[i];
+    const mx=xPos(g.mean);
+    const labelX=Math.max(pad.l+45,Math.min(W-pad.r-45,mx));
+    const w=ctx.measureText(g.group).width;
+    const xStart=labelX-w/2-labelPad,xEnd=labelX+w/2+labelPad;
+    let row=0;
+    while(true){
+      if(!rowIntervals[row]) rowIntervals[row]=[];
+      const collides=rowIntervals[row].some(([s,e])=>!(xEnd<s||xStart>e));
+      if(!collides){rowIntervals[row].push([xStart,xEnd]);rowAssign[i]=row;break;}
+      row++;
+    }
+  });
+  const maxRow=Math.max(...rowAssign);
+
+  const H=pad.b+20+barH+8+(maxRow+2)*rowHeight+14;
+  const axisY=H-pad.b-20;
   canvas.width=W*dpr; canvas.height=H*dpr;
   canvas.style.width=W+"px"; canvas.style.height=H+"px";
   ctx.scale(dpr,dpr);
   ctx.clearRect(0,0,W,H);
-
-  const minV=3, maxV=16;
-  const pad={l:20,r:20,t:10,b:30};
-  const axisY=H-pad.b-20;
-  const axisLen=W-pad.l-pad.r;
-  function xPos(v){ return ouiXPos(v,W,pad,axisLen,minV,maxV); }
 
   ctx.strokeStyle="#c9bfaa";ctx.lineWidth=1.5;
   ctx.beginPath();ctx.moveTo(pad.l,axisY);ctx.lineTo(W-pad.r,axisY);ctx.stroke();
@@ -604,9 +630,6 @@ function drawOUIChart(){
   ctx.fillStyle="#4a3f35";ctx.font="10px 'DM Mono', monospace";ctx.textAlign="center";
   ctx.fillText("OUI (Olecranon-Ulnar Index)",W/2,H-2);
 
-  const groups=OUI_GROUPS_ASSESS;
-  const barH=10, rowHeight=22;
-  const rowAssign=[0,1,0,1,2,2];
   groups.forEach((g,i)=>{
     const row=rowAssign[i];
     const barY=axisY-barH-8-row*rowHeight;
@@ -624,13 +647,20 @@ function drawOUIChart(){
     ctx.fillText(g.min.toFixed(1)+"–"+g.max.toFixed(1),labelX,labelY+9);
   });
 
-  // Given OUI value (informational — this is data students are given)
+  // Given OUI value (informational — this is data students are given).
+  // Label sits in its own dedicated row above every group row so it can
+  // never collide with a group's label, regardless of this specimen's OUI.
   const gx = xPos(SPECIMEN.oui);
   ctx.beginPath();
   ctx.moveTo(gx,axisY+2);ctx.lineTo(gx-8,axisY-16);ctx.lineTo(gx+8,axisY-16);ctx.closePath();
   ctx.fillStyle="#2980b9";ctx.fill();ctx.strokeStyle="#1a5276";ctx.lineWidth=1.5;ctx.stroke();
+
+  const specLabelY=axisY-barH-8-(maxRow+1)*rowHeight-4;
+  ctx.beginPath();ctx.moveTo(gx,axisY-16);ctx.lineTo(gx,specLabelY+4);
+  ctx.strokeStyle="#2980b988";ctx.lineWidth=1;ctx.stroke();
+
   ctx.fillStyle="#2980b9";ctx.font="bold 10px 'DM Mono', monospace";ctx.textAlign="center";
-  ctx.fillText(SPECIMEN.code+" OUI = "+SPECIMEN.oui.toFixed(1),gx,axisY-20);
+  ctx.fillText(SPECIMEN.code+" OUI = "+SPECIMEN.oui.toFixed(1),gx,specLabelY);
 
   // Student's own mark, if placed
   if(ouiUserMark!==null){
