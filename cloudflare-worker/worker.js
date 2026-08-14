@@ -62,7 +62,14 @@ export default {
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: systemPrompt }] },
             contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-            generationConfig: { maxOutputTokens: 1000 },
+            // gemini-3.5-flash has "thinking" on by default, and thinking
+            // tokens are deducted from maxOutputTokens -- without disabling
+            // it, the model can burn the whole budget on hidden reasoning
+            // and return a response truncated after a sentence or two.
+            generationConfig: {
+              maxOutputTokens: 1500,
+              thinkingConfig: { thinkingBudget: 0 },
+            },
           }),
         }
       );
@@ -79,9 +86,13 @@ export default {
 
     const data = await geminiResp.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const finishReason = data?.candidates?.[0]?.finishReason;
     if (!text) {
       console.error("Gemini response had no text:", JSON.stringify(data));
       return json({ error: "No feedback returned", detail: data }, 502, allowOrigin);
+    }
+    if (finishReason === "MAX_TOKENS") {
+      console.error("Gemini response was cut off by MAX_TOKENS, length:", text.length);
     }
 
     return json({ text }, 200, allowOrigin);
