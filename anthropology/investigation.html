@@ -987,7 +987,7 @@ Your feedback must:
 6. End with one prioritized revision suggestion
 
 Do NOT reveal the actual identity unless student already named it correctly.
-Length: 240-290 words. Paragraph form, no bullet points. Address student as "you."`;
+Length: 240-290 words. Paragraph form, no bullet points. Plain prose only — no markdown formatting (no asterisks, no bold, no headers). Address student as "you."`;
 
   const userPrompt=`CLAIM: ${responses.claim}\n\nSUPPORTING EVIDENCE: ${responses.evidence}\n\nCONFLICTING EVIDENCE: ${responses.conflicting}\n\nADAPTATION AND NATURAL SELECTION: ${responses.adaptation}`;
 
@@ -999,6 +999,7 @@ Length: 240-290 words. Paragraph form, no bullet points. Address student as "you
     const data=await response.json();
     if(!response.ok||!data.text){console.error("Feedback endpoint returned an error:",data);throw new Error(data.error||"No feedback returned.");}
     feedbackBody.classList.remove("loading");feedbackBody.textContent=data.text;
+    feedbackArea.scrollIntoView({behavior:"smooth",block:"start"});
     const revealBtn=document.getElementById("btn-reveal");
     revealBtn.classList.add("ready");revealBtn.textContent="Reveal identity →";revealBtn.onclick=doReveal;
   }catch(err){
