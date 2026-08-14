@@ -1,7 +1,116 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta http-equiv="refresh" content="0; url=instructor.html">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>epiSTEMic | Authentic Computational Science Investigations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bone:#e8e0d0;--bone-dark:#c9bfaa;--ink:#1a1612;--ink-soft:#4a3f35;
+    --field:#f5f0e8;--accent:#c0392b;--muted:#7a6f63;--panel:#ffffff;
+    --border:#d4c9b8;--teacher:#1a6f8a;--teacher-light:#eef6fc;
+    --gold:#c9920a;--gold-light:#fff8e8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:"DM Sans",sans-serif;background:var(--field);color:var(--ink);min-height:100vh;}
+  body::before{content:"";position:fixed;inset:0;background-image:linear-gradient(var(--bone-dark) 1px,transparent 1px),linear-gradient(90deg,var(--bone-dark) 1px,transparent 1px);background-size:32px 32px;opacity:.15;pointer-events:none;z-index:0;}
+  .app{position:relative;z-index:1;max-width:1000px;margin:0 auto;padding:0 24px 80px;}
+
+  /* Top bar */
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:24px 0;}
+  .topbar-logo{height:36px;}
+  .signin{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1.5px solid var(--border);border-radius:20px;padding:7px 16px;cursor:default;user-select:none;background:var(--panel);}
+
+  /* Hero */
+  .hero{padding:24px 0 44px;text-align:center;}
+  .hero-eyebrow{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;}
+  .hero h1{font-family:"DM Serif Display",serif;font-size:clamp(30px,5vw,48px);line-height:1.12;margin-bottom:16px;}
+  .hero h1 em{font-style:italic;color:var(--accent);}
+  .hero-sub{font-size:15.5px;line-height:1.7;color:var(--ink-soft);max-width:600px;margin:0 auto;font-weight:300;}
+
+  /* Unit grid */
+  .section-label{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:20px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+  .unit-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:22px;margin-bottom:16px;}
+
+  .unit-card{background:var(--panel);border:1.5px solid var(--border);border-radius:6px;overflow:hidden;display:flex;flex-direction:column;transition:transform .15s,box-shadow .15s;}
+  .unit-card.active:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(0,0,0,.1);}
+  .unit-card.coming-soon{opacity:.62;}
+
+  .unit-icon{height:130px;display:flex;align-items:center;justify-content:center;font-size:56px;background:linear-gradient(135deg,var(--ink) 0%,#2b241d 100%);position:relative;}
+  .unit-card.coming-soon .unit-icon{background:linear-gradient(135deg,var(--bone-dark) 0%,#b8ab90 100%);filter:grayscale(.3);}
+  .unit-badge{position:absolute;top:10px;right:10px;font-family:"DM Mono",monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border-radius:12px;background:rgba(255,255,255,.15);color:var(--bone);}
+  .unit-card.coming-soon .unit-badge{background:var(--ink);color:var(--bone);opacity:.85;}
+
+  .unit-body{padding:20px 22px 22px;flex:1;display:flex;flex-direction:column;}
+  .unit-subject{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--teacher);margin-bottom:6px;}
+  .unit-title{font-family:"DM Serif Display",serif;font-size:21px;color:var(--ink);margin-bottom:8px;line-height:1.2;}
+  .unit-desc{font-size:13px;line-height:1.6;color:var(--ink-soft);flex:1;margin-bottom:16px;}
+
+  .unit-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:14px;border-top:1px solid var(--bone);}
+  .unit-cta{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--teacher);text-decoration:none;font-weight:500;}
+  .unit-card.active:hover .unit-cta{color:var(--accent);}
+  .unit-sub-link{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.05em;color:var(--muted);text-decoration:none;border-bottom:1px dotted var(--muted);}
+  .unit-sub-link:hover{color:var(--teacher);border-bottom-color:var(--teacher);}
+  .unit-card.coming-soon .unit-cta{color:var(--muted);}
+
+  .unit-card.active{cursor:pointer;}
+
+  .more-note{font-size:12.5px;color:var(--muted);font-style:italic;text-align:center;margin:20px 0 48px;}
+
+  footer{border-top:1px solid var(--border);padding-top:24px;font-size:12px;color:var(--muted);line-height:1.7;text-align:center;}
+</style>
 </head>
-<body></body>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <img src="logo.png" alt="epiSTEMic" class="topbar-logo">
+    <div class="signin" title="Accounts are not available yet">Sign In</div>
+  </div>
+
+  <div class="hero">
+    <div class="hero-eyebrow">Authentic Computational Science Investigations</div>
+    <h1>Real data. Real <em>uncertainty</em>.<br>Real science.</h1>
+    <p class="hero-sub">epiSTEMic runs full computational investigations directly in your browser — Python and all — so students reason with the same messy, multi-line evidence real scientists do. No login, no installation, no backend.</p>
+  </div>
+
+  <div class="section-label">Choose a Unit</div>
+  <div class="unit-grid">
+
+    <div class="unit-card active" onclick="window.location.href='anthropology/student-landing.html'">
+      <div class="unit-icon">🐒<span class="unit-badge">Live</span></div>
+      <div class="unit-body">
+        <div class="unit-subject">Biological Anthropology</div>
+        <div class="unit-title">Primate Locomotion Investigation</div>
+        <div class="unit-desc">Analyze skeletal measurements from 478 modern primates to determine how a mystery specimen moved — and how big it was. No single metric resolves the question.</div>
+        <div class="unit-actions">
+          <span class="unit-cta">Begin Investigation →</span>
+          <a class="unit-sub-link" href="anthropology/instructor.html" onclick="event.stopPropagation()">Instructor resources</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="unit-card coming-soon">
+      <div class="unit-icon">☁️<span class="unit-badge">Coming Soon</span></div>
+      <div class="unit-body">
+        <div class="unit-subject">Meteorology &amp; Climate Science</div>
+        <div class="unit-title">Earth's Energy Budget</div>
+        <div class="unit-desc">Work with satellite radiation data to investigate how Earth's climate system stores and releases energy. In development.</div>
+        <div class="unit-actions">
+          <span class="unit-cta">Coming Soon</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <p class="more-note">More units across more subject areas are on the way.</p>
+
+  <footer>
+    <p>epiSTEMic &middot; Penn State College of Education</p>
+  </footer>
+
+</div>
+</body>
 </html>

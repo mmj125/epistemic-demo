@@ -10,13 +10,19 @@ Working principle throughout this project: The investigation is not a matching g
 
 Current build state
 
-Three HTML files are live at https://mmj125.github.io/epistemic-demo/:
+The platform is multi-unit now. index.html at the repo root is the epiSTEMic splash page: logo, tagline, and a unit-selection grid. It is the live root at https://mmj125.github.io/epistemic-demo/. It links to two unit tiles — Biological Anthropology (live, links to anthropology/student-landing.html as the primary action, with a secondary "Instructor resources" link to anthropology/instructor.html) and Meteorology & Climate Science (Coming Soon, not yet clickable — the actual unit is still a Google Colab notebook, not part of this repo). A non-functional "Sign In" placeholder sits in the top corner; accounts are not built yet.
 
-instructor.html — teacher-facing resource page (currently the root URL via index.html redirect). Contains four module cards with slide deck downloads, specimen entry links, and an instructor reference table with specimen identities. Slide files are in GitHub as .pptx.pdf double extensions; download links in instructor.html need updating to match (change .pptx to .pptx.pdf in the four href attributes).
+Each unit's files live in their own top-level folder so additional subjects can be added the same way. The anthropology unit is under anthropology/:
 
-student-landing.html — student-facing landing page with "phone call from someone who found bones" narrative framing, six locomotor type cards with IMI ranges, four YouTube video embeds showing locomotion types, and four specimen cards linking to the investigation.
+anthropology/instructor.html — teacher-facing resource page. Contains four module cards with slide deck downloads, specimen entry links, a downloadable lesson plan, and an instructor reference table with specimen identities. Explicitly not linked from student-facing pages (banner + footer both say so) — the splash page respects this by routing its primary click into student-landing.html, not here.
 
-investigation.html — the main investigation tool, single file with URL parameter switching (?specimen=MS11 through MS14). Contains five tabs: Limb Proportions, Body Mass, Olecranon Index, Bone Geometry, Build Argument. Loads 478-specimen limb length dataset and 111-specimen CSG dataset as embedded JSON. Runs Pyodide for scatter/box plots via Plotly. Has Claude API call for AI formative feedback on student arguments. Reveal is gated behind argument submission.
+anthropology/student-landing.html — student-facing landing page with "phone call from someone who found bones" narrative framing, six locomotor type cards with IMI ranges, four YouTube video embeds showing locomotion types, and four specimen cards linking to the investigation.
+
+anthropology/investigation.html — the main investigation tool, single file with URL parameter switching (?specimen=MS11 through MS14). Contains five tabs: Limb Proportions, Body Mass, Olecranon Index, Bone Geometry, Build Argument. Loads 478-specimen limb length dataset and 111-specimen CSG dataset as embedded JSON. Runs Pyodide for scatter/box plots via Plotly. Has Claude API call for AI formative feedback on student arguments. Reveal is gated behind argument submission.
+
+anthropology/lesson-plan.pdf, anthropology/slides-*.pptx.pdf, anthropology/MomentMacro_CSATS.txt — instructor-facing downloads, all linked from instructor.html.
+
+logo.png at the repo root is the shared platform logo, referenced by both index.html and anthropology/instructor.html (via a relative ../logo.png path). Keep it at root rather than duplicating it per unit as more units are added.
 
 The five investigation tabs in detail
 
@@ -40,7 +46,7 @@ MS-13: Indri indri, West African forest (deliberate misdirection — Indri is Ma
 
 MS-14: Erythrocebus patas (Patas Monkey), Kiboko Savanna Sub-Saharan Africa. IMI overlaps with arboreal cercopithecoids despite highly terrestrial cursorial lifestyle. Fastest primate on ground ~55km/h. Habitat context is essential.
 
-Datasets embedded in investigation.html
+Datasets embedded in anthropology/investigation.html
 
 Limb length: 478 specimens, four superfamilies (Hominoidea, Cercopithecoidea, Ceboidea, Lemuroidea), 21 common names. Fields: superfamily, genus, species, common_name, sex, humerus, radius, femur, tibia, forelimb, hindlimb, imi. Source: two Excel files (Limb_Length_Dataset_A and B) from Duke University collaborator.
 
@@ -48,11 +54,11 @@ CSG: 111 specimens, 11 species (Human, Chimp, Gorilla, Baboon, Orangutan, Siaman
 
 What is deliberately deferred
 
-Instructor view/dashboard: deferred to v1.5. CSV export is interim solution. LMS integration (LTI 1.3) deferred to v1.5. Learning objectives and NGSS alignment not yet written. Climate investigation (v0.2) uses Google Colab as transitional environment because CERES dataset is 800MB and Cartopy/NetCDF4 are incompatible with Pyodide.
+Instructor view/dashboard: deferred to v1.5. CSV export is interim solution. LMS integration (LTI 1.3) deferred to v1.5. A lesson plan with learning objectives now exists (anthropology/lesson-plan.pdf), written for an intro undergraduate biological anthropology course and framed against AAAS Vision and Change core competencies rather than NGSS (NGSS is K-12 only and doesn't fit that audience). If a K-12 version of this or another unit is built later, it would need its own NGSS-aligned pass. Accounts/login: deferred, but the splash page now has a placeholder for it. Climate investigation (meteorology unit) still uses Google Colab as transitional environment because CERES dataset is 800MB and Cartopy/NetCDF4 are incompatible with Pyodide — it is not yet part of this repo; the splash page's meteorology tile is a non-clickable "Coming Soon" placeholder until it is.
 
 Immediate outstanding issues
 
-The instructor.html slide download links need .pptx changed to .pptx.pdf in four href attributes to match actual GitHub filenames. The student-landing.html needs to be linked from somewhere since it's no longer the root URL. Consider adding a "Student Investigation" button to the instructor page that links to student-landing.html.
+None currently tracked. When the meteorology unit is ready to bring into the repo, it should get its own top-level folder (meteorology/, matching anthropology/) and the splash page's meteorology tile needs to change from a static "Coming Soon" div to a real link.
 
 How Matt works
 
