@@ -18,7 +18,7 @@ anthropology/instructor.html — teacher-facing resource page. Contains four mod
 
 anthropology/student-landing.html — student-facing landing page with "phone call from someone who found bones" narrative framing, six locomotor type cards with IMI ranges, four YouTube video embeds showing locomotion types, and four specimen cards linking to the investigation.
 
-anthropology/investigation.html — the main investigation tool, single file with URL parameter switching (?specimen=MS11 through MS14). Contains five tabs: Limb Proportions, Body Mass, Olecranon Index, Bone Geometry, Build Argument. Loads 478-specimen limb length dataset and 111-specimen CSG dataset as embedded JSON. Runs Pyodide for scatter/box plots via Plotly. Has Claude API call for AI formative feedback on student arguments. Reveal is gated behind argument submission.
+anthropology/investigation.html — the main investigation tool, single file with URL parameter switching (?specimen=MS11 through MS14). Contains five tabs: Limb Proportions, Body Mass, Olecranon Index, Bone Geometry, Build Argument. Loads 478-specimen limb length dataset and 111-specimen CSG dataset as embedded JSON. Runs Pyodide for scatter/box plots via Plotly. AI formative feedback on student arguments calls the Gemini API (gemini-2.5-flash, free tier) through a Cloudflare Worker proxy (cloudflare-worker/worker.js) so the API key never sits in this public page. Reveal is gated behind argument submission.
 
 anthropology/lesson-plan.pdf, anthropology/slides-*.pptx.pdf, anthropology/MomentMacro_CSATS.txt — instructor-facing downloads, all linked from instructor.html.
 
@@ -34,7 +34,7 @@ Tab 3 (Olecranon Index): OL and UL inputs, OUI calculates live, plots as triangl
 
 Tab 4 (Bone Geometry): ImageJ link bar at top. Drag-and-drop upload for femur and humerus log files (tab-separated ImageJ MomentMacro output: Name, CA, Imax, Imin, Imax/Imin, J). Three switchable charts: log-scale J scatter with 1:1 reference line, Imax/Imin box plots, log-scale cortical area box plots. Femur/humerus/both toggle on box plots.
 
-Tab 5 (Build Argument): Four structured prompts (claim, supporting evidence, conflicting evidence, adaptation/natural selection). Summary pills show all measurements student collected across tabs. Claude API call generates 240-290 word formative feedback that reads all four analyses, does not reveal identity, pushes back on single-metric arguments. Reveal unlocks after feedback returns.
+Tab 5 (Build Argument): Four structured prompts (claim, supporting evidence, conflicting evidence, adaptation/natural selection). Summary pills show all measurements student collected across tabs. Submission calls FEEDBACK_ENDPOINT (a Cloudflare Worker, see cloudflare-worker/worker.js) which holds the Gemini API key server-side and forwards to gemini-2.5-flash. Generates 240-290 word formative feedback that reads all four analyses, does not reveal identity, pushes back on single-metric arguments. Reveal unlocks after feedback returns.
 
 The four mystery specimens
 
@@ -58,7 +58,7 @@ Instructor view/dashboard: deferred to v1.5. CSV export is interim solution. LMS
 
 Immediate outstanding issues
 
-None currently tracked. When the meteorology unit is ready to bring into the repo, it should get its own top-level folder (meteorology/, matching anthropology/) and the splash page's meteorology tile needs to change from a static "Coming Soon" div to a real link.
+FEEDBACK_ENDPOINT in anthropology/investigation.html is still a placeholder ("https://REPLACE-WITH-YOUR-WORKER-URL.workers.dev") until the Cloudflare Worker in cloudflare-worker/worker.js is actually deployed (Cloudflare dashboard, no CLI needed) with a GEMINI_API_KEY secret set, and the real worker URL swapped in. Until then Tab 5's AI feedback fails gracefully with a "try again" message instead of returning real feedback. When the meteorology unit is ready to bring into the repo, it should get its own top-level folder (meteorology/, matching anthropology/) and the splash page's meteorology tile needs to change from a static "Coming Soon" div to a real link.
 
 How Matt works
 
