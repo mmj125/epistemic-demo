@@ -997,7 +997,7 @@ Length: 240-290 words. Paragraph form, no bullet points. Address student as "you
       body:JSON.stringify({systemPrompt,userPrompt})
     });
     const data=await response.json();
-    if(!response.ok||!data.text){throw new Error(data.error||"No feedback returned.");}
+    if(!response.ok||!data.text){console.error("Feedback endpoint returned an error:",data);throw new Error(data.error||"No feedback returned.");}
     feedbackBody.classList.remove("loading");feedbackBody.textContent=data.text;
     const revealBtn=document.getElementById("btn-reveal");
     revealBtn.classList.add("ready");revealBtn.textContent="Reveal identity →";revealBtn.onclick=doReveal;
