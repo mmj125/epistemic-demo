@@ -157,6 +157,11 @@
   #feedback-area{margin-top:22px;display:none;animation:fadeIn .4s ease;}
   #feedback-area.visible{display:block;}
   .reveal-section{max-width:480px;margin-top:22px;}
+
+  .assessment-nudge{display:none;max-width:480px;margin-top:16px;padding:16px 18px;background:var(--panel);border:1.5px solid var(--mystery);border-radius:4px;}
+  .assessment-nudge p{font-size:13px;line-height:1.6;color:var(--ink-soft);margin-bottom:10px;}
+  .assessment-nudge a{display:inline-block;font-family:"DM Sans",sans-serif;font-size:13px;font-weight:500;color:var(--mystery);text-decoration:none;}
+  .assessment-nudge a:hover{text-decoration:underline;}
   .feedback-panel{background:#f8f4fd;border:1.5px solid #c39bd3;border-radius:4px;overflow:hidden;}
   .feedback-header{padding:10px 16px;background:var(--ai);display:flex;align-items:center;gap:10px;}
   .feedback-header h3{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:white;font-weight:500;}
@@ -425,6 +430,10 @@
           <div class="reveal-tension" id="reveal-tension"></div>
         </div>
       </div>
+    </div>
+    <div class="assessment-nudge" id="assessment-nudge">
+      <p>You've submitted an argument and received feedback. If your instructor has assigned the end-of-unit assessment, it's ready for you — it generates a new specimen just for you.</p>
+      <a href="assessment.html">Go to End-of-Unit Assessment →</a>
     </div>
   </div>
 </div>
@@ -1029,6 +1038,7 @@ Length: 240-290 words. Paragraph form, no bullet points. Plain prose only — no
     feedbackBody.classList.remove("loading");feedbackBody.textContent=data.text;
     feedbackArea.scrollIntoView({behavior:"smooth",block:"start"});
     try{localStorage.setItem("epistemic_argument_feedback_received","1");}catch(e){}
+    document.getElementById("assessment-nudge").style.display="block";
     argumentSubmitCount++;
     if(argumentSubmitCount>=2){
       const revealBtn=document.getElementById("btn-reveal");
@@ -1044,6 +1054,11 @@ Length: 240-290 words. Paragraph form, no bullet points. Plain prose only — no
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 window.addEventListener("DOMContentLoaded",()=>{
+  try{
+    if(localStorage.getItem("epistemic_argument_feedback_received")==="1"){
+      document.getElementById("assessment-nudge").style.display="block";
+    }
+  }catch(e){}
   initSpecimen();
   drawOUI();
   drawCSGCharts();
