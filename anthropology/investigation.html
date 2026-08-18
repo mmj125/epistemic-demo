@@ -156,6 +156,7 @@
 
   #feedback-area{margin-top:22px;display:none;animation:fadeIn .4s ease;}
   #feedback-area.visible{display:block;}
+  .reveal-section{max-width:480px;margin-top:22px;}
   .feedback-panel{background:#f8f4fd;border:1.5px solid #c39bd3;border-radius:4px;overflow:hidden;}
   .feedback-header{padding:10px 16px;background:var(--ai);display:flex;align-items:center;gap:10px;}
   .feedback-header h3{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:white;font-weight:500;}
@@ -256,16 +257,6 @@
             </div>
             <div class="imi-display">IMI = <span id="imi-val">—</span></div>
             <button class="btn-primary" id="btn-plot" onclick="plotMystery()" disabled>Plot Mystery Specimen</button>
-            <button class="btn-reveal" id="btn-reveal">Reveal identity — submit argument first</button>
-          </div>
-        </div>
-        <div class="panel" id="reveal-panel">
-          <div class="panel-header" style="background:var(--reveal)"><h2>Identity Revealed</h2></div>
-          <div class="reveal-content">
-            <div class="reveal-name" id="reveal-name"></div>
-            <div class="reveal-sci" id="reveal-sci"></div>
-            <div class="reveal-fact" id="reveal-fact"></div>
-            <div class="reveal-tension" id="reveal-tension"></div>
           </div>
         </div>
       </div>
@@ -423,6 +414,18 @@
         <div class="feedback-body" id="feedback-body"></div>
       </div>
     </div>
+    <div class="reveal-section">
+      <button class="btn-reveal" id="btn-reveal">Reveal identity — submit a revised argument first</button>
+      <div class="panel" id="reveal-panel">
+        <div class="panel-header" style="background:var(--reveal)"><h2>Identity Revealed</h2></div>
+        <div class="reveal-content">
+          <div class="reveal-name" id="reveal-name"></div>
+          <div class="reveal-sci" id="reveal-sci"></div>
+          <div class="reveal-fact" id="reveal-fact"></div>
+          <div class="reveal-tension" id="reveal-tension"></div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -444,7 +447,7 @@ const BM_GROUPS = [
   {name:"Humans",fn:f=>Math.pow(10,1.7125*Math.log10(f)-1.048),eq:"10^(1.7125×log₁₀(FHSI)−1.048)"}
 ];
 
-let currentView="scatter",mysteryPlotted=false,pyodideReady=false;
+let currentView="scatter",mysteryPlotted=false,pyodideReady=false,argumentSubmitCount=0;
 let pyodide=null,mysteryData=null,specimenKey=null,specimen=null;
 let csgFemur=null,csgHumerus=null;
 let currentIMaxBone="both",currentCABone="both";
@@ -1025,8 +1028,11 @@ Length: 240-290 words. Paragraph form, no bullet points. Plain prose only — no
     if(!response.ok||!data.text){console.error("Feedback endpoint returned an error:",data);throw new Error(data.error||"No feedback returned.");}
     feedbackBody.classList.remove("loading");feedbackBody.textContent=data.text;
     feedbackArea.scrollIntoView({behavior:"smooth",block:"start"});
-    const revealBtn=document.getElementById("btn-reveal");
-    revealBtn.classList.add("ready");revealBtn.textContent="Reveal identity →";revealBtn.onclick=doReveal;
+    argumentSubmitCount++;
+    if(argumentSubmitCount>=2){
+      const revealBtn=document.getElementById("btn-reveal");
+      revealBtn.classList.add("ready");revealBtn.textContent="Reveal identity →";revealBtn.onclick=doReveal;
+    }
   }catch(err){
     console.error("Feedback request failed:",err);
     feedbackBody.classList.remove("loading");
