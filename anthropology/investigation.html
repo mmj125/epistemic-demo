@@ -158,9 +158,12 @@
   #feedback-area.visible{display:block;}
   .reveal-section{max-width:480px;margin-top:22px;}
 
-  .assessment-nudge{display:none;max-width:480px;margin-top:16px;padding:16px 18px;background:var(--panel);border:1.5px solid var(--mystery);border-radius:4px;}
-  .assessment-nudge p{font-size:13px;line-height:1.6;color:var(--ink-soft);margin-bottom:10px;}
-  .assessment-nudge a{display:inline-block;font-family:"DM Sans",sans-serif;font-size:13px;font-weight:500;color:var(--mystery);text-decoration:none;}
+  .assessment-nudge{max-width:480px;margin-top:16px;padding:16px 18px;background:var(--field);border:1.5px dashed var(--border);border-radius:4px;transition:all .2s;}
+  .assessment-nudge.ready{background:var(--panel);border:1.5px solid var(--mystery);}
+  .assessment-nudge p{font-size:13px;line-height:1.6;color:var(--muted);margin-bottom:0;}
+  .assessment-nudge.ready p{color:var(--ink-soft);margin-bottom:10px;}
+  .assessment-nudge a{display:none;font-family:"DM Sans",sans-serif;font-size:13px;font-weight:500;color:var(--mystery);text-decoration:none;}
+  .assessment-nudge.ready a{display:inline-block;}
   .assessment-nudge a:hover{text-decoration:underline;}
   .feedback-panel{background:#f8f4fd;border:1.5px solid #c39bd3;border-radius:4px;overflow:hidden;}
   .feedback-header{padding:10px 16px;background:var(--ai);display:flex;align-items:center;gap:10px;}
@@ -432,7 +435,7 @@
       </div>
     </div>
     <div class="assessment-nudge" id="assessment-nudge">
-      <p>You've submitted an argument and received feedback. If your instructor has assigned the end-of-unit assessment, it's ready for you — it generates a new specimen just for you.</p>
+      <p id="assessment-nudge-text">End-of-unit assessment — locked. Submit an argument above and get feedback to unlock a link to it.</p>
       <a href="assessment.html">Go to End-of-Unit Assessment →</a>
     </div>
   </div>
@@ -614,6 +617,10 @@ async function plotMystery(){
     forelimb:+(h+r).toFixed(1),hindlimb:+(f+t).toFixed(1),imi:+((h+r)/(f+t)*100).toFixed(2)};
   mysteryPlotted=true;
   await redraw();
+}
+function unlockAssessmentNudge(){
+  document.getElementById("assessment-nudge").classList.add("ready");
+  document.getElementById("assessment-nudge-text").textContent="You've submitted an argument and received feedback. If your instructor has assigned the end-of-unit assessment, it's ready for you — it generates a new specimen just for you.";
 }
 function doReveal(){
   document.getElementById("reveal-panel").classList.add("visible");
@@ -1038,7 +1045,7 @@ Length: 240-290 words. Paragraph form, no bullet points. Plain prose only — no
     feedbackBody.classList.remove("loading");feedbackBody.textContent=data.text;
     feedbackArea.scrollIntoView({behavior:"smooth",block:"start"});
     try{localStorage.setItem("epistemic_argument_feedback_received","1");}catch(e){}
-    document.getElementById("assessment-nudge").style.display="block";
+    unlockAssessmentNudge();
     argumentSubmitCount++;
     if(argumentSubmitCount>=2){
       const revealBtn=document.getElementById("btn-reveal");
@@ -1056,7 +1063,7 @@ Length: 240-290 words. Paragraph form, no bullet points. Plain prose only — no
 window.addEventListener("DOMContentLoaded",()=>{
   try{
     if(localStorage.getItem("epistemic_argument_feedback_received")==="1"){
-      document.getElementById("assessment-nudge").style.display="block";
+      unlockAssessmentNudge();
     }
   }catch(e){}
   initSpecimen();
