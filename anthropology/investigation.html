@@ -1028,6 +1028,7 @@ Length: 240-290 words. Paragraph form, no bullet points. Plain prose only — no
     if(!response.ok||!data.text){console.error("Feedback endpoint returned an error:",data);throw new Error(data.error||"No feedback returned.");}
     feedbackBody.classList.remove("loading");feedbackBody.textContent=data.text;
     feedbackArea.scrollIntoView({behavior:"smooth",block:"start"});
+    try{localStorage.setItem("epistemic_argument_feedback_received","1");}catch(e){}
     argumentSubmitCount++;
     if(argumentSubmitCount>=2){
       const revealBtn=document.getElementById("btn-reveal");
