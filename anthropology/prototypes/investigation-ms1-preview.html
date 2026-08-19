@@ -294,7 +294,7 @@
       <div class="panel-body">
         <p style="font-size:13.5px;line-height:1.65;color:var(--ink-soft);margin-bottom:18px;">Body mass can be estimated from the superoinferior diameter of the femoral head (FHSI). Because different primate groups have different body proportions, each group has its own regression equation. Enter your measurement to see all five estimates. Which is most appropriate depends on your hypothesis about this animal's classification.</p>
         <div style="position:relative;width:100%;padding-bottom:60%;background:#000;border-radius:3px;overflow:hidden;margin-bottom:16px;">
-          <iframe src="https://www.morphosource.org/uv.html#?manifest=/manifests/d01d5f1a-f0d4-451a-bcd1-aa6d08b7fc9f&c=0&m=0&cv=0" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allow="fullscreen" allowfullscreen></iframe>
+          <iframe id="ms1-femur-viewer" data-src="https://www.morphosource.org/uv.html#?manifest=/manifests/d01d5f1a-f0d4-451a-bcd1-aa6d08b7fc9f&c=0&m=0&cv=0" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allow="fullscreen" allowfullscreen></iframe>
         </div>
         <p style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:14px;">Same femur model as Tab 1 — this time measure the femoral head's diameter (the rounded joint surface at the proximal end), not the bone's overall length.</p>
         <div class="bm-input-row">
@@ -320,7 +320,7 @@
         <p style="font-size:13.5px;line-height:1.65;color:var(--ink-soft);margin-bottom:16px;">The olecranon process is the bony insertion of the triceps muscle — the primary elbow extensor. Its length relative to the total ulna length (OUI) reflects the mechanical advantage of the triceps: a longer olecranon means more force but less speed. Measure these distances from your specimen in Morphosource and enter them below.</p>
         <div class="info-note">Reference: Drapeau (2004). Values are species means from museum specimens. OUI = (olecranon length ÷ ulnar diaphyseal length) × 100.</div>
         <div style="position:relative;width:100%;max-width:640px;padding-bottom:48%;background:#000;border-radius:3px;overflow:hidden;margin-bottom:16px;">
-          <iframe src="https://www.morphosource.org/uv.html#?manifest=/manifests/35841162-ba59-4f81-a1d9-e4a5a3c75c35&c=0&m=0&cv=0" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allow="fullscreen" allowfullscreen></iframe>
+          <iframe id="ms1-ulna-viewer" data-src="https://www.morphosource.org/uv.html#?manifest=/manifests/35841162-ba59-4f81-a1d9-e4a5a3c75c35&c=0&m=0&cv=0" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allow="fullscreen" allowfullscreen></iframe>
         </div>
         <div class="oui-input-row">
           <div class="field"><label>Olecranon Length — OL (mm)</label><input type="number" id="ol-input" placeholder="e.g. 22.0" step="0.1" min="1" oninput="updateOUI()"></div>
@@ -529,12 +529,26 @@ const MS1_BONE_MANIFESTS={
   tibia:"https://www.morphosource.org/uv.html#?manifest=/manifests/13ea8b09-41bf-433a-82e0-8d3f3a5df067&c=0&m=0&cv=0",
   ulna:"https://www.morphosource.org/uv.html#?manifest=/manifests/35841162-ba59-4f81-a1d9-e4a5a3c75c35&c=0&m=0&cv=0"
 };
+let ms1CurrentBoneSrc=MS1_BONE_MANIFESTS.humerus;
 function showMS1Bone(bone,btn){
-  document.getElementById("ms1-bone-viewer").src=MS1_BONE_MANIFESTS[bone];
+  ms1CurrentBoneSrc=MS1_BONE_MANIFESTS[bone];
+  document.getElementById("ms1-bone-viewer").src=ms1CurrentBoneSrc;
   if(btn){
     btn.parentElement.querySelectorAll("button").forEach(b=>b.classList.remove("active"));
     btn.classList.add("active");
   }
+}
+// Only one MorphoSource/Aleph viewer stays loaded at a time — browsers cap
+// simultaneous WebGL contexts, and with three mesh iframes in the DOM at
+// once (one per tab) the newest can silently fail to render even though
+// its manifest is fine on its own. Load/release on tab switch instead.
+function ms1ManageMeshViewers(activeTab){
+  const viewer=document.getElementById("ms1-bone-viewer");
+  const femur=document.getElementById("ms1-femur-viewer");
+  const ulna=document.getElementById("ms1-ulna-viewer");
+  viewer.src=activeTab==="explore"?ms1CurrentBoneSrc:"about:blank";
+  femur.src=activeTab==="mass"?femur.dataset.src:"about:blank";
+  ulna.src=activeTab==="oui"?ulna.dataset.src:"about:blank";
 }
 function initSpecimen(){
   const params=new URLSearchParams(window.location.search);
@@ -579,6 +593,7 @@ function switchTab(tab){
     document.getElementById("tab-"+t).classList.toggle("active",t===tab);
     document.getElementById("pane-"+t).classList.toggle("active",t===tab);
   });
+  ms1ManageMeshViewers(tab);
   if(tab==="argument") updateStatsDisplay();
   if(tab==="csg") drawCSGCharts();
   if(tab==="oui") drawOUI();
@@ -1205,6 +1220,7 @@ window.addEventListener("DOMContentLoaded",()=>{
     }
   }catch(e){}
   ms1CSGInit();
+  ms1ManageMeshViewers("explore");
   initSpecimen();
   drawOUI();
   drawCSGCharts();
