@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSG Measurement Prototype (isolated, not wired into the investigation)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bone:#e8e0d0;--bone-dark:#c9bfaa;--ink:#1a1612;--ink-soft:#4a3f35;
+    --field:#f5f0e8;--accent:#c0392b;--accent-warm:#e67e22;--muted:#7a6f63;
+    --panel:#ffffff;--border:#d4c9b8;--mystery:#2980b9;--reveal:#27ae60;--ai:#6c3483;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:"DM Sans",sans-serif;background:var(--field);color:var(--ink);padding:32px;}
+  .wrap{max-width:1100px;margin:0 auto;}
+  h1{font-family:"DM Serif Display",serif;font-size:26px;margin-bottom:6px;}
+  .subtitle{font-size:13px;color:var(--muted);margin-bottom:8px;line-height:1.6;max-width:70ch;}
+  .flag{display:inline-block;font-family:"DM Mono",monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);border-radius:3px;padding:2px 8px;margin-bottom:20px;}
+
+  .grid{display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start;}
+  @media(max-width:900px){.grid{grid-template-columns:1fr;}}
+
+  .panel{background:var(--panel);border:1.5px solid var(--border);border-radius:5px;padding:18px 20px;margin-bottom:16px;}
+  .panel h2{font-family:"DM Serif Display",serif;font-size:16px;margin-bottom:12px;}
+
+  .drop-zone{border:2px dashed var(--border);border-radius:5px;padding:26px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer;transition:all .15s;margin-bottom:14px;}
+  .drop-zone.drag{border-color:var(--mystery);background:#eef6fc;color:var(--mystery);}
+  .drop-zone input{display:none;}
+
+  .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+  button{font-family:"DM Sans",sans-serif;font-size:12.5px;font-weight:500;padding:8px 14px;border-radius:3px;border:1.5px solid var(--border);background:var(--field);color:var(--ink-soft);cursor:pointer;transition:all .15s;}
+  button:hover{border-color:var(--mystery);color:var(--mystery);}
+  button.primary{background:var(--mystery);color:white;border-color:var(--mystery);}
+  button.primary:hover{background:#1a6fa0;}
+
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-family:"DM Mono",monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+  .field input[type="text"],.field input[type="number"]{width:100%;padding:7px 9px;border:1.5px solid var(--border);border-radius:3px;font-family:"DM Mono",monospace;font-size:13px;background:var(--field);color:var(--ink);}
+  .field input[type="range"]{width:100%;}
+  .thresh-readout{display:flex;justify-content:space-between;font-family:"DM Mono",monospace;font-size:11px;color:var(--muted);margin-top:4px;}
+
+  canvas{max-width:100%;border:1px solid var(--border);border-radius:3px;background:#000;display:block;}
+  .canvas-wrap{position:relative;display:inline-block;max-width:100%;}
+  .canvas-wrap canvas:last-child{position:absolute;top:0;left:0;pointer-events:none;}
+
+  .results-table{width:100%;border-collapse:collapse;font-family:"DM Mono",monospace;font-size:12.5px;}
+  .results-table td{padding:6px 4px;border-bottom:1px solid var(--border);}
+  .results-table td:first-child{color:var(--muted);}
+  .results-table td:last-child{text-align:right;font-weight:500;}
+  .results-table tr.err td:last-child{color:var(--accent);}
+  .results-table tr.ok td:last-child{color:var(--reveal);}
+
+  .log-out{background:var(--ink);color:var(--bone);border-radius:3px;padding:12px 14px;font-family:"DM Mono",monospace;font-size:11.5px;white-space:pre;overflow-x:auto;margin-bottom:10px;}
+
+  .note{font-size:11.5px;color:var(--muted);line-height:1.6;margin-top:8px;}
+  .empty{color:var(--muted);font-size:13px;text-align:center;padding:40px 0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="flag">Isolated prototype — not linked from student-landing.html or investigation.html</div>
+  <h1>CSG Measurement — In-Browser Prototype</h1>
+  <p class="subtitle">Tests whether the ImageJ MomentMacro computation (Name, CA, Imax, Imin, Imax/Imin, J) can be reproduced directly in the browser from a cross-section image, instead of requiring students to run ImageJ locally. Output format matches investigation.html's existing Tab 4 log parser exactly, so it's a drop-in replacement if this checks out.</p>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>1 · Load a cross-section image</h2>
+        <div class="drop-zone" id="dropZone">Drag an 8-bit cross-section image here, or click to browse<br>(PNG/JPG — white cortical bone on black background)
+          <input type="file" id="fileInput" accept="image/*">
+        </div>
+        <div class="btn-row">
+          <button class="primary" id="btnTestEllipse">Load synthetic test ellipse (validates the math)</button>
+        </div>
+        <div id="ellipseControls" style="display:none;">
+          <div class="field"><label>Test ellipse rotation (°) — Imax/Imin should NOT change as you rotate it</label>
+            <input type="range" id="ellipseRot" min="0" max="180" value="0">
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>2 · Threshold</h2>
+        <div class="field">
+          <input type="range" id="threshSlider" min="0" max="255" value="128">
+          <div class="thresh-readout"><span>0</span><span id="threshVal">128</span><span>255</span></div>
+        </div>
+        <div class="btn-row">
+          <button id="btnAutoThresh">Auto-threshold (Otsu)</button>
+          <button id="btnToggleOverlay">Toggle highlight overlay</button>
+        </div>
+        <div class="canvas-wrap" id="canvasWrap">
+          <div class="empty">Load an image or the test ellipse to begin.</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2>3 · Calibration</h2>
+        <div class="field"><label>Sample name</label><input type="text" id="sampleName" value="test_specimen"></div>
+        <div class="field"><label>Scale (pixels per mm)</label><input type="number" id="scaleInput" value="1" step="0.01"></div>
+        <p class="note">For a real specimen this comes from the CT scan's known voxel size, same as the "mm per pixel" prompt in the original ImageJ macro. Left at 1 for the synthetic ellipse test so raw pixel output can be checked against closed-form geometry directly.</p>
+      </div>
+
+      <div class="panel">
+        <h2>4 · Results</h2>
+        <table class="results-table" id="resultsTable">
+          <tr><td colspan="2" style="color:var(--muted);text-align:center;padding:20px 0;">No image loaded yet</td></tr>
+        </table>
+        <div id="validation"></div>
+      </div>
+
+      <div class="panel">
+        <h2>5 · Log output (matches Tab 4's expected format)</h2>
+        <div class="log-out" id="logOut">—</div>
+        <div class="btn-row">
+          <button id="btnCopy">Copy</button>
+          <button id="btnDownload">Download .txt</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let sourceCanvas=null, overlayCanvas=null, imgData=null, W=0, H=0;
+let showOverlay=true, isTestEllipse=false, testParams=null;
+
+const canvasWrap=document.getElementById("canvasWrap");
+const threshSlider=document.getElementById("threshSlider");
+const threshVal=document.getElementById("threshVal");
+const dropZone=document.getElementById("dropZone");
+const fileInput=document.getElementById("fileInput");
+
+function setupCanvases(w,h){
+  canvasWrap.innerHTML="";
+  sourceCanvas=document.createElement("canvas");
+  sourceCanvas.width=w;sourceCanvas.height=h;
+  sourceCanvas.style.width=Math.min(w,640)+"px";
+  overlayCanvas=document.createElement("canvas");
+  overlayCanvas.width=w;overlayCanvas.height=h;
+  overlayCanvas.style.width=Math.min(w,640)+"px";
+  canvasWrap.appendChild(sourceCanvas);
+  canvasWrap.appendChild(overlayCanvas);
+  W=w;H=h;
+}
+
+function loadImageFile(file){
+  const img=new Image();
+  img.onload=()=>{
+    setupCanvases(img.naturalWidth,img.naturalHeight);
+    const ctx=sourceCanvas.getContext("2d");
+    ctx.drawImage(img,0,0);
+    imgData=ctx.getImageData(0,0,W,H);
+    isTestEllipse=false;
+    document.getElementById("ellipseControls").style.display="none";
+    document.getElementById("scaleInput").value="1";
+    recompute();
+  };
+  img.onerror=()=>alert("Could not load that file as an image.");
+  img.src=URL.createObjectURL(file);
+}
+
+dropZone.addEventListener("click",()=>fileInput.click());
+fileInput.addEventListener("change",e=>{if(e.target.files[0])loadImageFile(e.target.files[0]);});
+["dragover","dragenter"].forEach(ev=>dropZone.addEventListener(ev,e=>{e.preventDefault();dropZone.classList.add("drag");}));
+["dragleave","drop"].forEach(ev=>dropZone.addEventListener(ev,e=>{e.preventDefault();dropZone.classList.remove("drag");}));
+dropZone.addEventListener("drop",e=>{const f=e.dataTransfer.files[0];if(f)loadImageFile(f);});
+
+// ── Synthetic test ellipse (known closed-form CA/Imax/Imin/J for validation) ──
+function drawTestEllipse(rotDeg){
+  const w=300,h=220,a=80,b=35; // semi-axes in px: a along local x, b along local y
+  setupCanvases(w,h);
+  const ctx=sourceCanvas.getContext("2d");
+  ctx.fillStyle="black";ctx.fillRect(0,0,w,h);
+  ctx.save();
+  ctx.translate(w/2,h/2);
+  ctx.rotate(rotDeg*Math.PI/180);
+  ctx.fillStyle="white";
+  ctx.beginPath();
+  ctx.ellipse(0,0,a,b,0,0,2*Math.PI);
+  ctx.fill();
+  ctx.restore();
+  imgData=ctx.getImageData(0,0,w,h);
+  isTestEllipse=true;
+  testParams={a,b};
+  document.getElementById("ellipseControls").style.display="block";
+  document.getElementById("scaleInput").value="1";
+  document.getElementById("sampleName").value="test_ellipse";
+  recompute();
+}
+document.getElementById("btnTestEllipse").addEventListener("click",()=>drawTestEllipse(parseFloat(document.getElementById("ellipseRot").value)));
+document.getElementById("ellipseRot").addEventListener("input",e=>{if(isTestEllipse)drawTestEllipse(parseFloat(e.target.value));});
+
+// ── Otsu auto-threshold ──
+function otsuThreshold(){
+  const hist=new Array(256).fill(0);
+  let total=0;
+  for(let i=0;i<imgData.data.length;i+=4){
+    const gray=Math.round(0.299*imgData.data[i]+0.587*imgData.data[i+1]+0.114*imgData.data[i+2]);
+    hist[gray]++;total++;
+  }
+  let sum=0;for(let i=0;i<256;i++)sum+=i*hist[i];
+  let sumB=0,wB=0,varMax=0,threshold=0;
+  for(let t=0;t<256;t++){
+    wB+=hist[t];if(wB===0)continue;
+    const wF=total-wB;if(wF===0)break;
+    sumB+=t*hist[t];
+    const mB=sumB/wB,mF=(sum-sumB)/wF;
+    const varBetween=wB*wF*(mB-mF)*(mB-mF);
+    if(varBetween>varMax){varMax=varBetween;threshold=t;}
+  }
+  return threshold;
+}
+document.getElementById("btnAutoThresh").addEventListener("click",()=>{
+  if(!imgData)return;
+  const t=otsuThreshold();
+  threshSlider.value=t;threshVal.textContent=t;
+  recompute();
+});
+
+// ── Moment calculation — algebraically equivalent to the MomentMacro's two-pass
+// rotate-and-recompute approach: Imax/Imin are the eigenvalues of the planar
+// second-moment matrix [[Mxx,Mxy],[Mxy,Myy]] (standard Mohr's-circle result for
+// area moments), and J = Ix+Iy is rotation-invariant (trace of that matrix), so a
+// single pixel pass suffices instead of thresholding twice at different angles.
+function computeMoments(threshold,pxPerMm){
+  const data=imgData.data;
+  let Sn=0,Sx=0,Sy=0,Sxx=0,Syy=0,Sxy=0;
+  for(let y=0;y<H;y++){
+    for(let x=0;x<W;x++){
+      const i=(y*W+x)*4;
+      const gray=0.299*data[i]+0.587*data[i+1]+0.114*data[i+2];
+      if(gray>=threshold){
+        Sn++;Sx+=x;Sy+=y;Sxx+=x*x;Syy+=y*y;Sxy+=x*y;
+      }
+    }
+  }
+  if(Sn===0)return null;
+  const Mxx=Syy-(Sy*Sy)/Sn;   // Σ(y-ȳ)²
+  const Myy=Sxx-(Sx*Sx)/Sn;   // Σ(x-x̄)²
+  const Mxy=Sxy-(Sx*Sy)/Sn;   // Σ(x-x̄)(y-ȳ)
+  const trace=(Mxx+Myy)/2, diff=(Mxx-Myy)/2;
+  const rad=Math.sqrt(diff*diff+Mxy*Mxy);
+  const lambda1=trace+rad, lambda2=trace-rad; // principal second moments, pixel^4
+  const scalar4=Math.pow(pxPerMm,4);
+  const CA=Sn/(pxPerMm*pxPerMm);
+  const Imax=lambda1/scalar4, Imin=lambda2/scalar4;
+  return {Sn,CA,Imax,Imin,ratio:Imax/Imin,J:Imax+Imin};
+}
+
+function renderOverlay(threshold){
+  const octx=overlayCanvas.getContext("2d");
+  octx.clearRect(0,0,W,H);
+  if(!showOverlay)return;
+  const out=octx.createImageData(W,H);
+  const data=imgData.data;
+  for(let p=0;p<W*H;p++){
+    const i=p*4;
+    const gray=0.299*data[i]+0.587*data[i+1]+0.114*data[i+2];
+    if(gray>=threshold){
+      out.data[i]=41;out.data[i+1]=128;out.data[i+2]=185;out.data[i+3]=120; // --mystery tint
+    }
+  }
+  octx.putImageData(out,0,0);
+}
+
+function fmtNum(n,d=4){return Number.isFinite(n)?n.toFixed(d):"—";}
+
+function recompute(){
+  if(!imgData)return;
+  const threshold=parseFloat(threshSlider.value);
+  const pxPerMm=parseFloat(document.getElementById("scaleInput").value)||1;
+  const name=document.getElementById("sampleName").value.trim()||"sample";
+  renderOverlay(threshold);
+  const r=computeMoments(threshold,pxPerMm);
+  const table=document.getElementById("resultsTable");
+  if(!r){
+    table.innerHTML='<tr class="err"><td colspan="2">Threshold too narrow — no pixels selected</td></tr>';
+    document.getElementById("logOut").textContent="—";
+    document.getElementById("validation").innerHTML="";
+    return;
+  }
+  table.innerHTML=`
+    <tr><td>Thresholded pixels</td><td>${r.Sn}</td></tr>
+    <tr><td>CA (cortical area)</td><td>${fmtNum(r.CA,3)}</td></tr>
+    <tr><td>Imax</td><td>${fmtNum(r.Imax,2)}</td></tr>
+    <tr><td>Imin</td><td>${fmtNum(r.Imin,2)}</td></tr>
+    <tr><td>Imax/Imin</td><td>${fmtNum(r.ratio,3)}</td></tr>
+    <tr><td>J (polar moment)</td><td>${fmtNum(r.J,2)}</td></tr>
+  `;
+  const header="Name\tCA\tImax\tImin\tImax/Imin\tJ";
+  const dataLine=`${name}\t${fmtNum(r.CA,3)}\t${fmtNum(r.Imax,2)}\t${fmtNum(r.Imin,2)}\t${fmtNum(r.ratio,3)}\t${fmtNum(r.J,2)}`;
+  document.getElementById("logOut").textContent=header+"\n"+dataLine;
+
+  const val=document.getElementById("validation");
+  if(isTestEllipse&&testParams){
+    const {a,b}=testParams;
+    const CA_expected=Math.PI*a*b;
+    const Ix_expected=Math.PI*a*Math.pow(b,3)/4; // about x-axis (uses y²)
+    const Iy_expected=Math.PI*Math.pow(a,3)*b/4; // about y-axis (uses x²)
+    const Imax_expected=Math.max(Ix_expected,Iy_expected);
+    const Imin_expected=Math.min(Ix_expected,Iy_expected);
+    const J_expected=Ix_expected+Iy_expected;
+    const pctErr=(computed,expected)=>Math.abs((computed-expected)/expected*100);
+    const errCA=pctErr(r.CA,CA_expected), errImax=pctErr(r.Imax,Imax_expected),
+          errImin=pctErr(r.Imin,Imin_expected), errJ=pctErr(r.J,J_expected);
+    const maxErr=Math.max(errCA,errImax,errImin,errJ);
+    val.innerHTML=`
+      <table class="results-table" style="margin-top:10px;">
+        <tr><td colspan="2" style="font-weight:500;color:var(--ink);">vs. closed-form ellipse (a=${a}px, b=${b}px)</td></tr>
+        <tr class="${errCA<1?'ok':'err'}"><td>CA error</td><td>${fmtNum(errCA,2)}% (expected ${fmtNum(CA_expected,1)})</td></tr>
+        <tr class="${errImax<1?'ok':'err'}"><td>Imax error</td><td>${fmtNum(errImax,2)}% (expected ${fmtNum(Imax_expected,0)})</td></tr>
+        <tr class="${errImin<1?'ok':'err'}"><td>Imin error</td><td>${fmtNum(errImin,2)}% (expected ${fmtNum(Imin_expected,0)})</td></tr>
+        <tr class="${errJ<1?'ok':'err'}"><td>J error</td><td>${fmtNum(errJ,2)}% (expected ${fmtNum(J_expected,0)})</td></tr>
+      </table>
+      <p class="note">${maxErr<1?"All within 1% of the analytic value — rasterization/anti-aliasing accounts for the rest. The moment math checks out.":"Error exceeds 1% — investigate before trusting this on real specimens."}</p>
+    `;
+  }else{
+    val.innerHTML="";
+  }
+}
+
+threshSlider.addEventListener("input",e=>{threshVal.textContent=e.target.value;recompute();});
+document.getElementById("scaleInput").addEventListener("input",recompute);
+document.getElementById("sampleName").addEventListener("input",recompute);
+document.getElementById("btnToggleOverlay").addEventListener("click",()=>{showOverlay=!showOverlay;recompute();});
+document.getElementById("btnCopy").addEventListener("click",()=>{
+  navigator.clipboard.writeText(document.getElementById("logOut").textContent);
+});
+document.getElementById("btnDownload").addEventListener("click",()=>{
+  const name=document.getElementById("sampleName").value.trim()||"sample";
+  const blob=new Blob([document.getElementById("logOut").textContent],{type:"text/plain"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);a.download=name+"_log.txt";a.click();
+});
+</script>
+</body>
+</html>
