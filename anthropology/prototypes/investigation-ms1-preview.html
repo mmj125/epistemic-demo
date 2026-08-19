@@ -264,7 +264,7 @@
               <button onclick="showMS1Bone('tibia',this)" style="flex:1;">Tibia</button>
             </div>
             <div style="position:relative;width:100%;padding-bottom:75%;background:#000;border-radius:3px;overflow:hidden;">
-              <iframe id="ms1-bone-viewer" src="https://www.morphosource.org/uv.html#?manifest=/manifests/5c2d376a-264d-48e7-9a26-3058ed0f3e77&c=0&m=0&cv=0" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allowfullscreen></iframe>
+              <iframe id="ms1-bone-viewer" src="https://www.morphosource.org/uv.html#?manifest=/manifests/5c2d376a-264d-48e7-9a26-3058ed0f3e77&c=0&m=0&cv=0" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allow="fullscreen" allowfullscreen></iframe>
             </div>
             <p style="font-size:11px;color:var(--muted);line-height:1.6;margin-top:8px;">Use the viewer's ruler tool to measure each bone's maximum length, then enter what you find below.</p>
           </div>
@@ -293,6 +293,10 @@
       <div class="panel-header"><h2>Body Mass Estimation from Femoral Head Size</h2></div>
       <div class="panel-body">
         <p style="font-size:13.5px;line-height:1.65;color:var(--ink-soft);margin-bottom:18px;">Body mass can be estimated from the superoinferior diameter of the femoral head (FHSI). Because different primate groups have different body proportions, each group has its own regression equation. Enter your measurement to see all five estimates. Which is most appropriate depends on your hypothesis about this animal's classification.</p>
+        <div style="position:relative;width:100%;padding-bottom:60%;background:#000;border-radius:3px;overflow:hidden;margin-bottom:16px;">
+          <iframe src="https://www.morphosource.org/uv.html#?manifest=/manifests/d01d5f1a-f0d4-451a-bcd1-aa6d08b7fc9f&c=0&m=0&cv=0" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allow="fullscreen" allowfullscreen></iframe>
+        </div>
+        <p style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:14px;">Same femur model as Tab 1 — this time measure the femoral head's diameter (the rounded joint surface at the proximal end), not the bone's overall length.</p>
         <div class="bm-input-row">
           <div class="field"><label>Femoral Head SI Diameter (mm)</label><input type="number" id="fhsi-input" placeholder="e.g. 14.0" step="0.1" min="1" max="100"></div>
           <button class="bm-calc-btn" onclick="calcBodyMass()">Calculate</button>
@@ -315,8 +319,8 @@
       <div class="panel-body">
         <p style="font-size:13.5px;line-height:1.65;color:var(--ink-soft);margin-bottom:16px;">The olecranon process is the bony insertion of the triceps muscle — the primary elbow extensor. Its length relative to the total ulna length (OUI) reflects the mechanical advantage of the triceps: a longer olecranon means more force but less speed. Measure these distances from your specimen in Morphosource and enter them below.</p>
         <div class="info-note">Reference: Drapeau (2004). Values are species means from museum specimens. OUI = (olecranon length ÷ ulnar diaphyseal length) × 100.</div>
-        <div style="max-width:420px;position:relative;width:100%;padding-bottom:52.5%;background:#000;border-radius:3px;overflow:hidden;margin-bottom:16px;">
-          <iframe src="https://www.morphosource.org/uv.html#?manifest=/manifests/35841162-ba59-4f81-a1d9-e4a5a3c75c35&c=0&m=0&cv=0" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allowfullscreen></iframe>
+        <div style="position:relative;width:100%;max-width:640px;padding-bottom:48%;background:#000;border-radius:3px;overflow:hidden;margin-bottom:16px;">
+          <iframe src="https://www.morphosource.org/uv.html#?manifest=/manifests/35841162-ba59-4f81-a1d9-e4a5a3c75c35&c=0&m=0&cv=0" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allow="fullscreen" allowfullscreen></iframe>
         </div>
         <div class="oui-input-row">
           <div class="field"><label>Olecranon Length — OL (mm)</label><input type="number" id="ol-input" placeholder="e.g. 22.0" step="0.1" min="1" oninput="updateOUI()"></div>
