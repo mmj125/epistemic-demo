@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MorphoSource Mesh Embed Test — MS2 (isolated, not wired into the investigation)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bone:#e8e0d0;--bone-dark:#c9bfaa;--ink:#1a1612;--ink-soft:#4a3f35;
+    --field:#f5f0e8;--accent:#c0392b;--accent-warm:#e67e22;--muted:#7a6f63;
+    --panel:#ffffff;--border:#d4c9b8;--mystery:#2980b9;--reveal:#27ae60;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:"DM Sans",sans-serif;background:var(--field);color:var(--ink);padding:32px;}
+  .wrap{max-width:1200px;margin:0 auto;}
+  h1{font-family:"DM Serif Display",serif;font-size:26px;margin-bottom:6px;}
+  .subtitle{font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6;max-width:80ch;}
+  .flag{display:inline-block;font-family:"DM Mono",monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);border-radius:3px;padding:2px 8px;margin-bottom:16px;}
+  .note{background:var(--panel);border:1.5px dashed var(--border);border-radius:5px;padding:16px 18px;margin-bottom:28px;font-size:13px;line-height:1.7;color:var(--ink-soft);max-width:80ch;}
+  .note strong{color:var(--ink);}
+  .checklist{margin-top:10px;padding-left:20px;}
+  .checklist li{margin-bottom:4px;}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px;}
+  .bone-panel{background:var(--panel);border:1.5px solid var(--border);border-radius:5px;overflow:hidden;}
+  .bone-header{padding:12px 16px;background:var(--ink);color:var(--bone);display:flex;justify-content:space-between;align-items:center;}
+  .bone-name{font-family:"DM Serif Display",serif;font-size:17px;}
+  .bone-id{font-family:"DM Mono",monospace;font-size:10px;color:var(--bone-dark);}
+  .bone-embed{position:relative;width:100%;padding-bottom:75%;background:#000;}
+  .bone-embed iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="flag">Isolated prototype — MorphoSource embed test, not linked from investigation.html</div>
+  <h1>MS2 — Full Bone Set (MorphoSource Aleph Embeds)</h1>
+  <p class="subtitle">Five MorphoSource Universal Viewer / Aleph embeds for the same mystery specimen, testing whether real 3D bone meshes can render and be measured directly in a page we control — no local ImageJ, no manual conversion. This page's network cannot reach morphosource.org from inside the build environment, so it has to be opened and checked by a human on a real connection.</p>
+
+  <div class="note">
+    <strong>What to check when you open this:</strong>
+    <ul class="checklist">
+      <li>Does each panel actually load the 3D model, or show an error / blank space?</li>
+      <li>Can you rotate/pan/zoom each mesh with the mouse?</li>
+      <li>Does Aleph's built-in measurement tool appear (usually a ruler/annotation icon in the viewer's toolbar)? Try placing a linear measurement on one bone and see what units it reports.</li>
+      <li>Roughly how long does each model take to load — instant, a few seconds, unacceptably slow?</li>
+      <li>Note anything that looks licensing-related in the viewer itself (a copyright badge, an info panel) — screenshot it if so.</li>
+    </ul>
+    Reminder: nothing here is licensing-cleared yet — this is purely a technical viability test.
+  </div>
+
+  <div class="grid">
+    <div class="bone-panel">
+      <div class="bone-header"><span class="bone-name">Tibia</span><span class="bone-id">13ea8b09…</span></div>
+      <div class="bone-embed">
+        <iframe src="https://www.morphosource.org/uv.html#?manifest=/manifests/13ea8b09-41bf-433a-82e0-8d3f3a5df067&c=0&m=0&cv=0" allowfullscreen></iframe>
+      </div>
+    </div>
+    <div class="bone-panel">
+      <div class="bone-header"><span class="bone-name">Femur</span><span class="bone-id">d01d5f1a…</span></div>
+      <div class="bone-embed">
+        <iframe src="https://www.morphosource.org/uv.html#?manifest=/manifests/d01d5f1a-f0d4-451a-bcd1-aa6d08b7fc9f&c=0&m=0&cv=0" allowfullscreen></iframe>
+      </div>
+    </div>
+    <div class="bone-panel">
+      <div class="bone-header"><span class="bone-name">Ulna</span><span class="bone-id">35841162…</span></div>
+      <div class="bone-embed">
+        <iframe src="https://www.morphosource.org/uv.html#?manifest=/manifests/35841162-ba59-4f81-a1d9-e4a5a3c75c35&c=0&m=0&cv=0" allowfullscreen></iframe>
+      </div>
+    </div>
+    <div class="bone-panel">
+      <div class="bone-header"><span class="bone-name">Humerus</span><span class="bone-id">5c2d376a…</span></div>
+      <div class="bone-embed">
+        <iframe src="https://www.morphosource.org/uv.html#?manifest=/manifests/5c2d376a-264d-48e7-9a26-3058ed0f3e77&c=0&m=0&cv=0" allowfullscreen></iframe>
+      </div>
+    </div>
+    <div class="bone-panel">
+      <div class="bone-header"><span class="bone-name">Radius</span><span class="bone-id">9c5e1431…</span></div>
+      <div class="bone-embed">
+        <iframe src="https://www.morphosource.org/uv.html#?manifest=/manifests/9c5e1431-4887-44fe-970e-b012c38d087d&c=0&m=0&cv=0" allowfullscreen></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
