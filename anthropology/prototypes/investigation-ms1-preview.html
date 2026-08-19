@@ -365,7 +365,7 @@
             </div>
           </div>
         </div>
-        <p style="font-size:11px;color:var(--muted);font-style:italic;">Scale is a placeholder (1 px/mm) until real calibration comes back from the collaborator — CA/Imax/Imin/J below are not yet real physical units. Imax/Imin ratio is valid regardless.</p>
+        <p style="font-size:11px;color:var(--accent-warm);font-weight:500;">Scale is ESTIMATED (femur 9.08 px/mm, humerus 10.89 px/mm) — back-calculated from this image's own pixel dimensions against published baboon AP/ML diameter ranges, not real calibration from the collaborator. Close enough for a sanity check on the charts, not for a real class.</p>
       </div>
     </div>
 
@@ -893,6 +893,12 @@ function ms1CSGInit(){
     img.src=MS1_CSG_IMAGES[bone];
   });
 }
+// ESTIMATED scales, not real calibration. Derived from this specimen's own
+// cross-section pixel bounding box vs. published baboon femur/humerus midshaft
+// AP/ML diameter ranges (Ontogenetic and morphological variation in primate
+// long bones, researchgate.net/publication/347970238; zora.uzh.ch/9849314f).
+// Replace with the collaborator's real mm/pixel value as soon as it's available.
+const MS1_CSG_SCALE_ESTIMATED={femur:9.08,humerus:10.89};
 function ms1CSGMoments(bone,threshold){
   const st=ms1CSGState[bone];if(!st)return null;
   const data=st.imgData.data;
@@ -905,8 +911,10 @@ function ms1CSGMoments(bone,threshold){
   if(Sn===0)return null;
   const Mxx=Syy-(Sy*Sy)/Sn,Myy=Sxx-(Sx*Sx)/Sn,Mxy=Sxy-(Sx*Sy)/Sn;
   const trace=(Mxx+Myy)/2,diff=(Mxx-Myy)/2,rad=Math.sqrt(diff*diff+Mxy*Mxy);
-  const Imax=trace+rad,Imin=trace-rad; // scale=1 placeholder, so raw pixel units
-  return{name:"MS1_"+bone,ca:Sn,imax:Imax,imin:Imin,imax_imin:Imax/Imin,j:Imax+Imin};
+  const scale=MS1_CSG_SCALE_ESTIMATED[bone];
+  const CA=Sn/(scale*scale);
+  const Imax=(trace+rad)/Math.pow(scale,4),Imin=(trace-rad)/Math.pow(scale,4);
+  return{name:"MS1_"+bone,ca:CA,imax:Imax,imin:Imin,imax_imin:Imax/Imin,j:Imax+Imin};
 }
 function ms1CSGRecompute(bone){
   const threshold=parseFloat(document.getElementById("ms1-csg-"+bone+"-thresh").value);
