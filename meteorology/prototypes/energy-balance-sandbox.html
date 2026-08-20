@@ -135,17 +135,26 @@
 <script>
 const STORAGE_KEY = "epistemic_energy_balance_notebook";
 
+// zeroAnchor: true means the y-axis is pinned to [0, mean*1.05] on the time
+// series chart, matching the notebook's own set_ylim(0, mean*1.05) calls for
+// ISR/OLR - these are large baseline quantities where tiny real variation
+// must be shown against the true 0-based scale, or auto-scaling manufactures
+// a dramatic-looking wiggle out of a fraction-of-a-percent change. Variables
+// that naturally hover near/cross zero (net flux, and derived quantities
+// that can go negative) instead get a zero-reference line with natural
+// auto-scaling, matching the notebook's axhline(0) treatment for net flux -
+// forcing those to start at 0 would misrepresent them just as badly.
 const RAW_VARS = {
-  isr:    {label: "Incoming Solar Radiation (ISR)", unit: "W/m²"},
-  rsr:    {label: "Reflected Shortwave Radiation (RSR)", unit: "W/m²"},
-  olr:    {label: "Outgoing Longwave Radiation (OLR)", unit: "W/m²"},
-  net:    {label: "Net Flux", unit: "W/m²"},
-  cld:    {label: "Cloud Area Fraction", unit: "%"},
-  clrolr: {label: "Clear-Sky OLR", unit: "W/m²"}
+  isr:    {label: "Incoming Solar Radiation (ISR)", unit: "W/m²", zeroAnchor: true},
+  rsr:    {label: "Reflected Shortwave Radiation (RSR)", unit: "W/m²", zeroAnchor: true},
+  olr:    {label: "Outgoing Longwave Radiation (OLR)", unit: "W/m²", zeroAnchor: true},
+  net:    {label: "Net Flux", unit: "W/m²", zeroAnchor: false},
+  cld:    {label: "Cloud Area Fraction", unit: "%", zeroAnchor: true},
+  clrolr: {label: "Clear-Sky OLR", unit: "W/m²", zeroAnchor: true}
 };
 const DERIVED_VARS = {
-  asr: {label: "Absorbed Solar Radiation (ASR = ISR − RSR)", unit: "W/m²", from: ["isr","rsr"], op: (a,b)=>a-b},
-  cre: {label: "Cloud Radiative Effect (CRE = OLR − Clear-Sky OLR)", unit: "W/m²", from: ["olr","clrolr"], op: (a,b)=>a-b}
+  asr: {label: "Absorbed Solar Radiation (ASR = ISR − RSR)", unit: "W/m²", from: ["isr","rsr"], op: (a,b)=>a-b, zeroAnchor: true},
+  cre: {label: "Cloud Radiative Effect (CRE = OLR − Clear-Sky OLR)", unit: "W/m²", from: ["olr","clrolr"], op: (a,b)=>a-b, zeroAnchor: false}
 };
 const ALL_VARS = Object.assign({}, RAW_VARS, DERIVED_VARS);
 
@@ -249,18 +258,28 @@ function runAnalysis(){
     const mean = y.reduce((a,b)=>a+b,0)/y.length;
     const variation = Math.max(...y) - Math.min(...y);
 
+    const zeroAnchor = ALL_VARS[v1].zeroAnchor;
     document.getElementById("chartTitle").textContent = `${ALL_VARS[v1].label} vs Time`;
-    document.getElementById("chartAnnotation").textContent =
-      `Mean: ${mean.toFixed(2)} ${ALL_VARS[v1].unit} · total variation across the period: ${variation.toFixed(3)} ${ALL_VARS[v1].unit}`;
+    document.getElementById("chartAnnotation").textContent = zeroAnchor
+      ? `Mean: ${mean.toFixed(2)} ${ALL_VARS[v1].unit} · total variation across the period: ${variation.toFixed(3)} ${ALL_VARS[v1].unit} (${(variation/mean*100).toFixed(2)}% of the mean — the y-axis below is anchored at 0 so this reads at true scale, not zoomed in)`
+      : `Mean: ${mean.toFixed(2)} ${ALL_VARS[v1].unit} · total variation across the period: ${variation.toFixed(3)} ${ALL_VARS[v1].unit}`;
     lastRun = {type, v1, summary: `Trend ${slope.toFixed(4)} ${ALL_VARS[v1].unit}/yr, r=${r.toFixed(3)}, mean ${mean.toFixed(2)} ${ALL_VARS[v1].unit}`};
 
-    plotArgs = [[
+    const traces = [
       {x: YEARS, y, mode: "markers", type: "scatter", marker: {color: "#2471a3", size: 9}, name: "Annual mean"},
       {x: YEARS, y: trendLine, mode: "lines", type: "scatter", line: {color: "#c0392b", width: 2},
        name: `Trend: ${slope.toFixed(4)} ${ALL_VARS[v1].unit}/yr, r=${r.toFixed(3)}`}
-    ], {
+    ];
+    if(!zeroAnchor){
+      traces.push({x: [Math.min(...YEARS), Math.max(...YEARS)], y: [0,0], mode: "lines", type: "scatter",
+        line: {color: "black", width: 1, dash: "dash"}, opacity: 0.5, name: "Balance point (0)"});
+    }
+    plotArgs = [traces, {
       title: {text: `${ALL_VARS[v1].label} vs Time`, font: {size: 15}},
-      xaxis: {title: "Year"}, yaxis: {title: `${ALL_VARS[v1].label} (${ALL_VARS[v1].unit})`},
+      xaxis: {title: "Year"},
+      yaxis: zeroAnchor
+        ? {title: `${ALL_VARS[v1].label} (${ALL_VARS[v1].unit})`, range: [0, mean*1.05]}
+        : {title: `${ALL_VARS[v1].label} (${ALL_VARS[v1].unit})`},
       legend: {orientation: "h", y: -0.2}, margin: {t: 50, b: 70}, font: {family: "DM Sans, sans-serif"}
     }];
   } else {
