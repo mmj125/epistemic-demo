@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Earth's Energy Budget: Research Sandbox (isolated prototype)</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky:#eef3f7;--sky-dark:#c8d8e4;--ink:#101820;--ink-soft:#3c4a56;
+    --field:#f4f8fb;--panel:#ffffff;--border:#c9d8e2;--muted:#5f7180;
+    --solar:#e08a2e;--accent:#c0392b;--data:#2471a3;--trend:#154360;--log:#1e8449;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:"DM Sans",sans-serif;background:var(--field);color:var(--ink);min-height:100vh;}
+  body::before{content:"";position:fixed;inset:0;background-image:linear-gradient(var(--sky-dark) 1px,transparent 1px),linear-gradient(90deg,var(--sky-dark) 1px,transparent 1px);background-size:32px 32px;opacity:.2;pointer-events:none;z-index:0;}
+  .app{position:relative;z-index:1;max-width:900px;margin:0 auto;padding:0 24px 80px;}
+
+  .flag{display:inline-block;font-family:"DM Mono",monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);border-radius:3px;padding:2px 8px;margin:24px 0 16px;}
+
+  header{padding:0 0 20px;border-bottom:2px solid var(--ink);margin-bottom:24px;}
+  .eyebrow{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+  header h1{font-family:"DM Serif Display",serif;font-size:clamp(22px,4vw,32px);line-height:1.15;}
+  .sub{margin-top:8px;color:var(--ink-soft);font-weight:300;max-width:680px;line-height:1.6;font-size:13.5px;}
+
+  .panel{background:var(--panel);border:1.5px solid var(--border);border-radius:5px;overflow:hidden;margin-bottom:20px;}
+  .panel-header{padding:11px 18px;background:var(--ink);}
+  .panel-header h2{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--sky);font-weight:500;}
+  .panel-body{padding:18px;}
+
+  .controls-row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-bottom:4px;}
+  .field{flex:1;min-width:180px;}
+  .field label{display:block;font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+  select{width:100%;padding:8px 10px;font-family:"DM Sans",sans-serif;font-size:13px;background:var(--field);border:1.5px solid var(--border);border-radius:3px;color:var(--ink);cursor:pointer;}
+  .btn-row{margin-top:14px;}
+  .btn-primary{padding:9px 20px;font-family:"DM Sans",sans-serif;font-size:13px;font-weight:500;background:var(--data);color:white;border:none;border-radius:3px;cursor:pointer;}
+  .btn-primary:hover{background:var(--trend);}
+  .btn-log{padding:9px 20px;font-family:"DM Sans",sans-serif;font-size:13px;font-weight:500;background:var(--log);color:white;border:none;border-radius:3px;cursor:pointer;}
+  .btn-log:hover{background:#186a37;}
+  .btn-log:disabled{background:var(--border);color:var(--muted);cursor:not-allowed;}
+
+  #chart{width:100%;min-height:400px;}
+  #chart-status{font-family:"DM Mono",monospace;font-size:12.5px;color:var(--muted);padding:40px 0;text-align:center;}
+  .annotation{font-size:12px;color:var(--muted);font-style:italic;margin-top:8px;}
+
+  .prompt-block{margin-bottom:16px;}
+  .prompt-block:last-child{margin-bottom:0;}
+  .prompt-label{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+  textarea{width:100%;min-height:64px;padding:9px 11px;font-family:"DM Sans",sans-serif;font-size:13px;line-height:1.55;background:var(--field);border:1.5px solid var(--border);border-radius:3px;color:var(--ink);resize:vertical;}
+  textarea:focus{outline:none;border-color:var(--data);}
+
+  #entries{display:flex;flex-direction:column;gap:12px;}
+  .entry{background:var(--panel);border:1.5px solid var(--border);border-radius:5px;padding:14px 16px;}
+  .entry-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;flex-wrap:wrap;gap:6px;}
+  .entry-title{font-family:"DM Serif Display",serif;font-size:15px;}
+  .entry-time{font-family:"DM Mono",monospace;font-size:10.5px;color:var(--muted);}
+  .entry-q{font-size:12px;line-height:1.55;color:var(--ink-soft);margin-bottom:6px;}
+  .entry-q b{color:var(--ink);font-weight:500;}
+  .entry-empty{font-size:13px;color:var(--muted);font-style:italic;padding:8px 0;}
+  .btn-delete{font-family:"DM Mono",monospace;font-size:10px;color:var(--accent);background:none;border:none;cursor:pointer;text-decoration:underline;padding:0;}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="flag">Isolated prototype — Energy Balance research sandbox, not linked from any live page</div>
+
+  <header>
+    <div class="eyebrow">Earth's Energy Budget · Research Sandbox</div>
+    <h1>Run your own analyses</h1>
+    <p class="sub">Pick a display, pick variables, run it. Log what you find as a notebook entry before you move to the next one — you can run as many as you want.</p>
+  </header>
+
+  <div class="panel">
+    <div class="panel-header"><h2>Build a Display</h2></div>
+    <div class="panel-body">
+      <div class="controls-row">
+        <div class="field">
+          <label>Display type</label>
+          <select id="chartType" onchange="onChartTypeChange()">
+            <option value="timeseries">Time series (one variable vs. year)</option>
+            <option value="scatter">Scatter (two variables against each other)</option>
+          </select>
+        </div>
+        <div class="field" id="var1Field">
+          <label id="var1Label">Variable</label>
+          <select id="var1Select"></select>
+        </div>
+        <div class="field" id="var2Field" style="display:none;">
+          <label>Variable 2</label>
+          <select id="var2Select"></select>
+        </div>
+      </div>
+      <div class="btn-row"><button class="btn-primary" onclick="runAnalysis()">Run Analysis</button></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><h2 id="chartTitle">Display</h2></div>
+    <div class="panel-body">
+      <div id="chart-status">Choose a display and variables, then run the analysis.</div>
+      <div id="chart" style="display:none;"></div>
+      <div class="annotation" id="chartAnnotation"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="reflectPanel" style="display:none;">
+    <div class="panel-header"><h2>What Do You See? What Does It Mean? What Does It Raise?</h2></div>
+    <div class="panel-body">
+      <div class="prompt-block">
+        <div class="prompt-label">What do you see?</div>
+        <textarea id="seeInput" placeholder="Describe the pattern, trend, or relationship in this display…"></textarea>
+      </div>
+      <div class="prompt-block">
+        <div class="prompt-label">What does it mean?</div>
+        <textarea id="meanInput" placeholder="What does this pattern tell you, and what physical process could explain it?"></textarea>
+      </div>
+      <div class="prompt-block">
+        <div class="prompt-label">What questions does it raise?</div>
+        <textarea id="raiseInput" placeholder="What would you want to look at next because of this?"></textarea>
+      </div>
+      <div class="btn-row"><button class="btn-log" id="logBtn" onclick="logEntry()">Log This Entry</button></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><h2>Research Notebook</h2></div>
+    <div class="panel-body">
+      <div id="entries"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = "epistemic_energy_balance_notebook";
+
+const RAW_VARS = {
+  isr:    {label: "Incoming Solar Radiation (ISR)", unit: "W/m²"},
+  rsr:    {label: "Reflected Shortwave Radiation (RSR)", unit: "W/m²"},
+  olr:    {label: "Outgoing Longwave Radiation (OLR)", unit: "W/m²"},
+  net:    {label: "Net Flux", unit: "W/m²"},
+  cld:    {label: "Cloud Area Fraction", unit: "%"},
+  clrolr: {label: "Clear-Sky OLR", unit: "W/m²"}
+};
+const DERIVED_VARS = {
+  asr: {label: "Absorbed Solar Radiation (ASR = ISR − RSR)", unit: "W/m²", from: ["isr","rsr"], op: (a,b)=>a-b},
+  cre: {label: "Cloud Radiative Effect (CRE = OLR − Clear-Sky OLR)", unit: "W/m²", from: ["olr","clrolr"], op: (a,b)=>a-b}
+};
+const ALL_VARS = Object.assign({}, RAW_VARS, DERIVED_VARS);
+
+let YEARS = [];
+let ANNUAL = {}; // varname -> array of 26 annual global means
+
+async function loadData(){
+  const manifestRes = await fetch("sample-data/energy_balance_manifest.json");
+  const manifest = await manifestRes.json();
+  YEARS = manifest.years;
+
+  const binRes = await fetch("sample-data/energy_balance.bin.gz");
+  const buf = await binRes.arrayBuffer();
+  const ds = new DecompressionStream("gzip");
+  const decompressedStream = new Response(buf).body.pipeThrough(ds);
+  const decompressed = await new Response(decompressedStream).arrayBuffer();
+
+  const lat = manifest.lat;
+  const nlon = manifest.lon_count;
+  const nlat = lat.length;
+  const nyears = YEARS.length;
+  const latWeights = lat.map(l => Math.cos(l * Math.PI/180));
+
+  for(const name of Object.keys(RAW_VARS)){
+    const v = manifest.vars[name];
+    const view = new Int16Array(decompressed, v.byte_offset, v.byte_length/2);
+    ANNUAL[name] = annualMeansFromView(view, v.scale, nlat, nlon, nyears, latWeights);
+  }
+  for(const [name, def] of Object.entries(DERIVED_VARS)){
+    const [a,b] = def.from;
+    ANNUAL[name] = ANNUAL[a].map((val,i) => def.op(val, ANNUAL[b][i]));
+  }
+}
+
+function annualMeansFromView(view, scale, nlat, nlon, nyears, latWeights){
+  const out = new Array(nyears);
+  const gridSize = nlat*nlon;
+  for(let y=0;y<nyears;y++){
+    let weightedSum=0, weightTotal=0;
+    for(let i=0;i<nlat;i++){
+      let rowSum=0;
+      const rowStart = y*gridSize + i*nlon;
+      for(let j=0;j<nlon;j++) rowSum += view[rowStart+j];
+      const rowMean = (rowSum/nlon)/scale;
+      weightedSum += rowMean*latWeights[i];
+      weightTotal += latWeights[i];
+    }
+    out[y] = weightedSum/weightTotal;
+  }
+  return out;
+}
+
+function linregress(x, y){
+  const n = x.length;
+  const xMean = x.reduce((a,b)=>a+b,0)/n;
+  const yMean = y.reduce((a,b)=>a+b,0)/n;
+  let num=0, denX=0, denY=0;
+  for(let i=0;i<n;i++){
+    num += (x[i]-xMean)*(y[i]-yMean);
+    denX += (x[i]-xMean)**2;
+    denY += (y[i]-yMean)**2;
+  }
+  const slope = num/denX;
+  const intercept = yMean - slope*xMean;
+  const r = num/Math.sqrt(denX*denY);
+  return {slope, intercept, r};
+}
+
+function populateVarSelects(){
+  const opts = Object.entries(ALL_VARS).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join("");
+  document.getElementById("var1Select").innerHTML = opts;
+  document.getElementById("var2Select").innerHTML = opts;
+  document.getElementById("var2Select").value = Object.keys(ALL_VARS)[1];
+}
+
+function onChartTypeChange(){
+  const type = document.getElementById("chartType").value;
+  document.getElementById("var2Field").style.display = type === "scatter" ? "block" : "none";
+  document.getElementById("var1Label").textContent = type === "scatter" ? "Variable 1" : "Variable";
+}
+
+let lastRun = null;
+
+function runAnalysis(){
+  const type = document.getElementById("chartType").value;
+  const v1 = document.getElementById("var1Select").value;
+
+  document.getElementById("chart-status").style.display = "none";
+  document.getElementById("chart").style.display = "block";
+  document.getElementById("reflectPanel").style.display = "block";
+
+  // Compute results and set lastRun/annotation FIRST, independent of whether
+  // the chart itself can render — a Plotly/CDN failure shouldn't also block
+  // logging a notebook entry, since the underlying computation already
+  // succeeded by this point.
+  let plotArgs;
+  if(type === "timeseries"){
+    const y = ANNUAL[v1];
+    const {slope, intercept, r} = linregress(YEARS, y);
+    const trendLine = YEARS.map(yr => slope*yr + intercept);
+    const mean = y.reduce((a,b)=>a+b,0)/y.length;
+    const variation = Math.max(...y) - Math.min(...y);
+
+    document.getElementById("chartTitle").textContent = `${ALL_VARS[v1].label} vs Time`;
+    document.getElementById("chartAnnotation").textContent =
+      `Mean: ${mean.toFixed(2)} ${ALL_VARS[v1].unit} · total variation across the period: ${variation.toFixed(3)} ${ALL_VARS[v1].unit}`;
+    lastRun = {type, v1, summary: `Trend ${slope.toFixed(4)} ${ALL_VARS[v1].unit}/yr, r=${r.toFixed(3)}, mean ${mean.toFixed(2)} ${ALL_VARS[v1].unit}`};
+
+    plotArgs = [[
+      {x: YEARS, y, mode: "markers", type: "scatter", marker: {color: "#2471a3", size: 9}, name: "Annual mean"},
+      {x: YEARS, y: trendLine, mode: "lines", type: "scatter", line: {color: "#c0392b", width: 2},
+       name: `Trend: ${slope.toFixed(4)} ${ALL_VARS[v1].unit}/yr, r=${r.toFixed(3)}`}
+    ], {
+      title: {text: `${ALL_VARS[v1].label} vs Time`, font: {size: 15}},
+      xaxis: {title: "Year"}, yaxis: {title: `${ALL_VARS[v1].label} (${ALL_VARS[v1].unit})`},
+      legend: {orientation: "h", y: -0.2}, margin: {t: 50, b: 70}, font: {family: "DM Sans, sans-serif"}
+    }];
+  } else {
+    const v2 = document.getElementById("var2Select").value;
+    const x = ANNUAL[v1], y = ANNUAL[v2];
+    const {slope, intercept, r} = linregress(x, y);
+    const xLine = [Math.min(...x), Math.max(...x)];
+    const yLine = xLine.map(xx => slope*xx + intercept);
+
+    document.getElementById("chartTitle").textContent = `${ALL_VARS[v2].label} vs ${ALL_VARS[v1].label}`;
+    document.getElementById("chartAnnotation").textContent = `Correlation coefficient r = ${r.toFixed(4)}`;
+    lastRun = {type, v1, v2, summary: `r = ${r.toFixed(4)}`};
+
+    plotArgs = [[
+      {x, y, mode: "markers", type: "scatter", marker: {color: YEARS, colorscale: "Viridis", size: 10, showscale: true, colorbar: {title:"Year"}}, name: "Annual means"},
+      {x: xLine, y: yLine, mode: "lines", type: "scatter", line: {color: "#c0392b", width: 1.5, dash: "dash"}, name: `r = ${r.toFixed(3)}`}
+    ], {
+      title: {text: `${ALL_VARS[v2].label} vs ${ALL_VARS[v1].label}`, font: {size: 15}},
+      xaxis: {title: `${ALL_VARS[v1].label} (${ALL_VARS[v1].unit})`},
+      yaxis: {title: `${ALL_VARS[v2].label} (${ALL_VARS[v2].unit})`},
+      legend: {orientation: "h", y: -0.2}, margin: {t: 50, b: 70}, font: {family: "DM Sans, sans-serif"}
+    }];
+  }
+
+  try{
+    if(typeof Plotly === "undefined") throw new Error("Plotly library did not load");
+    Plotly.newPlot("chart", ...plotArgs, {responsive: true});
+  }catch(err){
+    document.getElementById("chart").style.display = "none";
+    document.getElementById("chart-status").style.display = "block";
+    document.getElementById("chart-status").textContent = "Chart failed to render (" + err.message + "), but the analysis ran fine — see the result note below and log your entry as usual.";
+    console.error(err);
+  }
+}
+
+function loadEntries(){
+  try{
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+  }catch(e){ return []; }
+}
+function saveEntries(entries){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+}
+
+function logEntry(){
+  if(!lastRun){ alert("Run an analysis first."); return; }
+  const entries = loadEntries();
+  const title = lastRun.type === "timeseries"
+    ? `${ALL_VARS[lastRun.v1].label} vs Time`
+    : `${ALL_VARS[lastRun.v2].label} vs ${ALL_VARS[lastRun.v1].label}`;
+  entries.push({
+    id: Date.now(),
+    title,
+    summary: lastRun.summary,
+    see: document.getElementById("seeInput").value.trim(),
+    mean: document.getElementById("meanInput").value.trim(),
+    raise: document.getElementById("raiseInput").value.trim(),
+    loggedAt: new Date().toISOString()
+  });
+  saveEntries(entries);
+  document.getElementById("seeInput").value = "";
+  document.getElementById("meanInput").value = "";
+  document.getElementById("raiseInput").value = "";
+  renderEntries();
+}
+
+function deleteEntry(id){
+  saveEntries(loadEntries().filter(e => e.id !== id));
+  renderEntries();
+}
+
+function renderEntries(){
+  const entries = loadEntries();
+  const el = document.getElementById("entries");
+  if(entries.length === 0){
+    el.innerHTML = '<div class="entry-empty">No entries logged yet. Run an analysis above and log what you find.</div>';
+    return;
+  }
+  el.innerHTML = entries.slice().reverse().map(e => `
+    <div class="entry">
+      <div class="entry-head">
+        <span class="entry-title">${e.title}</span>
+        <span class="entry-time">${new Date(e.loggedAt).toLocaleString()}</span>
+      </div>
+      <div class="entry-q"><b>Result:</b> ${e.summary}</div>
+      ${e.see ? `<div class="entry-q"><b>What do you see:</b> ${e.see}</div>` : ""}
+      ${e.mean ? `<div class="entry-q"><b>What does it mean:</b> ${e.mean}</div>` : ""}
+      ${e.raise ? `<div class="entry-q"><b>What questions does it raise:</b> ${e.raise}</div>` : ""}
+      <button class="btn-delete" onclick="deleteEntry(${e.id})">Delete entry</button>
+    </div>
+  `).join("");
+}
+
+async function init(){
+  populateVarSelects();
+  renderEntries();
+  try{
+    await loadData();
+    window.__energyBalanceSandboxDebug = ANNUAL;
+  }catch(err){
+    document.getElementById("chart-status").textContent = "Failed to load satellite data: " + err.message;
+    console.error(err);
+  }
+}
+init();
+</script>
+</body>
+</html>
