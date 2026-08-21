@@ -260,6 +260,18 @@ async function loadData(){
   }
 }
 
+// World coastlines (110m resolution, from the world-atlas npm package via
+// topojson-client's mesh(), converted offline to a flat array of [lon,lat]
+// polylines) - bundled as a static file in the repo, not fetched from a live
+// server at runtime, consistent with the platform's no-external-dependencies
+// design. Loaded separately from the climate data since a trend map render
+// shouldn't fail just because this optional reference layer didn't load.
+let COASTLINES = null;
+async function loadCoastlines(){
+  const res = await fetch("sample-data/coastlines_110m.json");
+  COASTLINES = await res.json();
+}
+
 // UI longitude (-180..180, west negative) -> data storage convention (0..360)
 function lonTo360(lon){ return ((lon % 360) + 360) % 360; }
 
@@ -526,9 +538,19 @@ function drawTrendMapCanvas(canvas, projType, gridInfo, latMin, latMax, lonMin, 
   const bbox = projectedRegionBBox(projType, latMin, latMax, lonMin, lonMax, clat, clon);
   const bboxW = bbox.maxX-bbox.minX, bboxH = bbox.maxY-bbox.minY;
 
-  const cw = 620;
-  const ch = Math.max(220, Math.min(700, Math.round(cw * (bboxH/bboxW))));
+  // Logical (CSS) size stays fixed for layout; the backing store renders at
+  // device-pixel resolution (capped at 2x) so the raster reads crisply on
+  // high-DPI screens instead of looking blocky at a fixed 620px regardless
+  // of actual display density. scale = device px per logical px, used below
+  // to keep graticule/coastline line widths and label sizes proportional.
+  const logicalW = 620;
+  const logicalH = Math.max(220, Math.min(700, Math.round(logicalW * (bboxH/bboxW))));
+  const scale = Math.min(2, window.devicePixelRatio || 1);
+  const cw = Math.round(logicalW * scale), ch = Math.round(logicalH * scale);
+
   canvas.width = cw; canvas.height = ch;
+  canvas.style.width = logicalW + "px";
+  canvas.style.height = logicalH + "px";
   const ctx = canvas.getContext("2d");
   const imgData = ctx.createImageData(cw, ch);
 
@@ -554,47 +576,109 @@ function drawTrendMapCanvas(canvas, projType, gridInfo, latMin, latMax, lonMin, 
     }
   }
   ctx.putImageData(imgData, 0, 0);
-  drawGraticule(ctx, projType, clat, clon, bbox, cw, ch, latMin, latMax, lonMin, lonMax);
+  drawGraticule(ctx, projType, clat, clon, bbox, cw, ch, latMin, latMax, lonMin, lonMax, scale);
+  drawCoastlines(ctx, projType, clat, clon, bbox, cw, ch, latMin, latMax, scale);
 }
 
-// Light lat/lon reference lines drawn on top of the raster, for orientation
-// in the absence of embedded coastline data.
-function drawGraticule(ctx, projType, clat, clon, bbox, cw, ch, latMin, latMax, lonMin, lonMax){
+function formatLat(lat){
+  const v = Math.round(Math.abs(lat));
+  return v + "°" + (lat >= 0 ? "N" : "S");
+}
+function formatLon(lon){
+  let l = lon;
+  while(l > 180) l -= 360;
+  while(l < -180) l += 360;
+  const v = Math.round(Math.abs(l));
+  if(v === 0) return "0°";
+  return v + "°" + (l > 0 ? "E" : "W");
+}
+
+// Light lat/lon reference lines with degree labels, drawn on top of the
+// raster for orientation. Fainter than the coastlines drawn after it, since
+// coastlines are the primary reference once loaded.
+function drawGraticule(ctx, projType, clat, clon, bbox, cw, ch, latMin, latMax, lonMin, lonMax, scale){
   const bboxW = bbox.maxX-bbox.minX, bboxH = bbox.maxY-bbox.minY;
   const toPx = (wx,wy) => [ (wx-bbox.minX)/bboxW*cw, (bbox.maxY-wy)/bboxH*ch ];
 
   ctx.strokeStyle = "rgba(90,90,90,0.35)";
-  ctx.lineWidth = 1;
+  ctx.lineWidth = scale;
+  ctx.fillStyle = "rgba(70,70,70,0.85)";
+  ctx.font = `${Math.round(10*scale)}px 'DM Mono', monospace`;
 
   const latSpan = latMax-latMin;
   const latStep = latSpan > 60 ? 20 : latSpan > 25 ? 10 : 5;
   const lonSpanDeg = lonMin<=lonMax ? (lonMax-lonMin) : (lonMax+360-lonMin);
   const lonStep = lonSpanDeg > 240 ? 30 : lonSpanDeg > 90 ? 20 : lonSpanDeg > 30 ? 10 : 5;
 
-  // parallels (constant latitude)
+  // parallels (constant latitude), labeled at their westmost visible point
   for(let lat=Math.ceil(latMin/latStep)*latStep; lat<=latMax; lat+=latStep){
     ctx.beginPath();
-    let started = false;
+    let started = false, labelPt = null;
     for(let k=0;k<=96;k++){
       const lon = lonMin + lonSpanDeg*k/96;
       const p = projForward(projType, lat, lon, clat, clon);
       if(p.visible === false){ started = false; continue; }
       const [px,py] = toPx(p.x,p.y);
-      if(!started){ ctx.moveTo(px,py); started=true; } else ctx.lineTo(px,py);
+      if(!started){ ctx.moveTo(px,py); started=true; if(!labelPt) labelPt=[px,py]; } else ctx.lineTo(px,py);
     }
     ctx.stroke();
+    if(labelPt) ctx.fillText(formatLat(lat), labelPt[0]+3*scale, labelPt[1]);
   }
-  // meridians (constant longitude)
+  // meridians (constant longitude), labeled at their southmost visible point
   for(let k=0;k<=Math.round(lonSpanDeg/lonStep);k++){
     const lon = lonMin + k*lonStep;
     ctx.beginPath();
-    let started = false;
+    let started = false, labelPt = null;
     for(let li=0;li<=96;li++){
       const lat = latMin + (latMax-latMin)*li/96;
       const p = projForward(projType, lat, lon, clat, clon);
       if(p.visible === false){ started = false; continue; }
       const [px,py] = toPx(p.x,p.y);
-      if(!started){ ctx.moveTo(px,py); started=true; } else ctx.lineTo(px,py);
+      if(!started){ ctx.moveTo(px,py); started=true; if(!labelPt) labelPt=[px,py]; } else ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+    // labelPt is the FIRST visible point (li=0, latMin) - the outer/southmost
+    // edge for a normal region. For a polar region latMin IS the outer edge
+    // and latMax is the pole, so this correctly spreads labels around the
+    // rim instead of bunching every meridian's label at the pole (the bug
+    // an earlier version had, using the last point instead of the first).
+    if(labelPt) ctx.fillText(formatLon(lon), labelPt[0]+3*scale, labelPt[1]-4*scale);
+  }
+}
+
+// Real coastline outlines (see loadCoastlines), drawn on top of the
+// graticule so they read as the primary "where am I" reference. Degrades
+// gracefully - a trend map is still usable with just the graticule if this
+// hasn't loaded (e.g. slow connection) or failed to load.
+function drawCoastlines(ctx, projType, clat, clon, bbox, cw, ch, latMin, latMax, scale){
+  if(!COASTLINES) return;
+  const bboxW = bbox.maxX-bbox.minX, bboxH = bbox.maxY-bbox.minY;
+  const toPx = (wx,wy) => [ (wx-bbox.minX)/bboxW*cw, (bbox.maxY-wy)/bboxH*ch ];
+
+  ctx.strokeStyle = "rgba(70,64,52,0.8)";
+  ctx.lineWidth = Math.max(1, scale);
+
+  for(const line of COASTLINES){
+    // Cheap pre-filter: skip a whole polyline if none of its points are
+    // even within the latitude band (longitude is handled below via the
+    // projection's own visibility/jump handling, since a coastline segment
+    // near the antimeridian can still be relevant to a wrapped region).
+    let anyInLatRange = false;
+    for(let i=0;i<line.length;i++){ if(line[i][1]>=latMin-2 && line[i][1]<=latMax+2){ anyInLatRange=true; break; } }
+    if(!anyInLatRange) continue;
+
+    ctx.beginPath();
+    let started = false, lastPx = 0, lastPy = 0;
+    for(const [lon,lat] of line){
+      const p = projForward(projType, lat, lon, clat, clon);
+      if(p.visible === false){ started = false; continue; }
+      const [px,py] = toPx(p.x,p.y);
+      // A jump much larger than the canvas means this segment crossed the
+      // antimeridian or the projection's far-side boundary - break the path
+      // there instead of drawing a spurious chord across the whole map.
+      if(started && (Math.abs(px-lastPx) > cw*0.5 || Math.abs(py-lastPy) > ch*0.5)) started = false;
+      if(!started){ ctx.moveTo(px,py); started = true; } else ctx.lineTo(px,py);
+      lastPx = px; lastPy = py;
     }
     ctx.stroke();
   }
@@ -876,6 +960,10 @@ async function init(){
     document.getElementById("chart-status").textContent = "Failed to load satellite data: " + err.message;
     console.error(err);
   }
+  // Coastlines are a reference layer, not core data - a failure here
+  // shouldn't block the trend map from working, just fall back to the
+  // graticule alone for orientation.
+  loadCoastlines().catch(err => console.error("coastline load failed:", err));
 }
 init();
 </script>
