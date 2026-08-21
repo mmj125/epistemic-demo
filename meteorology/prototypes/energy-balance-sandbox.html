@@ -92,6 +92,25 @@
           <select id="var2Select"></select>
         </div>
       </div>
+      <div class="controls-row" style="margin-top:14px;">
+        <div class="field">
+          <label>Years</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="number" id="yearStart" min="2000" max="2025" value="2000" style="width:100%;padding:8px 10px;font-family:'DM Sans',sans-serif;font-size:13px;background:var(--field);border:1.5px solid var(--border);border-radius:3px;color:var(--ink);">
+            <span style="color:var(--muted);">–</span>
+            <input type="number" id="yearEnd" min="2000" max="2025" value="2025" style="width:100%;padding:8px 10px;font-family:'DM Sans',sans-serif;font-size:13px;background:var(--field);border:1.5px solid var(--border);border-radius:3px;color:var(--ink);">
+          </div>
+        </div>
+        <div class="field" style="flex:2;min-width:320px;">
+          <label>Months</label>
+          <div id="monthChecks" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+          <div style="margin-top:6px;display:flex;gap:6px;">
+            <button type="button" onclick="setMonths('all')" style="font-size:11px;padding:4px 8px;background:var(--field);border:1px solid var(--border);border-radius:3px;cursor:pointer;">All months</button>
+            <button type="button" onclick="setMonths('djf')" style="font-size:11px;padding:4px 8px;background:var(--field);border:1px solid var(--border);border-radius:3px;cursor:pointer;">Winter (DJF)</button>
+            <button type="button" onclick="setMonths('jja')" style="font-size:11px;padding:4px 8px;background:var(--field);border:1px solid var(--border);border-radius:3px;cursor:pointer;">Summer (JJA)</button>
+          </div>
+        </div>
+      </div>
       <div class="btn-row"><button class="btn-primary" onclick="runAnalysis()">Run Analysis</button></div>
     </div>
   </div>
@@ -159,52 +178,95 @@ const DERIVED_VARS = {
 const ALL_VARS = Object.assign({}, RAW_VARS, DERIVED_VARS);
 
 let YEARS = [];
-let ANNUAL = {}; // varname -> array of 26 annual global means
+let MONTHLY = {}; // varname -> [yearIndex][monthIndex] -> single global weighted mean
+                   // Precomputed once at load (312 numbers/variable) so any
+                   // year-range + month-selection filter afterward is just
+                   // picking a subset and averaging - no need to re-scan the
+                   // full 90x180 grid per filter change.
 
 async function loadData(){
-  const manifestRes = await fetch("sample-data/energy_balance_manifest.json");
+  const manifestRes = await fetch("sample-data/monthly_energy_balance_manifest.json");
   const manifest = await manifestRes.json();
   YEARS = manifest.years;
+  const nmonths = manifest.months.length;
 
-  const binRes = await fetch("sample-data/energy_balance.bin.gz");
+  const binRes = await fetch("sample-data/monthly_energy_balance.bin.gz");
   const buf = await binRes.arrayBuffer();
   const ds = new DecompressionStream("gzip");
   const decompressedStream = new Response(buf).body.pipeThrough(ds);
   const decompressed = await new Response(decompressedStream).arrayBuffer();
 
   const lat = manifest.lat;
-  const nlon = manifest.lon_count;
+  const nlon = manifest.lon.length;
   const nlat = lat.length;
   const nyears = YEARS.length;
   const latWeights = lat.map(l => Math.cos(l * Math.PI/180));
+  const scale = manifest.scale; // single global scale for the whole payload
 
   for(const name of Object.keys(RAW_VARS)){
     const v = manifest.vars[name];
     const view = new Int16Array(decompressed, v.byte_offset, v.byte_length/2);
-    ANNUAL[name] = annualMeansFromView(view, v.scale, nlat, nlon, nyears, latWeights);
+    MONTHLY[name] = monthlyMeansFromView(view, scale, nlat, nlon, nyears, nmonths, latWeights);
   }
   for(const [name, def] of Object.entries(DERIVED_VARS)){
     const [a,b] = def.from;
-    ANNUAL[name] = ANNUAL[a].map((val,i) => def.op(val, ANNUAL[b][i]));
+    MONTHLY[name] = MONTHLY[a].map((yearRow,yi) => yearRow.map((val,mi) => def.op(val, MONTHLY[b][yi][mi])));
   }
 }
 
-function annualMeansFromView(view, scale, nlat, nlon, nyears, latWeights){
+function monthlyMeansFromView(view, scale, nlat, nlon, nyears, nmonths, latWeights){
   const out = new Array(nyears);
   const gridSize = nlat*nlon;
   for(let y=0;y<nyears;y++){
-    let weightedSum=0, weightTotal=0;
-    for(let i=0;i<nlat;i++){
-      let rowSum=0;
-      const rowStart = y*gridSize + i*nlon;
-      for(let j=0;j<nlon;j++) rowSum += view[rowStart+j];
-      const rowMean = (rowSum/nlon)/scale;
-      weightedSum += rowMean*latWeights[i];
-      weightTotal += latWeights[i];
+    out[y] = new Array(nmonths);
+    for(let mo=0;mo<nmonths;mo++){
+      let weightedSum=0, weightTotal=0;
+      const monthStart = (y*nmonths+mo)*gridSize;
+      for(let i=0;i<nlat;i++){
+        let rowSum=0;
+        const rowStart = monthStart + i*nlon;
+        for(let j=0;j<nlon;j++) rowSum += view[rowStart+j];
+        const rowMean = (rowSum/nlon)/scale;
+        weightedSum += rowMean*latWeights[i];
+        weightTotal += latWeights[i];
+      }
+      out[y][mo] = weightedSum/weightTotal;
     }
-    out[y] = weightedSum/weightTotal;
   }
   return out;
+}
+
+// Aggregate MONTHLY[varname] down to one value per year, averaged over only
+// the selected months, for years within [yearStart, yearEnd].
+function filteredYearlySeries(varname, yearStart, yearEnd, months){
+  const years = [], values = [];
+  for(let yi=0; yi<YEARS.length; yi++){
+    const yr = YEARS[yi];
+    if(yr < yearStart || yr > yearEnd) continue;
+    let sum=0;
+    for(const mo of months) sum += MONTHLY[varname][yi][mo];
+    years.push(yr);
+    values.push(sum/months.length);
+  }
+  return {years, values};
+}
+
+function getSelectedMonths(){
+  const boxes = document.querySelectorAll("#monthChecks input:checked");
+  return Array.from(boxes).map(b => parseInt(b.value, 10));
+}
+function setMonths(preset){
+  const map = {all: [0,1,2,3,4,5,6,7,8,9,10,11], djf: [11,0,1], jja: [5,6,7]};
+  const sel = new Set(map[preset]);
+  document.querySelectorAll("#monthChecks input").forEach(b => b.checked = sel.has(parseInt(b.value,10)));
+}
+function populateMonthChecks(){
+  const names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  document.getElementById("monthChecks").innerHTML = names.map((n,i) =>
+    `<label style="display:inline-flex;align-items:center;gap:3px;font-size:11.5px;color:var(--ink-soft);background:var(--field);border:1px solid var(--border);border-radius:3px;padding:3px 7px;cursor:pointer;">
+      <input type="checkbox" value="${i}" checked style="cursor:pointer;">${n}
+    </label>`
+  ).join("");
 }
 
 function linregress(x, y){
@@ -242,6 +304,15 @@ function runAnalysis(){
   const type = document.getElementById("chartType").value;
   const v1 = document.getElementById("var1Select").value;
 
+  const yearStart = parseInt(document.getElementById("yearStart").value, 10);
+  const yearEnd = parseInt(document.getElementById("yearEnd").value, 10);
+  const months = getSelectedMonths();
+  if(months.length === 0){ alert("Select at least one month."); return; }
+  if(yearStart > yearEnd){ alert("Start year must be on or before end year."); return; }
+  const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const monthLabel = months.length === 12 ? "all months" : months.slice().sort((a,b)=>a-b).map(m=>monthNames[m]).join("/");
+  const periodLabel = `${yearStart}–${yearEnd}, ${monthLabel}`;
+
   document.getElementById("chart-status").style.display = "none";
   document.getElementById("chart").style.display = "block";
   document.getElementById("reflectPanel").style.display = "block";
@@ -252,30 +323,31 @@ function runAnalysis(){
   // succeeded by this point.
   let plotArgs;
   if(type === "timeseries"){
-    const y = ANNUAL[v1];
-    const {slope, intercept, r} = linregress(YEARS, y);
-    const trendLine = YEARS.map(yr => slope*yr + intercept);
+    const {years, values: y} = filteredYearlySeries(v1, yearStart, yearEnd, months);
+    if(years.length < 2){ alert("Select at least two years for a trend."); return; }
+    const {slope, intercept, r} = linregress(years, y);
+    const trendLine = years.map(yr => slope*yr + intercept);
     const mean = y.reduce((a,b)=>a+b,0)/y.length;
     const variation = Math.max(...y) - Math.min(...y);
 
     const zeroAnchor = ALL_VARS[v1].zeroAnchor;
-    document.getElementById("chartTitle").textContent = `${ALL_VARS[v1].label} vs Time`;
+    document.getElementById("chartTitle").textContent = `${ALL_VARS[v1].label} vs Time (${periodLabel})`;
     document.getElementById("chartAnnotation").textContent = zeroAnchor
       ? `Mean: ${mean.toFixed(2)} ${ALL_VARS[v1].unit} · total variation across the period: ${variation.toFixed(3)} ${ALL_VARS[v1].unit} (${(variation/mean*100).toFixed(2)}% of the mean — the y-axis below is anchored at 0 so this reads at true scale, not zoomed in)`
       : `Mean: ${mean.toFixed(2)} ${ALL_VARS[v1].unit} · total variation across the period: ${variation.toFixed(3)} ${ALL_VARS[v1].unit}`;
-    lastRun = {type, v1, summary: `Trend ${slope.toFixed(4)} ${ALL_VARS[v1].unit}/yr, r=${r.toFixed(3)}, mean ${mean.toFixed(2)} ${ALL_VARS[v1].unit}`};
+    lastRun = {type, v1, periodLabel, summary: `Trend ${slope.toFixed(4)} ${ALL_VARS[v1].unit}/yr, r=${r.toFixed(3)}, mean ${mean.toFixed(2)} ${ALL_VARS[v1].unit} (${periodLabel})`};
 
     const traces = [
-      {x: YEARS, y, mode: "markers", type: "scatter", marker: {color: "#2471a3", size: 9}, name: "Annual mean"},
-      {x: YEARS, y: trendLine, mode: "lines", type: "scatter", line: {color: "#c0392b", width: 2},
+      {x: years, y, mode: "markers", type: "scatter", marker: {color: "#2471a3", size: 9}, name: monthLabel === "all months" ? "Annual mean" : `${monthLabel} mean`},
+      {x: years, y: trendLine, mode: "lines", type: "scatter", line: {color: "#c0392b", width: 2},
        name: `Trend: ${slope.toFixed(4)} ${ALL_VARS[v1].unit}/yr, r=${r.toFixed(3)}`}
     ];
     if(!zeroAnchor){
-      traces.push({x: [Math.min(...YEARS), Math.max(...YEARS)], y: [0,0], mode: "lines", type: "scatter",
+      traces.push({x: [Math.min(...years), Math.max(...years)], y: [0,0], mode: "lines", type: "scatter",
         line: {color: "black", width: 1, dash: "dash"}, opacity: 0.5, name: "Balance point (0)"});
     }
     plotArgs = [traces, {
-      title: {text: `${ALL_VARS[v1].label} vs Time`, font: {size: 15}},
+      title: {text: `${ALL_VARS[v1].label} vs Time (${periodLabel})`, font: {size: 15}},
       xaxis: {title: "Year"},
       yaxis: zeroAnchor
         ? {title: `${ALL_VARS[v1].label} (${ALL_VARS[v1].unit})`, range: [0, mean*1.05]}
@@ -284,20 +356,22 @@ function runAnalysis(){
     }];
   } else {
     const v2 = document.getElementById("var2Select").value;
-    const x = ANNUAL[v1], y = ANNUAL[v2];
+    const {years, values: x} = filteredYearlySeries(v1, yearStart, yearEnd, months);
+    const {values: y} = filteredYearlySeries(v2, yearStart, yearEnd, months);
+    if(years.length < 2){ alert("Select at least two years for a correlation."); return; }
     const {slope, intercept, r} = linregress(x, y);
     const xLine = [Math.min(...x), Math.max(...x)];
     const yLine = xLine.map(xx => slope*xx + intercept);
 
-    document.getElementById("chartTitle").textContent = `${ALL_VARS[v2].label} vs ${ALL_VARS[v1].label}`;
+    document.getElementById("chartTitle").textContent = `${ALL_VARS[v2].label} vs ${ALL_VARS[v1].label} (${periodLabel})`;
     document.getElementById("chartAnnotation").textContent = `Correlation coefficient r = ${r.toFixed(4)}`;
-    lastRun = {type, v1, v2, summary: `r = ${r.toFixed(4)}`};
+    lastRun = {type, v1, v2, periodLabel, summary: `r = ${r.toFixed(4)} (${periodLabel})`};
 
     plotArgs = [[
-      {x, y, mode: "markers", type: "scatter", marker: {color: YEARS, colorscale: "Viridis", size: 10, showscale: true, colorbar: {title:"Year"}}, name: "Annual means"},
+      {x, y, mode: "markers", type: "scatter", marker: {color: years, colorscale: "Viridis", size: 10, showscale: true, colorbar: {title:"Year"}}, name: monthLabel === "all months" ? "Annual means" : `${monthLabel} means`},
       {x: xLine, y: yLine, mode: "lines", type: "scatter", line: {color: "#c0392b", width: 1.5, dash: "dash"}, name: `r = ${r.toFixed(3)}`}
     ], {
-      title: {text: `${ALL_VARS[v2].label} vs ${ALL_VARS[v1].label}`, font: {size: 15}},
+      title: {text: `${ALL_VARS[v2].label} vs ${ALL_VARS[v1].label} (${periodLabel})`, font: {size: 15}},
       xaxis: {title: `${ALL_VARS[v1].label} (${ALL_VARS[v1].unit})`},
       yaxis: {title: `${ALL_VARS[v2].label} (${ALL_VARS[v2].unit})`},
       legend: {orientation: "h", y: -0.2}, margin: {t: 50, b: 70}, font: {family: "DM Sans, sans-serif"}
@@ -375,10 +449,11 @@ function renderEntries(){
 
 async function init(){
   populateVarSelects();
+  populateMonthChecks();
   renderEntries();
   try{
     await loadData();
-    window.__energyBalanceSandboxDebug = ANNUAL;
+    window.__energyBalanceSandboxDebug = {MONTHLY, filteredYearlySeries};
   }catch(err){
     document.getElementById("chart-status").textContent = "Failed to load satellite data: " + err.message;
     console.error(err);
