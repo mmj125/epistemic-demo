@@ -495,17 +495,19 @@ function runAnalysis(){
 
     document.getElementById("chartTitle").textContent = `${ALL_VARS[v1].label} — Trend Map (${periodLabel})`;
     document.getElementById("chartAnnotation").textContent =
-      `${trends.length} grid cells · trend range ${Math.min(...trends).toFixed(4)} to ${Math.max(...trends).toFixed(4)} ${unit}/yr · red = increasing, blue = decreasing. Cells are drawn as squares at each grid point, not exact geographic tiles — read this for pattern, not for precise boundaries.`;
+      `${trends.length} grid cells (one dot per cell, not a filled raster) · trend range ${Math.min(...trends).toFixed(4)} to ${Math.max(...trends).toFixed(4)} ${unit}/yr · red = increasing, blue = decreasing.`;
     lastRun = {type, v1, periodLabel, summary: `Trend map: ${trends.length} cells, range ${Math.min(...trends).toFixed(4)} to ${Math.max(...trends).toFixed(4)} ${unit}/yr (${periodLabel})`};
 
-    // Marker size is an approximation: pixels-per-degree-longitude for the
-    // subplot's actual rendered width, applied to the ~2° grid spacing. Plotly
-    // geo subplots don't offer a "size markers in geographic degrees" option,
-    // so this keeps cells looking roughly tiled at the region's zoom level
-    // without claiming pixel-exact geographic coverage.
-    const chartWidthPx = document.getElementById("chart").clientWidth || 700;
-    const lonSpan = ((lonMax - lonMin + 360) % 360) || 360;
-    const markerSize = Math.max(2, Math.min(40, (chartWidthPx / lonSpan) * 2));
+    // Marker size is deliberately NOT a pixels-per-degree tiling estimate.
+    // That approach (an earlier version of this code) assumed constant
+    // screen-space degree spacing, which only holds for a cylindrical
+    // projection like equirectangular - stereographic/orthographic compress
+    // distance near the projection center and stretch it near the edge, so a
+    // fixed "tile size" either overlaps into a solid blob near the pole or
+    // leaves visible gaps between rows further out. Sizing by cell count
+    // instead and rendering plain dots (not squares) avoids promising a
+    // seamless raster that only one projection choice could ever deliver.
+    const markerSize = Math.max(3, Math.min(10, 900/Math.sqrt(trends.length)));
 
     const projType = document.getElementById("projectionSelect").value;
     const centerLat = Math.max(-90, Math.min(90, (latMin+latMax)/2));
@@ -542,7 +544,7 @@ function runAnalysis(){
     plotArgs = [[{
       type: "scattergeo", lat: lats, lon: lons, mode: "markers",
       marker: {
-        symbol: "square", size: markerSize, color: trends,
+        size: markerSize, color: trends,
         colorscale: "RdBu", reversescale: true, cmin: -maxAbs, cmax: maxAbs,
         colorbar: {title: {text: `${unit}/yr`}}
       },
