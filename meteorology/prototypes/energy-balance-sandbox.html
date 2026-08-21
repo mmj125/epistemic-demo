@@ -81,6 +81,7 @@
           <select id="chartType" onchange="onChartTypeChange()">
             <option value="timeseries">Time series (one variable vs. year)</option>
             <option value="scatter">Scatter (two variables against each other)</option>
+            <option value="trendmap">Trend map (one variable across the region)</option>
           </select>
         </div>
         <div class="field" id="var1Field">
@@ -90,6 +91,15 @@
         <div class="field" id="var2Field" style="display:none;">
           <label>Variable 2</label>
           <select id="var2Select"></select>
+        </div>
+        <div class="field" id="projectionField" style="display:none;">
+          <label>Map projection</label>
+          <select id="projectionSelect" style="width:100%;padding:8px 10px;font-family:'DM Sans',sans-serif;font-size:13px;background:var(--field);border:1.5px solid var(--border);border-radius:3px;color:var(--ink);">
+            <option value="equirectangular">Equirectangular</option>
+            <option value="natural earth">Natural earth</option>
+            <option value="orthographic">Orthographic (globe)</option>
+            <option value="stereographic">Stereographic (polar)</option>
+          </select>
         </div>
       </div>
       <div class="controls-row" style="margin-top:14px;">
@@ -334,6 +344,56 @@ function setRegion(preset){
   document.getElementById("latMax").value = r.latMax;
   document.getElementById("lonMin").value = r.lonMin;
   document.getElementById("lonMax").value = r.lonMax;
+  // Nudge the projection default toward something sensible for the region -
+  // equirectangular badly distorts polar regions, so suggest stereographic
+  // there. The student can still override it from the dropdown.
+  const projSel = document.getElementById("projectionSelect");
+  if(preset === "arctic" || preset === "antarctic") projSel.value = "stereographic";
+  else projSel.value = "equirectangular";
+}
+
+// Per-gridcell linear trend across the selected years, averaged over the
+// selected months, for every cell inside the selected region - this is the
+// spatial companion to filteredYearlySeries, which does the same regression
+// but on a single region-wide weighted mean. Not cached: same reasoning as
+// regionalMonthlyMeans, a full-region pass is cheap enough to just redo.
+function computeTrendGrid(varname, yearStart, yearEnd, months, latMin, latMax, lonMin, lonMax){
+  const isRaw = !!RAW_VARS[varname];
+  const gA = isRaw ? GRID[varname] : GRID[DERIVED_VARS[varname].from[0]];
+  const gB = isRaw ? null : GRID[DERIVED_VARS[varname].from[1]];
+  const op = isRaw ? null : DERIVED_VARS[varname].op;
+  const {nlat, nlon, nyears, nmonths} = gA;
+  const gridSize = nlat*nlon;
+
+  const rowIdx = [];
+  for(let i=0;i<nlat;i++) if(LAT[i] >= latMin && LAT[i] <= latMax) rowIdx.push(i);
+  const colIdx = [];
+  for(let j=0;j<nlon;j++) if(lonInRange(LON[j], lonMin, lonMax)) colIdx.push(j);
+
+  const yearIdx = [];
+  for(let yi=0; yi<nyears; yi++) if(YEARS[yi] >= yearStart && YEARS[yi] <= yearEnd) yearIdx.push(yi);
+
+  const lats = [], lons = [], trends = [];
+  for(const i of rowIdx){
+    for(const j of colIdx){
+      const yearVals = [], yearsUsed = [];
+      for(const yi of yearIdx){
+        let sum = 0;
+        for(const mo of months){
+          const idx = (yi*nmonths+mo)*gridSize + i*nlon + j;
+          sum += isRaw ? gA.view[idx]/gA.scale : op(gA.view[idx]/gA.scale, gB.view[idx]/gB.scale);
+        }
+        yearVals.push(sum/months.length);
+        yearsUsed.push(YEARS[yi]);
+      }
+      if(yearsUsed.length < 2) continue;
+      const {slope} = linregress(yearsUsed, yearVals);
+      lats.push(LAT[i]);
+      lons.push(LON[j] > 180 ? LON[j] - 360 : LON[j]); // data is 0-360, geo trace wants -180..180
+      trends.push(slope);
+    }
+  }
+  return {lats, lons, trends};
 }
 
 // Orders a month selection for display. Plain numeric sort breaks for any
@@ -396,6 +456,7 @@ function populateVarSelects(){
 function onChartTypeChange(){
   const type = document.getElementById("chartType").value;
   document.getElementById("var2Field").style.display = type === "scatter" ? "block" : "none";
+  document.getElementById("projectionField").style.display = type === "trendmap" ? "block" : "none";
   document.getElementById("var1Label").textContent = type === "scatter" ? "Variable 1" : "Variable";
 }
 
@@ -426,7 +487,83 @@ function runAnalysis(){
   // logging a notebook entry, since the underlying computation already
   // succeeded by this point.
   let plotArgs;
-  if(type === "timeseries"){
+  if(type === "trendmap"){
+    const {lats, lons, trends} = computeTrendGrid(v1, yearStart, yearEnd, months, latMin, latMax, lonMin, lonMax);
+    if(trends.length === 0){ alert("No grid cells in that region, or fewer than two years selected."); return; }
+    const maxAbs = Math.max(...trends.map(Math.abs)) || 1e-9;
+    const unit = ALL_VARS[v1].unit;
+
+    document.getElementById("chartTitle").textContent = `${ALL_VARS[v1].label} — Trend Map (${periodLabel})`;
+    document.getElementById("chartAnnotation").textContent =
+      `${trends.length} grid cells · trend range ${Math.min(...trends).toFixed(4)} to ${Math.max(...trends).toFixed(4)} ${unit}/yr · red = increasing, blue = decreasing. Cells are drawn as squares at each grid point, not exact geographic tiles — read this for pattern, not for precise boundaries.`;
+    lastRun = {type, v1, periodLabel, summary: `Trend map: ${trends.length} cells, range ${Math.min(...trends).toFixed(4)} to ${Math.max(...trends).toFixed(4)} ${unit}/yr (${periodLabel})`};
+
+    // Marker size is an approximation: pixels-per-degree-longitude for the
+    // subplot's actual rendered width, applied to the ~2° grid spacing. Plotly
+    // geo subplots don't offer a "size markers in geographic degrees" option,
+    // so this keeps cells looking roughly tiled at the region's zoom level
+    // without claiming pixel-exact geographic coverage.
+    const chartWidthPx = document.getElementById("chart").clientWidth || 700;
+    const lonSpan = ((lonMax - lonMin + 360) % 360) || 360;
+    const markerSize = Math.max(2, Math.min(40, (chartWidthPx / lonSpan) * 2));
+
+    const projType = document.getElementById("projectionSelect").value;
+    const centerLat = Math.max(-90, Math.min(90, (latMin+latMax)/2));
+    // Longitude center/range: a full-circle region (every preset - even
+    // Arctic/Antarctic/Tropics span the whole globe in longitude) needs an
+    // explicit center rather than the midpoint formula, since -180 and 180
+    // both map to the same point and would otherwise produce a degenerate
+    // center (see the lonInRange full-circle fix above for the same issue).
+    const isFullLon = lonMin<=-180 && lonMax>=180;
+    let centerLon, lonRangeDisplay;
+    if(isFullLon){
+      centerLon = 0;
+      lonRangeDisplay = [-180, 180];
+    } else if(lonMax < lonMin){ // custom antimeridian-crossing range, e.g. 170 to -170
+      let a = lonTo360(lonMin), b = lonTo360(lonMax);
+      if(b < a) b += 360;
+      const mid = (a+b)/2;
+      centerLon = mid > 180 ? mid - 360 : mid;
+      lonRangeDisplay = [lonMin, lonMax+360];
+    } else {
+      centerLon = (lonMin+lonMax)/2;
+      lonRangeDisplay = [lonMin, lonMax];
+    }
+    // computeTrendGrid always returns marker longitudes in the -180..180
+    // basis. In the antimeridian-crossing display case lonRangeDisplay uses
+    // a continuous basis that runs past 180 (e.g. [170, 190]), so any marker
+    // that landed on the negative side of that split (e.g. -175, meaning the
+    // same point as 185) needs +360 to line up with the declared range -
+    // otherwise Plotly clips it as out of range even though it's the right cell.
+    if(!isFullLon && lonMax < lonMin){
+      for(let k=0;k<lons.length;k++){ if(lons[k] < lonMin) lons[k] += 360; }
+    }
+
+    plotArgs = [[{
+      type: "scattergeo", lat: lats, lon: lons, mode: "markers",
+      marker: {
+        symbol: "square", size: markerSize, color: trends,
+        colorscale: "RdBu", reversescale: true, cmin: -maxAbs, cmax: maxAbs,
+        colorbar: {title: {text: `${unit}/yr`}}
+      },
+      name: `${ALL_VARS[v1].label} trend`,
+      hovertemplate: "lat %{lat}, lon %{lon}<br>trend %{marker.color:.4f} " + unit + "/yr<extra></extra>"
+    }], {
+      title: {text: `${ALL_VARS[v1].label} — Trend Map (${periodLabel})`, font: {size: 15}},
+      geo: {
+        projection: {type: projType, rotation: {lat: centerLat, lon: centerLon}},
+        center: {lat: centerLat, lon: centerLon},
+        lataxis: {range: [Math.max(latMin,-90), Math.min(latMax,90)]},
+        lonaxis: {range: lonRangeDisplay},
+        showland: true, landcolor: "#f2efe6",
+        showocean: true, oceancolor: "#eaf1f5",
+        showcountries: true, countrycolor: "#c7c2b4",
+        showcoastlines: true, coastlinecolor: "#a39d8a",
+        showframe: false, resolution: 50
+      },
+      margin: {t: 50, b: 30}, font: {family: "DM Sans, sans-serif"}
+    }];
+  } else if(type === "timeseries"){
     const {years, values: y} = filteredYearlySeries(v1, yearStart, yearEnd, months, latMin, latMax, lonMin, lonMax);
     if(years.length < 2){ alert("Select at least two years for a trend."); return; }
     const {slope, intercept, r} = linregress(years, y);
