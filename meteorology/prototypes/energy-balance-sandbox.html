@@ -251,6 +251,22 @@ function filteredYearlySeries(varname, yearStart, yearEnd, months){
   return {years, values};
 }
 
+// Orders a month selection for display. Plain numeric sort breaks for any
+// selection that wraps the year boundary (winter = Nov/Dec/Jan/Feb reads as
+// "Dec, Jan, Feb" on a calendar, not "Jan, Feb, Dec"). If the selection is a
+// single contiguous run on the 12-month circle, start at wherever that run
+// actually begins and walk forward; otherwise (disjoint months with no one
+// obvious reading order) fall back to plain calendar order.
+function orderMonthsNaturally(months){
+  const sel = new Set(months);
+  const starts = months.filter(m => !sel.has((m+11)%12));
+  if(starts.length !== 1) return months.slice().sort((a,b)=>a-b);
+  const ordered = [];
+  let cur = starts[0];
+  for(let i=0;i<months.length;i++){ ordered.push(cur); cur = (cur+1)%12; }
+  return ordered;
+}
+
 function getSelectedMonths(){
   const boxes = document.querySelectorAll("#monthChecks input:checked");
   return Array.from(boxes).map(b => parseInt(b.value, 10));
@@ -310,7 +326,7 @@ function runAnalysis(){
   if(months.length === 0){ alert("Select at least one month."); return; }
   if(yearStart > yearEnd){ alert("Start year must be on or before end year."); return; }
   const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const monthLabel = months.length === 12 ? "all months" : months.slice().sort((a,b)=>a-b).map(m=>monthNames[m]).join("/");
+  const monthLabel = months.length === 12 ? "all months" : orderMonthsNaturally(months).map(m=>monthNames[m]).join("/");
   const periodLabel = `${yearStart}–${yearEnd}, ${monthLabel}`;
 
   document.getElementById("chart-status").style.display = "none";
