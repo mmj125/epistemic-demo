@@ -272,6 +272,115 @@ async function loadCoastlines(){
   COASTLINES = await res.json();
 }
 
+// --- Fine-resolution (1deg) regional tiles for trend maps -----------------
+// The always-loaded dataset above is 2deg globally (47MB) so the initial
+// page load stays fast - reasonable for scanning the whole globe, but a
+// trend map zoomed into a specific region at that resolution renders as a
+// handful of large, near-featureless blocks (confirmed directly: "not
+// enough resolution to be useful"). A full-globe fetch at 1deg was already
+// ruled out earlier (~183MB, too large for routine loading). The resolution
+// instead: 1deg data pre-sliced into 30x30deg tiles as separate small files,
+// fetched only for the tiles a selected region actually overlaps - a
+// regional investigation touches a handful of tiles (~1.4MB each), not the
+// whole globe.
+const FINE_TILE_DEG = 30;
+let FINE_MANIFEST = null;
+const FINE_TILE_CACHE = {}; // "latTile_lonTile" -> decompressed ArrayBuffer
+
+async function loadFineManifest(){
+  if(FINE_MANIFEST) return FINE_MANIFEST;
+  const res = await fetch("sample-data/fine_tiles/fine_tiles_manifest.json");
+  FINE_MANIFEST = await res.json();
+  return FINE_MANIFEST;
+}
+
+async function loadFineTile(latTile, lonTile){
+  const key = `${latTile}_${lonTile}`;
+  if(FINE_TILE_CACHE[key]) return FINE_TILE_CACHE[key];
+  const res = await fetch(`sample-data/fine_tiles/tile_${latTile}_${lonTile}.bin.gz`);
+  const buf = await res.arrayBuffer();
+  const ds = new DecompressionStream("gzip");
+  const decompressedStream = new Response(buf).body.pipeThrough(ds);
+  const decompressed = await new Response(decompressedStream).arrayBuffer();
+  FINE_TILE_CACHE[key] = decompressed;
+  return decompressed;
+}
+
+// Which 30deg tiles does a selected region overlap? Handles antimeridian
+// wraparound the same way lonInRange does (a continuous span that may run
+// past 360 or below 0, tile indices taken mod 12).
+function fineTileRange(latMin, latMax, lonMin, lonMax){
+  const nLatTiles = 180/FINE_TILE_DEG, nLonTiles = 360/FINE_TILE_DEG;
+  const latLoTile = Math.max(0, Math.min(nLatTiles-1, Math.floor((latMin+90)/FINE_TILE_DEG)));
+  const latHiTile = Math.max(0, Math.min(nLatTiles-1, Math.floor((Math.min(latMax,89.999)+90)/FINE_TILE_DEG)));
+  const latTiles = [];
+  for(let t=latLoTile; t<=latHiTile; t++) latTiles.push(t);
+
+  let a, b;
+  if(lonMin<=-180 && lonMax>=180){ a = 0; b = 360; }
+  else{
+    a = lonTo360(lonMin); b = lonTo360(lonMax);
+    if(b < a) b += 360;
+  }
+  const lonLoTile = Math.floor(a/FINE_TILE_DEG);
+  const lonHiTile = Math.floor((b-1e-9)/FINE_TILE_DEG);
+  const lonTiles = [];
+  for(let t=lonLoTile; t<=lonHiTile; t++) lonTiles.push(((t%nLonTiles)+nLonTiles)%nLonTiles);
+
+  return {latTiles, lonTiles};
+}
+
+// Fetches and stitches together whichever fine tiles a region overlaps into
+// one merged {grid, lat, lon, years} bundle with the same shape computeTrendGrid
+// and drawTrendMapCanvas already expect from the coarse dataset - the region
+// math doesn't need to know or care which resolution it's looking at.
+async function buildFineGrid(latMin, latMax, lonMin, lonMax){
+  const manifest = await loadFineManifest();
+  const {latTiles, lonTiles} = fineTileRange(latMin, latMax, lonMin, lonMax);
+  const T = manifest.tile_deg;
+  const nyears = manifest.years.length, nmonths = manifest.months.length;
+  const scale = manifest.scale;
+  const mergedNlat = latTiles.length*T, mergedNlon = lonTiles.length*T;
+  const gridSize = mergedNlat*mergedNlon;
+  const varBytesPerTile = nyears*nmonths*T*T*2;
+
+  const buffers = {};
+  await Promise.all(latTiles.flatMap(lt => lonTiles.map(async lnt => {
+    buffers[`${lt}_${lnt}`] = await loadFineTile(lt, lnt);
+  })));
+
+  const grid = {};
+  for(let vi=0; vi<manifest.vars.length; vi++){
+    const varname = manifest.vars[vi];
+    const view = new Int16Array(nyears*nmonths*gridSize);
+    for(let latI=0; latI<latTiles.length; latI++){
+      for(let lonI=0; lonI<lonTiles.length; lonI++){
+        const buf = buffers[`${latTiles[latI]}_${lonTiles[lonI]}`];
+        const tileView = new Int16Array(buf, vi*varBytesPerTile, nyears*nmonths*T*T);
+        for(let yi=0; yi<nyears; yi++){
+          for(let mi=0; mi<nmonths; mi++){
+            const tileBase = (yi*nmonths+mi)*T*T;
+            const mergedBase = (yi*nmonths+mi)*gridSize;
+            for(let r=0; r<T; r++){
+              const srcRowStart = tileBase + r*T;
+              const dstRowStart = mergedBase + (latI*T+r)*mergedNlon + lonI*T;
+              for(let c=0; c<T; c++) view[dstRowStart+c] = tileView[srcRowStart+c];
+            }
+          }
+        }
+      }
+    }
+    grid[varname] = {view, nlat: mergedNlat, nlon: mergedNlon, nyears, nmonths, scale};
+  }
+
+  const lat = [];
+  for(const lt of latTiles) for(let r=0; r<T; r++) lat.push(-90 + lt*T + r + 0.5);
+  const lon = [];
+  for(const lnt of lonTiles) for(let c=0; c<T; c++) lon.push(lnt*T + c + 0.5);
+
+  return {grid, lat, lon, years: manifest.years};
+}
+
 // UI longitude (-180..180, west negative) -> data storage convention (0..360)
 function lonTo360(lon){ return ((lon % 360) + 360) % 360; }
 
@@ -383,21 +492,30 @@ function setRegion(preset){
 // spatial companion to filteredYearlySeries, which does the same regression
 // but on a single region-wide weighted mean. Not cached: same reasoning as
 // regionalMonthlyMeans, a full-region pass is cheap enough to just redo.
-function computeTrendGrid(varname, yearStart, yearEnd, months, latMin, latMax, lonMin, lonMax){
+function computeTrendGrid(varname, yearStart, yearEnd, months, latMin, latMax, lonMin, lonMax, latArr, lonArr, gridSource, yearsArr){
+  // Optional overrides let this same function serve both the always-loaded
+  // coarse (2deg) global dataset and an on-demand fine-resolution (1deg)
+  // tile assembly for a zoomed-in region (see buildFineGrid) - the
+  // computation is identical either way, only the source arrays differ.
+  latArr = latArr || LAT;
+  lonArr = lonArr || LON;
+  gridSource = gridSource || GRID;
+  yearsArr = yearsArr || YEARS;
+
   const isRaw = !!RAW_VARS[varname];
-  const gA = isRaw ? GRID[varname] : GRID[DERIVED_VARS[varname].from[0]];
-  const gB = isRaw ? null : GRID[DERIVED_VARS[varname].from[1]];
+  const gA = isRaw ? gridSource[varname] : gridSource[DERIVED_VARS[varname].from[0]];
+  const gB = isRaw ? null : gridSource[DERIVED_VARS[varname].from[1]];
   const op = isRaw ? null : DERIVED_VARS[varname].op;
   const {nlat, nlon, nyears, nmonths} = gA;
   const gridSize = nlat*nlon;
 
   const rowIdx = [];
-  for(let i=0;i<nlat;i++) if(LAT[i] >= latMin && LAT[i] <= latMax) rowIdx.push(i);
+  for(let i=0;i<nlat;i++) if(latArr[i] >= latMin && latArr[i] <= latMax) rowIdx.push(i);
   const colIdx = [];
-  for(let j=0;j<nlon;j++) if(lonInRange(LON[j], lonMin, lonMax)) colIdx.push(j);
+  for(let j=0;j<nlon;j++) if(lonInRange(lonArr[j], lonMin, lonMax)) colIdx.push(j);
 
   const yearIdx = [];
-  for(let yi=0; yi<nyears; yi++) if(YEARS[yi] >= yearStart && YEARS[yi] <= yearEnd) yearIdx.push(yi);
+  for(let yi=0; yi<nyears; yi++) if(yearsArr[yi] >= yearStart && yearsArr[yi] <= yearEnd) yearIdx.push(yi);
 
   // lookup: a full nlat*nlon array (NaN outside the selected cells) so the
   // raster renderer can do direct index lookups instead of searching.
@@ -413,17 +531,17 @@ function computeTrendGrid(varname, yearStart, yearEnd, months, latMin, latMax, l
           sum += isRaw ? gA.view[idx]/gA.scale : op(gA.view[idx]/gA.scale, gB.view[idx]/gB.scale);
         }
         yearVals.push(sum/months.length);
-        yearsUsed.push(YEARS[yi]);
+        yearsUsed.push(yearsArr[yi]);
       }
       if(yearsUsed.length < 2) continue;
       const {slope} = linregress(yearsUsed, yearVals);
-      lats.push(LAT[i]);
-      lons.push(LON[j] > 180 ? LON[j] - 360 : LON[j]); // data is 0-360, some callers want -180..180
+      lats.push(latArr[i]);
+      lons.push(lonArr[j] > 180 ? lonArr[j] - 360 : lonArr[j]); // data is 0-360, some callers want -180..180
       trends.push(slope);
       lookup[i*nlon+j] = slope;
     }
   }
-  return {lats, lons, trends, lookup, nlat, nlon};
+  return {lats, lons, trends, lookup, nlat, nlon, latArr, lonArr};
 }
 
 // --- Trend map rendering: a self-drawn projected raster, not a Plotly geo
@@ -533,8 +651,8 @@ function projectedRegionBBox(projType, latMin, latMax, lonMin, lonMax, clat, clo
 }
 
 function drawTrendMapCanvas(canvas, projType, gridInfo, latMin, latMax, lonMin, lonMax, clat, clon, maxAbs){
-  const {lookup, nlat, nlon} = gridInfo;
-  const latStep = LAT[1]-LAT[0], lonStep = LON[1]-LON[0];
+  const {lookup, nlat, nlon, latArr, lonArr} = gridInfo;
+  const latStep = latArr[1]-latArr[0], lonStep = lonArr[1]-lonArr[0];
   const bbox = projectedRegionBBox(projType, latMin, latMax, lonMin, lonMax, clat, clon);
   const bboxW = bbox.maxX-bbox.minX, bboxH = bbox.maxY-bbox.minY;
 
@@ -565,9 +683,9 @@ function drawTrendMapCanvas(canvas, projType, gridInfo, latMin, latMax, lonMin, 
       if(lat < latMin-1e-6 || lat > latMax+1e-6){ imgData.data[idx+3]=0; continue; }
       const lon360 = lonTo360(inv.lon);
       if(!lonInRange(lon360, lonMin, lonMax)){ imgData.data[idx+3]=0; continue; }
-      let row = Math.round((lat - LAT[0]) / latStep);
+      let row = Math.round((lat - latArr[0]) / latStep);
       row = Math.max(0, Math.min(nlat-1, row));
-      let col = Math.round((lon360 - LON[0]) / lonStep);
+      let col = Math.round((lon360 - lonArr[0]) / lonStep);
       col = ((col % nlon) + nlon) % nlon;
       const val = lookup[row*nlon+col];
       if(Number.isNaN(val)){ imgData.data[idx+3]=0; continue; }
@@ -750,7 +868,7 @@ function onChartTypeChange(){
 
 let lastRun = null;
 
-function runAnalysis(){
+async function runAnalysis(){
   const type = document.getElementById("chartType").value;
   const v1 = document.getElementById("var1Select").value;
 
@@ -772,19 +890,47 @@ function runAnalysis(){
   document.getElementById("reflectPanel").style.display = "block";
 
   if(type === "trendmap"){
-    const gridInfo = computeTrendGrid(v1, yearStart, yearEnd, months, latMin, latMax, lonMin, lonMax);
+    // The always-loaded dataset is 2deg globally - fine for a global scan,
+    // but too coarse to be useful once a student narrows to a specific
+    // region (confirmed directly - it just reads as a few giant blocks).
+    // A full-globe fetch at 1deg was already ruled out as too large, so
+    // fine resolution is fetched only for the tiles the selected region
+    // actually overlaps, and only when that stays a reasonable download -
+    // capped at 12 tiles (~17MB, one-time per region) so an accidentally
+    // huge selection just falls back to the coarse dataset instead of
+    // silently downloading the whole globe at 1deg.
+    const {latTiles, lonTiles} = fineTileRange(latMin, latMax, lonMin, lonMax);
+    const useFine = latTiles.length*lonTiles.length <= 12;
+    let gridInfo;
+    if(useFine){
+      document.getElementById("chart-status").style.display = "block";
+      document.getElementById("chart-status").textContent = "Loading higher-resolution regional data…";
+      document.getElementById("trendMapWrap").style.display = "none";
+      try{
+        const fine = await buildFineGrid(latMin, latMax, lonMin, lonMax);
+        gridInfo = computeTrendGrid(v1, yearStart, yearEnd, months, latMin, latMax, lonMin, lonMax, fine.lat, fine.lon, fine.grid, fine.years);
+      }catch(err){
+        console.error("fine tile load failed, falling back to coarse dataset:", err);
+        gridInfo = computeTrendGrid(v1, yearStart, yearEnd, months, latMin, latMax, lonMin, lonMax);
+      }
+      document.getElementById("chart-status").style.display = "none";
+      document.getElementById("trendMapWrap").style.display = "flex";
+    } else {
+      gridInfo = computeTrendGrid(v1, yearStart, yearEnd, months, latMin, latMax, lonMin, lonMax);
+    }
     const {trends} = gridInfo;
     if(trends.length === 0){ alert("No grid cells in that region, or fewer than two years selected."); return; }
     const maxAbs = Math.max(...trends.map(Math.abs)) || 1e-9;
     const unit = ALL_VARS[v1].unit;
+    const resNote = useFine ? "1° resolution" : "2° resolution";
 
     // Compute results and set lastRun/annotation FIRST, independent of
     // whether the canvas render succeeds - a rendering bug shouldn't also
     // block logging a notebook entry.
     document.getElementById("chartTitle").textContent = `${ALL_VARS[v1].label} — Trend Map (${periodLabel})`;
     document.getElementById("chartAnnotation").textContent =
-      `${trends.length} grid cells · trend range ${Math.min(...trends).toFixed(4)} to ${Math.max(...trends).toFixed(4)} ${unit}/yr · red = increasing, blue = decreasing.`;
-    lastRun = {type, v1, periodLabel, summary: `Trend map: ${trends.length} cells, range ${Math.min(...trends).toFixed(4)} to ${Math.max(...trends).toFixed(4)} ${unit}/yr (${periodLabel})`};
+      `${trends.length} grid cells at ${resNote} · trend range ${Math.min(...trends).toFixed(4)} to ${Math.max(...trends).toFixed(4)} ${unit}/yr · red = increasing, blue = decreasing.`;
+    lastRun = {type, v1, periodLabel, summary: `Trend map: ${trends.length} cells at ${resNote}, range ${Math.min(...trends).toFixed(4)} to ${Math.max(...trends).toFixed(4)} ${unit}/yr (${periodLabel})`};
 
     const projType = document.getElementById("projectionSelect").value;
     const clat = Math.max(-90, Math.min(90, (latMin+latMax)/2));
