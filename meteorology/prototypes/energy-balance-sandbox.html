@@ -111,6 +111,32 @@
           </div>
         </div>
       </div>
+      <div class="controls-row" style="margin-top:14px;">
+        <div class="field">
+          <label>Latitude range (°N, negative = south)</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="number" id="latMin" min="-90" max="90" value="-90" style="width:100%;padding:8px 10px;font-family:'DM Sans',sans-serif;font-size:13px;background:var(--field);border:1.5px solid var(--border);border-radius:3px;color:var(--ink);">
+            <span style="color:var(--muted);">–</span>
+            <input type="number" id="latMax" min="-90" max="90" value="90" style="width:100%;padding:8px 10px;font-family:'DM Sans',sans-serif;font-size:13px;background:var(--field);border:1.5px solid var(--border);border-radius:3px;color:var(--ink);">
+          </div>
+        </div>
+        <div class="field">
+          <label>Longitude range (°E, negative = west)</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="number" id="lonMin" min="-180" max="180" value="-180" style="width:100%;padding:8px 10px;font-family:'DM Sans',sans-serif;font-size:13px;background:var(--field);border:1.5px solid var(--border);border-radius:3px;color:var(--ink);">
+            <span style="color:var(--muted);">–</span>
+            <input type="number" id="lonMax" min="-180" max="180" value="180" style="width:100%;padding:8px 10px;font-family:'DM Sans',sans-serif;font-size:13px;background:var(--field);border:1.5px solid var(--border);border-radius:3px;color:var(--ink);">
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
+        <button type="button" onclick="setRegion('global')" style="font-size:11px;padding:4px 8px;background:var(--field);border:1px solid var(--border);border-radius:3px;cursor:pointer;">Global</button>
+        <button type="button" onclick="setRegion('arctic')" style="font-size:11px;padding:4px 8px;background:var(--field);border:1px solid var(--border);border-radius:3px;cursor:pointer;">Arctic (66.5–90°N)</button>
+        <button type="button" onclick="setRegion('antarctic')" style="font-size:11px;padding:4px 8px;background:var(--field);border:1px solid var(--border);border-radius:3px;cursor:pointer;">Antarctic (90–66.5°S)</button>
+        <button type="button" onclick="setRegion('tropics')" style="font-size:11px;padding:4px 8px;background:var(--field);border:1px solid var(--border);border-radius:3px;cursor:pointer;">Tropics (23.5°S–23.5°N)</button>
+        <button type="button" onclick="setRegion('nhemi')" style="font-size:11px;padding:4px 8px;background:var(--field);border:1px solid var(--border);border-radius:3px;cursor:pointer;">N. Hemisphere</button>
+        <button type="button" onclick="setRegion('shemi')" style="font-size:11px;padding:4px 8px;background:var(--field);border:1px solid var(--border);border-radius:3px;cursor:pointer;">S. Hemisphere</button>
+      </div>
       <div class="btn-row"><button class="btn-primary" onclick="runAnalysis()">Run Analysis</button></div>
     </div>
   </div>
@@ -178,11 +204,12 @@ const DERIVED_VARS = {
 const ALL_VARS = Object.assign({}, RAW_VARS, DERIVED_VARS);
 
 let YEARS = [];
-let MONTHLY = {}; // varname -> [yearIndex][monthIndex] -> single global weighted mean
-                   // Precomputed once at load (312 numbers/variable) so any
-                   // year-range + month-selection filter afterward is just
-                   // picking a subset and averaging - no need to re-scan the
-                   // full 90x180 grid per filter change.
+let LAT = [], LON = [], LAT_WEIGHTS = [];
+let GRID = {}; // varname -> {view, nlat, nlon, nyears, nmonths, scale}
+               // Raw gridded data stays in memory (not collapsed to a global
+               // scalar at load time) since the weighted mean now depends on
+               // whatever region a student picks - it has to be computed on
+               // demand, not precomputed once for the whole globe.
 
 async function loadData(){
   const manifestRes = await fetch("sample-data/monthly_energy_balance_manifest.json");
@@ -196,59 +223,117 @@ async function loadData(){
   const decompressedStream = new Response(buf).body.pipeThrough(ds);
   const decompressed = await new Response(decompressedStream).arrayBuffer();
 
-  const lat = manifest.lat;
-  const nlon = manifest.lon.length;
-  const nlat = lat.length;
-  const nyears = YEARS.length;
-  const latWeights = lat.map(l => Math.cos(l * Math.PI/180));
-  const scale = manifest.scale; // single global scale for the whole payload
+  LAT = manifest.lat;
+  LON = manifest.lon; // stored 0..360, UI uses -180..180 - converted at query time
+  LAT_WEIGHTS = LAT.map(l => Math.cos(l * Math.PI/180));
+  const nlat = LAT.length, nlon = LON.length, nyears = YEARS.length;
+  const scale = manifest.scale;
 
   for(const name of Object.keys(RAW_VARS)){
     const v = manifest.vars[name];
     const view = new Int16Array(decompressed, v.byte_offset, v.byte_length/2);
-    MONTHLY[name] = monthlyMeansFromView(view, scale, nlat, nlon, nyears, nmonths, latWeights);
-  }
-  for(const [name, def] of Object.entries(DERIVED_VARS)){
-    const [a,b] = def.from;
-    MONTHLY[name] = MONTHLY[a].map((yearRow,yi) => yearRow.map((val,mi) => def.op(val, MONTHLY[b][yi][mi])));
+    GRID[name] = {view, nlat, nlon, nyears, nmonths, scale};
   }
 }
 
-function monthlyMeansFromView(view, scale, nlat, nlon, nyears, nmonths, latWeights){
-  const out = new Array(nyears);
+// UI longitude (-180..180, west negative) -> data storage convention (0..360)
+function lonTo360(lon){ return ((lon % 360) + 360) % 360; }
+
+// Does a data-grid longitude (0..360) fall inside a UI-specified range
+// (-180..180)? Handles ranges that cross the antimeridian (e.g. 170 to -170).
+function lonInRange(dataLon, lonMinUI, lonMaxUI){
+  // A full-circle span (e.g. -180 to 180) must match everything. Without this,
+  // lonTo360(-180) and lonTo360(180) both map to 180, collapsing the "whole
+  // globe" case to a single degenerate longitude and matching nothing.
+  if(lonMaxUI - lonMinUI >= 360) return true;
+  const min360 = lonTo360(lonMinUI), max360 = lonTo360(lonMaxUI);
+  if(min360 <= max360) return dataLon >= min360 && dataLon <= max360;
+  return dataLon >= min360 || dataLon <= max360;
+}
+
+// Latitude-weighted mean for one variable, restricted to a lat/lon box, for
+// every (year, month) combination. Recomputed on demand each time the region
+// or variable changes rather than cached - a single pass over a 90x180 grid
+// across 312 months is a few million array reads, well under the cost of
+// worrying about invalidating a cache correctly.
+function regionalMonthlyMeans(varname, latMin, latMax, lonMin, lonMax){
+  const g = GRID[varname];
+  const {view, nlat, nlon, nyears, nmonths, scale} = g;
   const gridSize = nlat*nlon;
+
+  const rowIdx = [];
+  for(let i=0;i<nlat;i++) if(LAT[i] >= latMin && LAT[i] <= latMax) rowIdx.push(i);
+  const colIdx = [];
+  for(let j=0;j<nlon;j++) if(lonInRange(LON[j], lonMin, lonMax)) colIdx.push(j);
+
+  const out = new Array(nyears);
   for(let y=0;y<nyears;y++){
     out[y] = new Array(nmonths);
     for(let mo=0;mo<nmonths;mo++){
       let weightedSum=0, weightTotal=0;
       const monthStart = (y*nmonths+mo)*gridSize;
-      for(let i=0;i<nlat;i++){
+      for(const i of rowIdx){
+        if(colIdx.length===0) continue;
         let rowSum=0;
         const rowStart = monthStart + i*nlon;
-        for(let j=0;j<nlon;j++) rowSum += view[rowStart+j];
-        const rowMean = (rowSum/nlon)/scale;
-        weightedSum += rowMean*latWeights[i];
-        weightTotal += latWeights[i];
+        for(const j of colIdx) rowSum += view[rowStart+j];
+        const rowMean = (rowSum/colIdx.length)/scale;
+        weightedSum += rowMean*LAT_WEIGHTS[i];
+        weightTotal += LAT_WEIGHTS[i];
       }
-      out[y][mo] = weightedSum/weightTotal;
+      out[y][mo] = weightTotal>0 ? weightedSum/weightTotal : NaN;
     }
   }
   return out;
 }
 
-// Aggregate MONTHLY[varname] down to one value per year, averaged over only
-// the selected months, for years within [yearStart, yearEnd].
-function filteredYearlySeries(varname, yearStart, yearEnd, months){
+function regionalMonthlyMeansForVar(varname, latMin, latMax, lonMin, lonMax){
+  if(RAW_VARS[varname]) return regionalMonthlyMeans(varname, latMin, latMax, lonMin, lonMax);
+  const def = DERIVED_VARS[varname];
+  const [a,b] = def.from;
+  const ma = regionalMonthlyMeans(a, latMin, latMax, lonMin, lonMax);
+  const mb = regionalMonthlyMeans(b, latMin, latMax, lonMin, lonMax);
+  return ma.map((yearRow,yi) => yearRow.map((val,mi) => def.op(val, mb[yi][mi])));
+}
+
+// Aggregate a region's monthly means down to one value per year, averaged
+// over only the selected months, for years within [yearStart, yearEnd].
+function filteredYearlySeries(varname, yearStart, yearEnd, months, latMin, latMax, lonMin, lonMax){
+  const monthly = regionalMonthlyMeansForVar(varname, latMin, latMax, lonMin, lonMax);
   const years = [], values = [];
   for(let yi=0; yi<YEARS.length; yi++){
     const yr = YEARS[yi];
     if(yr < yearStart || yr > yearEnd) continue;
     let sum=0;
-    for(const mo of months) sum += MONTHLY[varname][yi][mo];
+    for(const mo of months) sum += monthly[yi][mo];
     years.push(yr);
     values.push(sum/months.length);
   }
   return {years, values};
+}
+
+function getSelectedRegion(){
+  return {
+    latMin: parseFloat(document.getElementById("latMin").value),
+    latMax: parseFloat(document.getElementById("latMax").value),
+    lonMin: parseFloat(document.getElementById("lonMin").value),
+    lonMax: parseFloat(document.getElementById("lonMax").value)
+  };
+}
+function setRegion(preset){
+  const presets = {
+    global:    {latMin:-90, latMax:90,   lonMin:-180, lonMax:180},
+    arctic:    {latMin:66.5,latMax:90,   lonMin:-180, lonMax:180},
+    antarctic: {latMin:-90, latMax:-66.5,lonMin:-180, lonMax:180},
+    tropics:   {latMin:-23.5,latMax:23.5,lonMin:-180, lonMax:180},
+    nhemi:     {latMin:0,   latMax:90,   lonMin:-180, lonMax:180},
+    shemi:     {latMin:-90, latMax:0,    lonMin:-180, lonMax:180}
+  };
+  const r = presets[preset];
+  document.getElementById("latMin").value = r.latMin;
+  document.getElementById("latMax").value = r.latMax;
+  document.getElementById("lonMin").value = r.lonMin;
+  document.getElementById("lonMax").value = r.lonMax;
 }
 
 // Orders a month selection for display. Plain numeric sort breaks for any
@@ -327,7 +412,10 @@ function runAnalysis(){
   if(yearStart > yearEnd){ alert("Start year must be on or before end year."); return; }
   const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   const monthLabel = months.length === 12 ? "all months" : orderMonthsNaturally(months).map(m=>monthNames[m]).join("/");
-  const periodLabel = `${yearStart}–${yearEnd}, ${monthLabel}`;
+  const {latMin, latMax, lonMin, lonMax} = getSelectedRegion();
+  const isGlobal = latMin<=-90 && latMax>=90 && lonMin<=-180 && lonMax>=180;
+  const regionLabel = isGlobal ? "global" : `lat ${latMin}° to ${latMax}°, lon ${lonMin}° to ${lonMax}°`;
+  const periodLabel = `${yearStart}–${yearEnd}, ${monthLabel}, ${regionLabel}`;
 
   document.getElementById("chart-status").style.display = "none";
   document.getElementById("chart").style.display = "block";
@@ -339,7 +427,7 @@ function runAnalysis(){
   // succeeded by this point.
   let plotArgs;
   if(type === "timeseries"){
-    const {years, values: y} = filteredYearlySeries(v1, yearStart, yearEnd, months);
+    const {years, values: y} = filteredYearlySeries(v1, yearStart, yearEnd, months, latMin, latMax, lonMin, lonMax);
     if(years.length < 2){ alert("Select at least two years for a trend."); return; }
     const {slope, intercept, r} = linregress(years, y);
     const trendLine = years.map(yr => slope*yr + intercept);
@@ -372,8 +460,8 @@ function runAnalysis(){
     }];
   } else {
     const v2 = document.getElementById("var2Select").value;
-    const {years, values: x} = filteredYearlySeries(v1, yearStart, yearEnd, months);
-    const {values: y} = filteredYearlySeries(v2, yearStart, yearEnd, months);
+    const {years, values: x} = filteredYearlySeries(v1, yearStart, yearEnd, months, latMin, latMax, lonMin, lonMax);
+    const {values: y} = filteredYearlySeries(v2, yearStart, yearEnd, months, latMin, latMax, lonMin, lonMax);
     if(years.length < 2){ alert("Select at least two years for a correlation."); return; }
     const {slope, intercept, r} = linregress(x, y);
     const xLine = [Math.min(...x), Math.max(...x)];
@@ -469,7 +557,7 @@ async function init(){
   renderEntries();
   try{
     await loadData();
-    window.__energyBalanceSandboxDebug = {MONTHLY, filteredYearlySeries};
+    window.__energyBalanceSandboxDebug = {GRID, LAT, LON, LAT_WEIGHTS, filteredYearlySeries, regionalMonthlyMeans, getSelectedRegion};
   }catch(err){
     document.getElementById("chart-status").textContent = "Failed to load satellite data: " + err.message;
     console.error(err);
