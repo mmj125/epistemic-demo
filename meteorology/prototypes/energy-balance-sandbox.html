@@ -713,7 +713,7 @@ function drawTrendMapCanvas(canvas, projType, gridInfo, latMin, latMax, lonMin, 
   }
   ctx.putImageData(imgData, 0, 0);
   drawGraticule(ctx, projType, clat, clon, bbox, cw, ch, latMin, latMax, lonMin, lonMax, scale);
-  drawCoastlines(ctx, projType, clat, clon, bbox, cw, ch, latMin, latMax, scale);
+  drawCoastlines(ctx, projType, clat, clon, bbox, cw, ch, latMin, latMax, lonMin, lonMax, scale);
 }
 
 function formatLat(lat){
@@ -786,7 +786,7 @@ function drawGraticule(ctx, projType, clat, clon, bbox, cw, ch, latMin, latMax, 
 // graticule so they read as the primary "where am I" reference. Degrades
 // gracefully - a trend map is still usable with just the graticule if this
 // hasn't loaded (e.g. slow connection) or failed to load.
-function drawCoastlines(ctx, projType, clat, clon, bbox, cw, ch, latMin, latMax, scale){
+function drawCoastlines(ctx, projType, clat, clon, bbox, cw, ch, latMin, latMax, lonMin, lonMax, scale){
   if(!COASTLINES) return;
   const bboxW = bbox.maxX-bbox.minX, bboxH = bbox.maxY-bbox.minY;
   const toPx = (wx,wy) => [ (wx-bbox.minX)/bboxW*cw, (bbox.maxY-wy)/bboxH*ch ];
@@ -796,9 +796,7 @@ function drawCoastlines(ctx, projType, clat, clon, bbox, cw, ch, latMin, latMax,
 
   for(const line of COASTLINES){
     // Cheap pre-filter: skip a whole polyline if none of its points are
-    // even within the latitude band (longitude is handled below via the
-    // projection's own visibility/jump handling, since a coastline segment
-    // near the antimeridian can still be relevant to a wrapped region).
+    // even within the latitude band.
     let anyInLatRange = false;
     for(let i=0;i<line.length;i++){ if(line[i][1]>=latMin-2 && line[i][1]<=latMax+2){ anyInLatRange=true; break; } }
     if(!anyInLatRange) continue;
@@ -806,6 +804,17 @@ function drawCoastlines(ctx, projType, clat, clon, bbox, cw, ch, latMin, latMax,
     ctx.beginPath();
     let started = false, lastPx = 0, lastPy = 0;
     for(const [lon,lat] of line){
+      // A point can be perfectly "visible" under the projection's own math
+      // (within its ~100 degree cutoff) while still sitting well outside
+      // the region actually selected - e.g. mid-latitude coastlines are
+      // within a polar stereographic's visible range even for an Arctic-
+      // only selection. Without this check those points still get drawn,
+      // producing exactly the reported bug: coastlines extending past the
+      // edge of the colored disk, which IS correctly clipped to the region.
+      if(lat < latMin-1e-6 || lat > latMax+1e-6 || !lonInRange(lonTo360(lon), lonMin, lonMax)){
+        started = false;
+        continue;
+      }
       const p = projForward(projType, lat, lon, clat, clon);
       if(p.visible === false){ started = false; continue; }
       const [px,py] = toPx(p.x,p.y);
