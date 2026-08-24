@@ -96,7 +96,6 @@
           <label>Map projection</label>
           <select id="projectionSelect" style="width:100%;padding:8px 10px;font-family:'DM Sans',sans-serif;font-size:13px;background:var(--field);border:1.5px solid var(--border);border-radius:3px;color:var(--ink);">
             <option value="equirectangular">Equirectangular</option>
-            <option value="natural earth">Natural earth</option>
             <option value="orthographic">Orthographic (globe)</option>
             <option value="stereographic">Stereographic (polar)</option>
           </select>
@@ -579,7 +578,16 @@ function projForward(projType, lat, lon, clat, clon){
   const k = 2/denom;
   const x = k*Math.cos(phi)*Math.sin(lam-lam0);
   const y = k*(Math.cos(phi1)*Math.sin(phi) - Math.sin(phi1)*Math.cos(phi)*Math.cos(lam-lam0));
-  return {x, y, visible: denom > 1e-6};
+  // Stereographic is only well-behaved within a bounded distance of its
+  // center - the radius grows without limit approaching the antipode
+  // (k -> infinity as cosc -> -1). Treating points beyond ~100 degrees from
+  // center as not-visible keeps the projection to the range it's actually
+  // meant for; without this a region much larger than a hemisphere renders
+  // as a runaway spiral instead of a sensible bounded view (this was the
+  // direct cause of a nonsensical "pinwheel" pattern reported for a global
+  // selection under a since-removed unbuilt "Natural earth" option, which
+  // silently fell through to this same stereographic formula unclipped).
+  return {x, y, visible: cosc > -0.2};
 }
 
 function projInverse(projType, x, y, clat, clon){
@@ -596,7 +604,11 @@ function projInverse(projType, x, y, clat, clon){
     const lam = lam0 + Math.atan2(x*Math.sin(c), rho*Math.cos(phi1)*Math.cos(c) - y*Math.sin(phi1)*Math.sin(c));
     return {lat: phi*R2D, lon: lam*R2D, visible: true};
   }
-  // stereographic
+  // stereographic - matches the ~100 degree visibility cutoff in
+  // projForward (rho at cosc=-0.2, the forward cutoff, is ~2.44); without
+  // this a canvas corner beyond the region's actual bounding circle can
+  // still decode to a valid-looking but spurious point.
+  if(rho > 2.44) return {visible: false};
   if(rho < 1e-9) return {lat: clat, lon: clon, visible: true};
   const c = 2*Math.atan(rho/2);
   const phi = Math.asin(Math.cos(c)*Math.sin(phi1) + (y*Math.sin(c)*Math.cos(phi1))/rho);
