@@ -681,6 +681,12 @@ function drawTrendMapCanvas(canvas, projType, gridInfo, latMin, latMax, lonMin, 
   canvas.width = cw; canvas.height = ch;
   canvas.style.width = logicalW + "px";
   canvas.style.height = logicalH + "px";
+  // Only equirectangular actually fills its rectangle edge to edge - a
+  // rectangular border/frame around a circular stereographic or orthographic
+  // disk reads as a mismatched box around the map rather than a frame for
+  // it, with the corners sitting outside the projection entirely. Drop the
+  // frame for those instead of drawing a rectangle around a circle.
+  canvas.style.border = projType === "equirectangular" ? "1px solid var(--border)" : "none";
   const ctx = canvas.getContext("2d");
   const imgData = ctx.createImageData(cw, ch);
 
