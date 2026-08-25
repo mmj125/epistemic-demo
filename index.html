@@ -38,8 +38,10 @@
   .unit-card.active:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(0,0,0,.1);}
   .unit-card.coming-soon{opacity:.62;}
 
-  .unit-icon{height:130px;display:flex;align-items:center;justify-content:center;font-size:56px;background:linear-gradient(135deg,var(--ink) 0%,#2b241d 100%);position:relative;}
+  .unit-icon{height:130px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--ink) 0%,#2b241d 100%);position:relative;}
   .unit-card.coming-soon .unit-icon{background:linear-gradient(135deg,var(--bone-dark) 0%,#b8ab90 100%);filter:grayscale(.3);}
+  .unit-glyph{width:60px;height:60px;color:var(--bone);}
+  .unit-glyph.gold{color:var(--gold);}
   .unit-badge{position:absolute;top:10px;right:10px;font-family:"DM Mono",monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border-radius:12px;background:rgba(255,255,255,.15);color:var(--bone);}
   .unit-card.coming-soon .unit-badge{background:var(--ink);color:var(--bone);opacity:.85;}
 
@@ -80,7 +82,18 @@
   <div class="unit-grid">
 
     <div class="unit-card active" onclick="window.location.href='anthropology/student-landing.html'">
-      <div class="unit-icon">🐒<span class="unit-badge">Live</span></div>
+      <div class="unit-icon">
+        <svg class="unit-glyph" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M40 62 C58 66, 74 60, 78 44 C81 32, 75 20, 62 16 C68 20, 72 29, 70 38 C67 51, 55 56, 41 52 Z" fill="currentColor"/>
+          <path d="M46 30 C32 33, 21 43, 22 57 C23 65, 19 71, 12 74 C20 78, 29 76, 33 69 L38 69 C36 64, 37 57, 41 51 C36 46, 36 38, 42 33 C44 31, 46 30, 46 30 Z" fill="currentColor"/>
+          <path d="M30 46 C25 51, 23 58, 25 65 C26 68, 29 69, 32 68 C29 66, 28 62, 28 58 C28 53, 30 49, 34 47 Z" fill="currentColor"/>
+          <circle cx="47" cy="26" r="13" fill="currentColor"/>
+          <circle cx="37" cy="16" r="5.5" fill="currentColor"/>
+          <circle cx="56" cy="16" r="5.5" fill="currentColor"/>
+          <ellipse cx="55" cy="31" rx="6" ry="4.5" fill="#1a1612"/>
+        </svg>
+        <span class="unit-badge">Live</span>
+      </div>
       <div class="unit-body">
         <div class="unit-subject">Biological Anthropology</div>
         <div class="unit-title">Primate Locomotion Investigation</div>
@@ -93,7 +106,26 @@
     </div>
 
     <div class="unit-card active" onclick="window.location.href='meteorology/energy-balance-sandbox.html'">
-      <div class="unit-icon">☁️<span class="unit-badge">Prototype</span></div>
+      <div class="unit-icon">
+        <svg class="unit-glyph gold" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="46" cy="56" r="32" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 4" opacity="0.6"/>
+          <circle cx="46" cy="56" r="23" stroke="currentColor" stroke-width="3"/>
+          <path d="M23 56 C34 50, 58 50, 69 56" stroke="currentColor" stroke-width="2" fill="none"/>
+          <path d="M23 56 C34 62, 58 62, 69 56" stroke="currentColor" stroke-width="2" fill="none"/>
+          <path d="M46 33 C38 44, 38 68, 46 79" stroke="currentColor" stroke-width="2" fill="none"/>
+          <path d="M46 33 C54 44, 54 68, 46 79" stroke="currentColor" stroke-width="2" fill="none"/>
+          <circle cx="78" cy="20" r="7" fill="currentColor"/>
+          <g stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="78" y1="6" x2="78" y2="1"/>
+            <line x1="90" y1="12" x2="94" y2="9"/>
+            <line x1="92" y1="24" x2="97" y2="24"/>
+          </g>
+          <line x1="70" y1="27" x2="58" y2="39" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M14 78 C18 74, 22 82, 26 78" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+          <path d="M8 86 C12 82, 16 90, 20 86" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+        </svg>
+        <span class="unit-badge">Prototype</span>
+      </div>
       <div class="unit-body">
         <div class="unit-subject">Meteorology &amp; Climate Science</div>
         <div class="unit-title">Earth's Energy Budget</div>
