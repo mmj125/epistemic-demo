@@ -45,6 +45,15 @@
   #chart-status{font-family:"DM Mono",monospace;font-size:12.5px;color:var(--muted);padding:40px 0;text-align:center;}
   .annotation{font-size:12px;color:var(--muted);font-style:italic;margin-top:8px;}
 
+  .expand-btn{font-family:"DM Mono",monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--sky);background:transparent;border:1px solid rgba(255,255,255,0.35);border-radius:3px;padding:5px 10px;cursor:pointer;}
+  .expand-btn:hover{background:rgba(255,255,255,0.1);}
+  /* Expanded state: the whole Display panel lifts out of the normal document
+     flow to cover the viewport, independent of .app's 900px max-width. Fixed
+     positioning escapes that constraint on its own since it's relative to the
+     viewport, not the parent - no extra containment tricks needed. */
+  .panel.expanded{position:fixed;inset:0;z-index:100;margin:0;border-radius:0;max-width:none;width:100vw;height:100vh;display:flex;flex-direction:column;}
+  .panel.expanded .panel-body{flex:1;overflow:auto;}
+
   .prompt-block{margin-bottom:16px;}
   .prompt-block:last-child{margin-bottom:0;}
   .prompt-label{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
@@ -151,8 +160,11 @@
     </div>
   </div>
 
-  <div class="panel">
-    <div class="panel-header"><h2 id="chartTitle">Display</h2></div>
+  <div class="panel" id="displayPanel">
+    <div class="panel-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <h2 id="chartTitle">Display</h2>
+      <button type="button" class="expand-btn" id="expandBtn" onclick="toggleExpand()">⛶ Expand</button>
+    </div>
     <div class="panel-body">
       <div id="chart-status">Choose a display and variables, then run the analysis.</div>
       <div id="chart" style="display:none;"></div>
@@ -708,7 +720,7 @@ function projectedRegionBBox(projType, latMin, latMax, lonMin, lonMax, clat, clo
   return {minX: minX-padX, maxX: maxX+padX, minY: minY-padY, maxY: maxY+padY};
 }
 
-function drawSpatialMapCanvas(canvas, projType, gridInfo, latMin, latMax, lonMin, lonMax, clat, clon, colorFn){
+function drawSpatialMapCanvas(canvas, projType, gridInfo, latMin, latMax, lonMin, lonMax, clat, clon, colorFn, expanded){
   const {lookup, nlat, nlon, latArr, lonArr} = gridInfo;
   const latStep = latArr[1]-latArr[0], lonStep = lonArr[1]-lonArr[0];
   const bbox = projectedRegionBBox(projType, latMin, latMax, lonMin, lonMax, clat, clon);
@@ -719,8 +731,12 @@ function drawSpatialMapCanvas(canvas, projType, gridInfo, latMin, latMax, lonMin
   // high-DPI screens instead of looking blocky at a fixed 620px regardless
   // of actual display density. scale = device px per logical px, used below
   // to keep graticule/coastline line widths and label sizes proportional.
-  const logicalW = 620;
-  const logicalH = Math.max(220, Math.min(700, Math.round(logicalW * (bboxH/bboxW))));
+  // Not just a CSS stretch - the raster is recomputed at the new pixel size,
+  // so an expanded map is genuinely higher-detail, not just bigger and
+  // blurrier. Sized off the actual viewport since the panel now covers it.
+  const logicalW = expanded ? Math.max(620, Math.min(1500, window.innerWidth - 160)) : 620;
+  const heightCap = expanded ? Math.max(400, window.innerHeight - 260) : 700;
+  const logicalH = Math.max(220, Math.min(heightCap, Math.round(logicalW * (bboxH/bboxW))));
   const scale = Math.min(2, window.devicePixelRatio || 1);
   const cw = Math.round(logicalW * scale), ch = Math.round(logicalH * scale);
 
@@ -981,6 +997,37 @@ function onChartTypeChange(){
 
 let lastRun = null;
 
+// Expand/collapse for the Display panel - a CSS-only "cover the viewport"
+// toggle rather than the real Fullscreen API. requestFullscreen() needs
+// explicit permission (and an allowfullscreen attribute) when this page is
+// ever embedded in an LMS iframe - a static overlay works everywhere with no
+// permission model to fight, at the cost of the browser chrome staying
+// visible.
+let isExpanded = false;
+// Stashed by the trendmap/map branch of runAnalysis so the canvas can be
+// redrawn at a new size on toggle without recomputing the grid or, worse,
+// re-fetching fine tiles over the network.
+let lastMapRender = null;
+
+function toggleExpand(){
+  isExpanded = !isExpanded;
+  document.getElementById("displayPanel").classList.toggle("expanded", isExpanded);
+  document.getElementById("expandBtn").textContent = isExpanded ? "✕ Close" : "⛶ Expand";
+
+  const chartEl = document.getElementById("chart");
+  if(chartEl.style.display !== "none"){
+    chartEl.style.height = isExpanded ? "calc(100vh - 220px)" : "";
+    if(typeof Plotly !== "undefined") Plotly.Plots.resize(chartEl);
+  }
+
+  const mapVisible = document.getElementById("trendMapWrap").style.display !== "none";
+  if(mapVisible && lastMapRender){
+    const m = lastMapRender;
+    drawSpatialMapCanvas(document.getElementById("trendCanvas"), m.projType, m.gridInfo, m.latMin, m.latMax, m.lonMin, m.lonMax, m.clat, m.clon, m.colorFn, isExpanded);
+  }
+}
+document.addEventListener("keydown", e => { if(e.key === "Escape" && isExpanded) toggleExpand(); });
+
 async function runAnalysis(){
   const type = document.getElementById("chartType").value;
   const v1 = document.getElementById("var1Select").value;
@@ -1119,8 +1166,11 @@ async function runAnalysis(){
     document.getElementById("trendLegendMid").textContent = legendMid;
     document.getElementById("trendLegendMin").textContent = legendMin;
 
+    // Stashed so the Expand button can redraw at a new size on demand
+    // without recomputing the grid or re-fetching fine tiles.
+    lastMapRender = {projType, gridInfo, latMin, latMax, lonMin, lonMax, clat, clon, colorFn};
     try{
-      drawSpatialMapCanvas(document.getElementById("trendCanvas"), projType, gridInfo, latMin, latMax, lonMin, lonMax, clat, clon, colorFn);
+      drawSpatialMapCanvas(document.getElementById("trendCanvas"), projType, gridInfo, latMin, latMax, lonMin, lonMax, clat, clon, colorFn, isExpanded);
     }catch(err){
       document.getElementById("trendMapWrap").style.display = "none";
       document.getElementById("chart-status").style.display = "block";
