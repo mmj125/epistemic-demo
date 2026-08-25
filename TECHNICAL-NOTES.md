@@ -13,7 +13,11 @@ Format per entry: **Problem** → **Solution** → key file(s)/technique, plus a
 
 **Problem:** Paid/keyed APIs (Gemini) can't be called directly from a public static page without exposing the key.
 **Solution:** Cloudflare Worker proxy (`cloudflare-worker/worker.js`) holds the key server-side, page calls the worker instead of the API directly. `FEEDBACK_ENDPOINT` in `investigation.html` points at the deployed worker.
-**Not yet done:** meteorology unit will need the same treatment whenever it gets an AI feedback loop — the original notebook calls Anthropic directly with an exposed key.
+**Not yet done:** meteorology unit will need the same treatment whenever it eventually gets an AI feedback loop (for the future open-ended research phase, not the current guided sandbox).
+**Corrected assumption, logged so it isn't repeated:** earlier notes here and in CLAUDE.md claimed the meteorology Colab notebook has a feedback cell that calls Anthropic with an exposed key. That was wrong — that notebook predates public genAI and has no AI/API calls anywhere in it. There is nothing to fix there; any future meteorology AI feedback is new-feature work against the sandbox, not a patch to an existing notebook cell.
+
+**Problem:** Accounts/login and LMS grade passback (Canvas/Brightspace/Google Classroom) are real, wanted features, not things Matt has ruled out.
+**Solution/scope decision:** deferred entirely to a future hired software engineer, post-funding — this project is currently bootstrapped proof-of-concept work ("vibecoding") meant to produce lessons good enough for user/teacher feedback, not production infrastructure. Don't scaffold auth, a database, or any backend during this phase; keep new units static and no-login like anthropology and meteorology already are. When it does get built, LTI 1.3 is the standard that covers Canvas/Brightspace/Classroom with one integration instead of three.
 
 ---
 
@@ -77,4 +81,6 @@ Format per entry: **Problem** → **Solution** → key file(s)/technique, plus a
 **Solution 3 — graticule step size was fixed at a 5° minimum:** any region smaller than that got zero parallels. Replaced with a step picker that guarantees ~2+ divisions regardless of region size (`niceGraticuleStep()`), with label decimal precision bumped for sub-1° steps.
 **Solution 4 — lines/labels were invisible against the saturated end of the color scale:** a flat dark gray/brown line at any reasonable opacity disappears against near-black maroon or navy (the RdBu extremes), which a region dominated by one trend direction hits often. Fixed with a white halo behind every line and label (`haloStroke()`/`haloText()`) — standard cartography technique, guarantees contrast regardless of fill color.
 
-**Not yet done for this unit:** instructor resource page, end-of-unit assessment, poster template, AI feedback/reveal loop, promotion to a top-level `meteorology/` folder with a real splash-page link.
+**Not yet done for this unit:** instructor resource page, guided investigations (outline exists, see CLAUDE.md's meteorology section — on hold pending feedback from Max), end-of-unit assessment, poster template, AI feedback/reveal loop for the later open-ended research phase, promotion to a top-level `meteorology/` folder with a real splash-page link.
+
+**Terminology, logged so it isn't misread again:** this unit's planned "notebook" is a pedagogical science notebook (student log of what was studied/found/means, claim-evidence-reasoning style) — not a Jupyter/code notebook. Pyodide has nothing to do with it.
