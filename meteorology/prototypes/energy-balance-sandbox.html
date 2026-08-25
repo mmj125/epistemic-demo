@@ -259,15 +259,23 @@ async function loadData(){
   }
 }
 
-// World coastlines (110m resolution, from the world-atlas npm package via
-// topojson-client's mesh(), converted offline to a flat array of [lon,lat]
-// polylines) - bundled as a static file in the repo, not fetched from a live
-// server at runtime, consistent with the platform's no-external-dependencies
-// design. Loaded separately from the climate data since a trend map render
-// shouldn't fail just because this optional reference layer didn't load.
+// World coastlines AND lake shorelines (50m resolution, from the
+// sane-topojson npm package - the same map data Plotly.js's own geo traces
+// use - via topojson-client's mesh(), converted offline to a flat array of
+// [lon,lat] polylines) - bundled as a static file in the repo, not fetched
+// from a live server at runtime, consistent with the platform's
+// no-external-dependencies design. Loaded separately from the climate data
+// since a trend map render shouldn't fail just because this optional
+// reference layer didn't load.
+// Lakes matter here specifically: the "land" layer alone only encodes
+// continental coastline against ocean, so a region entirely inland (e.g. a
+// custom box over the Great Lakes) would show no reference lines at all -
+// confirmed directly when a Great Lakes trend map came back with zero
+// coastline vertices even at 50m land-only resolution, since Lake Erie
+// simply isn't a "land vs ocean" boundary.
 let COASTLINES = null;
 async function loadCoastlines(){
-  const res = await fetch("sample-data/coastlines_110m.json");
+  const res = await fetch("sample-data/coastlines_and_lakes_50m.json");
   COASTLINES = await res.json();
 }
 
@@ -716,35 +724,69 @@ function drawTrendMapCanvas(canvas, projType, gridInfo, latMin, latMax, lonMin, 
   drawCoastlines(ctx, projType, clat, clon, bbox, cw, ch, latMin, latMax, lonMin, lonMax, scale);
 }
 
-function formatLat(lat){
-  const v = Math.round(Math.abs(lat));
+function formatLat(lat, decimals){
+  const v = Math.abs(lat).toFixed(decimals||0);
   return v + "°" + (lat >= 0 ? "N" : "S");
 }
-function formatLon(lon){
+function formatLon(lon, decimals){
   let l = lon;
   while(l > 180) l -= 360;
   while(l < -180) l += 360;
-  const v = Math.round(Math.abs(l));
-  if(v === 0) return "0°";
+  const v = Math.abs(l).toFixed(decimals||0);
+  if(parseFloat(v) === 0) return "0°";
   return v + "°" + (l > 0 ? "E" : "W");
+}
+
+// Picks a graticule spacing so a region always gets at least ~2 reference
+// lines regardless of size, instead of a fixed step that produces zero
+// parallels for any region smaller than that step (confirmed directly: a
+// ~1.7 degree tall custom region with a fixed 5 degree step drew no
+// parallels at all, since latMin and latMax never bracketed a multiple of 5).
+function niceGraticuleStep(span){
+  const candidates = [30, 20, 10, 5, 2, 1, 0.5, 0.25, 0.1, 0.05];
+  for(const step of candidates) if(span/step >= 2) return step;
+  return candidates[candidates.length-1];
 }
 
 // Light lat/lon reference lines with degree labels, drawn on top of the
 // raster for orientation. Fainter than the coastlines drawn after it, since
 // coastlines are the primary reference once loaded.
+// Strokes the current path twice: a wide pale halo first, then the real
+// color on top. A flat dark gray line at any reasonable opacity disappears
+// against the dark end of the RdBu scale (near-black maroon or navy) -
+// confirmed directly on a trend map where every cell landed near one
+// extreme and the graticule/coastlines were essentially invisible. A halo
+// guarantees contrast against light AND dark fills without needing to know
+// the fill color in advance.
+function haloStroke(ctx, color, width){
+  ctx.strokeStyle = "rgba(255,255,255,0.75)";
+  ctx.lineWidth = width*2.4;
+  ctx.stroke();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.stroke();
+}
+function haloText(ctx, text, x, y, color){
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "rgba(255,255,255,0.85)";
+  ctx.lineWidth = 3;
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = color;
+  ctx.fillText(text, x, y);
+}
+
 function drawGraticule(ctx, projType, clat, clon, bbox, cw, ch, latMin, latMax, lonMin, lonMax, scale){
   const bboxW = bbox.maxX-bbox.minX, bboxH = bbox.maxY-bbox.minY;
   const toPx = (wx,wy) => [ (wx-bbox.minX)/bboxW*cw, (bbox.maxY-wy)/bboxH*ch ];
 
-  ctx.strokeStyle = "rgba(90,90,90,0.35)";
-  ctx.lineWidth = scale;
-  ctx.fillStyle = "rgba(70,70,70,0.85)";
   ctx.font = `${Math.round(10*scale)}px 'DM Mono', monospace`;
 
   const latSpan = latMax-latMin;
-  const latStep = latSpan > 60 ? 20 : latSpan > 25 ? 10 : 5;
+  const latStep = niceGraticuleStep(latSpan);
   const lonSpanDeg = lonMin<=lonMax ? (lonMax-lonMin) : (lonMax+360-lonMin);
-  const lonStep = lonSpanDeg > 240 ? 30 : lonSpanDeg > 90 ? 20 : lonSpanDeg > 30 ? 10 : 5;
+  const lonStep = niceGraticuleStep(lonSpanDeg);
+  const latDecimals = latStep < 1 ? 2 : 0;
+  const lonDecimals = lonStep < 1 ? 2 : 0;
 
   // parallels (constant latitude), labeled at their westmost visible point
   for(let lat=Math.ceil(latMin/latStep)*latStep; lat<=latMax; lat+=latStep){
@@ -757,8 +799,8 @@ function drawGraticule(ctx, projType, clat, clon, bbox, cw, ch, latMin, latMax, 
       const [px,py] = toPx(p.x,p.y);
       if(!started){ ctx.moveTo(px,py); started=true; if(!labelPt) labelPt=[px,py]; } else ctx.lineTo(px,py);
     }
-    ctx.stroke();
-    if(labelPt) ctx.fillText(formatLat(lat), labelPt[0]+3*scale, labelPt[1]);
+    haloStroke(ctx, "rgba(90,90,90,0.6)", scale);
+    if(labelPt) haloText(ctx, formatLat(lat, latDecimals), labelPt[0]+3*scale, labelPt[1], "rgba(60,60,60,0.95)");
   }
   // meridians (constant longitude), labeled at their southmost visible point
   for(let k=0;k<=Math.round(lonSpanDeg/lonStep);k++){
@@ -772,13 +814,13 @@ function drawGraticule(ctx, projType, clat, clon, bbox, cw, ch, latMin, latMax, 
       const [px,py] = toPx(p.x,p.y);
       if(!started){ ctx.moveTo(px,py); started=true; if(!labelPt) labelPt=[px,py]; } else ctx.lineTo(px,py);
     }
-    ctx.stroke();
+    haloStroke(ctx, "rgba(90,90,90,0.6)", scale);
     // labelPt is the FIRST visible point (li=0, latMin) - the outer/southmost
     // edge for a normal region. For a polar region latMin IS the outer edge
     // and latMax is the pole, so this correctly spreads labels around the
     // rim instead of bunching every meridian's label at the pole (the bug
     // an earlier version had, using the last point instead of the first).
-    if(labelPt) ctx.fillText(formatLon(lon), labelPt[0]+3*scale, labelPt[1]-4*scale);
+    if(labelPt) haloText(ctx, formatLon(lon, lonDecimals), labelPt[0]+3*scale, labelPt[1]-4*scale, "rgba(60,60,60,0.95)");
   }
 }
 
@@ -791,8 +833,7 @@ function drawCoastlines(ctx, projType, clat, clon, bbox, cw, ch, latMin, latMax,
   const bboxW = bbox.maxX-bbox.minX, bboxH = bbox.maxY-bbox.minY;
   const toPx = (wx,wy) => [ (wx-bbox.minX)/bboxW*cw, (bbox.maxY-wy)/bboxH*ch ];
 
-  ctx.strokeStyle = "rgba(70,64,52,0.8)";
-  ctx.lineWidth = Math.max(1, scale);
+  const coastlineWidth = Math.max(1, scale);
 
   for(const line of COASTLINES){
     // Cheap pre-filter: skip a whole polyline if none of its points are
@@ -802,7 +843,7 @@ function drawCoastlines(ctx, projType, clat, clon, bbox, cw, ch, latMin, latMax,
     if(!anyInLatRange) continue;
 
     ctx.beginPath();
-    let started = false, lastPx = 0, lastPy = 0;
+    let started = false, lastPx = 0, lastPy = 0, lastInside = false;
     for(const [lon,lat] of line){
       // A point can be perfectly "visible" under the projection's own math
       // (within its ~100 degree cutoff) while still sitting well outside
@@ -811,21 +852,28 @@ function drawCoastlines(ctx, projType, clat, clon, bbox, cw, ch, latMin, latMax,
       // only selection. Without this check those points still get drawn,
       // producing exactly the reported bug: coastlines extending past the
       // edge of the colored disk, which IS correctly clipped to the region.
-      if(lat < latMin-1e-6 || lat > latMax+1e-6 || !lonInRange(lonTo360(lon), lonMin, lonMax)){
-        started = false;
-        continue;
-      }
+      const inside = lat >= latMin-1e-6 && lat <= latMax+1e-6 && lonInRange(lonTo360(lon), lonMin, lonMax);
+      // Draw a segment if EITHER endpoint is inside the region, not only
+      // when both are - a small custom region can easily have zero
+      // coastline vertices strictly inside it even though the true
+      // coastline visibly crosses the box (confirmed directly: a ~5x2
+      // degree region came back with zero interior vertices and rendered
+      // no reference line at all, even though the real shoreline runs
+      // through it). Requiring both endpoints inside dropped that whole
+      // segment; requiring just one keeps it, at the cost of a small
+      // overdraw slightly past the box edge on the outside endpoint.
+      if(!inside && !lastInside){ started = false; lastInside = inside; continue; }
       const p = projForward(projType, lat, lon, clat, clon);
-      if(p.visible === false){ started = false; continue; }
+      if(p.visible === false){ started = false; lastInside = inside; continue; }
       const [px,py] = toPx(p.x,p.y);
       // A jump much larger than the canvas means this segment crossed the
       // antimeridian or the projection's far-side boundary - break the path
       // there instead of drawing a spurious chord across the whole map.
       if(started && (Math.abs(px-lastPx) > cw*0.5 || Math.abs(py-lastPy) > ch*0.5)) started = false;
       if(!started){ ctx.moveTo(px,py); started = true; } else ctx.lineTo(px,py);
-      lastPx = px; lastPy = py;
+      lastPx = px; lastPy = py; lastInside = inside;
     }
-    ctx.stroke();
+    haloStroke(ctx, "rgba(70,64,52,0.9)", coastlineWidth);
   }
 }
 
