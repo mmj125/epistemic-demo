@@ -312,16 +312,26 @@ function onAnalysisModeChange(){
 // auto-scaling, matching the notebook's axhline(0) treatment for net flux -
 // forcing those to start at 0 would misrepresent them just as badly.
 const RAW_VARS = {
-  isr:    {label: "Incoming Solar Radiation (ISR)", unit: "W/m²", zeroAnchor: true},
-  rsr:    {label: "Reflected Shortwave Radiation (RSR)", unit: "W/m²", zeroAnchor: true},
-  olr:    {label: "Outgoing Longwave Radiation (OLR)", unit: "W/m²", zeroAnchor: true},
-  net:    {label: "Net Flux", unit: "W/m²", zeroAnchor: false},
-  cld:    {label: "Cloud Area Fraction", unit: "%", zeroAnchor: true},
-  clrolr: {label: "Clear-Sky OLR", unit: "W/m²", zeroAnchor: true}
+  isr:    {label: "Incoming Solar Radiation (ISR)", unit: "W/m²", zeroAnchor: true, dataset: "ceres"},
+  rsr:    {label: "Reflected Shortwave Radiation (RSR)", unit: "W/m²", zeroAnchor: true, dataset: "ceres"},
+  olr:    {label: "Outgoing Longwave Radiation (OLR)", unit: "W/m²", zeroAnchor: true, dataset: "ceres"},
+  net:    {label: "Net Flux", unit: "W/m²", zeroAnchor: false, dataset: "ceres"},
+  cld:    {label: "Cloud Area Fraction", unit: "%", zeroAnchor: true, dataset: "ceres"},
+  clrolr: {label: "Clear-Sky OLR", unit: "W/m²", zeroAnchor: true, dataset: "ceres"},
+  // ERA5 reanalysis (monthly means, 2001-2025, regridded onto this exact same
+  // 2deg lat/lon grid so it can be compared directly against the CERES
+  // variables above - see TECHNICAL-NOTES.md for the conversion pipeline).
+  // Unlike CERES this has no fine-tile (1deg) regional data, and two of its
+  // four variables are ocean-only (sst, siconc carry real missing values
+  // over land - see GRID's per-variable `missing` sentinel in loadData()).
+  t2m:    {label: "2m Air Temperature", unit: "°C", zeroAnchor: false, dataset: "era5"},
+  sst:    {label: "Sea Surface Temperature", unit: "°C", zeroAnchor: false, dataset: "era5"},
+  siconc: {label: "Sea Ice Cover", unit: "%", zeroAnchor: true, dataset: "era5"},
+  tp:     {label: "Precipitation", unit: "mm/day", zeroAnchor: true, dataset: "era5"}
 };
 const DERIVED_VARS = {
-  asr: {label: "Absorbed Solar Radiation (ASR = ISR − RSR)", unit: "W/m²", from: ["isr","rsr"], op: (a,b)=>a-b, zeroAnchor: true},
-  cre: {label: "Cloud Radiative Effect (CRE = OLR − Clear-Sky OLR)", unit: "W/m²", from: ["olr","clrolr"], op: (a,b)=>a-b, zeroAnchor: false}
+  asr: {label: "Absorbed Solar Radiation (ASR = ISR − RSR)", unit: "W/m²", from: ["isr","rsr"], op: (a,b)=>a-b, zeroAnchor: true, dataset: "ceres"},
+  cre: {label: "Cloud Radiative Effect (CRE = OLR − Clear-Sky OLR)", unit: "W/m²", from: ["olr","clrolr"], op: (a,b)=>a-b, zeroAnchor: false, dataset: "ceres"}
 };
 const ALL_VARS = Object.assign({}, RAW_VARS, DERIVED_VARS);
 
@@ -352,9 +362,46 @@ async function loadData(){
   const scale = manifest.scale;
 
   for(const name of Object.keys(RAW_VARS)){
+    if(RAW_VARS[name].dataset !== "ceres") continue;
     const v = manifest.vars[name];
     const view = new Int16Array(decompressed, v.byte_offset, v.byte_length/2);
     GRID[name] = {view, nlat, nlon, nyears, nmonths, scale};
+  }
+
+  // ERA5 reanalysis - a separate manifest+binary pair. The conversion
+  // pipeline deliberately regridded it onto this exact same lat/lon grid
+  // and 2001-2025 year range as the CERES data above (see TECHNICAL-
+  // NOTES.md), so it reuses the global YEARS/LAT/LON/LAT_WEIGHTS rather
+  // than needing its own - only the per-variable grid entries differ, and
+  // each variable carries its own scale (unlike CERES's one shared scale,
+  // since ERA5's four variables span wildly different magnitudes - °C, %,
+  // mm/day). Checked rather than just assumed, so a future data refresh
+  // that drifts the two grids apart fails loudly instead of silently
+  // mis-aligning cells. Treated as non-essential extra content, not core
+  // data - a fetch failure here degrades to "those four variables just
+  // aren't available" rather than blocking the whole page.
+  try{
+    const era5ManifestRes = await fetch("sample-data/monthly_era5_manifest.json");
+    const era5Manifest = await era5ManifestRes.json();
+    const gridMatches = era5Manifest.lat.length === LAT.length && era5Manifest.lon.length === LON.length
+      && era5Manifest.lat[0] === LAT[0] && era5Manifest.lon[0] === LON[0]
+      && era5Manifest.years.length === YEARS.length && era5Manifest.years[0] === YEARS[0];
+    if(!gridMatches) throw new Error("ERA5 manifest's grid/year range no longer matches the CERES data - refusing to load it rather than silently mis-align cells");
+
+    const era5BinRes = await fetch("sample-data/monthly_era5.bin.gz");
+    const era5Buf = await era5BinRes.arrayBuffer();
+    const era5Ds = new DecompressionStream("gzip");
+    const era5DecompressedStream = new Response(era5Buf).body.pipeThrough(era5Ds);
+    const era5Decompressed = await new Response(era5DecompressedStream).arrayBuffer();
+    const era5Nmonths = era5Manifest.months.length, era5Nyears = era5Manifest.years.length;
+    for(const name of Object.keys(RAW_VARS)){
+      if(RAW_VARS[name].dataset !== "era5") continue;
+      const v = era5Manifest.vars[name];
+      const view = new Int16Array(era5Decompressed, v.byte_offset, v.byte_length/2);
+      GRID[name] = {view, nlat: LAT.length, nlon: LON.length, nyears: era5Nyears, nmonths: era5Nmonths, scale: v.scale, missing: v.missing};
+    }
+  }catch(err){
+    console.error("ERA5 dataset failed to load - its four variables (2m Air Temperature, Sea Surface Temperature, Sea Ice Cover, Precipitation) won't be available, but the CERES data above is unaffected:", err);
   }
 }
 
@@ -509,7 +556,7 @@ function lonInRange(dataLon, lonMinUI, lonMaxUI){
 // worrying about invalidating a cache correctly.
 function regionalMonthlyMeans(varname, latMin, latMax, lonMin, lonMax){
   const g = GRID[varname];
-  const {view, nlat, nlon, nyears, nmonths, scale} = g;
+  const {view, nlat, nlon, nyears, nmonths, scale, missing} = g;
   const gridSize = nlat*nlon;
 
   const rowIdx = [];
@@ -525,10 +572,18 @@ function regionalMonthlyMeans(varname, latMin, latMax, lonMin, lonMax){
       const monthStart = (y*nmonths+mo)*gridSize;
       for(const i of rowIdx){
         if(colIdx.length===0) continue;
-        let rowSum=0;
+        let rowSum=0, rowCount=0;
         const rowStart = monthStart + i*nlon;
-        for(const j of colIdx) rowSum += view[rowStart+j];
-        const rowMean = (rowSum/colIdx.length)/scale;
+        for(const j of colIdx){
+          const raw = view[rowStart+j];
+          // See computeSpatialGrid's matching comment - ERA5's ocean-only
+          // variables carry a missing-value sentinel over land; CERES
+          // variables never set `missing`, so this never trips for them.
+          if(missing !== undefined && raw === missing) continue;
+          rowSum += raw; rowCount++;
+        }
+        if(rowCount === 0) continue; // whole row missing at this latitude (e.g. an all-land band)
+        const rowMean = (rowSum/rowCount)/scale;
         weightedSum += rowMean*LAT_WEIGHTS[i];
         weightTotal += LAT_WEIGHTS[i];
       }
@@ -637,12 +692,25 @@ function computeSpatialGrid(varname, yearStart, yearEnd, months, latMin, latMax,
     for(const j of colIdx){
       const yearVals = [], yearsUsed = [];
       for(const yi of yearIdx){
-        let sum = 0;
+        let sum = 0, validCount = 0;
         for(const mo of months){
           const idx = (yi*nmonths+mo)*gridSize + i*nlon + j;
-          sum += isRaw ? gA.view[idx]/gA.scale : op(gA.view[idx]/gA.scale, gB.view[idx]/gB.scale);
+          // ERA5's ocean-only variables (sst, siconc) carry a missing-value
+          // sentinel over land - see loadData(). CERES variables never set
+          // gA.missing, so this check is a no-op for them.
+          if(isRaw){
+            const raw = gA.view[idx];
+            if(gA.missing !== undefined && raw === gA.missing) continue;
+            sum += raw/gA.scale;
+          } else {
+            const rawA = gA.view[idx], rawB = gB.view[idx];
+            if((gA.missing !== undefined && rawA === gA.missing) || (gB.missing !== undefined && rawB === gB.missing)) continue;
+            sum += op(rawA/gA.scale, rawB/gB.scale);
+          }
+          validCount++;
         }
-        yearVals.push(sum/months.length);
+        if(validCount === 0) continue; // every selected month missing at this cell (e.g. land, for an ocean-only variable)
+        yearVals.push(sum/validCount);
         yearsUsed.push(yearsArr[yi]);
       }
       // A trend needs at least two years to regress against; a mean/snapshot
@@ -1124,7 +1192,21 @@ function linregress(x, y){
 
 function populateVarSelects(sfx){
   sfx = sfx || "";
-  const opts = Object.entries(ALL_VARS).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join("");
+  // Grouped by dataset (rather than one flat list) now that there are two -
+  // makes it visible at a glance which variables are CERES's own energy-
+  // budget quantities vs. ERA5's surface/response variables, which matters
+  // for a student trying to reason about cause vs. consequence, not just
+  // for tidiness now that the list has grown to 10 raw + 2 derived.
+  const byGroup = {ceres: [], "ceres-derived": [], era5: []};
+  for(const [k,v] of Object.entries(RAW_VARS)){
+    (v.dataset === "era5" ? byGroup.era5 : byGroup.ceres).push(`<option value="${k}">${v.label}</option>`);
+  }
+  for(const [k,v] of Object.entries(DERIVED_VARS)){
+    byGroup["ceres-derived"].push(`<option value="${k}">${v.label}</option>`);
+  }
+  const opts = `<optgroup label="CERES (energy budget)">${byGroup.ceres.join("")}</optgroup>
+    <optgroup label="CERES (derived)">${byGroup["ceres-derived"].join("")}</optgroup>
+    <optgroup label="ERA5 (surface &amp; response)">${byGroup.era5.join("")}</optgroup>`;
   document.getElementById("var1Select"+sfx).innerHTML = opts;
   document.getElementById("var2Select"+sfx).innerHTML = opts;
   document.getElementById("var2Select"+sfx).value = Object.keys(ALL_VARS)[1];
@@ -1344,7 +1426,10 @@ async function runAnalysis(sfx){
     // huge selection just falls back to the coarse dataset instead of
     // silently downloading the whole globe at 1deg.
     const {latTiles, lonTiles} = fineTileRange(latMin, latMax, lonMin, lonMax);
-    const useFine = latTiles.length*lonTiles.length <= 12;
+    // Fine-resolution regional tiles only exist for the CERES variables -
+    // ERA5 has no such fallback tile set, so its four variables always use
+    // the coarse 2deg grid regardless of how small the selected region is.
+    const useFine = ALL_VARS[v1].dataset === "ceres" && latTiles.length*lonTiles.length <= 12;
     let gridInfo;
     if(useFine){
       document.getElementById("chart-status"+sfx).style.display = "block";
@@ -1427,10 +1512,15 @@ async function runAnalysis(sfx){
     // otherwise be told to look for a color that isn't even in the scale
     // they're looking at, so a manual override gets a palette-agnostic note
     // instead and leans on the numeric legend to carry the meaning.
+    // "net gain/net loss" only makes sense for CERES's actual energy-flux
+    // variables (net, cre) - ERA5's signed variables (t2m, sst) are also
+    // diverging (see zeroAnchor above) but aren't a flux, so they get the
+    // more general "higher/lower" phrasing instead.
     const directionNote = !isAuto ? " · color direction depends on the palette chosen — see the scale at right."
       : mode === "trend" ? " · red = increasing, blue = decreasing."
-      : paletteKind === "diverging" ? " · red = net gain, blue = net loss."
-      : " · lighter = lower, darker red = higher.";
+      : paletteKind !== "diverging" ? " · lighter = lower, darker red = higher."
+      : unit === "W/m²" ? " · red = net gain, blue = net loss."
+      : " · red = higher, blue = lower.";
     const annotation = `${values.length} grid cells at ${resNote} · ${rangeWord} ${rangeText}${directionNote}`;
     const summary = `${mode === "trend" ? "Trend map" : "Map"}: ${values.length} cells at ${resNote}, range ${rangeText} (${periodLabel})`;
 
