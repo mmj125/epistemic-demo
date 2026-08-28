@@ -307,7 +307,7 @@
   <!-- Student investigation entry -->
   <div class="section-header" style="margin-bottom:20px;">
     <div class="section-label">Student Entry Points</div>
-    <div class="section-title">Four mystery specimens</div>
+    <div class="section-title">Five mystery specimens</div>
   </div>
   <p style="font-size:14px;color:var(--muted);margin-bottom:20px;line-height:1.6;">Each specimen has a different field context and produces different analytical tensions. Assign different specimens to different student groups for richer class discussion — groups will have partially overlapping but not identical results.</p>
 
@@ -356,6 +356,18 @@
       <div class="specimen-card-body">
         <div class="specimen-card-loc">Kiboko Savanna</div>
         <div class="specimen-card-desc">Open grassland habitat. IMI overlaps with arboreal species despite strongly terrestrial lifestyle. Habitat context is essential evidence that raw metrics alone cannot provide.</div>
+      </div>
+      <div class="specimen-card-cta">Open investigation →</div>
+    </a>
+
+    <a class="specimen-card" href="investigation.html?specimen=MS1" target="_blank">
+      <div class="specimen-card-header">
+        <div class="specimen-card-id">MS-1</div>
+        <div class="specimen-card-name">East African Rift Valley</div>
+      </div>
+      <div class="specimen-card-body">
+        <div class="specimen-card-loc">Kalambo Escarpment</div>
+        <div class="specimen-card-desc">Rocky escarpment bordering woodland and savanna. Unlike MS11–14, students measure real 3D MorphoSource bone meshes directly and can generate CSG values from real cross-section images in-browser instead of uploading ImageJ logs.</div>
       </div>
       <div class="specimen-card-cta">Open investigation →</div>
     </a>
@@ -425,10 +437,15 @@
           <td style="padding:14px 16px;"><em>Indri indri</em><br><span style="font-size:12px;color:var(--muted);">Indri (largest living lemur)</span></td>
           <td style="padding:14px 16px;color:var(--ink-soft);">IMI ~66.5 clusters near humans and sifaka — hindlimb dominance from vertical clinging, not bipedalism. Field context (West Africa) is deliberately incorrect; Indri is Malagasy. Two misdirections to navigate.</td>
         </tr>
-        <tr>
+        <tr style="border-bottom:1px solid var(--bone);">
           <td style="padding:14px 16px;font-family:'DM Mono',monospace;font-size:12px;color:var(--teacher);font-weight:500;">MS-14</td>
           <td style="padding:14px 16px;"><em>Erythrocebus patas</em><br><span style="font-size:12px;color:var(--muted);">Patas Monkey</span></td>
           <td style="padding:14px 16px;color:var(--ink-soft);">IMI overlaps with arboreal cercopithecoids despite highly terrestrial, cursorial lifestyle. Open savanna habitat is the essential additional evidence. Fastest primate on the ground (~55 km/h).</td>
+        </tr>
+        <tr>
+          <td style="padding:14px 16px;font-family:'DM Mono',monospace;font-size:12px;color:var(--teacher);font-weight:500;">MS-1</td>
+          <td style="padding:14px 16px;"><em>Papio sp.</em><br><span style="font-size:12px;color:var(--muted);">Baboon</span></td>
+          <td style="padding:14px 16px;color:var(--ink-soft);">IMI in the low-to-mid 90s sits squarely in arboreal quadruped territory despite baboons being among the most terrestrial monkeys. Habitat context alone can't resolve it — cross-sectional bone robustness is the deciding evidence. Uses real MorphoSource 3D meshes and an in-browser CSG measurement tool (estimated scale, not calibrated — adequate for this known teaching specimen) instead of the ImageJ-upload path the other four specimens use.</td>
         </tr>
       </tbody>
     </table>
