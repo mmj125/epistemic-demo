@@ -1,5 +1,19 @@
 epiSTEMic Platform — Primate Locomotion Investigation
 
+Current status (read this first — keep it current, update it before ending any work session)
+
+Last updated: 2026-08-28.
+
+Active thread: meteorology unit. The energy-balance-sandbox.html research tool is built and live-linked from the splash page as "Prototype" (real CERES + ERA5 data, Explore/Compare modes, PNG export, colormap picker, AI feedback loop). Matt is iterating on this sandbox before moving on. Next planned step for this thread, on hold pending Max's (Mr. Besong's) feedback: an instructor resource page and guided investigations, outline-level design only — see "Planned but not started" in the meteorology section below. Do not start building that until Matt says Max's feedback is in.
+
+Recently completed, not currently active: MS1 (baboon) merged into the anthropology investigation tool as a 5th mystery specimen (PR #14, merged to main). Splash page tagline finalized. If asked to touch either unit next, treat this file's body below as current and authoritative — it was kept in sync with every feature as it shipped, this is not a stale summary.
+
+Known open item, needs Matt's decision, do not act on it without asking again even if this file is stale by the time you read it: repo `.git` history carries roughly 120MB of dead blobs from past binary-upload mistakes in the meteorology data pipeline (superseded/mangled versions of files that no longer exist in the working tree — see TECHNICAL-NOTES.md). Reclaiming that space requires rewriting git history and force-pushing, which would break any other existing clone of this repo (Kathy, the Duke collaborator, or Mr. Besong, if any of them have one). Ask before doing this even if a future conversation forgets this file mentioned it.
+
+Housekeeping habit worth repeating periodically, especially after adding any new dataset: run `du -sh .git` and compare to the working tree size (`du -sh --exclude=.git *`). A large, growing gap between the two means old mistake-uploads are bloating history again — see the git-history entry in TECHNICAL-NOTES.md for exactly how that keeps happening and how to avoid it (verify a binary upload's destination and integrity before it's committed, not after).
+
+Operational note for a fresh conversation: this repo's local checkout has gone stale mid-session multiple times before (local HEAD drifting behind origin by dozens of commits, once by 48). Before making any change, run `git fetch` and compare `git log --oneline -1` locally against `origin/claude/epistemic-repo-setup-sgejag` — don't assume the working directory reflects what's actually on GitHub.
+
 What this project is
 
 epiSTEMic is a browser-based platform for authentic computational science investigations targeting grades 6 through undergraduate. The core technical differentiator is Python running entirely in the browser via Pyodide (WebAssembly) — no backend, no login, no external dependencies. The platform is built-to-be-acquired, targeting educational publishers (Macmillan Learning, Cengage, Carolina Biological, HMH, Amplify) over a 5-7 year horizon. Funding path is non-dilutive: NSF STTR, DRK-12, Ben Franklin Technology Partners, KIZ tax credits. Penn State OTM invention disclosure is in progress. I-Corps regional cohort application is underway.
