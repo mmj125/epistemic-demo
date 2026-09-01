@@ -90,7 +90,7 @@
 </head>
 <body>
 <div class="app">
-  <header>
+  <header id="sandboxHeader">
     <div class="eyebrow">Earth's Energy Budget · Research Sandbox</div>
     <h1>Run your own analyses</h1>
     <p class="sub">Pick a display, pick variables, run it. Log what you find as a notebook entry before you move to the next one — you can run as many as you want.</p>
@@ -1833,10 +1833,13 @@ function applyDeepLinkParams(){
   let compareRequested = false;
   for(const sfx of ["", "B"]){
     const varKey = sfx === "" ? "var" : "varB";
+    const var2Key = sfx === "" ? "var2" : "var2B";
     const typeKey = sfx === "" ? "type" : "typeB";
     const regionKey = sfx === "" ? "region" : "regionB";
     const v = params.get(varKey);
     if(v && ALL_VARS[v]) document.getElementById("var1Select"+sfx).value = v;
+    const v2 = params.get(var2Key);
+    if(v2 && ALL_VARS[v2]) document.getElementById("var2Select"+sfx).value = v2;
     const t = params.get(typeKey);
     if(t && document.querySelector(`#chartType${sfx} option[value="${t}"]`)){
       document.getElementById("chartType"+sfx).value = t;
@@ -1844,13 +1847,18 @@ function applyDeepLinkParams(){
     }
     const r = params.get(regionKey);
     if(r && regionPresets.includes(r)) setRegion(r, sfx);
-    if(sfx === "B" && (v || t || r)) compareRequested = true;
+    if(sfx === "B" && (v || v2 || t || r)) compareRequested = true;
   }
   if(compareRequested){
     document.getElementById("analysisMode").value = "compare";
     onAnalysisModeChange();
   }
   deepLinkAutoRun = params.get("run") === "1";
+  // Lets a host page (the guided investigation) embed this tool without it
+  // announcing itself as a separate branded app - hides just the top
+  // header, everything a student actually needs (the display builder,
+  // chart, reflect panel, notebook) stays.
+  if(params.get("embed") === "1") document.getElementById("sandboxHeader").style.display = "none";
 }
 
 async function init(){
