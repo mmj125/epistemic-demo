@@ -42,6 +42,13 @@
 
   .transition-note{font-size:13px;line-height:1.7;color:var(--ink-soft);font-style:italic;padding:14px 18px;background:var(--sky);border-left:3px solid var(--data);border-radius:0 4px 4px 0;margin-top:4px;}
 
+  .phenomenon{border:1.5px solid var(--border);border-radius:4px;padding:12px 16px;margin-bottom:10px;background:var(--sky);}
+  .phenomenon summary{font-family:"DM Serif Display",serif;font-size:15px;color:var(--ink);cursor:pointer;padding:2px 0;}
+  .phenomenon summary:hover{color:var(--data);}
+  .phenomenon[open] summary{margin-bottom:8px;}
+  .phenomenon p{font-size:13px;line-height:1.65;color:var(--ink-soft);margin-top:8px;}
+  .phenomenon p.settledness{font-size:12px;font-style:italic;color:var(--muted);border-top:1px solid var(--border);padding-top:8px;margin-top:10px;}
+
   .def-table{width:100%;border-collapse:collapse;font-size:13px;}
   .def-table td{padding:9px 10px;border-bottom:1px solid var(--sky-dark);vertical-align:top;}
   .def-table td:first-child{font-family:"DM Mono",monospace;font-size:11.5px;font-weight:500;color:var(--trend);white-space:nowrap;width:1%;}
@@ -295,12 +302,44 @@
     <div class="panel">
       <div class="panel-header"><h2>Your Investigation</h2></div>
       <div class="panel-body">
-        <p>You've verified the basic energy-budget numbers and seen how the global average hides real regional and seasonal variation. Now it's open: pick any display, any variable, any region or time period, run it, and log what you find as a notebook entry. Get AI feedback on your reasoning if you want it.</p>
+        <p>You've practiced predicting and checking, and seen how the global average hides real regional and seasonal variation. Now it's open: pick any display, any variable, any region or time period, run it, and log what you find as a notebook entry. Get AI feedback on your reasoning if you want it.</p>
       </div>
     </div>
     <div class="panel">
       <div class="panel-body" style="padding:0;">
         <iframe class="sandbox-frame" style="border:none;border-radius:0;height:1300px;" src="energy-balance-sandbox.html?embed=1"></iframe>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><h2>Stuck? Here's What Real Research Has Found</h2></div>
+      <div class="panel-body">
+        <p style="font-style:italic;">Optional &mdash; not required reading. If you're not sure where to start, or you've found something and want to know whether real researchers have looked at it too, these might help. Each one uses the same kind of data you have access to above, so you can go check it yourself if you're curious.</p>
+        <details class="phenomenon">
+          <summary>The ice-albedo feedback</summary>
+          <p>As sea ice retreats, it exposes darker open ocean where there used to be bright, reflective ice. That lowers the surface's albedo, so more incoming sunlight gets absorbed instead of reflected, which warms the water and melts more ice. It's a self-reinforcing loop, not a one-time effect.</p>
+          <p class="settledness">Well-established mechanism. Check it yourself: Arctic region, siconc and albedo, Trend Map.</p>
+        </details>
+        <details class="phenomenon">
+          <summary>The two poles don't behave the same way</summary>
+          <p>Arctic sea ice has declined steadily since satellite records began in the late 1970s. Antarctic sea ice, though, stayed roughly stable, even slightly increased, for decades, before an unusual sharp drop starting around 2016. The Arctic is an ocean mostly surrounded by land; Antarctica is a continent surrounded by open ocean, and Southern Ocean wind and circulation patterns drive Antarctic sea ice in ways that don't mirror the Arctic's.</p>
+          <p class="settledness">The observed difference is well-documented. Exactly why the recent Antarctic drop happened when and how it did is still actively researched. Check it yourself: compare siconc trend maps for the Arctic and Antarctic presets.</p>
+        </details>
+        <details class="phenomenon">
+          <summary>Polar amplification</summary>
+          <p>The Arctic has warmed several times faster than the global average over the past few decades. The ice-albedo feedback is a major reason, but it's not the only one, atmospheric and ocean circulation changes and how heat gets transported toward the poles all play a role too.</p>
+          <p class="settledness">The pattern itself is robustly observed. How much each individual driver contributes is still being worked out. Check it yourself: compare t2m trends for the Arctic preset against Global.</p>
+        </details>
+        <details class="phenomenon">
+          <summary>Clouds don't just do one thing</summary>
+          <p>Clouds reflect incoming sunlight back to space, a cooling effect, but they also trap outgoing heat the way greenhouse gases do, a warming effect. Which one wins depends on the cloud's type, altitude, and location, low thick clouds tend to cool, high thin clouds tend to warm.</p>
+          <p class="settledness">This net balance, and especially how it might shift as the climate warms, is genuinely one of the biggest open questions in climate science right now, not settled fact. Check it yourself: cld and cre (cloud radiative effect).</p>
+        </details>
+        <details class="phenomenon">
+          <summary>Land heats up faster than ocean</summary>
+          <p>Given the same energy input, land surfaces warm up more, and faster, than ocean surfaces do. Water has a much higher heat capacity and loses energy efficiently through evaporation, so it absorbs and stores more energy per degree of warming; land has no such buffer.</p>
+          <p class="settledness">Well-established, and a good one to start with if you want something more straightforwardly mechanistic. Check it yourself: t2m, comparing a land-heavy region against an ocean-heavy one.</p>
+        </details>
       </div>
     </div>
   </div>
