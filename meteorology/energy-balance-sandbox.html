@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Earth's Energy Budget: Research Sandbox (prototype)</title>
+<title>Earth's Energy Budget: Research Sandbox</title>
 <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -19,7 +19,6 @@
   .app{position:relative;z-index:1;max-width:900px;margin:0 auto;padding:0 24px 80px;transition:max-width .2s;}
   .app.wide{max-width:1360px;}
 
-  .flag{display:inline-block;font-family:"DM Mono",monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);border-radius:3px;padding:2px 8px;margin:24px 0 16px;}
 
   header{padding:0 0 20px;border-bottom:2px solid var(--ink);margin-bottom:24px;}
   .eyebrow{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
@@ -91,8 +90,6 @@
 </head>
 <body>
 <div class="app">
-  <div class="flag">Prototype — Energy Balance research sandbox, not yet part of a full guided unit</div>
-
   <header>
     <div class="eyebrow">Earth's Energy Budget · Research Sandbox</div>
     <h1>Run your own analyses</h1>
@@ -331,7 +328,13 @@ const RAW_VARS = {
 };
 const DERIVED_VARS = {
   asr: {label: "Absorbed Solar Radiation (ASR = ISR − RSR)", unit: "W/m²", from: ["isr","rsr"], op: (a,b)=>a-b, zeroAnchor: true, dataset: "ceres"},
-  cre: {label: "Cloud Radiative Effect (CRE = OLR − Clear-Sky OLR)", unit: "W/m²", from: ["olr","clrolr"], op: (a,b)=>a-b, zeroAnchor: false, dataset: "ceres"}
+  cre: {label: "Cloud Radiative Effect (CRE = OLR − Clear-Sky OLR)", unit: "W/m²", from: ["olr","clrolr"], op: (a,b)=>a-b, zeroAnchor: false, dataset: "ceres"},
+  // Unlike asr/cre (pure subtraction, always defined), albedo divides by ISR,
+  // which is genuinely zero during polar night - op returns NaN rather than
+  // Infinity/garbage there, and both call sites below treat a NaN result the
+  // same way they already treat a missing-value sentinel: skip it, don't let
+  // it poison the average for months/years that do have real daylight.
+  albedo: {label: "Albedo (Albedo = RSR ÷ ISR)", unit: "(ratio)", from: ["rsr","isr"], op: (rsr,isr)=> isr < 1 ? NaN : rsr/isr, zeroAnchor: true, dataset: "ceres"}
 };
 const ALL_VARS = Object.assign({}, RAW_VARS, DERIVED_VARS);
 
@@ -610,10 +613,15 @@ function filteredYearlySeries(varname, yearStart, yearEnd, months, latMin, latMa
   for(let yi=0; yi<YEARS.length; yi++){
     const yr = YEARS[yi];
     if(yr < yearStart || yr > yearEnd) continue;
-    let sum=0;
-    for(const mo of months) sum += monthly[yi][mo];
+    let sum=0, count=0;
+    for(const mo of months){
+      const v = monthly[yi][mo];
+      if(Number.isNaN(v)) continue; // e.g. a polar-night month for albedo
+      sum += v; count++;
+    }
+    if(count === 0) continue; // every selected month was NaN this year (e.g. Arctic winter-only selection for albedo)
     years.push(yr);
-    values.push(sum/months.length);
+    values.push(sum/count);
   }
   return {years, values};
 }
@@ -705,7 +713,9 @@ function computeSpatialGrid(varname, yearStart, yearEnd, months, latMin, latMax,
           } else {
             const rawA = gA.view[idx], rawB = gB.view[idx];
             if((gA.missing !== undefined && rawA === gA.missing) || (gB.missing !== undefined && rawB === gB.missing)) continue;
-            sum += op(rawA/gA.scale, rawB/gB.scale);
+            const derived = op(rawA/gA.scale, rawB/gB.scale);
+            if(Number.isNaN(derived)) continue; // e.g. albedo at a polar-night cell/month
+            sum += derived;
           }
           validCount++;
         }
@@ -1196,7 +1206,7 @@ function populateVarSelects(sfx){
   // makes it visible at a glance which variables are CERES's own energy-
   // budget quantities vs. ERA5's surface/response variables, which matters
   // for a student trying to reason about cause vs. consequence, not just
-  // for tidiness now that the list has grown to 10 raw + 2 derived.
+  // for tidiness now that the list has grown to 10 raw + 3 derived.
   const byGroup = {ceres: [], "ceres-derived": [], era5: []};
   for(const [k,v] of Object.entries(RAW_VARS)){
     (v.dataset === "era5" ? byGroup.era5 : byGroup.ceres).push(`<option value="${k}">${v.label}</option>`);
@@ -1807,6 +1817,41 @@ function renderEntries(){
   `).join("");
 }
 
+// Lets a guided-investigation page deep-link into a specific, pre-scoped
+// view instead of a student landing on a blank sandbox - e.g.
+// energy-balance-sandbox.html?var=isr&region=global&type=timeseries&run=1
+// mirrors what "Verify With Real Data" wants to show without duplicating
+// this file's entire data pipeline into a second page. Compare mode's
+// column B takes the same params with a "B" suffix (varB, regionB, typeB).
+// Silently ignores anything unrecognized rather than erroring, since a
+// mistyped or future-removed param shouldn't break the plain sandbox.
+let deepLinkAutoRun = false;
+function applyDeepLinkParams(){
+  const params = new URLSearchParams(window.location.search);
+  const regionPresets = ["global","arctic","antarctic","tropics","nhemi","shemi"];
+  let compareRequested = false;
+  for(const sfx of ["", "B"]){
+    const varKey = sfx === "" ? "var" : "varB";
+    const typeKey = sfx === "" ? "type" : "typeB";
+    const regionKey = sfx === "" ? "region" : "regionB";
+    const v = params.get(varKey);
+    if(v && ALL_VARS[v]) document.getElementById("var1Select"+sfx).value = v;
+    const t = params.get(typeKey);
+    if(t && document.querySelector(`#chartType${sfx} option[value="${t}"]`)){
+      document.getElementById("chartType"+sfx).value = t;
+      onChartTypeChange(sfx);
+    }
+    const r = params.get(regionKey);
+    if(r && regionPresets.includes(r)) setRegion(r, sfx);
+    if(sfx === "B" && (v || t || r)) compareRequested = true;
+  }
+  if(compareRequested){
+    document.getElementById("analysisMode").value = "compare";
+    onAnalysisModeChange();
+  }
+  deepLinkAutoRun = params.get("run") === "1";
+}
+
 async function init(){
   // Column A is always built and visible; column B is built too (so its
   // controls/state exist from the start) but stays hidden until Compare
@@ -1821,9 +1866,14 @@ async function init(){
     populateMonthChecks(sfx);
   }
   renderEntries();
+  applyDeepLinkParams();
   try{
     await loadData();
     window.__energyBalanceSandboxDebug = {GRID, LAT, LON, LAT_WEIGHTS, filteredYearlySeries, regionalMonthlyMeans, getSelectedRegion};
+    if(deepLinkAutoRun){
+      runAnalysis("");
+      if(document.getElementById("analysisMode").value === "compare") runAnalysis("B");
+    }
   }catch(err){
     document.getElementById("chart-status").textContent = "Failed to load satellite data: " + err.message;
     document.getElementById("chart-statusB").textContent = "Failed to load satellite data: " + err.message;
