@@ -15,7 +15,7 @@
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:"DM Sans",sans-serif;background:var(--field);color:var(--ink);min-height:100vh;}
   body::before{content:"";position:fixed;inset:0;background-image:linear-gradient(var(--sky-dark) 1px,transparent 1px),linear-gradient(90deg,var(--sky-dark) 1px,transparent 1px);background-size:32px 32px;opacity:.2;pointer-events:none;z-index:0;}
-  .app{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:0 24px 80px;}
+  .app{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:0 24px 80px;}
 
   .nav{display:flex;align-items:center;gap:8px;padding:20px 0;font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
   .nav a{color:var(--muted);text-decoration:none;}
@@ -37,7 +37,7 @@
   .panel-header{padding:11px 18px;background:var(--ink);}
   .panel-header h2{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--sky);font-weight:500;}
   .panel-body{padding:20px 22px;}
-  .panel-body p{font-size:13.5px;line-height:1.7;color:var(--ink-soft);margin-bottom:12px;}
+  .panel-body p{font-size:13.5px;line-height:1.7;color:var(--ink-soft);margin-bottom:12px;max-width:760px;}
   .panel-body p:last-child{margin-bottom:0;}
 
   .transition-note{font-size:13px;line-height:1.7;color:var(--ink-soft);font-style:italic;padding:14px 18px;background:var(--sky);border-left:3px solid var(--data);border-radius:0 4px 4px 0;margin-top:4px;}
@@ -526,6 +526,8 @@ window.addEventListener("DOMContentLoaded", ()=>{
   buildAbsorptionBands();
   buildBudgetDiagram();
   drawBlackbody();
+  calcASR();
+  calcNAR();
 });
 </script>
 </body>
