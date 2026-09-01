@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Energy & Earth | epiSTEMic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky:#eef3f7;--sky-dark:#c8d8e4;--ink:#101820;--ink-soft:#3c4a56;
+    --field:#f4f8fb;--panel:#ffffff;--border:#c9d8e2;--muted:#5f7180;
+    --solar:#e08a2e;--accent:#c0392b;--data:#2471a3;--trend:#154360;--log:#1e8449;--ai:#6c3483;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:"DM Sans",sans-serif;background:var(--field);color:var(--ink);min-height:100vh;}
+  body::before{content:"";position:fixed;inset:0;background-image:linear-gradient(var(--sky-dark) 1px,transparent 1px),linear-gradient(90deg,var(--sky-dark) 1px,transparent 1px);background-size:32px 32px;opacity:.2;pointer-events:none;z-index:0;}
+  .app{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:0 24px 80px;}
+
+  .nav{display:flex;align-items:center;gap:8px;padding:20px 0;font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+  .nav a{color:var(--muted);text-decoration:none;}
+  .nav a:hover{color:var(--data);}
+  .nav-current{color:var(--ink);}
+
+  header{padding:0 0 20px;border-bottom:2px solid var(--ink);margin-bottom:24px;}
+  .header-eyebrow{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+  header h1{font-family:"DM Serif Display",serif;font-size:clamp(24px,4.5vw,36px);line-height:1.15;}
+  .header-sub{margin-top:8px;color:var(--ink-soft);font-weight:300;max-width:700px;line-height:1.65;font-size:14px;}
+
+  .tabs{display:flex;gap:2px;border-bottom:1.5px solid var(--border);margin-bottom:28px;overflow-x:auto;}
+  .tab{padding:10px 16px;font-family:"DM Mono",monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;border:none;background:transparent;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1.5px;transition:all .15s;white-space:nowrap;}
+  .tab.active{color:var(--ink);border-bottom-color:var(--accent);font-weight:500;}
+  .tab:hover:not(.active){color:var(--ink-soft);}
+  .pane{display:none;}.pane.active{display:block;}
+
+  .panel{background:var(--panel);border:1.5px solid var(--border);border-radius:5px;overflow:hidden;margin-bottom:20px;}
+  .panel-header{padding:11px 18px;background:var(--ink);}
+  .panel-header h2{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--sky);font-weight:500;}
+  .panel-body{padding:20px 22px;}
+  .panel-body p{font-size:13.5px;line-height:1.7;color:var(--ink-soft);margin-bottom:12px;}
+  .panel-body p:last-child{margin-bottom:0;}
+
+  .transition-note{font-size:13px;line-height:1.7;color:var(--ink-soft);font-style:italic;padding:14px 18px;background:var(--sky);border-left:3px solid var(--data);border-radius:0 4px 4px 0;margin-top:4px;}
+
+  .def-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .def-table td{padding:9px 10px;border-bottom:1px solid var(--sky-dark);vertical-align:top;}
+  .def-table td:first-child{font-family:"DM Mono",monospace;font-size:11.5px;font-weight:500;color:var(--trend);white-space:nowrap;width:1%;}
+  .def-table td:last-child{color:var(--ink-soft);line-height:1.55;}
+
+  .field{display:flex;flex-direction:column;gap:5px;}
+  .field label{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+  .field input[type=number]{padding:8px 10px;border:1.5px solid var(--border);border-radius:3px;font-family:"DM Sans",sans-serif;font-size:14px;width:100%;}
+  .calc-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:14px;}
+  .calc-result{display:flex;gap:24px;flex-wrap:wrap;padding:14px 16px;background:var(--sky);border-radius:4px;margin-top:6px;}
+  .calc-result-item{font-family:"DM Mono",monospace;font-size:12px;color:var(--ink-soft);}
+  .calc-result-item b{display:block;font-size:19px;color:var(--trend);font-family:"DM Sans",sans-serif;font-weight:600;margin-top:2px;}
+  .calc-note{font-size:12px;color:var(--muted);margin-top:8px;font-style:italic;}
+
+  .btn{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:8px 16px;border-radius:3px;border:1.5px solid var(--border);background:var(--panel);color:var(--ink-soft);cursor:pointer;}
+  .btn:hover{border-color:var(--data);color:var(--data);}
+  .btn.active{background:var(--ink);border-color:var(--ink);color:var(--sky);}
+  .btn-primary{background:var(--data);border-color:var(--data);color:white;}
+  .btn-primary:hover{background:var(--trend);border-color:var(--trend);color:white;}
+  .btn-group{display:flex;gap:6px;flex-wrap:wrap;}
+
+  canvas.plot{width:100%;height:280px;display:block;border-radius:3px;background:#fff;}
+
+  .band-row{display:flex;gap:4px;margin:14px 0;flex-wrap:wrap;}
+  .band{flex:1;min-width:90px;padding:10px 8px;text-align:center;border-radius:3px;border:1.5px solid var(--border);background:var(--sky);cursor:pointer;font-family:"DM Mono",monospace;font-size:10.5px;letter-spacing:.04em;color:var(--ink-soft);transition:all .15s;}
+  .band:hover{border-color:var(--data);}
+  .band.revealed{background:var(--ink);color:var(--sky);border-color:var(--ink);}
+  .band-reveal{font-size:11px;margin-top:6px;line-height:1.4;display:none;}
+  .band.revealed .band-reveal{display:block;color:var(--sky-dark);}
+
+  .debate{background:var(--sky);border-radius:4px;padding:16px 18px;margin:12px 0;}
+  .debate-line{font-size:13px;line-height:1.6;color:var(--ink-soft);margin-bottom:8px;padding-left:14px;border-left:3px solid var(--border);}
+  .debate-line b{color:var(--ink);}
+  .debate textarea{width:100%;min-height:60px;padding:10px;border:1.5px solid var(--border);border-radius:3px;font-family:"DM Sans",sans-serif;font-size:13px;resize:vertical;margin:10px 0;}
+  .debate-reveal{display:none;font-size:12.5px;line-height:1.6;color:var(--ink-soft);background:var(--panel);border-left:3px solid var(--log);padding:12px 14px;border-radius:0 4px 4px 0;margin-top:10px;}
+  .debate-reveal.shown{display:block;}
+
+  .diagram{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0;}
+  @media(max-width:700px){.diagram{grid-template-columns:repeat(2,1fr);}}
+  .dbox{border:1.5px solid var(--border);border-radius:4px;padding:10px;font-size:11px;line-height:1.4;background:var(--panel);text-align:center;color:var(--ink-soft);}
+  .dbox.given{background:var(--sky);}
+  .dbox.blank input{width:70px;text-align:center;padding:5px;border:1.5px solid var(--border);border-radius:3px;font-family:"DM Mono",monospace;font-size:13px;margin-top:4px;}
+  .dbox.correct{border-color:var(--log);background:#eafaf0;}
+  .dbox.incorrect{border-color:var(--accent);background:#fdecea;}
+  .dbox-label{font-weight:500;color:var(--ink);margin-bottom:2px;}
+  .dbox-val{font-family:"DM Mono",monospace;font-size:13px;color:var(--trend);}
+
+  .sandbox-frame{width:100%;height:900px;border:1.5px solid var(--border);border-radius:5px;background:#fff;}
+  .frame-caption{font-size:11.5px;color:var(--muted);margin-top:8px;font-style:italic;}
+
+  footer{border-top:1px solid var(--border);padding-top:24px;margin-top:20px;font-size:12px;color:var(--muted);line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="nav">
+    <a href="../index.html">epiSTEMic</a><span>/</span><span class="nav-current">Energy & Earth</span>
+  </div>
+
+  <header>
+    <div class="header-eyebrow">Meteorology & Climate Science · Guided Investigation</div>
+    <h1>Energy &amp; Earth</h1>
+    <p class="header-sub">How much energy reaches Earth, what happens to it, and how do we know? Work through the physics, verify it against real satellite measurements, then run your own investigation.</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" id="tab-light" onclick="switchTab('light')">1 · Light &amp; Energy</button>
+    <button class="tab" id="tab-budget" onclick="switchTab('budget')">2 · Radiation &amp; the Energy Budget</button>
+    <button class="tab" id="tab-verify" onclick="switchTab('verify')">3 · Verify With Real Data</button>
+    <button class="tab" id="tab-beyond" onclick="switchTab('beyond')">4 · Beyond the Global Average</button>
+    <button class="tab" id="tab-investigate" onclick="switchTab('investigate')">5 · Investigate</button>
+  </div>
+
+  <!-- TAB 1: LIGHT & ENERGY -->
+  <div class="pane active" id="pane-light">
+    <div class="panel">
+      <div class="panel-header"><h2>Energy From the Sun</h2></div>
+      <div class="panel-body">
+        <p>Consider Earth as a system. Energy constantly enters it from the Sun and leaves it back out to space, carried entirely by light &mdash; different wavelengths of the electromagnetic spectrum, from gamma rays to radio waves. Shorter wavelengths carry more energy per photon; longer wavelengths carry less.</p>
+        <p>Every object radiates light based on its temperature &mdash; hotter objects radiate more total energy, and radiate it at shorter (higher-energy) wavelengths. This is why a stovetop element glows visibly red-hot before it gets hot enough to glow white. Try it below: the Sun's surface is about 5,778 K; Earth's surface is about 288 K.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><h2>Radiation vs. Wavelength</h2></div>
+      <div class="panel-body">
+        <div class="btn-group" style="margin-bottom:12px;">
+          <button class="btn active" id="bb-sun" onclick="setBlackbody('sun',this)">☀ The Sun (5,778 K)</button>
+          <button class="btn" id="bb-earth" onclick="setBlackbody('earth',this)">🌍 Earth's Surface (288 K)</button>
+          <button class="btn" id="bb-both" onclick="setBlackbody('both',this)">Compare Both</button>
+        </div>
+        <div class="field" style="max-width:340px;margin-bottom:12px;">
+          <label>Or set a custom temperature (K)</label>
+          <input type="number" id="bb-temp" min="200" max="10000" step="50" value="5778" oninput="setBlackbody('custom')">
+        </div>
+        <canvas class="plot" id="bb-canvas" width="900" height="280"></canvas>
+        <p id="bb-caption" style="font-size:12px;color:var(--muted);margin-top:8px;">Wavelength is plotted on a log scale, 0.1 to 100 microns. Each curve is normalized to its own peak so the Sun and Earth can be compared on one chart, even though the Sun radiates far more total energy.</p>
+        <p style="margin-top:10px;"><strong>What you should notice:</strong> the Sun's curve peaks in the visible band (~0.5 microns) &mdash; that's not a coincidence, our eyes evolved to see where the Sun's output is strongest. Earth's much cooler surface peaks far out in the infrared (~10 microns), radiating a type of light we can't see but can feel as heat.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><h2>What Does the Atmosphere Let Through?</h2></div>
+      <div class="panel-body">
+        <p>Not every wavelength makes it through Earth's atmosphere untouched. Click each band below to see how much of that light gets absorbed, and by what.</p>
+        <div class="band-row" id="absorption-bands"></div>
+        <p style="margin-top:10px;"><strong>Molecules that are transparent to visible light but absorb and re-emit infrared light are called greenhouse gases.</strong> Based on what you just revealed, which two are most responsible for absorbing infrared light in Earth's atmosphere?</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><h2>Two Students Disagree</h2></div>
+      <div class="panel-body">
+        <div class="debate">
+          <div class="debate-line"><b>Student 1:</b> "I think the Sun gives off most of its energy at ultraviolet wavelengths, because ultraviolet light is more intense than visible light, and you always hear about UV light causing sunburns."</div>
+          <div class="debate-line"><b>Student 2:</b> "Even though UV photons are more energetic than visible photons, the Sun simply gives off fewer ultraviolet photons, and gives off way more visible and infrared photons. So I think these longer-wavelength photons account for most of the energy coming from the Sun."</div>
+          <textarea placeholder="Who do you agree with, and why? Use the blackbody tool above if it helps."></textarea>
+          <button class="btn" onclick="this.nextElementSibling.classList.add('shown')">Reveal</button>
+          <div class="debate-reveal">Student 2 is closer. A photon's energy depends on its wavelength, but the <em>total energy</em> in a band depends on both photon energy and how many photons are emitted there. The Sun's blackbody curve peaks in the visible band and has already dropped off sharply by the time you reach UV &mdash; UV photons are individually more energetic, but there are far fewer of them, so they carry a small share of the Sun's total output.</div>
+        </div>
+        <div class="debate">
+          <div class="debate-line"><b>Student 1:</b> "The Sun mainly gives off visible light, and so does Earth's surface, because I can see it during the daytime."</div>
+          <div class="debate-line"><b>Student 2:</b> "But that's just reflected sunlight. Earth's surface is much cooler than the Sun and mostly gives off energy closer to the kind that our bodies give off &mdash; infrared light. I'm not sure, but I think the surface probably radiates infrared light during both the daytime and the nighttime based upon its temperature."</div>
+          <textarea placeholder="Who do you agree with, and why?"></textarea>
+          <button class="btn" onclick="this.nextElementSibling.classList.add('shown')">Reveal</button>
+          <div class="debate-reveal">Student 2 is right. What you <em>see</em> coming off Earth's surface in daylight is reflected visible sunlight, not light the surface itself is emitting. Every object radiates based on its own temperature, day or night &mdash; Earth's surface is about 288 K, cool enough that its own emission is almost entirely infrared, invisible to human eyes, but present around the clock.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: RADIATION TYPES & THE ENERGY BUDGET -->
+  <div class="pane" id="pane-budget">
+    <div class="panel">
+      <div class="panel-header"><h2>Naming the Flows</h2></div>
+      <div class="panel-body">
+        <p>Energy entering and leaving Earth is measured in watts per square meter (W/m&sup2;), and split into named quantities depending on its source and direction. These are the same names you'll see in Tab 3's real satellite data.</p>
+        <table class="def-table">
+          <tr><td>ISR</td><td>Incoming Shortwave Radiation &mdash; the energy from the Sun that initially enters the Earth system.</td></tr>
+          <tr><td>RSR</td><td>Reflected Shortwave Radiation &mdash; the amount of ISR reflected away without ever being absorbed.</td></tr>
+          <tr><td>ASR</td><td>Absorbed Shortwave Radiation &mdash; the amount of ISR that stays within the Earth system (ASR = ISR &minus; RSR).</td></tr>
+          <tr><td>OLR</td><td>Outgoing Longwave Radiation &mdash; radiation Earth emits back out to space.</td></tr>
+          <tr><td>DLR</td><td>Downward Longwave Radiation &mdash; radiation absorbed by the atmosphere and re-emitted back down toward the surface.</td></tr>
+          <tr><td>NAR</td><td>Net Absorbed Radiation &mdash; the net energy entering the Earth system, accounting for what's absorbed and what's outgoing (NAR = ASR &minus; OLR).</td></tr>
+          <tr><td>Albedo</td><td>The ratio of reflected to incoming shortwave radiation (Albedo = RSR &divide; ISR) &mdash; a surface's reflectivity, from 0 (absorbs everything) to 1 (reflects everything).</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><h2>Try the Math</h2></div>
+      <div class="panel-body">
+        <p>Enter a value for ISR and RSR, watch ASR and albedo compute live.</p>
+        <div class="calc-row">
+          <div class="field"><label>ISR (W/m&sup2;)</label><input type="number" id="c-isr" value="342" oninput="calcASR()"></div>
+          <div class="field"><label>RSR (W/m&sup2;)</label><input type="number" id="c-rsr" value="107" oninput="calcASR()"></div>
+        </div>
+        <div class="calc-result">
+          <div class="calc-result-item">ASR = ISR &minus; RSR<b id="c-asr-out">&mdash;</b></div>
+          <div class="calc-result-item">Albedo = RSR &divide; ISR<b id="c-albedo-out">&mdash;</b></div>
+        </div>
+        <p style="margin-top:18px;">Now enter ASR and OLR to compute the net.</p>
+        <div class="calc-row">
+          <div class="field"><label>ASR (W/m&sup2;)</label><input type="number" id="c-asr" value="235" oninput="calcNAR()"></div>
+          <div class="field"><label>OLR (W/m&sup2;)</label><input type="number" id="c-olr" value="235" oninput="calcNAR()"></div>
+        </div>
+        <div class="calc-result">
+          <div class="calc-result-item">NAR = ASR &minus; OLR<b id="c-nar-out">&mdash;</b></div>
+        </div>
+        <p class="calc-note" id="c-nar-note"></p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><h2>The Global Energy Budget</h2></div>
+      <div class="panel-body">
+        <p>This classic diagram shows the idealized, global-average energy flow through the Earth system, in W/m&sup2;. Some values are given; fill in the rest using what you now know about how these quantities relate, then check your answers.</p>
+        <div class="diagram" id="budget-diagram"></div>
+        <button class="btn btn-primary" onclick="checkBudget()">Check My Answers</button>
+        <p style="margin-top:16px;"><strong>Q:</strong> How does the total energy coming from the Sun compare to the total energy leaving Earth for space? Use the numbers above.</p>
+        <textarea style="width:100%;min-height:60px;padding:10px;border:1.5px solid var(--border);border-radius:3px;font-family:'DM Sans',sans-serif;font-size:13px;resize:vertical;margin-top:8px;" placeholder="Add up everything leaving for space (direct-reflected + atmosphere-reflected + surface-to-space + atmosphere-to-space) and compare it to ISR..."></textarea>
+      </div>
+    </div>
+
+    <div class="transition-note">This diagram uses one fixed, idealized number for the whole planet, averaged over every location and every season. Is that actually true anywhere in particular, or just true on average? Tab 3 checks it against real, measured satellite data.</div>
+  </div>
+
+  <!-- TAB 3: VERIFY WITH REAL DATA -->
+  <div class="pane" id="pane-verify">
+    <div class="panel">
+      <div class="panel-header"><h2>Does the Textbook Number Hold Up?</h2></div>
+      <div class="panel-body">
+        <p>The diagram in Tab 2 uses ISR = 342 W/m&sup2; as the global average. That number comes from an older reference. Below is the same quantity computed directly from 25 years of real NASA CERES satellite measurements (2001&ndash;2025), averaged the same way: over the whole globe, every month.</p>
+        <p>Read the mean shown under the chart. How close is it to 342? Is it exactly the same &mdash; and if not, does that mean one of them is wrong, or does it mean something else?</p>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><h2>Global Mean ISR, Real Data</h2></div>
+      <div class="panel-body" style="padding:0;">
+        <iframe class="sandbox-frame" style="border:none;border-radius:0;" src="energy-balance-sandbox.html?var=isr&amp;region=global&amp;type=timeseries&amp;run=1"></iframe>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><h2>Does It Balance? Net Flux, Real Data</h2></div>
+      <div class="panel-body">
+        <p>Tab 2 asked how total energy in compares to total energy out. Net flux (ISR &minus; RSR &minus; OLR) answers that directly &mdash; if the system were in perfect radiative balance, its global average would sit at exactly 0.</p>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <iframe class="sandbox-frame" style="border:none;border-radius:0;" src="energy-balance-sandbox.html?var=net&amp;region=global&amp;type=timeseries&amp;run=1"></iframe>
+      </div>
+      <div class="panel-body">
+        <p style="margin-bottom:0;">Is the real global mean exactly 0? What would a small, sustained departure from 0, in either direction, actually mean for Earth's climate over 25 years?</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: BEYOND THE GLOBAL AVERAGE -->
+  <div class="pane" id="pane-beyond">
+    <div class="panel">
+      <div class="panel-header"><h2>One Number Hides a Lot</h2></div>
+      <div class="panel-body">
+        <p>A single global average is real, but it flattens away everything that varies by location and season. Sea ice is a good place to see why that matters: bright ice reflects far more sunlight than dark open ocean does, meaning the exact same amount of incoming sunlight (ISR) produces very different albedo depending on what's actually on the ground &mdash; or the water.</p>
+        <p>Below are two real, measured trend maps of the Arctic, side by side: albedo (how reflective the surface has become over time) and sea ice cover (how much ice is actually there over time). Both cover 2000&ndash;2025.</p>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><h2>Arctic Albedo vs. Arctic Sea Ice, 2000&ndash;2025</h2></div>
+      <div class="panel-body" style="padding:0;">
+        <iframe class="sandbox-frame" style="border:none;border-radius:0;height:1400px;" src="energy-balance-sandbox.html?var=albedo&amp;region=arctic&amp;type=trendmap&amp;varB=siconc&amp;regionB=arctic&amp;typeB=trendmap&amp;run=1"></iframe>
+      </div>
+      <div class="panel-body">
+        <p><strong>Compare the two maps.</strong> Where sea ice cover has dropped the most over this period, what has happened to albedo in that same location? Does that match what you'd predict from the ice-vs-open-water reasoning above? Is the match perfect everywhere, or are there places the two maps don't line up as cleanly as you'd expect &mdash; and if so, what else might be going on there (clouds, seasons, something else)?</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 5: INVESTIGATE -->
+  <div class="pane" id="pane-investigate">
+    <div class="panel">
+      <div class="panel-header"><h2>Your Investigation</h2></div>
+      <div class="panel-body">
+        <p>You've verified the basic energy-budget numbers and seen how the global average hides real regional and seasonal variation. Now it's open: pick any display, any variable, any region or time period, run it, and log what you find as a notebook entry. Get AI feedback on your reasoning if you want it.</p>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-body" style="padding:0;">
+        <iframe class="sandbox-frame" style="border:none;border-radius:0;height:1300px;" src="energy-balance-sandbox.html"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>epiSTEMic &middot; Meteorology &amp; Climate Science</p>
+  </footer>
+
+</div>
+<script>
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+function switchTab(tab){
+  ["light","budget","verify","beyond","investigate"].forEach(t=>{
+    document.getElementById("tab-"+t).classList.toggle("active", t===tab);
+    document.getElementById("pane-"+t).classList.toggle("active", t===tab);
+  });
+}
+
+// ── Tab 1: Blackbody curve ──────────────────────────────────────────────────
+// Simplified Planck's law, normalized per-curve to its own peak so the Sun
+// (5778K) and Earth (288K) can share one chart despite radiating wildly
+// different total energy - this is a teaching visualization of where each
+// curve peaks (Wien's law, never named as such, matching the worksheet's own
+// non-formal treatment), not a quantitative radiance chart.
+function planck(lambdaMicrons, T){
+  const lambda = lambdaMicrons * 1e-6;
+  const h = 6.626e-34, c = 3e8, k = 1.381e-23;
+  const exponent = (h*c)/(lambda*k*T);
+  if(exponent > 700) return 0; // avoid overflow; value is negligible anyway
+  return (2*h*c*c) / (Math.pow(lambda,5) * (Math.exp(exponent)-1));
+}
+function blackbodyCurve(T){
+  const pts = [];
+  let peak = 0;
+  for(let i=0; i<=200; i++){
+    const logL = -1 + (i/200)*3; // 0.1 to 100 microns, log scale
+    const lambda = Math.pow(10, logL);
+    const val = planck(lambda, T);
+    pts.push({lambda, val});
+    if(val > peak) peak = val;
+  }
+  return pts.map(p => ({lambda: p.lambda, val: peak>0 ? p.val/peak : 0}));
+}
+let bbMode = "sun";
+function setBlackbody(mode, btn){
+  if(mode !== "custom"){
+    bbMode = mode;
+    document.querySelectorAll("#bb-sun,#bb-earth,#bb-both").forEach(b=>b.classList.remove("active"));
+    if(btn) btn.classList.add("active");
+    document.getElementById("bb-temp").value = mode === "earth" ? 288 : 5778;
+  } else {
+    bbMode = "custom";
+    document.querySelectorAll("#bb-sun,#bb-earth,#bb-both").forEach(b=>b.classList.remove("active"));
+  }
+  drawBlackbody();
+}
+function drawBlackbody(){
+  const canvas = document.getElementById("bb-canvas");
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0,0,w,h);
+  const padL=45, padB=30, padT=14, padR=14;
+  const plotW = w-padL-padR, plotH = h-padT-padB;
+
+  // Shaded UV/visible/IR reference bands (approx: UV <0.4um, visible 0.4-0.7um, IR >0.7um)
+  const xForLambda = (lambda) => padL + ((Math.log10(lambda)+1)/3)*plotW;
+  const bands = [{from:0.1,to:0.4,color:"#e8ddf5",label:"UV"},{from:0.4,to:0.7,color:"#fff3d6",label:"Visible"},{from:0.7,to:100,color:"#dbeefa",label:"Infrared"}];
+  bands.forEach(b=>{
+    const x0 = xForLambda(b.from), x1 = xForLambda(b.to);
+    ctx.fillStyle = b.color;
+    ctx.fillRect(x0, padT, x1-x0, plotH);
+    ctx.fillStyle = "#8a94a0";
+    ctx.font = "10px 'DM Mono', monospace";
+    ctx.fillText(b.label, x0+4, padT+12);
+  });
+
+  // Axes
+  ctx.strokeStyle = "#c9d8e2"; ctx.lineWidth = 1;
+  ctx.strokeRect(padL, padT, plotW, plotH);
+  ctx.fillStyle = "#5f7180"; ctx.font = "10px 'DM Mono', monospace";
+  [0.1,1,10,100].forEach(v=>{
+    const x = xForLambda(v);
+    ctx.fillText(v+"µm", x-10, h-10);
+  });
+
+  function plotCurve(T, color){
+    const pts = blackbodyCurve(T);
+    ctx.beginPath();
+    pts.forEach((p,i)=>{
+      const x = xForLambda(p.lambda);
+      const y = padT + plotH - p.val*plotH*0.92;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.stroke();
+  }
+
+  if(bbMode === "sun") plotCurve(5778, "#e08a2e");
+  else if(bbMode === "earth") plotCurve(288, "#2471a3");
+  else if(bbMode === "both"){ plotCurve(5778,"#e08a2e"); plotCurve(288,"#2471a3"); }
+  else plotCurve(parseFloat(document.getElementById("bb-temp").value)||5778, "#c0392b");
+
+  const caption = document.getElementById("bb-caption");
+  if(bbMode === "custom"){
+    const T = parseFloat(document.getElementById("bb-temp").value)||5778;
+    caption.textContent = `Custom blackbody at ${T} K. Wavelength on a log scale, 0.1 to 100 microns; curve normalized to its own peak.`;
+  } else {
+    caption.textContent = "Wavelength is plotted on a log scale, 0.1 to 100 microns. Each curve is normalized to its own peak so the Sun and Earth can be compared on one chart, even though the Sun radiates far more total energy.";
+  }
+}
+
+// ── Tab 1: Absorption bands ─────────────────────────────────────────────────
+const ABSORPTION_BANDS = [
+  {label:"UV (~0.1–0.4µm)", molecule:"O₂ / O₃ (ozone)", note:"Almost completely absorbed high in the atmosphere — this is why UV is not an important direct heating source at the surface."},
+  {label:"Visible (~0.4–0.7µm)", molecule:"Mostly transparent", note:"Very little absorption — this is why visible light is what reaches the surface and what our eyes evolved to use."},
+  {label:"Near-IR (~0.7–4µm)", molecule:"H₂O, CO₂", note:"Partial absorption in several distinct bands."},
+  {label:"Mid-IR (~4–20µm)", molecule:"CO₂, H₂O, O₃", note:"Strong absorption — this is the band Earth's own ~288K surface emission falls in, and where greenhouse gases matter most."},
+  {label:"Far-IR (>20µm)", molecule:"H₂O (rotation)", note:"Strong, broad absorption."}
+];
+function buildAbsorptionBands(){
+  const row = document.getElementById("absorption-bands");
+  row.innerHTML = ABSORPTION_BANDS.map((b,i)=>`
+    <div class="band" id="band-${i}" onclick="revealBand(${i})">
+      <div>${b.label}</div>
+      <div class="band-reveal"><strong>${b.molecule}</strong><br>${b.note}</div>
+    </div>`).join("");
+}
+function revealBand(i){ document.getElementById("band-"+i).classList.toggle("revealed"); }
+
+// ── Tab 2: Live calculators ──────────────────────────────────────────────────
+function calcASR(){
+  const isr = parseFloat(document.getElementById("c-isr").value);
+  const rsr = parseFloat(document.getElementById("c-rsr").value);
+  if(isNaN(isr) || isNaN(rsr)){ document.getElementById("c-asr-out").textContent="—"; document.getElementById("c-albedo-out").textContent="—"; return; }
+  document.getElementById("c-asr-out").textContent = (isr-rsr).toFixed(1)+" W/m²";
+  document.getElementById("c-albedo-out").textContent = isr>0 ? (rsr/isr).toFixed(3) : "—";
+}
+function calcNAR(){
+  const asr = parseFloat(document.getElementById("c-asr").value);
+  const olr = parseFloat(document.getElementById("c-olr").value);
+  const note = document.getElementById("c-nar-note");
+  if(isNaN(asr) || isNaN(olr)){ document.getElementById("c-nar-out").textContent="—"; note.textContent=""; return; }
+  const nar = asr-olr;
+  document.getElementById("c-nar-out").textContent = nar.toFixed(1)+" W/m²";
+  if(Math.abs(nar) < 2) note.textContent = "Close to zero — this suggests the system is close to radiative equilibrium (energy in ≈ energy out).";
+  else note.textContent = nar > 0 ? "Positive — more energy is being absorbed than emitted; the system would be gaining energy." : "Negative — more energy is being emitted than absorbed; the system would be losing energy.";
+}
+
+// ── Tab 2: Interactive energy budget diagram ─────────────────────────────────
+// Same numbers as the classic textbook diagram (ISR=342), split into the
+// eight labeled flows. A few are given, the rest are blanks the student
+// computes from the definitions in this same tab, then checks.
+const BUDGET = {
+  isr: {label:"Incoming from Sun (ISR)", value:342, given:true},
+  rsrSurfaceDirect: {label:"Reflected by surface, direct to space", value:30, given:true},
+  rsrAtmosphere: {label:"Reflected by atmosphere, direct to space", value:77, given:true},
+  asrAtmosphere: {label:"Absorbed by atmosphere (shortwave)", value:67, given:false},
+  asrSurface: {label:"Absorbed by surface (shortwave)", value:168, given:true},
+  olrSurfaceDirect: {label:"Emitted by surface, direct to space", value:40, given:false},
+  olrAtmosphereToSpace: {label:"Emitted by atmosphere to space", value:195, given:true},
+  surfaceEmissionAbsorbed: {label:"Surface emission absorbed by atmosphere", value:452, given:false},
+  dlr: {label:"Back-radiation absorbed by surface (DLR)", value:324, given:true}
+};
+function buildBudgetDiagram(){
+  const grid = document.getElementById("budget-diagram");
+  grid.innerHTML = Object.entries(BUDGET).map(([key,b])=>{
+    if(b.given){
+      return `<div class="dbox given"><div class="dbox-label">${b.label}</div><div class="dbox-val">${b.value} W/m²</div></div>`;
+    }
+    return `<div class="dbox blank" id="dbox-${key}"><div class="dbox-label">${b.label}</div><input type="number" id="input-${key}" placeholder="?"></div>`;
+  }).join("");
+}
+function checkBudget(){
+  Object.entries(BUDGET).forEach(([key,b])=>{
+    if(b.given) return;
+    const box = document.getElementById("dbox-"+key);
+    const val = parseFloat(document.getElementById("input-"+key).value);
+    box.classList.remove("correct","incorrect");
+    box.classList.add(Math.abs(val-b.value) <= 1 ? "correct" : "incorrect");
+  });
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+window.addEventListener("DOMContentLoaded", ()=>{
+  buildAbsorptionBands();
+  buildBudgetDiagram();
+  drawBlackbody();
+});
+</script>
+</body>
+</html>
