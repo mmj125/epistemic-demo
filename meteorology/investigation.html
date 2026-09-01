@@ -111,7 +111,7 @@
   <div class="tabs">
     <button class="tab active" id="tab-light" onclick="switchTab('light')">1 · Light &amp; Energy</button>
     <button class="tab" id="tab-budget" onclick="switchTab('budget')">2 · Radiation &amp; the Energy Budget</button>
-    <button class="tab" id="tab-verify" onclick="switchTab('verify')">3 · Verify With Real Data</button>
+    <button class="tab" id="tab-verify" onclick="switchTab('verify')">3 · Predict &amp; Compare</button>
     <button class="tab" id="tab-beyond" onclick="switchTab('beyond')">4 · Beyond the Global Average</button>
     <button class="tab" id="tab-investigate" onclick="switchTab('investigate')">5 · Investigate</button>
   </div>
@@ -230,40 +230,42 @@
     <div class="transition-note">This diagram uses one fixed, idealized number for the whole planet, averaged over every location and every season. Is that actually true anywhere in particular, or just true on average? Tab 3 checks it against real, measured satellite data.</div>
   </div>
 
-  <!-- TAB 3: VERIFY WITH REAL DATA -->
+  <!-- TAB 3: PREDICT & COMPARE -->
   <div class="pane" id="pane-verify">
     <div class="panel">
-      <div class="panel-header"><h2>Does the Textbook Number Hold Up?</h2></div>
+      <div class="panel-header"><h2>Predict, Then Check</h2></div>
       <div class="panel-body">
-        <p>The diagram in Tab 2 uses ISR = 342 W/m&sup2; as the global average. That number comes from an older reference. Below is the same quantity computed directly from 25 years of real NASA CERES satellite measurements (2001&ndash;2025), averaged the same way: over the whole globe, every month.</p>
-        <p>Read the mean shown under the chart. How close is it to 342? Is it exactly the same &mdash; and if not, does that mean one of them is wrong, or does it mean something else?</p>
+        <p>Before you run your own investigation in Tab 5, practice the move you'll use throughout it: predict what the physics tells you to expect, then use real data to check it, and explain what you find &mdash; especially anything that doesn't match your prediction. The two comparisons below use two of the same tools you'll have in Tab 5: a spatial map and a scatter plot.</p>
       </div>
     </div>
+
     <div class="panel">
-      <div class="panel-header"><h2>Global Mean ISR, Real Data</h2></div>
+      <div class="panel-header"><h2>Same Place, Across Time</h2></div>
+      <div class="panel-body">
+        <p>The Arctic gets close to 24-hour daylight in summer and near-total darkness in winter. Based on that, predict: roughly how much bigger is average incoming solar radiation (ISR) there in summer than in winter &mdash; a bit bigger? Double? Ten times? Write your prediction and reasoning below.</p>
+        <textarea style="width:100%;min-height:60px;padding:10px;border:1.5px solid var(--border);border-radius:3px;font-family:'DM Sans',sans-serif;font-size:13px;resize:vertical;" placeholder="My prediction, and why..."></textarea>
+        <p style="margin-top:14px;">Now check it. Both columns below are set to the Arctic and ISR &mdash; pick winter months (DJF) for the left one and summer months (JJA) for the right one, then run both as a Map to see the actual difference.</p>
+      </div>
       <div class="panel-body" style="padding:0;">
-        <iframe class="sandbox-frame" style="border:none;border-radius:0;" src="energy-balance-sandbox.html?var=isr&amp;region=global&amp;type=timeseries&amp;run=1"></iframe>
+        <iframe class="sandbox-frame" style="border:none;border-radius:0;height:1500px;" src="energy-balance-sandbox.html?embed=1&amp;var=isr&amp;region=arctic&amp;type=map&amp;varB=isr&amp;regionB=arctic&amp;typeB=map"></iframe>
+      </div>
+      <div class="panel-body">
+        <p style="margin-bottom:0;">How close was your prediction? What in the actual physics of sunlight and Earth's tilt explains the size of the difference you found?</p>
       </div>
     </div>
+
     <div class="panel">
-      <div class="panel-header"><h2>Global Mean DLR (Back-Radiation), Real Data</h2></div>
+      <div class="panel-header"><h2>Same Place, Across Variables</h2></div>
       <div class="panel-body">
-        <p>Tab 2's diagram gives DLR &mdash; the radiation the atmosphere absorbs and sends back down to the surface, the mechanism behind the greenhouse effect in Q13&ndash;17 &mdash; as 324 W/m&sup2;. Below is the same quantity computed from 25 years of real ERA5 reanalysis data (a different dataset from CERES's satellite measurements above &mdash; CERES only measures radiation at the top of the atmosphere, not this surface-level quantity).</p>
+        <p>If a region receives a lot of incoming solar radiation (ISR), does that mean it absorbs a lot of it too (ASR)? Think back to albedo from Tab 2: what would make the two <em>not</em> track closely together? Write your prediction below.</p>
+        <textarea style="width:100%;min-height:60px;padding:10px;border:1.5px solid var(--border);border-radius:3px;font-family:'DM Sans',sans-serif;font-size:13px;resize:vertical;" placeholder="My prediction, and why..."></textarea>
+        <p style="margin-top:14px;">Now check it. The display below is already set to plot ISR against ASR as a scatter plot &mdash; pick a region you're curious about (try comparing an icy/snowy one against a dark ocean one) and run it.</p>
       </div>
       <div class="panel-body" style="padding:0;">
-        <iframe class="sandbox-frame" style="border:none;border-radius:0;" src="energy-balance-sandbox.html?var=strd&amp;region=global&amp;type=timeseries&amp;run=1"></iframe>
-      </div>
-    </div>
-    <div class="panel">
-      <div class="panel-header"><h2>Does It Balance? Net Flux, Real Data</h2></div>
-      <div class="panel-body">
-        <p>Tab 2 asked how total energy in compares to total energy out. Net flux (ISR &minus; RSR &minus; OLR) answers that directly &mdash; if the system were in perfect radiative balance, its global average would sit at exactly 0.</p>
-      </div>
-      <div class="panel-body" style="padding:0;">
-        <iframe class="sandbox-frame" style="border:none;border-radius:0;" src="energy-balance-sandbox.html?var=net&amp;region=global&amp;type=timeseries&amp;run=1"></iframe>
+        <iframe class="sandbox-frame" style="border:none;border-radius:0;" src="energy-balance-sandbox.html?embed=1&amp;type=scatter&amp;var=isr&amp;var2=asr"></iframe>
       </div>
       <div class="panel-body">
-        <p style="margin-bottom:0;">Is the real global mean exactly 0? What would a small, sustained departure from 0, in either direction, actually mean for Earth's climate over 25 years?</p>
+        <p style="margin-bottom:0;">Where do the points sit close to the diagonal, and where do they fall well below it? What does the vertical distance from the diagonal actually represent?</p>
       </div>
     </div>
   </div>
@@ -280,7 +282,7 @@
     <div class="panel">
       <div class="panel-header"><h2>Arctic Albedo vs. Arctic Sea Ice, 2000&ndash;2025</h2></div>
       <div class="panel-body" style="padding:0;">
-        <iframe class="sandbox-frame" style="border:none;border-radius:0;height:1400px;" src="energy-balance-sandbox.html?var=albedo&amp;region=arctic&amp;type=trendmap&amp;varB=siconc&amp;regionB=arctic&amp;typeB=trendmap&amp;run=1"></iframe>
+        <iframe class="sandbox-frame" style="border:none;border-radius:0;height:1400px;" src="energy-balance-sandbox.html?embed=1&amp;var=albedo&amp;region=arctic&amp;type=trendmap&amp;varB=siconc&amp;regionB=arctic&amp;typeB=trendmap&amp;run=1"></iframe>
       </div>
       <div class="panel-body">
         <p><strong>Compare the two maps.</strong> Where sea ice cover has dropped the most over this period, what has happened to albedo in that same location? Does that match what you'd predict from the ice-vs-open-water reasoning above? Is the match perfect everywhere, or are there places the two maps don't line up as cleanly as you'd expect &mdash; and if so, what else might be going on there (clouds, seasons, something else)?</p>
@@ -298,7 +300,7 @@
     </div>
     <div class="panel">
       <div class="panel-body" style="padding:0;">
-        <iframe class="sandbox-frame" style="border:none;border-radius:0;height:1300px;" src="energy-balance-sandbox.html"></iframe>
+        <iframe class="sandbox-frame" style="border:none;border-radius:0;height:1300px;" src="energy-balance-sandbox.html?embed=1"></iframe>
       </div>
     </div>
   </div>
