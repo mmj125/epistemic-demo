@@ -319,12 +319,13 @@ const RAW_VARS = {
   // 2deg lat/lon grid so it can be compared directly against the CERES
   // variables above - see TECHNICAL-NOTES.md for the conversion pipeline).
   // Unlike CERES this has no fine-tile (1deg) regional data, and two of its
-  // four variables are ocean-only (sst, siconc carry real missing values
+  // five variables are ocean-only (sst, siconc carry real missing values
   // over land - see GRID's per-variable `missing` sentinel in loadData()).
   t2m:    {label: "2m Air Temperature", unit: "°C", zeroAnchor: false, dataset: "era5"},
   sst:    {label: "Sea Surface Temperature", unit: "°C", zeroAnchor: false, dataset: "era5"},
   siconc: {label: "Sea Ice Cover", unit: "%", zeroAnchor: true, dataset: "era5"},
-  tp:     {label: "Precipitation", unit: "mm/day", zeroAnchor: true, dataset: "era5"}
+  tp:     {label: "Precipitation", unit: "mm/day", zeroAnchor: true, dataset: "era5"},
+  strd:   {label: "Downward Longwave Radiation (DLR)", unit: "W/m²", zeroAnchor: true, dataset: "era5"}
 };
 const DERIVED_VARS = {
   asr: {label: "Absorbed Solar Radiation (ASR = ISR − RSR)", unit: "W/m²", from: ["isr","rsr"], op: (a,b)=>a-b, zeroAnchor: true, dataset: "ceres"},
@@ -1206,7 +1207,7 @@ function populateVarSelects(sfx){
   // makes it visible at a glance which variables are CERES's own energy-
   // budget quantities vs. ERA5's surface/response variables, which matters
   // for a student trying to reason about cause vs. consequence, not just
-  // for tidiness now that the list has grown to 10 raw + 3 derived.
+  // for tidiness now that the list has grown to 11 raw + 3 derived.
   const byGroup = {ceres: [], "ceres-derived": [], era5: []};
   for(const [k,v] of Object.entries(RAW_VARS)){
     (v.dataset === "era5" ? byGroup.era5 : byGroup.ceres).push(`<option value="${k}">${v.label}</option>`);
