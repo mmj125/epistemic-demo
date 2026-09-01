@@ -1262,6 +1262,28 @@ let expandedState = {"": false, "B": false};
 // redraw a faithful legend gradient on the exported canvas.
 let mapRenders = {"": null, "B": null};
 
+// Coastlines load in parallel with everything else and aren't awaited before
+// a trend map can render (see loadCoastlines() below) - a fast-drawing map
+// (ERA5 variables in particular, which never fetch fine tiles and so have
+// nothing to await before drawing) can render and finish before that fetch
+// resolves, silently missing its coastline overlay forever after, since
+// drawCoastlines() just no-ops when COASTLINES isn't loaded yet and nothing
+// previously told an already-drawn canvas to try again. Confirmed directly:
+// an Arctic albedo/sea-ice-cover Compare, both panels requested together,
+// came back with coastlines on the CERES panel (which awaits a fine-tile
+// fetch, incidentally giving the coastline fetch time to finish) but not the
+// ERA5 one (which draws straight from already-loaded data with nothing to
+// await). Once coastlines do finish loading, redraw whatever's already on
+// screen so it doesn't matter which one won the race.
+function redrawVisibleMaps(){
+  for(const sfx of ["", "B"]){
+    const wrapEl = document.getElementById("trendMapWrap"+sfx);
+    if(!wrapEl || wrapEl.style.display === "none" || !mapRenders[sfx]) continue;
+    const m = mapRenders[sfx];
+    drawSpatialMapCanvas(document.getElementById("trendCanvas"+sfx), m.projType, m.gridInfo, m.latMin, m.latMax, m.lonMin, m.lonMax, m.clat, m.clon, m.colorFn, expandedState[sfx]);
+  }
+}
+
 function toggleExpand(sfx){
   sfx = sfx || "";
   expandedState[sfx] = !expandedState[sfx];
@@ -1891,7 +1913,7 @@ async function init(){
   // Coastlines are a reference layer, not core data - a failure here
   // shouldn't block the trend map from working, just fall back to the
   // graticule alone for orientation.
-  loadCoastlines().catch(err => console.error("coastline load failed:", err));
+  loadCoastlines().then(redrawVisibleMaps).catch(err => console.error("coastline load failed:", err));
 }
 init();
 </script>
