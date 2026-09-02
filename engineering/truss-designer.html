@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cantilever Truss Designer — epiSTEMic Engineering</title>
+<style>
+  :root{
+    --bg:#0f1420; --panel:#161d2e; --panel2:#1d2540; --border:#2a3555;
+    --text:#e7ecf7; --muted:#9aa7c7; --accent:#5b8cff; --accent2:#3ddc97;
+    --tension:#ff5c72; --compression:#4d9eff; --warn:#ffb347; --danger:#ff5c72;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
+  header{padding:18px 24px;border-bottom:1px solid var(--border);background:var(--panel);}
+  header h1{margin:0;font-size:1.3rem;}
+  header p{margin:4px 0 0;color:var(--muted);font-size:.9rem;max-width:900px;}
+  .layout{display:flex;gap:18px;padding:18px 24px;flex-wrap:wrap;}
+  .col-main{flex:2 1 640px;min-width:0;}
+  .col-side{flex:1 1 320px;min-width:300px;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;}
+  .panel h2{margin:0 0 10px;font-size:1rem;color:var(--accent);}
+  .modes{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+  .mode-btn{background:var(--panel2);border:1px solid var(--border);color:var(--text);
+    padding:8px 12px;border-radius:8px;cursor:pointer;font-size:.85rem;}
+  .mode-btn.active{background:var(--accent);border-color:var(--accent);color:#0b1020;font-weight:600;}
+  .status-bar{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;margin-bottom:10px;
+    font-size:.9rem;font-weight:600;}
+  .status-ok{background:rgba(61,220,151,.12);color:var(--accent2);border:1px solid rgba(61,220,151,.35);}
+  .status-bad{background:rgba(255,92,114,.12);color:var(--tension);border:1px solid rgba(255,92,114,.35);}
+  canvas{width:100%;height:auto;background:#0b1020;border:1px solid var(--border);border-radius:8px;display:block;cursor:pointer;}
+  .btn{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:8px 14px;
+    border-radius:8px;cursor:pointer;font-size:.85rem;}
+  .btn:hover{border-color:var(--accent);}
+  .btn-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center;}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;font-size:.88rem;}
+  .stat-grid dt{color:var(--muted);}
+  .stat-grid dd{margin:0;font-weight:600;}
+  .legend{display:flex;gap:16px;font-size:.82rem;color:var(--muted);margin-top:8px;flex-wrap:wrap;}
+  .swatch{display:inline-block;width:22px;height:4px;border-radius:2px;vertical-align:middle;margin-right:6px;}
+  table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:8px;}
+  th,td{text-align:left;padding:5px 7px;border-bottom:1px solid var(--border);}
+  th{color:var(--muted);font-weight:600;cursor:pointer;position:sticky;top:0;background:var(--panel);}
+  tbody tr:hover{background:var(--panel2);}
+  .tbl-wrap{max-height:360px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;}
+  .tag{display:inline-block;padding:1px 7px;border-radius:10px;font-size:.72rem;font-weight:700;}
+  .tag-tension{background:rgba(255,92,114,.15);color:var(--tension);}
+  .tag-compression{background:rgba(77,158,255,.15);color:var(--compression);}
+  .tag-zero{background:rgba(154,167,199,.15);color:var(--muted);}
+  .slider-row{display:flex;align-items:center;gap:10px;font-size:.85rem;color:var(--muted);}
+  .slider-row input{flex:1;}
+  .note{font-size:.8rem;color:var(--muted);line-height:1.5;margin-top:8px;}
+  .note.warn{color:var(--warn);}
+  .loading{padding:40px;text-align:center;color:var(--muted);}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Cantilever Truss Designer</h1>
+  <p>This is the full 81-member "ground structure" — every candidate connection between the 28 grid nodes. Your job is to
+  remove members (and non-support nodes) to bring down cost and mass, while keeping the structure stable and its
+  deflection under control. A K'NEX mass hangs from the bottom-right node; the four left-edge nodes are pinned supports
+  and can't be removed.</p>
+</header>
+
+<div class="layout">
+  <div class="col-main">
+    <div class="panel">
+      <div class="modes">
+        <button class="mode-btn active" data-mode="displacement">Node Displacement</button>
+        <button class="mode-btn" data-mode="axial">Axial Force Diagram</button>
+        <button class="mode-btn" data-mode="report">Element Report</button>
+        <button class="mode-btn" data-mode="deflected">Deflected Shape</button>
+      </div>
+      <label style="font-size:.82rem;color:var(--muted);display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+        <input type="checkbox" id="chk-labels" checked> Show member/node numbers
+      </label>
+      <div id="status-bar" class="status-bar status-ok">Loading solver…</div>
+      <canvas id="truss-canvas" width="900" height="520"></canvas>
+      <div id="deflect-slider-row" class="slider-row" style="display:none;margin-top:10px;">
+        <label for="exagg">Exaggeration ×</label>
+        <input type="range" id="exagg" min="1" max="200" value="30">
+        <span id="exagg-val" style="min-width:3.5em;text-align:right;">30×</span>
+      </div>
+      <div id="axial-legend" class="legend" style="display:none;">
+        <span><span class="swatch" style="background:var(--tension);"></span>Tension</span>
+        <span><span class="swatch" style="background:var(--compression);"></span>Compression</span>
+        <span>Wider offset = larger force. Members drawn as a single line carry ~zero force.</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="btn-run" style="background:var(--accent);border-color:var(--accent);color:#0b1020;font-weight:600;">Run Simulation</button>
+        <button class="btn" id="btn-reset">Reset to Full Ground Structure</button>
+        <span class="note" id="click-hint">Click a member to remove/restore it. Click a non-support node to remove/restore it (and its members).</span>
+      </div>
+    </div>
+
+    <div class="panel" id="report-panel" style="display:none;">
+      <h2>Numerical Element Report</h2>
+      <p class="note">Listed in member-number order — use the Force column yourself to judge which members are carrying little to no load.</p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Member #</th><th>Node i</th><th>Node j</th><th>Length (in)</th><th>Force (lbf)</th><th>Type</th></tr></thead>
+          <tbody id="report-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel" id="iteration-panel">
+      <h2>Iteration Log</h2>
+      <p class="note">Click "Run Simulation" to log your current design and score it against your last logged iteration
+      &mdash; lower is better. Cost and mass use the rod length/mass data from Matt's Decision Criteria spreadsheet.
+      The weighting below (how much deflection vs. cost vs. mass matters) is set by your instructor for this
+      assignment, the same way the spreadsheet's own importance factors were an instructor call, not something to
+      change mid-assignment.</p>
+      <p style="font-size:.85rem;color:var(--muted);margin-top:8px;">
+        Current weights &mdash; Deflection: <strong id="w-defl-display" style="color:var(--text);">150</strong>,
+        Cost: <strong id="w-cost-display" style="color:var(--text);">0.1</strong>,
+        Mass: <strong id="w-mass-display" style="color:var(--text);">1</strong>
+      </p>
+      <details style="margin-top:10px;">
+        <summary style="cursor:pointer;font-size:.82rem;color:var(--accent);">Instructor: set weights for this assignment</summary>
+        <div class="btn-row" style="margin-top:10px;">
+          <label style="font-size:.82rem;color:var(--muted);">Deflection weight
+            <input type="number" id="w-defl" value="150" step="10" style="width:70px;"></label>
+          <label style="font-size:.82rem;color:var(--muted);">Cost weight
+            <input type="number" id="w-cost" value="0.1" step="0.05" style="width:60px;"></label>
+          <label style="font-size:.82rem;color:var(--muted);">Mass weight
+            <input type="number" id="w-mass" value="1" step="0.1" style="width:60px;"></label>
+          <button class="btn" id="btn-genlink">Generate link for students</button>
+        </div>
+        <p class="note">These fields update the display above live, for your own preview. To lock a specific
+        weighting for students, click "Generate link" and share that URL instead of this page's own address &mdash;
+        opening it fixes the weights shown above and hides these input fields.</p>
+        <input type="text" id="student-link" readonly style="width:100%;margin-top:6px;padding:7px 10px;
+          background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);
+          font-family:monospace;font-size:.78rem;display:none;" onclick="this.select()">
+      </details>
+      <div id="compare-banner" class="status-bar status-ok" style="margin-top:10px;">Run a simulation to log your first iteration.</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Iter</th><th>Members</th><th>Purple</th><th>Blue</th><th>Cost</th><th>Mass (g)</th><th>Deflection (cm)</th><th>Score</th></tr></thead>
+          <tbody id="history-body"></tbody>
+        </table>
+      </div>
+      <p class="note">Click any row to restore that design onto the canvas.</p>
+    </div>
+  </div>
+
+  <div class="col-side">
+    <div class="panel">
+      <h2>Loaded Node (bottom-right)</h2>
+      <dl class="stat-grid">
+        <dt>Horizontal (x) displacement</dt><dd id="stat-dx">—</dd>
+        <dt>Vertical (y) displacement</dt><dd id="stat-dy">—</dd>
+      </dl>
+    </div>
+
+    <div class="panel">
+      <h2>Current Design</h2>
+      <dl class="stat-grid">
+        <dt>Active members</dt><dd id="stat-members">81 / 81</dd>
+        <dt>Removed nodes</dt><dd id="stat-nodes">0 / 24</dd>
+        <dt>Total member length</dt><dd id="stat-length">— in</dd>
+      </dl>
+      <h2 style="margin-top:14px;">Bill of Materials</h2>
+      <dl class="stat-grid">
+        <dt><span class="swatch" style="background:#a259e6;"></span>Purple rods (9.5cm)</dt><dd id="stat-purple">—</dd>
+        <dt><span class="swatch" style="background:#4d9eff;"></span>Blue rods (13.5cm)</dt><dd id="stat-blue">—</dd>
+        <dt><span class="swatch" style="background:#8f98b8;"></span>Connectors (0.81g, $10)</dt><dd id="stat-connectors">—</dd>
+        <dt>Rod cost (length total)</dt><dd id="stat-rodcost">—</dd>
+        <dt>Connector cost</dt><dd id="stat-connectorcost">—</dd>
+        <dt>Total cost</dt><dd id="stat-cost">—</dd>
+        <dt>Mass (rods + connectors)</dt><dd id="stat-mass">—</dd>
+      </dl>
+      <p class="note">Purple pairs with the horizontal/vertical members, blue with the diagonals — the closer length
+      match by a wide margin (~9-12% off vs. 3-6x worse cross-paired). Length, mass, and connector cost are from
+      Matt's Decision Criteria spreadsheet and follow-up (Purple: 9.5cm / 0.9g, Blue: 13.5cm / 1.3g, connectors:
+      0.81g / $10 each). One connector per node that still has a member attached, regardless of how many members
+      meet there — Matt gave one mass and price for all connectors, not a type-per-degree rule like the old
+      standard-K'NEX sheet had.</p>
+      <p class="note warn">Total cost adds rod length (cm) to connector price ($) as one number — that's not a
+      dimensionally clean thing to do, but it's exactly what Matt's own spreadsheet does too (member cost = raw
+      length, node cost = count &times; price, both summed into one "Total Construction Cost"), since there's still
+      no real per-rod dollar price to use instead of length. Ported as-is for consistency with the source tool.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Modeling vs. Physical Testing</h2>
+      <p class="note">Matt's actual point with the $1-Mastan / $1000-physical split: engineers simulate before they
+      build, because guess-and-check with real material is slow and expensive. Every "Run Simulation" here stands in
+      for a $1 virtual test.</p>
+      <dl class="stat-grid">
+        <dt>Virtual tests run this session</dt><dd id="stat-testruns">0</dd>
+        <dt>Virtual testing cost</dt><dd id="stat-testcost">$0</dd>
+      </dl>
+      <p class="note">One physical build-and-test costs $1000 in Matt's model — even 50 virtual iterations here is
+      still 5% of that. This is a running count of your clicks, not part of any one design's score (it's a cost of
+      your process, not of the truss itself).</p>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+<script>
+const NODES = [[0.0,0.0],[4.1875,0.0],[8.375,0.0],[12.5625,0.0],[16.75,0.0],[20.9375,0.0],
+  [0.0,4.1875],[4.1875,4.1875],[8.375,4.1875],[12.5625,4.1875],[16.75,4.1875],[20.9375,4.1875],
+  [0.0,8.375],[4.1875,8.375],[8.375,8.375],[12.5625,8.375],[16.75,8.375],[20.9375,8.375],
+  [0.0,12.5625],[4.1875,12.5625],[8.375,12.5625],[12.5625,12.5625],[16.75,12.5625],[20.9375,12.5625],
+  [25.125,0.0],[25.125,4.1875],[25.125,8.375],[25.125,12.5625]];
+const ELEMS = [[0,1],[1,2],[2,3],[3,4],[4,5],[6,7],[7,8],[8,9],[9,10],[10,11],[12,13],[13,14],[14,15],[15,16],[16,17],
+  [18,19],[19,20],[20,21],[21,22],[22,23],[0,6],[1,7],[2,8],[3,9],[4,10],[5,11],[6,12],[7,13],[8,14],[9,15],[10,16],
+  [11,17],[12,18],[13,19],[14,20],[15,21],[16,22],[17,23],[0,7],[1,6],[1,8],[2,7],[2,9],[3,8],[3,10],[4,9],[4,11],
+  [5,10],[6,13],[7,12],[7,14],[8,13],[8,15],[9,14],[9,16],[10,15],[10,17],[11,16],[12,19],[13,18],[13,20],[14,19],
+  [14,21],[15,20],[15,22],[16,21],[23,16],[17,22],[5,24],[11,25],[17,26],[23,27],[24,25],[25,26],[26,27],[11,24],
+  [5,25],[17,25],[11,26],[23,26],[17,27]];
+const FIXED_NODES = [0,6,12,18];
+const LOAD_NODE = 24;
+const E = 30800.0, A = 0.01284;
+const IN_TO_CM = 2.54;
+// From Decision_Criteria_Cantilever_FINAL.xlsx, "Ground Structure" sheet, rows 16-17 (Purple/Blue).
+// Cost has no separate per-rod price column there either - that sheet computes Cost = total rod length directly
+// (Summary!F8 = Summary!E8), so this ports the same formula rather than inventing a different one.
+const PURPLE_LENGTH_CM = 9.5, PURPLE_MASS_G = 0.9;
+const BLUE_LENGTH_CM = 13.5, BLUE_MASS_G = 1.3;
+const CONNECTOR_MASS_G = 0.81; // mini K'NEX, one type/mass regardless of how many members meet at a node
+const CONNECTOR_COST_USD = 10; // real dollar figure, unlike rod "cost" which is still just total length
+const TEST_COST_USD = 1; // per "Run Simulation" - the point Matt made is that this is cheap vs. $1000 to physically build and test
+
+let activeMembers = new Set(ELEMS.map((_,i)=>i));
+let removedNodes = new Set();
+let mode = "displacement";
+let exagg = 30;
+let showLabels = true;
+let lastResult = null;
+let pyodide = null, pyReady = false;
+let history = [];
+let weights = {defl:0, cost:0, mass:0}; // populated from the input fields' own HTML defaults on load, see bottom of file
+let testRunCount = 0;
+
+const canvas = document.getElementById("truss-canvas");
+const ctx = canvas.getContext("2d");
+const MARGIN = 60, SCALE = 30;
+function toCanvas(x,y){
+  return [MARGIN + x*SCALE, canvas.height - MARGIN - y*SCALE];
+}
+function fromCanvas(px,py){
+  return [(px-MARGIN)/SCALE, (canvas.height-MARGIN-py)/SCALE];
+}
+
+async function initPyodide(){
+  pyodide = await loadPyodide({indexURL:"https://cdn.jsdelivr.net/pyodide/v0.26.2/full/"});
+  await pyodide.loadPackage(["numpy"]);
+  pyodide.globals.set("NODES_PY", pyodide.toPy(NODES));
+  pyodide.globals.set("ELEMS_PY", pyodide.toPy(ELEMS));
+  pyodide.globals.set("FIXED_PY", pyodide.toPy(FIXED_NODES));
+  await pyodide.runPythonAsync(`
+import numpy as np
+NODES = np.array(NODES_PY, dtype=float)
+ELEMS = [tuple(e) for e in ELEMS_PY]
+FIXED_NODES = list(FIXED_PY)
+LOAD_NODE = ${LOAD_NODE}
+E = ${E}
+A = ${A}
+
+def analyze(active_idx):
+    active_idx = list(active_idx)
+    n = len(NODES)
+    ndof = 2*n
+    K = np.zeros((ndof, ndof))
+    degree = np.zeros(n, dtype=int)
+    for idx in active_idx:
+        i, j = ELEMS[idx]
+        degree[i] += 1; degree[j] += 1
+        xi,yi = NODES[i]; xj,yj = NODES[j]
+        L = float(np.hypot(xj-xi, yj-yi))
+        c = (xj-xi)/L; s = (yj-yi)/L
+        k = E*A/L
+        ke = k*np.array([[c*c,c*s,-c*c,-c*s],[c*s,s*s,-c*s,-s*s],
+                          [-c*c,-c*s,c*c,c*s],[-c*s,-s*s,c*s,s*s]])
+        dofs = [2*i,2*i+1,2*j,2*j+1]
+        for a in range(4):
+            for b in range(4):
+                K[dofs[a],dofs[b]] += ke[a,b]
+
+    if degree[LOAD_NODE] == 0:
+        return {"stable": False, "reason": "load_isolated"}
+
+    fixed_dofs = set()
+    for fn in FIXED_NODES:
+        fixed_dofs.add(2*fn); fixed_dofs.add(2*fn+1)
+    isolated = [i for i in range(n) if degree[i]==0 and i not in FIXED_NODES]
+    for i in isolated:
+        fixed_dofs.add(2*i); fixed_dofs.add(2*i+1)
+
+    free = [d for d in range(ndof) if d not in fixed_dofs]
+    F = np.zeros(ndof)
+    F[2*LOAD_NODE+1] = -1.5
+
+    Kff = K[np.ix_(free, free)]
+    Ff = F[free]
+    try:
+        if np.linalg.matrix_rank(Kff) < len(free):
+            return {"stable": False, "reason": "mechanism"}
+        uf = np.linalg.solve(Kff, Ff)
+    except np.linalg.LinAlgError:
+        return {"stable": False, "reason": "mechanism"}
+
+    u = np.zeros(ndof)
+    for k_, d in enumerate(free):
+        u[d] = uf[k_]
+
+    forces = {}
+    for idx in active_idx:
+        i, j = ELEMS[idx]
+        xi,yi = NODES[i]; xj,yj = NODES[j]
+        L = float(np.hypot(xj-xi, yj-yi))
+        c = (xj-xi)/L; s = (yj-yi)/L
+        elong = (-c*u[2*i] - s*u[2*i+1] + c*u[2*j] + s*u[2*j+1])
+        forces[idx] = float(E*A/L*elong)
+
+    dx = u[0::2].tolist()
+    dy = u[1::2].tolist()
+    return {"stable": True, "dx": dx, "dy": dy, "forces": forces}
+`);
+  pyReady = true;
+}
+
+function memberLength(idx){
+  const [i,j] = ELEMS[idx];
+  const [xi,yi]=NODES[i], [xj,yj]=NODES[j];
+  return Math.hypot(xj-xi, yj-yi);
+}
+
+async function runAnalysis(){
+  if(!pyReady) return null;
+  const activeList = Array.from(activeMembers).filter(idx=>{
+    const [i,j]=ELEMS[idx];
+    return !removedNodes.has(i) && !removedNodes.has(j);
+  });
+  pyodide.globals.set("active_idx_py", pyodide.toPy(activeList));
+  const resultPy = await pyodide.runPythonAsync(`analyze(active_idx_py)`);
+  const result = resultPy.toJs({dict_converter: Object.fromEntries});
+  resultPy.destroy();
+  result._activeList = activeList;
+  return result;
+}
+
+function effectiveActiveMembers(){
+  return Array.from(activeMembers).filter(idx=>{
+    const [i,j]=ELEMS[idx];
+    return !removedNodes.has(i) && !removedNodes.has(j);
+  });
+}
+
+function setStatus(ok, text){
+  const bar = document.getElementById("status-bar");
+  bar.className = "status-bar " + (ok ? "status-ok" : "status-bad");
+  bar.textContent = text;
+}
+
+// Rod BOM: horiz/vert members (~4.1875in) -> purple (9.5cm), diagonals (~5.922in) -> blue (13.5cm).
+// Note: this ground-structure length (from the MASTAN geometry) is NOT the same number as the real
+// catalog rod length - the physical rod only approximates the grid spacing (~9-12% off). Cost/mass use
+// the real catalog length/mass per rod, not the geometric member length.
+function computeMetrics(result){
+  const active = effectiveActiveMembers();
+  let purple = 0, blue = 0;
+  const touchedNodes = new Set();
+  for(const idx of active){
+    const [i,j] = ELEMS[idx];
+    touchedNodes.add(i); touchedNodes.add(j);
+    if(memberLength(idx) < 5.0) purple++; else blue++;
+  }
+  const totalLength = active.reduce((s,idx)=>s+memberLength(idx),0);
+  const connectorCount = touchedNodes.size;
+  const rodCost = purple*PURPLE_LENGTH_CM + blue*BLUE_LENGTH_CM;
+  const connectorCost = connectorCount*CONNECTOR_COST_USD;
+  const cost = rodCost + connectorCost;
+  const mass = purple*PURPLE_MASS_G + blue*BLUE_MASS_G + connectorCount*CONNECTOR_MASS_G;
+  return {
+    memberCount: active.length,
+    purple, blue, totalLength, connectorCount, rodCost, connectorCost, cost, mass,
+    dx: result && result.stable ? result.dx[LOAD_NODE] : null,
+    dy: result && result.stable ? result.dy[LOAD_NODE] : null,
+  };
+}
+
+function computeScore(entry){
+  const dyCm = Math.abs(entry.dy) * IN_TO_CM;
+  return weights.defl*dyCm + weights.cost*entry.cost + weights.mass*entry.mass;
+}
+
+function updateStats(result){
+  const m = computeMetrics(result);
+  document.getElementById("stat-members").textContent = `${m.memberCount} / 81`;
+  document.getElementById("stat-nodes").textContent = `${removedNodes.size} / 24`;
+  document.getElementById("stat-length").textContent = m.totalLength.toFixed(2) + " in";
+  document.getElementById("stat-purple").textContent = m.purple;
+  document.getElementById("stat-blue").textContent = m.blue;
+  document.getElementById("stat-connectors").textContent = m.connectorCount;
+  document.getElementById("stat-rodcost").textContent = m.rodCost.toFixed(1) + " cm";
+  document.getElementById("stat-connectorcost").textContent = "$" + m.connectorCost.toFixed(0);
+  document.getElementById("stat-cost").textContent = m.cost.toFixed(1);
+  document.getElementById("stat-mass").textContent = m.mass.toFixed(1) + " g";
+
+  if(result && result.stable){
+    document.getElementById("stat-dx").textContent = (m.dx*IN_TO_CM).toFixed(4) + " cm";
+    document.getElementById("stat-dy").textContent = (m.dy*IN_TO_CM).toFixed(4) + " cm";
+  } else {
+    document.getElementById("stat-dx").textContent = "—";
+    document.getElementById("stat-dy").textContent = "—";
+  }
+}
+
+function buildReport(result){
+  const body = document.getElementById("report-body");
+  body.innerHTML = "";
+  if(!result || !result.stable) return;
+  const rows = result._activeList.map(idx=>{
+    const [i,j] = ELEMS[idx];
+    const L = memberLength(idx);
+    const f = result.forces[idx];
+    return {idx, i, j, L, f};
+  });
+  rows.sort((a,b)=>a.idx-b.idx);
+  for(const r of rows){
+    const tr = document.createElement("tr");
+    const type = Math.abs(r.f) < 0.005 ? '<span class="tag tag-zero">~0</span>'
+      : r.f > 0 ? '<span class="tag tag-tension">Tension</span>'
+      : '<span class="tag tag-compression">Compression</span>';
+    tr.innerHTML = `<td>${r.idx+1}</td><td>${r.i+1}</td><td>${r.j+1}</td>
+      <td>${r.L.toFixed(3)}</td><td>${r.f.toFixed(3)}</td><td>${type}</td>`;
+    body.appendChild(tr);
+  }
+}
+
+function draw(result){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // undeformed members
+  for(let idx=0; idx<ELEMS.length; idx++){
+    const [i,j] = ELEMS[idx];
+    const isActive = activeMembers.has(idx) && !removedNodes.has(i) && !removedNodes.has(j);
+    const [xi,yi] = toCanvas(...NODES[i]);
+    const [xj,yj] = toCanvas(...NODES[j]);
+
+    if(mode === "axial" && isActive && result && result.stable){
+      const f = result.forces[idx];
+      const maxOffset = 7;
+      const scaleRef = 3.0; // lbf that maps to full offset
+      const off = Math.max(-maxOffset, Math.min(maxOffset, (f/scaleRef)*maxOffset));
+      const dx = xj-xi, dy = yj-yi;
+      const len = Math.hypot(dx,dy) || 1;
+      const nx = -dy/len, ny = dx/len;
+      const color = Math.abs(f) < 0.005 ? "#5a6690" : (f>0 ? getCss("--tension") : getCss("--compression"));
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(xi+nx*off, yi+ny*off); ctx.lineTo(xj+nx*off, yj+ny*off);
+      ctx.moveTo(xi-nx*off, yi-ny*off); ctx.lineTo(xj-nx*off, yj-ny*off);
+      ctx.stroke();
+    } else if(mode === "deflected" && result && result.stable){
+      ctx.strokeStyle = "rgba(154,167,199,.35)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4,3]);
+      ctx.beginPath(); ctx.moveTo(xi,yi); ctx.lineTo(xj,yj); ctx.stroke();
+      ctx.setLineDash([]);
+    } else {
+      ctx.strokeStyle = isActive ? "#4a5a8a" : "rgba(90,102,144,.25)";
+      ctx.lineWidth = isActive ? 2 : 1;
+      if(!isActive) ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(xi,yi); ctx.lineTo(xj,yj); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    if(showLabels){
+      // Offset along this member's own perpendicular (not a fixed screen offset) so that
+      // two diagonals of the same X-brace, which share a midpoint, don't draw on top of each other.
+      const dxp = xj-xi, dyp = yj-yi;
+      const lenp = Math.hypot(dxp,dyp) || 1;
+      const nx = -dyp/lenp, ny = dxp/lenp;
+      const mx = (xi+xj)/2 + nx*9, my = (yi+yj)/2 + ny*9;
+      ctx.font = "9px sans-serif";
+      ctx.fillStyle = isActive ? "rgba(210,218,240,.75)" : "rgba(120,130,160,.5)";
+      ctx.fillText(String(idx+1), mx, my);
+    }
+  }
+
+  // deflected shape overlay
+  if(mode === "deflected" && result && result.stable){
+    ctx.strokeStyle = getCss("--accent2");
+    ctx.lineWidth = 2.2;
+    for(const idx of effectiveActiveMembers()){
+      const [i,j] = ELEMS[idx];
+      const xi = NODES[i][0] + result.dx[i]*exagg, yi = NODES[i][1] + result.dy[i]*exagg;
+      const xj = NODES[j][0] + result.dx[j]*exagg, yj = NODES[j][1] + result.dy[j]*exagg;
+      const [cxi,cyi] = toCanvas(xi,yi), [cxj,cyj] = toCanvas(xj,yj);
+      ctx.beginPath(); ctx.moveTo(cxi,cyi); ctx.lineTo(cxj,cyj); ctx.stroke();
+    }
+  }
+
+  // nodes
+  for(let i=0;i<NODES.length;i++){
+    const removed = removedNodes.has(i);
+    const [x,y] = toCanvas(...NODES[i]);
+    const isFixed = FIXED_NODES.includes(i);
+    const isLoad = i === LOAD_NODE;
+    ctx.beginPath();
+    ctx.arc(x,y, removed?4:6, 0, 2*Math.PI);
+    ctx.fillStyle = removed ? "rgba(90,102,144,.3)" : (isFixed ? "#3ddc97" : (isLoad ? "#ffb347" : "#e7ecf7"));
+    ctx.fill();
+    if(isFixed){
+      ctx.beginPath();
+      ctx.moveTo(x-9,y+14); ctx.lineTo(x+9,y+14); ctx.lineTo(x,y+2); ctx.closePath();
+      ctx.strokeStyle = "#3ddc97"; ctx.lineWidth=1.5; ctx.stroke();
+    }
+    if(isLoad){
+      ctx.strokeStyle = "#ffb347"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x,y+8); ctx.lineTo(x,y+26); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x,y+26); ctx.lineTo(x-5,y+18); ctx.moveTo(x,y+26); ctx.lineTo(x+5,y+18); ctx.stroke();
+    }
+    if(showLabels){
+      ctx.font = "bold 11px sans-serif";
+      ctx.fillStyle = removed ? "rgba(120,130,160,.5)" : "#f4f7ff";
+      ctx.fillText(String(i+1), x+8, y-8);
+    }
+  }
+}
+
+function getCss(varName){
+  return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+}
+
+function distToSegment(px,py, x1,y1, x2,y2){
+  const A=px-x1, B=py-y1, C=x2-x1, D=y2-y1;
+  const dot=A*C+B*D, lenSq=C*C+D*D;
+  let t = lenSq ? dot/lenSq : -1;
+  t = Math.max(0, Math.min(1, t));
+  const ex=x1+t*C, ey=y1+t*D;
+  return Math.hypot(px-ex, py-ey);
+}
+
+async function refresh(){
+  const result = await runAnalysis();
+  lastResult = result;
+  if(!result){
+    setStatus(true, "Loading solver…");
+  } else if(!result.stable){
+    const msg = result.reason === "load_isolated"
+      ? "The loaded node has no members attached — this design can't carry the load."
+      : "This truss is a mechanism — it isn't fully triangulated and will collapse under load.";
+    setStatus(false, "⚠ Unstable: " + msg);
+  } else {
+    setStatus(true, "Stable — deflection at loaded node: " + (result.dy[LOAD_NODE]*IN_TO_CM).toFixed(4) + " cm");
+  }
+  updateStats(result);
+  buildReport(result);
+  draw(result);
+}
+
+function renderHistory(){
+  const tbody = document.getElementById("history-body");
+  tbody.innerHTML = "";
+  if(history.length === 0) return;
+  const scores = history.map(e=>computeScore(e));
+  let bestIdx = 0;
+  scores.forEach((s,i)=>{ if(s < scores[bestIdx]) bestIdx = i; });
+  history.forEach((e,i)=>{
+    const tr = document.createElement("tr");
+    tr.style.cursor = "pointer";
+    if(i === bestIdx) tr.style.background = "rgba(61,220,151,.10)";
+    tr.innerHTML = `<td>${e.iter}${i===bestIdx ? " ★" : ""}</td><td>${e.memberCount}</td>
+      <td>${e.purple}</td><td>${e.blue}</td><td>${e.cost.toFixed(1)}</td><td>${e.mass.toFixed(1)}</td>
+      <td>${(e.dy*IN_TO_CM).toFixed(4)}</td><td>${scores[i].toFixed(1)}</td>`;
+    tr.addEventListener("click", async ()=>{
+      activeMembers = new Set(e.activeMembers);
+      removedNodes = new Set(e.removedNodes);
+      await refresh();
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+function showCompareBanner(kind, prevScore, newScore, prevIter){
+  const el = document.getElementById("compare-banner");
+  if(kind === "baseline"){
+    el.className = "status-bar status-ok";
+    el.innerHTML = `Baseline logged as Iteration 1 (score ${newScore.toFixed(1)}).`;
+  } else if(kind === "better"){
+    el.className = "status-bar status-ok";
+    el.innerHTML = `&#10003; Better than Iteration ${prevIter}: score ${prevScore.toFixed(1)} &rarr; ${newScore.toFixed(1)}.`;
+  } else if(kind === "same"){
+    el.className = "status-bar status-ok";
+    el.innerHTML = `No change in score vs. Iteration ${prevIter} (${newScore.toFixed(1)}).`;
+  } else {
+    el.className = "status-bar status-bad";
+    el.innerHTML = `&#10007; Worse than Iteration ${prevIter}: score ${prevScore.toFixed(1)} &rarr; ${newScore.toFixed(1)}. `
+      + `<button class="btn" id="btn-revert" style="margin-left:8px;">Revert to Iteration ${prevIter}</button>`;
+    document.getElementById("btn-revert").addEventListener("click", async ()=>{
+      const prevEntry = history.find(h=>h.iter===prevIter);
+      activeMembers = new Set(prevEntry.activeMembers);
+      removedNodes = new Set(prevEntry.removedNodes);
+      await refresh();
+    });
+  }
+}
+
+async function runSimulation(){
+  if(!lastResult || !lastResult.stable){
+    const el = document.getElementById("compare-banner");
+    el.className = "status-bar status-bad";
+    el.textContent = "Can't log an unstable design as an iteration — fix the truss first.";
+    return;
+  }
+  const m = computeMetrics(lastResult);
+  const entry = {
+    iter: history.length + 1,
+    activeMembers: new Set(activeMembers),
+    removedNodes: new Set(removedNodes),
+    ...m,
+  };
+  const prev = history[history.length - 1];
+  history.push(entry);
+  renderHistory();
+
+  testRunCount++;
+  document.getElementById("stat-testruns").textContent = testRunCount;
+  document.getElementById("stat-testcost").textContent = "$" + (testRunCount * TEST_COST_USD);
+  if(!prev){
+    showCompareBanner("baseline", null, computeScore(entry), null);
+  } else {
+    const prevScore = computeScore(prev), newScore = computeScore(entry);
+    if(Math.abs(newScore - prevScore) < 1e-9) showCompareBanner("same", prevScore, newScore, prev.iter);
+    else if(newScore < prevScore) showCompareBanner("better", prevScore, newScore, prev.iter);
+    else showCompareBanner("worse", prevScore, newScore, prev.iter);
+  }
+}
+
+canvas.addEventListener("click", async (e)=>{
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width/rect.width, scaleY = canvas.height/rect.height;
+  const px = (e.clientX-rect.left)*scaleX, py = (e.clientY-rect.top)*scaleY;
+
+  // check nodes first (non-fixed only togglable)
+  for(let i=0;i<NODES.length;i++){
+    if(FIXED_NODES.includes(i) || i===LOAD_NODE) continue;
+    const [x,y] = toCanvas(...NODES[i]);
+    if(Math.hypot(px-x,py-y) < 10){
+      if(removedNodes.has(i)) removedNodes.delete(i); else removedNodes.add(i);
+      await refresh();
+      return;
+    }
+  }
+  // then members
+  let best=-1, bestDist=8;
+  for(let idx=0; idx<ELEMS.length; idx++){
+    const [i,j]=ELEMS[idx];
+    const [xi,yi]=toCanvas(...NODES[i]);
+    const [xj,yj]=toCanvas(...NODES[j]);
+    const d = distToSegment(px,py,xi,yi,xj,yj);
+    if(d<bestDist){bestDist=d; best=idx;}
+  }
+  if(best>=0){
+    if(activeMembers.has(best)) activeMembers.delete(best); else activeMembers.add(best);
+    await refresh();
+  }
+});
+
+document.querySelectorAll(".mode-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll(".mode-btn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    mode = btn.dataset.mode;
+    document.getElementById("report-panel").style.display = mode==="report" ? "block" : "none";
+    document.getElementById("deflect-slider-row").style.display = mode==="deflected" ? "flex" : "none";
+    document.getElementById("axial-legend").style.display = mode==="axial" ? "flex" : "none";
+    draw(lastResult);
+  });
+});
+
+document.getElementById("exagg").addEventListener("input", (e)=>{
+  exagg = Number(e.target.value);
+  document.getElementById("exagg-val").textContent = exagg + "×";
+  draw(lastResult);
+});
+
+document.getElementById("btn-reset").addEventListener("click", async ()=>{
+  activeMembers = new Set(ELEMS.map((_,i)=>i));
+  removedNodes = new Set();
+  await refresh();
+});
+
+document.getElementById("btn-run").addEventListener("click", runSimulation);
+
+document.getElementById("chk-labels").addEventListener("change", (e)=>{
+  showLabels = e.target.checked;
+  draw(lastResult);
+});
+
+function updateWeightDisplay(){
+  document.getElementById("w-defl-display").textContent = weights.defl;
+  document.getElementById("w-cost-display").textContent = weights.cost;
+  document.getElementById("w-mass-display").textContent = weights.mass;
+}
+
+function readWeightsFromInputs(){
+  weights.defl = Number(document.getElementById("w-defl").value) || 0;
+  weights.cost = Number(document.getElementById("w-cost").value) || 0;
+  weights.mass = Number(document.getElementById("w-mass").value) || 0;
+  updateWeightDisplay();
+}
+
+["w-defl","w-cost","w-mass"].forEach(id=>{
+  document.getElementById(id).addEventListener("input", ()=>{
+    readWeightsFromInputs();
+    renderHistory();
+  });
+});
+
+// Weights are an instructor call, not something students adjust live (per Matt directly) - so the editable
+// inputs live inside a closed-by-default <details>, and a link carrying ?wDefl=&wCost=&wMass= locks them in
+// for students entirely (that <details> section is hidden, not just collapsed) rather than leaving the
+// controls visible-but-discouraged.
+const urlParams = new URLSearchParams(window.location.search);
+const linkedWeights = ["wDefl","wCost","wMass"].every(k => urlParams.has(k));
+if(linkedWeights){
+  document.getElementById("w-defl").value = urlParams.get("wDefl");
+  document.getElementById("w-cost").value = urlParams.get("wCost");
+  document.getElementById("w-mass").value = urlParams.get("wMass");
+  document.querySelector("#iteration-panel details").style.display = "none";
+}
+readWeightsFromInputs(); // seed `weights` (and the display) from the inputs, whether defaults or URL-supplied
+
+document.getElementById("btn-genlink").addEventListener("click", ()=>{
+  const url = new URL(window.location.href);
+  url.search = `?wDefl=${weights.defl}&wCost=${weights.cost}&wMass=${weights.mass}`;
+  const field = document.getElementById("student-link");
+  field.value = url.toString();
+  field.style.display = "block";
+  field.select();
+});
+
+(async ()=>{
+  await initPyodide();
+  await refresh();
+  if(lastResult && lastResult.stable && history.length === 0){
+    await runSimulation();
+  }
+})();
+</script>
+</body>
+</html>
