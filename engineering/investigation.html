@@ -129,7 +129,29 @@
       </div>
     </div>
   </div>
-  <div class="tab-content" id="tab-3" style="display:none;"><div class="panel stub"><h2>Load Path</h2><p>Not built yet.</p></div></div>
+  <div class="tab-content" id="tab-3" style="display:none;">
+    <div class="panel">
+      <h2>Load Path</h2>
+      <p class="note">This is the fully-triangulated version of the last structure — one diagonal per bay, nothing
+      redundant left to remove. The weight at the tip has to travel all the way to the two pins before it's actually
+      supported. Every member along the way ends up either stretched (tension, red) or squished (compression, blue)
+      as it carries its share. And by Newton's third law, whatever total force the structure pushes into the pins,
+      the pins push back exactly as hard — that's what "supported" means. The arrows at the pins below are that
+      real, computed push-back, not just an illustration.</p>
+    </div>
+    <div class="panel">
+      <canvas id="tab3-canvas" width="480" height="300"></canvas>
+      <div class="legend">
+        <span><span class="swatch" style="background:var(--tension);"></span>Tension (pulled)</span>
+        <span><span class="swatch" style="background:var(--compression);"></span>Compression (pushed)</span>
+        <span><span class="swatch" style="background:#ffb347;"></span>Applied load / reaction</span>
+      </div>
+      <p class="note" id="tab3-reactions" style="margin-top:10px;"></p>
+      <p class="note">In the real design tool, remember the load is deliberately half the true hanging mass, since
+      the physical build is two mirrored faces sharing it — everything here about how a load travels to its
+      supports applies the same way there, just doubled.</p>
+    </div>
+  </div>
 
   <div class="tab-content" id="tab-4" style="display:none;">
     <div class="panel stub">
@@ -267,7 +289,15 @@ def analyze(nodes_py, elems_py, fixed_py, load_node, load_vec, E, A):
         elong = (-c*u[2*i] - s*u[2*i+1] + c*u[2*j] + s*u[2*j+1])
         forces.append(float(E*A/L*elong))
 
-    return {"stable": True, "forces": forces, "dx": u[0::2].tolist(), "dy": u[1::2].tolist()}
+    # Reaction forces: K @ u gives the full nodal force vector consistent with the computed
+    # displacements. At the free dofs this just reproduces the applied load; at the fixed dofs it's
+    # exactly the force the support must be supplying to hold that point at zero displacement.
+    Ku = K @ u
+    reactions = {}
+    for fn in fixed_nodes:
+        reactions[str(fn)] = [float(Ku[2*fn]), float(Ku[2*fn+1])]
+
+    return {"stable": True, "forces": forces, "dx": u[0::2].tolist(), "dy": u[1::2].tolist(), "reactions": reactions}
 `);
   pyReady = true;
 }
@@ -561,12 +591,127 @@ document.getElementById("tab2-reset").addEventListener("click", async ()=>{
   await tab2Refresh();
 });
 
+// ---- Tab 3: Load Path ----
+// Same two-bay geometry as Tab 2, fixed at the fully-triangulated state (single diagonal per bay,
+// exactly 8 members - no redundancy, no toggling, this tab is about reading the result, not editing it).
+const TAB3_NODES = TAB2_NODES;
+const TAB3_FIXED = [0,1];
+const TAB3_LOAD_NODE = 4;
+const TAB3_LOAD = [0,-1];
+const TAB3_ELEMS = [[0,2],[1,3],[2,3],[0,3],[2,4],[3,5],[4,5],[2,5]];
+let tab3Result = null;
+
+const tab3Canvas = document.getElementById("tab3-canvas");
+const tab3Ctx = tab3Canvas.getContext("2d");
+const TAB3_MARGIN = 60;
+
+function toTab3Canvas(x,y){
+  const xs = TAB3_NODES.map(n=>n[0]), ys = TAB3_NODES.map(n=>n[1]);
+  const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys);
+  const w = tab3Canvas.width - 2*TAB3_MARGIN, h = tab3Canvas.height - 2*TAB3_MARGIN - 20;
+  const scale = Math.min(w/(maxX-minX||1), h/(maxY-minY||1));
+  return [TAB3_MARGIN + (x-minX)*scale, tab3Canvas.height - TAB3_MARGIN - (y-minY)*scale];
+}
+
+function drawTab3(){
+  tab3Ctx.clearRect(0,0,tab3Canvas.width,tab3Canvas.height);
+  const pts = TAB3_NODES.map(n=>toTab3Canvas(n[0],n[1]));
+  const forces = tab3Result && tab3Result.stable ? tab3Result.forces : null;
+
+  TAB3_ELEMS.forEach((e,idx)=>{
+    const [x1,y1] = pts[e[0]], [x2,y2] = pts[e[1]];
+    if(forces){
+      const f = forces[idx];
+      const maxOffset = 6;
+      const scaleRef = 1.5; // load-unit force that maps to full offset, tuned for this toy load magnitude
+      const off = Math.max(-maxOffset, Math.min(maxOffset, (f/scaleRef)*maxOffset));
+      const dx = x2-x1, dy = y2-y1;
+      const len = Math.hypot(dx,dy) || 1;
+      const nx = -dy/len, ny = dx/len;
+      const color = Math.abs(f) < 0.01 ? "#5a6690" : (f>0 ? getCss("--tension") : getCss("--compression"));
+      tab3Ctx.strokeStyle = color;
+      tab3Ctx.lineWidth = 3;
+      tab3Ctx.beginPath();
+      tab3Ctx.moveTo(x1+nx*off, y1+ny*off); tab3Ctx.lineTo(x2+nx*off, y2+ny*off);
+      tab3Ctx.moveTo(x1-nx*off, y1-ny*off); tab3Ctx.lineTo(x2-nx*off, y2-ny*off);
+      tab3Ctx.stroke();
+    } else {
+      tab3Ctx.strokeStyle = "#5a6690"; tab3Ctx.lineWidth = 3;
+      tab3Ctx.beginPath(); tab3Ctx.moveTo(x1,y1); tab3Ctx.lineTo(x2,y2); tab3Ctx.stroke();
+    }
+  });
+
+  TAB3_NODES.forEach((n,i)=>{
+    const [x,y] = pts[i];
+    const isFixed = TAB3_FIXED.includes(i);
+    const isLoad = i === TAB3_LOAD_NODE;
+    tab3Ctx.beginPath();
+    tab3Ctx.arc(x,y,6,0,2*Math.PI);
+    tab3Ctx.fillStyle = isFixed ? "#3ddc97" : (isLoad ? "#ffb347" : "#e7ecf7");
+    tab3Ctx.fill();
+    if(isFixed){
+      tab3Ctx.beginPath();
+      tab3Ctx.moveTo(x-9,y+14); tab3Ctx.lineTo(x+9,y+14); tab3Ctx.lineTo(x,y+2); tab3Ctx.closePath();
+      tab3Ctx.strokeStyle = "#3ddc97"; tab3Ctx.lineWidth = 1.5; tab3Ctx.stroke();
+      // reaction arrow: points in the direction the pin pushes on the structure
+      if(tab3Result && tab3Result.stable && tab3Result.reactions){
+        const r = tab3Result.reactions[String(i)];
+        if(r){
+          const [rx,ry] = r;
+          const mag = Math.hypot(rx,ry);
+          if(mag > 1e-6){
+            const scale = 28 / mag; // fixed visual length regardless of magnitude, direction is what matters here
+            const ex = x + rx*scale, ey = y - ry*scale; // canvas y is flipped vs. model y
+            tab3Ctx.strokeStyle = "#ffb347"; tab3Ctx.lineWidth = 2.5;
+            tab3Ctx.beginPath(); tab3Ctx.moveTo(x,y); tab3Ctx.lineTo(ex,ey); tab3Ctx.stroke();
+            const ang = Math.atan2(ey-y, ex-x);
+            tab3Ctx.beginPath();
+            tab3Ctx.moveTo(ex,ey);
+            tab3Ctx.lineTo(ex-8*Math.cos(ang-0.4), ey-8*Math.sin(ang-0.4));
+            tab3Ctx.lineTo(ex-8*Math.cos(ang+0.4), ey-8*Math.sin(ang+0.4));
+            tab3Ctx.closePath(); tab3Ctx.fillStyle = "#ffb347"; tab3Ctx.fill();
+          }
+        }
+      }
+    }
+    if(isLoad){
+      tab3Ctx.strokeStyle = "#ffb347"; tab3Ctx.lineWidth = 2;
+      tab3Ctx.beginPath(); tab3Ctx.moveTo(x,y+8); tab3Ctx.lineTo(x,y+28); tab3Ctx.stroke();
+      tab3Ctx.beginPath(); tab3Ctx.moveTo(x,y+28); tab3Ctx.lineTo(x-5,y+20); tab3Ctx.moveTo(x,y+28); tab3Ctx.lineTo(x+5,y+20); tab3Ctx.stroke();
+    }
+  });
+}
+
+async function tab3Refresh(){
+  if(!pyReady) return;
+  pyodide.globals.set("nodes_py", pyodide.toPy(TAB3_NODES));
+  pyodide.globals.set("elems_py", pyodide.toPy(TAB3_ELEMS));
+  pyodide.globals.set("fixed_py", pyodide.toPy(TAB3_FIXED));
+  const resultPy = await pyodide.runPythonAsync(
+    `analyze(nodes_py, elems_py, fixed_py, ${TAB3_LOAD_NODE}, [${TAB3_LOAD[0]}, ${TAB3_LOAD[1]}], 30800.0, 0.01284)`
+  );
+  const result = resultPy.toJs({dict_converter: Object.fromEntries});
+  resultPy.destroy();
+  tab3Result = result;
+  drawTab3();
+
+  if(result.stable && result.reactions){
+    const r0 = result.reactions["0"], r1 = result.reactions["1"];
+    const fmt = (v)=>v.toFixed(2);
+    document.getElementById("tab3-reactions").textContent =
+      `Bottom pin pushes back with (${fmt(r0[0])}, ${fmt(r0[1])}) — top pin with (${fmt(r1[0])}, ${fmt(r1[1])}). `
+      + `Add them up and they exactly cancel the applied load (0, -1): that's the whole structure in balance.`;
+  }
+}
+
 (async ()=>{
   document.getElementById("scenario-title").textContent = "Loading solver…";
   loadScenario(0);
   drawTab2(TAB2_NODES);
+  drawTab3();
   await initPyodide();
   await tab2Refresh();
+  await tab3Refresh();
 })();
 </script>
 </body>
