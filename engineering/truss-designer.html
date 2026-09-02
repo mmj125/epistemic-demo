@@ -73,6 +73,9 @@
         <button class="mode-btn" data-mode="report">Element Report</button>
         <button class="mode-btn" data-mode="deflected">Deflected Shape</button>
       </div>
+      <label style="font-size:.82rem;color:var(--muted);display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+        <input type="checkbox" id="chk-labels" checked> Show member/node numbers
+      </label>
       <div id="status-bar" class="status-bar status-ok">Loading solver…</div>
       <canvas id="truss-canvas" width="900" height="520"></canvas>
       <div id="deflect-slider-row" class="slider-row" style="display:none;margin-top:10px;">
@@ -86,6 +89,7 @@
         <span>Wider offset = larger force. Members drawn as a single line carry ~zero force.</span>
       </div>
       <div class="btn-row">
+        <button class="btn" id="btn-run" style="background:var(--accent);border-color:var(--accent);color:#0b1020;font-weight:600;">Run Simulation</button>
         <button class="btn" id="btn-reset">Reset to Full Ground Structure</button>
         <span class="note" id="click-hint">Click a member to remove/restore it. Click a non-support node to remove/restore it (and its members).</span>
       </div>
@@ -93,13 +97,36 @@
 
     <div class="panel" id="report-panel" style="display:none;">
       <h2>Numerical Element Report</h2>
-      <p class="note">Sorted by force magnitude, smallest first — members near the top are carrying little to no load and are the first candidates to remove.</p>
+      <p class="note">Listed in member-number order — use the Force column yourself to judge which members are carrying little to no load.</p>
       <div class="tbl-wrap">
         <table>
           <thead><tr><th>Member #</th><th>Node i</th><th>Node j</th><th>Length (in)</th><th>Force (lbf)</th><th>Type</th></tr></thead>
           <tbody id="report-body"></tbody>
         </table>
       </div>
+    </div>
+
+    <div class="panel" id="iteration-panel">
+      <h2>Iteration Log</h2>
+      <p class="note">Click "Run Simulation" to log your current design and score it against your last logged iteration
+      &mdash; lower is better. Cost and mass below are still proxies (rod count / total rod length), not real
+      dollars/grams &mdash; adjust the weights once real numbers exist, or just to see how the ranking changes.</p>
+      <div class="btn-row" style="margin-top:0;">
+        <label style="font-size:.82rem;color:var(--muted);">Deflection weight
+          <input type="number" id="w-defl" value="400" step="10" style="width:70px;"></label>
+        <label style="font-size:.82rem;color:var(--muted);">Cost weight (&times;rod count)
+          <input type="number" id="w-cost" value="1" step="0.5" style="width:60px;"></label>
+        <label style="font-size:.82rem;color:var(--muted);">Mass weight (&times;total length)
+          <input type="number" id="w-mass" value="0.3" step="0.1" style="width:60px;"></label>
+      </div>
+      <div id="compare-banner" class="status-bar status-ok" style="margin-top:10px;">Run a simulation to log your first iteration.</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Iter</th><th>Members</th><th>Purple</th><th>Blue</th><th>Length (in)</th><th>Deflection (in)</th><th>Score</th></tr></thead>
+          <tbody id="history-body"></tbody>
+        </table>
+      </div>
+      <p class="note">Click any row to restore that design onto the canvas.</p>
     </div>
   </div>
 
@@ -155,8 +182,11 @@ let activeMembers = new Set(ELEMS.map((_,i)=>i));
 let removedNodes = new Set();
 let mode = "displacement";
 let exagg = 30;
+let showLabels = true;
 let lastResult = null;
 let pyodide = null, pyReady = false;
+let history = [];
+let weights = {defl:400, cost:1, mass:0.3};
 
 const canvas = document.getElementById("truss-canvas");
 const ctx = canvas.getContext("2d");
@@ -279,24 +309,37 @@ function setStatus(ok, text){
   bar.textContent = text;
 }
 
-function updateStats(result){
+// Rod BOM: horiz/vert members (~4.1875in) -> purple (94mm), diagonals (~5.922in) -> blue (138mm)
+function computeMetrics(result){
   const active = effectiveActiveMembers();
-  document.getElementById("stat-members").textContent = `${active.length} / 81`;
-  document.getElementById("stat-nodes").textContent = `${removedNodes.size} / 24`;
-  const totalLen = active.reduce((s,idx)=>s+memberLength(idx),0);
-  document.getElementById("stat-length").textContent = totalLen.toFixed(2) + " in";
-
-  // Rod BOM: horiz/vert members (~4.1875in) -> purple (94mm), diagonals (~5.922in) -> blue (138mm)
-  let purpleCount = 0, blueCount = 0;
+  let purple = 0, blue = 0;
   for(const idx of active){
-    if(memberLength(idx) < 5.0) purpleCount++; else blueCount++;
+    if(memberLength(idx) < 5.0) purple++; else blue++;
   }
-  document.getElementById("stat-purple").textContent = purpleCount;
-  document.getElementById("stat-blue").textContent = blueCount;
+  const totalLength = active.reduce((s,idx)=>s+memberLength(idx),0);
+  return {
+    memberCount: active.length,
+    purple, blue, totalLength,
+    dx: result && result.stable ? result.dx[LOAD_NODE] : null,
+    dy: result && result.stable ? result.dy[LOAD_NODE] : null,
+  };
+}
+
+function computeScore(entry){
+  return weights.defl*Math.abs(entry.dy) + weights.cost*entry.memberCount + weights.mass*entry.totalLength;
+}
+
+function updateStats(result){
+  const m = computeMetrics(result);
+  document.getElementById("stat-members").textContent = `${m.memberCount} / 81`;
+  document.getElementById("stat-nodes").textContent = `${removedNodes.size} / 24`;
+  document.getElementById("stat-length").textContent = m.totalLength.toFixed(2) + " in";
+  document.getElementById("stat-purple").textContent = m.purple;
+  document.getElementById("stat-blue").textContent = m.blue;
 
   if(result && result.stable){
-    document.getElementById("stat-dx").textContent = result.dx[LOAD_NODE].toFixed(4) + " in";
-    document.getElementById("stat-dy").textContent = result.dy[LOAD_NODE].toFixed(4) + " in";
+    document.getElementById("stat-dx").textContent = m.dx.toFixed(4) + " in";
+    document.getElementById("stat-dy").textContent = m.dy.toFixed(4) + " in";
   } else {
     document.getElementById("stat-dx").textContent = "—";
     document.getElementById("stat-dy").textContent = "—";
@@ -313,7 +356,7 @@ function buildReport(result){
     const f = result.forces[idx];
     return {idx, i, j, L, f};
   });
-  rows.sort((a,b)=>Math.abs(a.f)-Math.abs(b.f));
+  rows.sort((a,b)=>a.idx-b.idx);
   for(const r of rows){
     const tr = document.createElement("tr");
     const type = Math.abs(r.f) < 0.005 ? '<span class="tag tag-zero">~0</span>'
@@ -363,6 +406,18 @@ function draw(result){
       ctx.beginPath(); ctx.moveTo(xi,yi); ctx.lineTo(xj,yj); ctx.stroke();
       ctx.setLineDash([]);
     }
+
+    if(showLabels){
+      // Offset along this member's own perpendicular (not a fixed screen offset) so that
+      // two diagonals of the same X-brace, which share a midpoint, don't draw on top of each other.
+      const dxp = xj-xi, dyp = yj-yi;
+      const lenp = Math.hypot(dxp,dyp) || 1;
+      const nx = -dyp/lenp, ny = dxp/lenp;
+      const mx = (xi+xj)/2 + nx*9, my = (yi+yj)/2 + ny*9;
+      ctx.font = "9px sans-serif";
+      ctx.fillStyle = isActive ? "rgba(210,218,240,.75)" : "rgba(120,130,160,.5)";
+      ctx.fillText(String(idx+1), mx, my);
+    }
   }
 
   // deflected shape overlay
@@ -398,6 +453,11 @@ function draw(result){
       ctx.beginPath(); ctx.moveTo(x,y+8); ctx.lineTo(x,y+26); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(x,y+26); ctx.lineTo(x-5,y+18); ctx.moveTo(x,y+26); ctx.lineTo(x+5,y+18); ctx.stroke();
     }
+    if(showLabels){
+      ctx.font = "bold 11px sans-serif";
+      ctx.fillStyle = removed ? "rgba(120,130,160,.5)" : "#f4f7ff";
+      ctx.fillText(String(i+1), x+8, y-8);
+    }
   }
 }
 
@@ -430,6 +490,80 @@ async function refresh(){
   updateStats(result);
   buildReport(result);
   draw(result);
+}
+
+function renderHistory(){
+  const tbody = document.getElementById("history-body");
+  tbody.innerHTML = "";
+  if(history.length === 0) return;
+  const scores = history.map(e=>computeScore(e));
+  let bestIdx = 0;
+  scores.forEach((s,i)=>{ if(s < scores[bestIdx]) bestIdx = i; });
+  history.forEach((e,i)=>{
+    const tr = document.createElement("tr");
+    tr.style.cursor = "pointer";
+    if(i === bestIdx) tr.style.background = "rgba(61,220,151,.10)";
+    tr.innerHTML = `<td>${e.iter}${i===bestIdx ? " ★" : ""}</td><td>${e.memberCount}</td>
+      <td>${e.purple}</td><td>${e.blue}</td><td>${e.totalLength.toFixed(2)}</td>
+      <td>${e.dy.toFixed(4)}</td><td>${scores[i].toFixed(1)}</td>`;
+    tr.addEventListener("click", async ()=>{
+      activeMembers = new Set(e.activeMembers);
+      removedNodes = new Set(e.removedNodes);
+      await refresh();
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+function showCompareBanner(kind, prevScore, newScore, prevIter){
+  const el = document.getElementById("compare-banner");
+  if(kind === "baseline"){
+    el.className = "status-bar status-ok";
+    el.innerHTML = `Baseline logged as Iteration 1 (score ${newScore.toFixed(1)}).`;
+  } else if(kind === "better"){
+    el.className = "status-bar status-ok";
+    el.innerHTML = `&#10003; Better than Iteration ${prevIter}: score ${prevScore.toFixed(1)} &rarr; ${newScore.toFixed(1)}.`;
+  } else if(kind === "same"){
+    el.className = "status-bar status-ok";
+    el.innerHTML = `No change in score vs. Iteration ${prevIter} (${newScore.toFixed(1)}).`;
+  } else {
+    el.className = "status-bar status-bad";
+    el.innerHTML = `&#10007; Worse than Iteration ${prevIter}: score ${prevScore.toFixed(1)} &rarr; ${newScore.toFixed(1)}. `
+      + `<button class="btn" id="btn-revert" style="margin-left:8px;">Revert to Iteration ${prevIter}</button>`;
+    document.getElementById("btn-revert").addEventListener("click", async ()=>{
+      const prevEntry = history.find(h=>h.iter===prevIter);
+      activeMembers = new Set(prevEntry.activeMembers);
+      removedNodes = new Set(prevEntry.removedNodes);
+      await refresh();
+    });
+  }
+}
+
+async function runSimulation(){
+  if(!lastResult || !lastResult.stable){
+    const el = document.getElementById("compare-banner");
+    el.className = "status-bar status-bad";
+    el.textContent = "Can't log an unstable design as an iteration — fix the truss first.";
+    return;
+  }
+  const m = computeMetrics(lastResult);
+  const entry = {
+    iter: history.length + 1,
+    activeMembers: new Set(activeMembers),
+    removedNodes: new Set(removedNodes),
+    ...m,
+  };
+  const prev = history[history.length - 1];
+  history.push(entry);
+  renderHistory();
+  if(!prev){
+    showCompareBanner("baseline", null, computeScore(entry), null);
+  } else {
+    const prevScore = computeScore(prev), newScore = computeScore(entry);
+    if(Math.abs(newScore - prevScore) < 1e-9) showCompareBanner("same", prevScore, newScore, prev.iter);
+    else if(newScore < prevScore) showCompareBanner("better", prevScore, newScore, prev.iter);
+    else showCompareBanner("worse", prevScore, newScore, prev.iter);
+  }
 }
 
 canvas.addEventListener("click", async (e)=>{
@@ -486,9 +620,28 @@ document.getElementById("btn-reset").addEventListener("click", async ()=>{
   await refresh();
 });
 
+document.getElementById("btn-run").addEventListener("click", runSimulation);
+
+document.getElementById("chk-labels").addEventListener("change", (e)=>{
+  showLabels = e.target.checked;
+  draw(lastResult);
+});
+
+["w-defl","w-cost","w-mass"].forEach(id=>{
+  document.getElementById(id).addEventListener("input", ()=>{
+    weights.defl = Number(document.getElementById("w-defl").value) || 0;
+    weights.cost = Number(document.getElementById("w-cost").value) || 0;
+    weights.mass = Number(document.getElementById("w-mass").value) || 0;
+    renderHistory();
+  });
+});
+
 (async ()=>{
   await initPyodide();
   await refresh();
+  if(lastResult && lastResult.stable && history.length === 0){
+    await runSimulation();
+  }
 })();
 </script>
 </body>
