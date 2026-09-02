@@ -119,10 +119,17 @@
         <dt>Removed nodes</dt><dd id="stat-nodes">0 / 24</dd>
         <dt>Total member length</dt><dd id="stat-length">— in</dd>
       </dl>
-      <p class="note warn">Cost and mass aren't wired up yet — the ground structure's member lengths (4.1875in and
-      5.922in) don't cleanly match a single rod in the K'NEX catalog, and the connector/hub-per-node rule isn't
-      recoverable from the spreadsheet either. Both need an answer from Matt before this panel can show real
-      dollars/grams. See CLAUDE.md's "Engineering unit" section.</p>
+      <h2 style="margin-top:14px;">Bill of Materials (rods)</h2>
+      <dl class="stat-grid">
+        <dt><span class="swatch" style="background:#a259e6;"></span>Purple rods (94mm)</dt><dd id="stat-purple">—</dd>
+        <dt><span class="swatch" style="background:#4d9eff;"></span>Blue rods (138mm)</dt><dd id="stat-blue">—</dd>
+      </dl>
+      <p class="note">Purple pairs with the horizontal/vertical members, blue with the diagonals — the closer length
+      match by a wide margin (~9-12% off vs. 3-6x worse cross-paired), but this pairing is inferred from the two
+      lengths in the model, not explicitly confirmed against Matt's physical kit.</p>
+      <p class="note warn">Still not shown: dollar cost or mass per rod (need price/weight for mini K'NEX purple and
+      blue), and connector/hub count per node (the hub-selection rule isn't recoverable from the spreadsheet — see
+      CLAUDE.md's "Engineering unit" section).</p>
     </div>
   </div>
 </div>
@@ -278,6 +285,14 @@ function updateStats(result){
   document.getElementById("stat-nodes").textContent = `${removedNodes.size} / 24`;
   const totalLen = active.reduce((s,idx)=>s+memberLength(idx),0);
   document.getElementById("stat-length").textContent = totalLen.toFixed(2) + " in";
+
+  // Rod BOM: horiz/vert members (~4.1875in) -> purple (94mm), diagonals (~5.922in) -> blue (138mm)
+  let purpleCount = 0, blueCount = 0;
+  for(const idx of active){
+    if(memberLength(idx) < 5.0) purpleCount++; else blueCount++;
+  }
+  document.getElementById("stat-purple").textContent = purpleCount;
+  document.getElementById("stat-blue").textContent = blueCount;
 
   if(result && result.stable){
     document.getElementById("stat-dx").textContent = result.dx[LOAD_NODE].toFixed(4) + " in";
