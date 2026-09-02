@@ -109,17 +109,33 @@
     <div class="panel" id="iteration-panel">
       <h2>Iteration Log</h2>
       <p class="note">Click "Run Simulation" to log your current design and score it against your last logged iteration
-      &mdash; lower is better. Cost and mass use the rod length/mass data from Matt's Decision Criteria spreadsheet
-      (connector/testing cost not yet included). The weights below are still an instructor choice, the same way the
-      spreadsheet's own importance factors were &mdash; adjust them to see how the ranking changes.</p>
-      <div class="btn-row" style="margin-top:0;">
-        <label style="font-size:.82rem;color:var(--muted);">Deflection weight
-          <input type="number" id="w-defl" value="150" step="10" style="width:70px;"></label>
-        <label style="font-size:.82rem;color:var(--muted);">Cost weight
-          <input type="number" id="w-cost" value="0.1" step="0.05" style="width:60px;"></label>
-        <label style="font-size:.82rem;color:var(--muted);">Mass weight
-          <input type="number" id="w-mass" value="1" step="0.1" style="width:60px;"></label>
-      </div>
+      &mdash; lower is better. Cost and mass use the rod length/mass data from Matt's Decision Criteria spreadsheet.
+      The weighting below (how much deflection vs. cost vs. mass matters) is set by your instructor for this
+      assignment, the same way the spreadsheet's own importance factors were an instructor call, not something to
+      change mid-assignment.</p>
+      <p style="font-size:.85rem;color:var(--muted);margin-top:8px;">
+        Current weights &mdash; Deflection: <strong id="w-defl-display" style="color:var(--text);">150</strong>,
+        Cost: <strong id="w-cost-display" style="color:var(--text);">0.1</strong>,
+        Mass: <strong id="w-mass-display" style="color:var(--text);">1</strong>
+      </p>
+      <details style="margin-top:10px;">
+        <summary style="cursor:pointer;font-size:.82rem;color:var(--accent);">Instructor: set weights for this assignment</summary>
+        <div class="btn-row" style="margin-top:10px;">
+          <label style="font-size:.82rem;color:var(--muted);">Deflection weight
+            <input type="number" id="w-defl" value="150" step="10" style="width:70px;"></label>
+          <label style="font-size:.82rem;color:var(--muted);">Cost weight
+            <input type="number" id="w-cost" value="0.1" step="0.05" style="width:60px;"></label>
+          <label style="font-size:.82rem;color:var(--muted);">Mass weight
+            <input type="number" id="w-mass" value="1" step="0.1" style="width:60px;"></label>
+          <button class="btn" id="btn-genlink">Generate link for students</button>
+        </div>
+        <p class="note">These fields update the display above live, for your own preview. To lock a specific
+        weighting for students, click "Generate link" and share that URL instead of this page's own address &mdash;
+        opening it fixes the weights shown above and hides these input fields.</p>
+        <input type="text" id="student-link" readonly style="width:100%;margin-top:6px;padding:7px 10px;
+          background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);
+          font-family:monospace;font-size:.78rem;display:none;" onclick="this.select()">
+      </details>
       <div id="compare-banner" class="status-bar status-ok" style="margin-top:10px;">Run a simulation to log your first iteration.</div>
       <div class="tbl-wrap">
         <table>
@@ -682,10 +698,17 @@ document.getElementById("chk-labels").addEventListener("change", (e)=>{
   draw(lastResult);
 });
 
+function updateWeightDisplay(){
+  document.getElementById("w-defl-display").textContent = weights.defl;
+  document.getElementById("w-cost-display").textContent = weights.cost;
+  document.getElementById("w-mass-display").textContent = weights.mass;
+}
+
 function readWeightsFromInputs(){
   weights.defl = Number(document.getElementById("w-defl").value) || 0;
   weights.cost = Number(document.getElementById("w-cost").value) || 0;
   weights.mass = Number(document.getElementById("w-mass").value) || 0;
+  updateWeightDisplay();
 }
 
 ["w-defl","w-cost","w-mass"].forEach(id=>{
@@ -694,7 +717,29 @@ function readWeightsFromInputs(){
     renderHistory();
   });
 });
-readWeightsFromInputs(); // seed `weights` from the inputs' own HTML defaults, so the two can't drift apart
+
+// Weights are an instructor call, not something students adjust live (per Matt directly) - so the editable
+// inputs live inside a closed-by-default <details>, and a link carrying ?wDefl=&wCost=&wMass= locks them in
+// for students entirely (that <details> section is hidden, not just collapsed) rather than leaving the
+// controls visible-but-discouraged.
+const urlParams = new URLSearchParams(window.location.search);
+const linkedWeights = ["wDefl","wCost","wMass"].every(k => urlParams.has(k));
+if(linkedWeights){
+  document.getElementById("w-defl").value = urlParams.get("wDefl");
+  document.getElementById("w-cost").value = urlParams.get("wCost");
+  document.getElementById("w-mass").value = urlParams.get("wMass");
+  document.querySelector("#iteration-panel details").style.display = "none";
+}
+readWeightsFromInputs(); // seed `weights` (and the display) from the inputs, whether defaults or URL-supplied
+
+document.getElementById("btn-genlink").addEventListener("click", ()=>{
+  const url = new URL(window.location.href);
+  url.search = `?wDefl=${weights.defl}&wCost=${weights.cost}&wMass=${weights.mass}`;
+  const field = document.getElementById("student-link");
+  field.value = url.toString();
+  field.style.display = "block";
+  field.select();
+});
 
 (async ()=>{
   await initPyodide();
