@@ -161,9 +161,102 @@
     </div>
   </div>
 
-  <div class="tab-content" id="tab-5" style="display:none;"><div class="panel stub"><h2>Iteration Log</h2><p>Not built yet as a guided step — see the Iteration Log inside the Truss Designer for now.</p></div></div>
-  <div class="tab-content" id="tab-6" style="display:none;"><div class="panel stub"><h2>Predict vs. Build</h2><p>Not built yet.</p></div></div>
-  <div class="tab-content" id="tab-7" style="display:none;"><div class="panel stub"><h2>Design Argument</h2><p>Not built yet.</p></div></div>
+  <div class="tab-content" id="tab-5" style="display:none;">
+    <div class="panel">
+      <h2>Iteration Log</h2>
+      <p class="note">These are four designs a different student already tried — real deflection, cost, and mass
+      numbers, just not yours. There's no single "best" one here. Which design wins depends entirely on how much
+      each of the three things is worth to whoever's deciding. Drag the sliders and watch the winner change.</p>
+    </div>
+    <div class="panel">
+      <div class="tbl-wrap" style="max-height:none;">
+        <table>
+          <thead><tr><th>Design</th><th>Deflection (cm)</th><th>Cost</th><th>Mass (g)</th><th>Score</th></tr></thead>
+          <tbody id="tab5-body"></tbody>
+        </table>
+      </div>
+      <div class="btn-row" style="margin-top:14px;flex-direction:column;align-items:stretch;gap:14px;">
+        <label style="font-size:.85rem;color:var(--muted);display:flex;align-items:center;gap:10px;">
+          Deflection weight <input type="range" id="tab5-w-defl" min="0" max="500" value="150" style="flex:1;">
+          <strong id="tab5-w-defl-val" style="min-width:3em;text-align:right;color:var(--text);">150</strong></label>
+        <label style="font-size:.85rem;color:var(--muted);display:flex;align-items:center;gap:10px;">
+          Cost weight <input type="range" id="tab5-w-cost" min="0" max="2" step="0.05" value="0.1" style="flex:1;">
+          <strong id="tab5-w-cost-val" style="min-width:3em;text-align:right;color:var(--text);">0.1</strong></label>
+        <label style="font-size:.85rem;color:var(--muted);display:flex;align-items:center;gap:10px;">
+          Mass weight <input type="range" id="tab5-w-mass" min="0" max="5" step="0.1" value="1" style="flex:1;">
+          <strong id="tab5-w-mass-val" style="min-width:3em;text-align:right;color:var(--text);">1</strong></label>
+      </div>
+      <p class="note" id="tab5-callout" style="margin-top:12px;"></p>
+      <p class="note">This is exactly how the real Iteration Log in the design tool works — same three weights, same
+      scoring. Go try it for real in Tab 4 with your own designs, or use the link your instructor gave you if they
+      set specific weights for this assignment.</p>
+    </div>
+  </div>
+  <div class="tab-content" id="tab-6" style="display:none;">
+    <div class="panel">
+      <h2>Predict vs. Build</h2>
+      <p class="note">Once your physical model is built and tested, come back here and compare what the design tool
+      predicted to what you actually measured. They won't match exactly — that's expected, and worth thinking about
+      why, not something to explain away.</p>
+    </div>
+    <div class="panel">
+      <div class="btn-row" style="flex-direction:column;align-items:stretch;gap:12px;">
+        <label style="font-size:.85rem;color:var(--muted);">Predicted deflection, from the design tool (cm)
+          <input type="number" id="tab6-predicted" step="0.01" style="width:100%;padding:8px 10px;margin-top:4px;
+            background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);"></label>
+        <label style="font-size:.85rem;color:var(--muted);">Measured deflection, from your physical build (cm)
+          <input type="number" id="tab6-measured" step="0.01" style="width:100%;padding:8px 10px;margin-top:4px;
+            background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);"></label>
+      </div>
+      <div id="tab6-result" class="status-bar status-ok" style="display:none;margin-top:14px;"></div>
+      <div id="tab6-reflect" style="display:none;margin-top:16px;">
+        <p class="note" style="margin-bottom:8px;">Why might these differ? A few real possibilities — this isn't
+        multiple choice, you can think it's more than one:</p>
+        <ul class="note" style="margin:0 0 12px 18px;padding:0;">
+          <li>Real K'NEX joints have some play in them — they're not the perfectly rigid pins the model assumes.</li>
+          <li>The model is one face at half load, not the full 3D object — the cross-bracing does something the 2D model can't see.</li>
+          <li>Measuring a physical deflection by hand has its own error.</li>
+        </ul>
+        <textarea id="tab6-why" rows="4" placeholder="What do you think explains the gap between predicted and measured?"
+          style="width:100%;padding:10px;background:var(--panel2);border:1px solid var(--border);border-radius:6px;
+          color:var(--text);font-family:inherit;font-size:.88rem;resize:vertical;"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-7" style="display:none;">
+    <div class="panel">
+      <h2>Design Argument</h2>
+      <p class="note">Make the case for your final design. There's no single right answer here — a design that's
+      best for one weighting can be a bad choice for another. What matters is whether your argument actually deals
+      with the tradeoff, using your own real numbers, rather than leaning on one metric alone.</p>
+    </div>
+    <div class="panel">
+      <div class="btn-row" style="flex-direction:column;align-items:stretch;gap:14px;">
+        <label style="font-size:.85rem;color:var(--muted);">Claim — which design do you think best balances
+          deflection, cost, and mass, and for what weighting?
+          <textarea id="tab7-claim" rows="3" style="width:100%;margin-top:4px;padding:10px;background:var(--panel2);
+            border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:.88rem;resize:vertical;"></textarea></label>
+        <label style="font-size:.85rem;color:var(--muted);">Evidence — what specific numbers from your Iteration Log support this?
+          <textarea id="tab7-evidence" rows="3" style="width:100%;margin-top:4px;padding:10px;background:var(--panel2);
+            border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:.88rem;resize:vertical;"></textarea></label>
+        <label style="font-size:.85rem;color:var(--muted);">Tradeoffs — what did you give up to get there? Would a
+          different weighting have changed your answer?
+          <textarea id="tab7-tradeoffs" rows="3" style="width:100%;margin-top:4px;padding:10px;background:var(--panel2);
+            border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:.88rem;resize:vertical;"></textarea></label>
+        <label style="font-size:.85rem;color:var(--muted);">Reflection — how did your predicted deflection compare
+          to what you measured, and what does that gap tell you about the model's assumptions?
+          <textarea id="tab7-reflection" rows="3" style="width:100%;margin-top:4px;padding:10px;background:var(--panel2);
+            border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:.88rem;resize:vertical;"></textarea></label>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="btn-get-feedback" style="background:var(--accent);border-color:var(--accent);color:#0b1020;font-weight:600;">Get AI Feedback</button>
+      </div>
+      <div id="tab7-feedback-area" style="display:none;margin-top:14px;">
+        <div id="tab7-feedback-body" class="status-bar status-ok"></div>
+      </div>
+    </div>
+  </div>
 
 </div>
 
@@ -704,11 +797,130 @@ async function tab3Refresh(){
   }
 }
 
+// ---- Tab 5: Iteration Log (weighting demo, no solver needed - these are fixed example designs) ----
+const TAB5_DESIGNS = [
+  {name:"Full Ground Structure", defl:0.64, cost:913.5, mass:110.0},
+  {name:"Trimmed", defl:0.81, cost:740, mass:88},
+  {name:"Lean", defl:1.35, cost:580, mass:68},
+  {name:"Overtrimmed", defl:2.9, cost:510, mass:59},
+];
+let tab5Weights = {defl:150, cost:0.1, mass:1};
+
+function tab5Score(d){
+  return tab5Weights.defl*d.defl + tab5Weights.cost*d.cost + tab5Weights.mass*d.mass;
+}
+
+function renderTab5(){
+  const tbody = document.getElementById("tab5-body");
+  tbody.innerHTML = "";
+  const scores = TAB5_DESIGNS.map(tab5Score);
+  let bestIdx = 0;
+  scores.forEach((s,i)=>{ if(s<scores[bestIdx]) bestIdx = i; });
+  TAB5_DESIGNS.forEach((d,i)=>{
+    const tr = document.createElement("tr");
+    if(i===bestIdx) tr.style.background = "rgba(61,220,151,.10)";
+    tr.innerHTML = `<td>${d.name}${i===bestIdx?" ★":""}</td><td>${d.defl.toFixed(2)}</td>`
+      + `<td>${d.cost.toFixed(1)}</td><td>${d.mass.toFixed(1)}</td><td>${scores[i].toFixed(1)}</td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById("tab5-callout").textContent =
+    `Right now, "${TAB5_DESIGNS[bestIdx].name}" wins. Push one slider all the way up and watch whether it stays the winner.`;
+}
+
+["defl","cost","mass"].forEach(key=>{
+  const input = document.getElementById(`tab5-w-${key}`);
+  const val = document.getElementById(`tab5-w-${key}-val`);
+  input.addEventListener("input", ()=>{
+    tab5Weights[key] = Number(input.value);
+    val.textContent = input.value;
+    renderTab5();
+  });
+});
+
+// ---- Tab 6: Predict vs. Build ----
+function tab6Compare(){
+  const predicted = Number(document.getElementById("tab6-predicted").value);
+  const measured = Number(document.getElementById("tab6-measured").value);
+  const resultEl = document.getElementById("tab6-result");
+  const reflectEl = document.getElementById("tab6-reflect");
+  if(!predicted || !measured){
+    resultEl.style.display = "none";
+    reflectEl.style.display = "none";
+    return;
+  }
+  const diff = measured - predicted;
+  const pct = (diff / predicted) * 100;
+  resultEl.style.display = "flex";
+  resultEl.className = "status-bar status-ok";
+  const direction = diff > 0 ? "more than" : diff < 0 ? "less than" : "exactly what";
+  resultEl.textContent = `Your build deflected ${Math.abs(diff).toFixed(2)}cm ${direction} predicted `
+    + `(${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%).`;
+  reflectEl.style.display = "block";
+}
+document.getElementById("tab6-predicted").addEventListener("input", tab6Compare);
+document.getElementById("tab6-measured").addEventListener("input", tab6Compare);
+
+// ---- Tab 7: Design Argument ----
+const FEEDBACK_ENDPOINT = "https://epistemic-feedback.mmjohnson0505.workers.dev/";
+
+async function tab7GetFeedback(){
+  const btn = document.getElementById("btn-get-feedback");
+  const claim = document.getElementById("tab7-claim").value.trim();
+  const evidence = document.getElementById("tab7-evidence").value.trim();
+  const tradeoffs = document.getElementById("tab7-tradeoffs").value.trim();
+  const reflection = document.getElementById("tab7-reflection").value.trim();
+  if(!claim || !evidence || !tradeoffs || !reflection){
+    alert("Fill in all four fields before requesting feedback.");
+    return;
+  }
+  btn.disabled = true; btn.textContent = "Getting feedback…";
+  const feedbackArea = document.getElementById("tab7-feedback-area");
+  const feedbackBody = document.getElementById("tab7-feedback-body");
+  feedbackArea.style.display = "block";
+  feedbackBody.className = "status-bar status-ok";
+  feedbackBody.textContent = "Reading your argument…";
+
+  const systemPrompt = `You are an engineering teacher giving formative feedback to an 8th-grade student on a
+cantilever truss design project (the "ground structure" method: students start from a full candidate set of
+truss members and remove some to minimize a weighted combination of deflection, cost, and mass under a fixed
+tip load, then build the winning design physically out of K'NEX). Be direct, encouraging, and specific. You are
+not grading a single "correct" design - there isn't one; different weightings of deflection/cost/mass legitimately
+favor different designs. Your job is to push back if the argument leans on only one metric (e.g. "it has the least
+deflection" without discussing cost or mass), doesn't cite the student's own actual numbers, or treats one iteration
+as proof rather than one data point among several they tried. If they discussed the predicted-vs-measured deflection
+gap, check their explanation is a plausible physical reason (joint play, the 2D/half-load model simplification,
+measurement error) rather than hand-waved. Keep the response to 150-220 words, plain language appropriate for a
+13-year-old, and do not use em dashes.`;
+
+  const userPrompt = `CLAIM: ${claim}\n\nEVIDENCE: ${evidence}\n\nTRADEOFFS: ${tradeoffs}\n\nREFLECTION: ${reflection}`;
+
+  try{
+    const response = await fetch(FEEDBACK_ENDPOINT, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({systemPrompt, userPrompt}),
+    });
+    const data = await response.json();
+    if(!response.ok || !data.text){
+      console.error("Feedback endpoint returned an error:", data);
+      throw new Error(data.error || "No feedback returned.");
+    }
+    feedbackBody.textContent = data.text;
+    feedbackArea.scrollIntoView({behavior:"smooth", block:"start"});
+  }catch(err){
+    console.error("Feedback request failed:", err);
+    feedbackBody.className = "status-bar status-bad";
+    feedbackBody.textContent = "Feedback unavailable right now. Please try again in a moment.";
+  }
+  btn.disabled = false; btn.textContent = "Get AI Feedback";
+}
+document.getElementById("btn-get-feedback").addEventListener("click", tab7GetFeedback);
+
 (async ()=>{
   document.getElementById("scenario-title").textContent = "Loading solver…";
   loadScenario(0);
   drawTab2(TAB2_NODES);
   drawTab3();
+  renderTab5();
   await initPyodide();
   await tab2Refresh();
   await tab3Refresh();
