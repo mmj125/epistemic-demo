@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cantilever Truss Design — epiSTEMic Engineering</title>
+<style>
+  :root{
+    --bg:#0f1420; --panel:#161d2e; --panel2:#1d2540; --border:#2a3555;
+    --text:#e7ecf7; --muted:#9aa7c7; --accent:#5b8cff; --accent2:#3ddc97;
+    --tension:#ff5c72; --compression:#4d9eff; --warn:#ffb347; --danger:#ff5c72;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
+  header{padding:18px 24px;border-bottom:1px solid var(--border);background:var(--panel);}
+  header h1{margin:0;font-size:1.3rem;}
+  header p{margin:4px 0 0;color:var(--muted);font-size:.9rem;max-width:900px;}
+
+  .tabbar{display:flex;gap:4px;flex-wrap:wrap;padding:12px 24px 0;background:var(--panel);border-bottom:1px solid var(--border);}
+  .tab-btn{background:none;border:none;color:var(--muted);padding:10px 16px;font-size:.85rem;cursor:pointer;
+    border-bottom:3px solid transparent;font-family:inherit;}
+  .tab-btn.active{color:var(--text);border-bottom-color:var(--accent);font-weight:600;}
+  .tab-btn:hover:not(.active){color:var(--text);}
+
+  .content{max-width:1000px;margin:0 auto;padding:24px;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:16px;}
+  .panel h2{margin:0 0 10px;font-size:1.1rem;color:var(--accent);}
+  .note{font-size:.85rem;color:var(--muted);line-height:1.6;}
+
+  .stub{padding:50px 20px;text-align:center;color:var(--muted);}
+  .stub h2{color:var(--text);margin-bottom:8px;}
+
+  .scenario-card{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;}
+  .scenario-canvas-wrap{flex:0 0 auto;}
+  canvas{background:#0b1020;border:1px solid var(--border);border-radius:8px;display:block;}
+  .scenario-info{flex:1 1 280px;min-width:260px;}
+  .scenario-title{font-size:1.05rem;font-weight:600;margin-bottom:6px;}
+  .scenario-desc{color:var(--muted);font-size:.9rem;line-height:1.6;margin-bottom:16px;}
+  .predict-row{display:flex;gap:10px;margin-bottom:14px;}
+  .predict-btn{flex:1;padding:12px;border-radius:8px;border:1.5px solid var(--border);background:var(--panel2);
+    color:var(--text);font-size:.9rem;cursor:pointer;font-family:inherit;}
+  .predict-btn:hover{border-color:var(--accent);}
+  .predict-btn.chosen{border-color:var(--accent);background:rgba(91,140,255,.15);}
+  .predict-btn:disabled{cursor:default;opacity:.6;}
+  .reveal-box{padding:12px 14px;border-radius:8px;font-size:.88rem;line-height:1.6;margin-top:10px;}
+  .reveal-correct{background:rgba(61,220,151,.12);border:1px solid rgba(61,220,151,.35);color:var(--accent2);}
+  .reveal-wrong{background:rgba(255,92,114,.12);border:1px solid rgba(255,92,114,.35);color:var(--tension);}
+  .btn{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:9px 16px;
+    border-radius:8px;cursor:pointer;font-size:.85rem;font-family:inherit;}
+  .btn:hover{border-color:var(--accent);}
+  .btn-row{display:flex;justify-content:space-between;align-items:center;margin-top:16px;}
+  .tally{font-size:.85rem;color:var(--muted);}
+  .legend{display:flex;gap:16px;font-size:.8rem;color:var(--muted);margin-top:14px;flex-wrap:wrap;}
+  .swatch{display:inline-block;width:22px;height:4px;border-radius:2px;vertical-align:middle;margin-right:6px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Cantilever Truss Design</h1>
+  <p>A guided path to the real design tool — read forces before you design with them, understand why triangles hold
+  their shape before you triangulate a real structure, and trace a load to its supports before you optimize one.</p>
+</header>
+
+<div class="tabbar" id="tabbar">
+  <button class="tab-btn active" data-tab="1">1. Push &amp; Pull</button>
+  <button class="tab-btn" data-tab="2">2. Why Triangles</button>
+  <button class="tab-btn" data-tab="3">3. Load Path</button>
+  <button class="tab-btn" data-tab="4">4. Design &amp; Predict</button>
+  <button class="tab-btn" data-tab="5">5. Iteration Log</button>
+  <button class="tab-btn" data-tab="6">6. Predict vs. Build</button>
+  <button class="tab-btn" data-tab="7">7. Design Argument</button>
+</div>
+
+<div class="content">
+
+  <div class="tab-content" id="tab-1">
+    <div class="panel">
+      <h2>Push &amp; Pull</h2>
+      <p class="note">Every member in a truss is doing one of two things: getting <strong>pulled</strong> apart
+      (tension — like a rope) or getting <strong>pushed</strong> together (compression — like a stick propping
+      something up). For each setup below, predict which each member is doing before you check. This is the exact
+      same red/blue you'll see in the real design tool later.</p>
+      <div class="legend">
+        <span><span class="swatch" style="background:var(--tension);"></span>Tension (pulled)</span>
+        <span><span class="swatch" style="background:var(--compression);"></span>Compression (pushed)</span>
+      </div>
+    </div>
+
+    <div class="panel" id="scenario-panel">
+      <div class="scenario-card">
+        <div class="scenario-canvas-wrap">
+          <canvas id="scenario-canvas" width="320" height="280"></canvas>
+        </div>
+        <div class="scenario-info">
+          <div class="scenario-title" id="scenario-title">Loading…</div>
+          <div class="scenario-desc" id="scenario-desc"></div>
+          <div id="predict-area"></div>
+          <div id="reveal-area"></div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <span class="tally" id="tally">Scenario 1 of 3</span>
+        <button class="btn" id="btn-next" disabled>Next Scenario →</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-2" style="display:none;"><div class="panel stub"><h2>Why Triangles</h2><p>Not built yet.</p></div></div>
+  <div class="tab-content" id="tab-3" style="display:none;"><div class="panel stub"><h2>Load Path</h2><p>Not built yet.</p></div></div>
+
+  <div class="tab-content" id="tab-4" style="display:none;">
+    <div class="panel stub">
+      <h2>Design &amp; Predict</h2>
+      <p class="note">The full interactive design tool already exists as its own page.</p>
+      <p style="margin-top:14px;"><a class="btn" href="truss-designer.html" style="text-decoration:none;display:inline-block;">Open the Truss Designer →</a></p>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-5" style="display:none;"><div class="panel stub"><h2>Iteration Log</h2><p>Not built yet as a guided step — see the Iteration Log inside the Truss Designer for now.</p></div></div>
+  <div class="tab-content" id="tab-6" style="display:none;"><div class="panel stub"><h2>Predict vs. Build</h2><p>Not built yet.</p></div></div>
+  <div class="tab-content" id="tab-7" style="display:none;"><div class="panel stub"><h2>Design Argument</h2><p>Not built yet.</p></div></div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+<script>
+document.querySelectorAll(".tab-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    document.querySelectorAll(".tab-content").forEach(c=>c.style.display="none");
+    document.getElementById("tab-"+btn.dataset.tab).style.display="block";
+  });
+});
+
+// ---- Tab 1: Push & Pull ----
+const SCENARIOS = [
+  {
+    title: "Two Ropes",
+    desc: "A sign hangs from two ropes attached to the ceiling.",
+    nodes: [[0,10],[4,10],[2,0]],
+    elems: [[0,2],[1,2]],
+    fixed: [0,1],
+    loadNode: 2,
+    load: [0,-1],
+    memberNames: ["Left rope","Right rope"],
+  },
+  {
+    title: "Shelf Bracket",
+    desc: "A shelf bracket: a flat arm holds the shelf, a diagonal brace supports it from below.",
+    nodes: [[0,10],[0,0],[6,10]],
+    elems: [[0,2],[1,2]],
+    fixed: [0,1],
+    loadNode: 2,
+    load: [0,-1],
+    memberNames: ["Flat arm (shelf)","Diagonal brace"],
+  },
+  {
+    title: "Braced Bay",
+    desc: "One braced square from the real ground structure you'll design with later — same shape, same kind of support.",
+    nodes: [[0,0],[0,4],[4,0],[4,4]],
+    elems: [[0,2],[1,3],[0,3],[2,3]],
+    fixed: [0,1],
+    loadNode: 2,
+    load: [0,-1],
+    memberNames: ["Bottom chord","Top chord","Diagonal brace","Right chord"],
+  },
+];
+let scenarioIdx = 0;
+let scenarioResult = null;
+let predictedTension = null; // Set of member indices student predicted as tension
+let revealed = false;
+let pyodide = null, pyReady = false;
+
+const scCanvas = document.getElementById("scenario-canvas");
+const scCtx = scCanvas.getContext("2d");
+
+async function initPyodide(){
+  pyodide = await loadPyodide({indexURL:"https://cdn.jsdelivr.net/pyodide/v0.26.2/full/"});
+  await pyodide.loadPackage(["numpy"]);
+  await pyodide.runPythonAsync(`
+import numpy as np
+
+def analyze(nodes_py, elems_py, fixed_py, load_node, load_vec, E, A):
+    nodes = np.array(nodes_py, dtype=float)
+    elems = [tuple(e) for e in elems_py]
+    fixed_nodes = list(fixed_py)
+    n = len(nodes)
+    ndof = 2*n
+    K = np.zeros((ndof, ndof))
+    for i, j in elems:
+        xi,yi = nodes[i]; xj,yj = nodes[j]
+        L = float(np.hypot(xj-xi, yj-yi))
+        c = (xj-xi)/L; s = (yj-yi)/L
+        k = E*A/L
+        ke = k*np.array([[c*c,c*s,-c*c,-c*s],[c*s,s*s,-c*s,-s*s],
+                          [-c*c,-c*s,c*c,c*s],[-c*s,-s*s,c*s,s*s]])
+        dofs = [2*i,2*i+1,2*j,2*j+1]
+        for a in range(4):
+            for b in range(4):
+                K[dofs[a],dofs[b]] += ke[a,b]
+
+    fixed_dofs = set()
+    for fn in fixed_nodes:
+        fixed_dofs.add(2*fn); fixed_dofs.add(2*fn+1)
+    free = [d for d in range(ndof) if d not in fixed_dofs]
+    F = np.zeros(ndof)
+    F[2*load_node] = load_vec[0]
+    F[2*load_node+1] = load_vec[1]
+
+    Kff = K[np.ix_(free, free)]
+    Ff = F[free]
+    try:
+        if np.linalg.matrix_rank(Kff) < len(free):
+            return {"stable": False}
+        uf = np.linalg.solve(Kff, Ff)
+    except np.linalg.LinAlgError:
+        return {"stable": False}
+
+    u = np.zeros(ndof)
+    for k_, d in enumerate(free):
+        u[d] = uf[k_]
+
+    forces = []
+    for i, j in elems:
+        xi,yi = nodes[i]; xj,yj = nodes[j]
+        L = float(np.hypot(xj-xi, yj-yi))
+        c = (xj-xi)/L; s = (yj-yi)/L
+        elong = (-c*u[2*i] - s*u[2*i+1] + c*u[2*j] + s*u[2*j+1])
+        forces.append(float(E*A/L*elong))
+
+    return {"stable": True, "forces": forces}
+`);
+  pyReady = true;
+}
+
+function toScenarioCanvas(nodes, x, y){
+  const xs = nodes.map(n=>n[0]), ys = nodes.map(n=>n[1]);
+  const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys);
+  const margin = 50;
+  const w = scCanvas.width - 2*margin, h = scCanvas.height - 2*margin - 20;
+  const scale = Math.min(w/(maxX-minX||1), h/(maxY-minY||1));
+  const px = margin + (x-minX)*scale;
+  const py = scCanvas.height - margin - (y-minY)*scale;
+  return [px,py];
+}
+
+function drawScenario(sc, forces){
+  scCtx.clearRect(0,0,scCanvas.width,scCanvas.height);
+  const pts = sc.nodes.map(n=>toScenarioCanvas(sc.nodes,n[0],n[1]));
+
+  sc.elems.forEach((e,idx)=>{
+    const [x1,y1] = pts[e[0]], [x2,y2] = pts[e[1]];
+    let color = "#5a6690", width = 3;
+    if(revealed && forces){
+      const f = forces[idx];
+      color = f > 0 ? getCss("--tension") : getCss("--compression");
+      width = 4;
+    }
+    scCtx.strokeStyle = color;
+    scCtx.lineWidth = width;
+    scCtx.beginPath(); scCtx.moveTo(x1,y1); scCtx.lineTo(x2,y2); scCtx.stroke();
+  });
+
+  sc.nodes.forEach((n,i)=>{
+    const [x,y] = pts[i];
+    const isFixed = sc.fixed.includes(i);
+    const isLoad = i === sc.loadNode;
+    scCtx.beginPath();
+    scCtx.arc(x,y,6,0,2*Math.PI);
+    scCtx.fillStyle = isFixed ? "#3ddc97" : (isLoad ? "#ffb347" : "#e7ecf7");
+    scCtx.fill();
+    if(isFixed){
+      scCtx.beginPath();
+      scCtx.moveTo(x-9,y+14); scCtx.lineTo(x+9,y+14); scCtx.lineTo(x,y+2); scCtx.closePath();
+      scCtx.strokeStyle = "#3ddc97"; scCtx.lineWidth = 1.5; scCtx.stroke();
+    }
+    if(isLoad){
+      scCtx.strokeStyle = "#ffb347"; scCtx.lineWidth = 2;
+      scCtx.beginPath(); scCtx.moveTo(x,y+8); scCtx.lineTo(x,y+28); scCtx.stroke();
+      scCtx.beginPath(); scCtx.moveTo(x,y+28); scCtx.lineTo(x-5,y+20); scCtx.moveTo(x,y+28); scCtx.lineTo(x+5,y+20); scCtx.stroke();
+    }
+  });
+}
+
+function getCss(varName){
+  return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+}
+
+function renderPredictArea(sc){
+  const area = document.getElementById("predict-area");
+  area.innerHTML = "";
+  sc.memberNames.forEach((name, idx)=>{
+    const row = document.createElement("div");
+    row.style.marginBottom = "10px";
+    row.innerHTML = `<div style="font-size:.82rem;color:var(--muted);margin-bottom:4px;">${name}</div>`;
+    const btnRow = document.createElement("div");
+    btnRow.className = "predict-row";
+    btnRow.style.marginBottom = "0";
+    const pullBtn = document.createElement("button");
+    pullBtn.className = "predict-btn"; pullBtn.textContent = "Pulled (tension)";
+    pullBtn.onclick = ()=>choose(idx, true, pullBtn, pushBtn);
+    const pushBtn = document.createElement("button");
+    pushBtn.className = "predict-btn"; pushBtn.textContent = "Pushed (compression)";
+    pushBtn.onclick = ()=>choose(idx, false, pushBtn, pullBtn);
+    btnRow.appendChild(pullBtn); btnRow.appendChild(pushBtn);
+    row.appendChild(btnRow);
+    area.appendChild(row);
+  });
+}
+
+let predictions = {};
+function choose(idx, isTension, chosenBtn, otherBtn){
+  if(revealed) return;
+  predictions[idx] = isTension;
+  chosenBtn.classList.add("chosen");
+  otherBtn.classList.remove("chosen");
+  const sc = SCENARIOS[scenarioIdx];
+  if(Object.keys(predictions).length === sc.memberNames.length){
+    revealScenario();
+  }
+}
+
+async function revealScenario(){
+  const sc = SCENARIOS[scenarioIdx];
+  if(!pyReady) return;
+  pyodide.globals.set("nodes_py", pyodide.toPy(sc.nodes));
+  pyodide.globals.set("elems_py", pyodide.toPy(sc.elems));
+  pyodide.globals.set("fixed_py", pyodide.toPy(sc.fixed));
+  const resultPy = await pyodide.runPythonAsync(
+    `analyze(nodes_py, elems_py, fixed_py, ${sc.loadNode}, [${sc.load[0]}, ${sc.load[1]}], 30800.0, 0.01284)`
+  );
+  const result = resultPy.toJs({dict_converter: Object.fromEntries});
+  resultPy.destroy();
+  scenarioResult = result;
+  revealed = true;
+  drawScenario(sc, result.forces);
+
+  const revealArea = document.getElementById("reveal-area");
+  revealArea.innerHTML = "";
+  sc.memberNames.forEach((name, idx)=>{
+    const f = result.forces[idx];
+    const actualTension = f > 0;
+    const correct = predictions[idx] === actualTension;
+    const box = document.createElement("div");
+    box.className = "reveal-box " + (correct ? "reveal-correct" : "reveal-wrong");
+    box.style.marginBottom = "8px";
+    box.textContent = `${name}: actually ${actualTension ? "pulled (tension)" : "pushed (compression)"} — `
+      + (correct ? "you got it!" : "you predicted the opposite.");
+    revealArea.appendChild(box);
+  });
+
+  document.getElementById("btn-next").disabled = false;
+  document.querySelectorAll(".predict-btn").forEach(b=>b.disabled=true);
+}
+
+function loadScenario(idx){
+  scenarioIdx = idx;
+  const sc = SCENARIOS[idx];
+  revealed = false;
+  predictions = {};
+  scenarioResult = null;
+  document.getElementById("scenario-title").textContent = sc.title;
+  document.getElementById("scenario-desc").textContent = sc.desc;
+  document.getElementById("tally").textContent = `Scenario ${idx+1} of ${SCENARIOS.length}`;
+  document.getElementById("btn-next").disabled = true;
+  document.getElementById("btn-next").textContent = idx === SCENARIOS.length-1 ? "Restart →" : "Next Scenario →";
+  document.getElementById("reveal-area").innerHTML = "";
+  renderPredictArea(sc);
+  drawScenario(sc, null);
+}
+
+document.getElementById("btn-next").addEventListener("click", ()=>{
+  const nextIdx = (scenarioIdx + 1) % SCENARIOS.length;
+  loadScenario(nextIdx);
+});
+
+(async ()=>{
+  document.getElementById("scenario-title").textContent = "Loading solver…";
+  loadScenario(0);
+  await initPyodide();
+})();
+</script>
+</body>
+</html>
