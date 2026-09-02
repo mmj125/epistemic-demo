@@ -116,12 +116,13 @@
       <h2>Why Triangles</h2>
       <p class="note">For a joint to stay put, every push and pull on it — from the members connected to it and any
       load — has to cancel out exactly. That's Newton's first law: no net force, no motion. A triangle gives every
-      joint enough directions of support to always find that balance. Some other shapes don't. Click members on and
-      off below and watch what happens.</p>
+      joint enough directions of support to always find that balance. Some other shapes don't. This structure has
+      more members than it strictly needs — click members on and off and see how many you can remove before it
+      stops holding its shape.</p>
     </div>
     <div class="panel">
       <div id="tab2-status" class="status-bar status-ok">Loading solver…</div>
-      <canvas id="tab2-canvas" width="360" height="320"></canvas>
+      <canvas id="tab2-canvas" width="480" height="280"></canvas>
       <div class="btn-row">
         <button class="btn" id="tab2-reset">Reset (all members)</button>
         <span class="note">Click a member to remove or restore it. The two left-side pins can't move.</span>
@@ -413,13 +414,18 @@ document.getElementById("btn-next").addEventListener("click", ()=>{
 });
 
 // ---- Tab 2: Why Triangles ----
-const TAB2_NODES = [[0,0],[0,4],[4,0],[4,4]]; // 0,1 pinned (left); 2 bottom-right (loaded); 3 top-right
+// Two X-braced bays: 6 nodes, 10 candidate members. Exact determinacy only needs 8 (2n=12 minus 4
+// restrained dof at the 2 pins), so this structure is redundant by 2 - a student can remove up to two
+// members (typically one diagonal from each X-brace) and it's still stable, not just minimally so.
+const TAB2_NODES = [[0,0],[0,4],[4,0],[4,4],[8,0],[8,4]]; // 0,1 pinned; 4 loaded (bottom-right)
 const TAB2_FIXED = [0,1];
-const TAB2_LOAD_NODE = 2;
+const TAB2_LOAD_NODE = 4;
 const TAB2_LOAD = [0,-1];
-const TAB2_ELEMS = [[0,2],[1,3],[2,3],[0,3]]; // bottom, top, right, diagonal
-const TAB2_NAMES = ["bottom","top","right","diagonal"];
-let tab2Active = new Set([0,1,2,3]);
+const TAB2_ELEMS = [
+  [0,2],[1,3],[2,3],[0,3],[1,2],   // bay 1: bottom, top, vertical, diagonal A, diagonal B
+  [2,4],[3,5],[4,5],[2,5],[3,4],   // bay 2: bottom, top, vertical, diagonal A, diagonal B
+];
+let tab2Active = new Set(TAB2_ELEMS.map((_,i)=>i));
 let tab2Result = null;
 let tab2AnimId = null;
 let tab2T = 0;
@@ -551,7 +557,7 @@ tab2Canvas.addEventListener("click", async (e)=>{
 });
 
 document.getElementById("tab2-reset").addEventListener("click", async ()=>{
-  tab2Active = new Set([0,1,2,3]);
+  tab2Active = new Set(TAB2_ELEMS.map((_,i)=>i));
   await tab2Refresh();
 });
 
