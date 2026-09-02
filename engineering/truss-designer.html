@@ -109,20 +109,21 @@
     <div class="panel" id="iteration-panel">
       <h2>Iteration Log</h2>
       <p class="note">Click "Run Simulation" to log your current design and score it against your last logged iteration
-      &mdash; lower is better. Cost and mass below are still proxies (rod count / total rod length), not real
-      dollars/grams &mdash; adjust the weights once real numbers exist, or just to see how the ranking changes.</p>
+      &mdash; lower is better. Cost and mass use the rod length/mass data from Matt's Decision Criteria spreadsheet
+      (connector/testing cost not yet included). The weights below are still an instructor choice, the same way the
+      spreadsheet's own importance factors were &mdash; adjust them to see how the ranking changes.</p>
       <div class="btn-row" style="margin-top:0;">
         <label style="font-size:.82rem;color:var(--muted);">Deflection weight
-          <input type="number" id="w-defl" value="400" step="10" style="width:70px;"></label>
-        <label style="font-size:.82rem;color:var(--muted);">Cost weight (&times;rod count)
-          <input type="number" id="w-cost" value="1" step="0.5" style="width:60px;"></label>
-        <label style="font-size:.82rem;color:var(--muted);">Mass weight (&times;total length)
-          <input type="number" id="w-mass" value="0.3" step="0.1" style="width:60px;"></label>
+          <input type="number" id="w-defl" value="150" step="10" style="width:70px;"></label>
+        <label style="font-size:.82rem;color:var(--muted);">Cost weight
+          <input type="number" id="w-cost" value="0.1" step="0.05" style="width:60px;"></label>
+        <label style="font-size:.82rem;color:var(--muted);">Mass weight
+          <input type="number" id="w-mass" value="1" step="0.1" style="width:60px;"></label>
       </div>
       <div id="compare-banner" class="status-bar status-ok" style="margin-top:10px;">Run a simulation to log your first iteration.</div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>Iter</th><th>Members</th><th>Purple</th><th>Blue</th><th>Length (in)</th><th>Deflection (in)</th><th>Score</th></tr></thead>
+          <thead><tr><th>Iter</th><th>Members</th><th>Purple</th><th>Blue</th><th>Cost</th><th>Mass (g)</th><th>Deflection (cm)</th><th>Score</th></tr></thead>
           <tbody id="history-body"></tbody>
         </table>
       </div>
@@ -148,15 +149,17 @@
       </dl>
       <h2 style="margin-top:14px;">Bill of Materials (rods)</h2>
       <dl class="stat-grid">
-        <dt><span class="swatch" style="background:#a259e6;"></span>Purple rods (94mm)</dt><dd id="stat-purple">—</dd>
-        <dt><span class="swatch" style="background:#4d9eff;"></span>Blue rods (138mm)</dt><dd id="stat-blue">—</dd>
+        <dt><span class="swatch" style="background:#a259e6;"></span>Purple rods (9.5cm)</dt><dd id="stat-purple">—</dd>
+        <dt><span class="swatch" style="background:#4d9eff;"></span>Blue rods (13.5cm)</dt><dd id="stat-blue">—</dd>
+        <dt>Cost (rod length total)</dt><dd id="stat-cost">—</dd>
+        <dt>Mass (rods only)</dt><dd id="stat-mass">—</dd>
       </dl>
       <p class="note">Purple pairs with the horizontal/vertical members, blue with the diagonals — the closer length
-      match by a wide margin (~9-12% off vs. 3-6x worse cross-paired), but this pairing is inferred from the two
-      lengths in the model, not explicitly confirmed against Matt's physical kit.</p>
-      <p class="note warn">Still not shown: dollar cost or mass per rod (need price/weight for mini K'NEX purple and
-      blue), and connector/hub count per node (the hub-selection rule isn't recoverable from the spreadsheet — see
-      CLAUDE.md's "Engineering unit" section).</p>
+      match by a wide margin (~9-12% off vs. 3-6x worse cross-paired). Length, mass, and cost per rod are now from
+      Matt's Decision Criteria spreadsheet directly (Purple: 9.5cm / 0.9g, Blue: 13.5cm / 1.3g); cost is computed the
+      same way that spreadsheet computes it — total rod length, since it has no separate per-rod price column.</p>
+      <p class="note warn">Still not included: connector/hub cost and mass per node (the hub-selection rule isn't
+      recoverable from the spreadsheet — see CLAUDE.md's "Engineering unit" section) or testing cost.</p>
     </div>
   </div>
 </div>
@@ -177,6 +180,12 @@ const ELEMS = [[0,1],[1,2],[2,3],[3,4],[4,5],[6,7],[7,8],[8,9],[9,10],[10,11],[1
 const FIXED_NODES = [0,6,12,18];
 const LOAD_NODE = 24;
 const E = 30800.0, A = 0.01284;
+const IN_TO_CM = 2.54;
+// From Decision_Criteria_Cantilever_FINAL.xlsx, "Ground Structure" sheet, rows 16-17 (Purple/Blue).
+// Cost has no separate per-rod price column there either - that sheet computes Cost = total rod length directly
+// (Summary!F8 = Summary!E8), so this ports the same formula rather than inventing a different one.
+const PURPLE_LENGTH_CM = 9.5, PURPLE_MASS_G = 0.9;
+const BLUE_LENGTH_CM = 13.5, BLUE_MASS_G = 1.3;
 
 let activeMembers = new Set(ELEMS.map((_,i)=>i));
 let removedNodes = new Set();
@@ -186,7 +195,7 @@ let showLabels = true;
 let lastResult = null;
 let pyodide = null, pyReady = false;
 let history = [];
-let weights = {defl:400, cost:1, mass:0.3};
+let weights = {defl:0, cost:0, mass:0}; // populated from the input fields' own HTML defaults on load, see bottom of file
 
 const canvas = document.getElementById("truss-canvas");
 const ctx = canvas.getContext("2d");
@@ -309,7 +318,10 @@ function setStatus(ok, text){
   bar.textContent = text;
 }
 
-// Rod BOM: horiz/vert members (~4.1875in) -> purple (94mm), diagonals (~5.922in) -> blue (138mm)
+// Rod BOM: horiz/vert members (~4.1875in) -> purple (9.5cm), diagonals (~5.922in) -> blue (13.5cm).
+// Note: this ground-structure length (from the MASTAN geometry) is NOT the same number as the real
+// catalog rod length - the physical rod only approximates the grid spacing (~9-12% off). Cost/mass use
+// the real catalog length/mass per rod, not the geometric member length.
 function computeMetrics(result){
   const active = effectiveActiveMembers();
   let purple = 0, blue = 0;
@@ -317,16 +329,19 @@ function computeMetrics(result){
     if(memberLength(idx) < 5.0) purple++; else blue++;
   }
   const totalLength = active.reduce((s,idx)=>s+memberLength(idx),0);
+  const cost = purple*PURPLE_LENGTH_CM + blue*BLUE_LENGTH_CM;
+  const mass = purple*PURPLE_MASS_G + blue*BLUE_MASS_G;
   return {
     memberCount: active.length,
-    purple, blue, totalLength,
+    purple, blue, totalLength, cost, mass,
     dx: result && result.stable ? result.dx[LOAD_NODE] : null,
     dy: result && result.stable ? result.dy[LOAD_NODE] : null,
   };
 }
 
 function computeScore(entry){
-  return weights.defl*Math.abs(entry.dy) + weights.cost*entry.memberCount + weights.mass*entry.totalLength;
+  const dyCm = Math.abs(entry.dy) * IN_TO_CM;
+  return weights.defl*dyCm + weights.cost*entry.cost + weights.mass*entry.mass;
 }
 
 function updateStats(result){
@@ -336,10 +351,12 @@ function updateStats(result){
   document.getElementById("stat-length").textContent = m.totalLength.toFixed(2) + " in";
   document.getElementById("stat-purple").textContent = m.purple;
   document.getElementById("stat-blue").textContent = m.blue;
+  document.getElementById("stat-cost").textContent = m.cost.toFixed(1) + " cm";
+  document.getElementById("stat-mass").textContent = m.mass.toFixed(1) + " g";
 
   if(result && result.stable){
-    document.getElementById("stat-dx").textContent = m.dx.toFixed(4) + " in";
-    document.getElementById("stat-dy").textContent = m.dy.toFixed(4) + " in";
+    document.getElementById("stat-dx").textContent = (m.dx*IN_TO_CM).toFixed(4) + " cm";
+    document.getElementById("stat-dy").textContent = (m.dy*IN_TO_CM).toFixed(4) + " cm";
   } else {
     document.getElementById("stat-dx").textContent = "—";
     document.getElementById("stat-dy").textContent = "—";
@@ -485,7 +502,7 @@ async function refresh(){
       : "This truss is a mechanism — it isn't fully triangulated and will collapse under load.";
     setStatus(false, "⚠ Unstable: " + msg);
   } else {
-    setStatus(true, "Stable — deflection at loaded node: " + result.dy[LOAD_NODE].toFixed(4) + " in");
+    setStatus(true, "Stable — deflection at loaded node: " + (result.dy[LOAD_NODE]*IN_TO_CM).toFixed(4) + " cm");
   }
   updateStats(result);
   buildReport(result);
@@ -504,8 +521,8 @@ function renderHistory(){
     tr.style.cursor = "pointer";
     if(i === bestIdx) tr.style.background = "rgba(61,220,151,.10)";
     tr.innerHTML = `<td>${e.iter}${i===bestIdx ? " ★" : ""}</td><td>${e.memberCount}</td>
-      <td>${e.purple}</td><td>${e.blue}</td><td>${e.totalLength.toFixed(2)}</td>
-      <td>${e.dy.toFixed(4)}</td><td>${scores[i].toFixed(1)}</td>`;
+      <td>${e.purple}</td><td>${e.blue}</td><td>${e.cost.toFixed(1)}</td><td>${e.mass.toFixed(1)}</td>
+      <td>${(e.dy*IN_TO_CM).toFixed(4)}</td><td>${scores[i].toFixed(1)}</td>`;
     tr.addEventListener("click", async ()=>{
       activeMembers = new Set(e.activeMembers);
       removedNodes = new Set(e.removedNodes);
@@ -627,14 +644,19 @@ document.getElementById("chk-labels").addEventListener("change", (e)=>{
   draw(lastResult);
 });
 
+function readWeightsFromInputs(){
+  weights.defl = Number(document.getElementById("w-defl").value) || 0;
+  weights.cost = Number(document.getElementById("w-cost").value) || 0;
+  weights.mass = Number(document.getElementById("w-mass").value) || 0;
+}
+
 ["w-defl","w-cost","w-mass"].forEach(id=>{
   document.getElementById(id).addEventListener("input", ()=>{
-    weights.defl = Number(document.getElementById("w-defl").value) || 0;
-    weights.cost = Number(document.getElementById("w-cost").value) || 0;
-    weights.mass = Number(document.getElementById("w-mass").value) || 0;
+    readWeightsFromInputs();
     renderHistory();
   });
 });
+readWeightsFromInputs(); // seed `weights` from the inputs' own HTML defaults, so the two can't drift apart
 
 (async ()=>{
   await initPyodide();
