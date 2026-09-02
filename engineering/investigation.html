@@ -30,6 +30,11 @@
   .stub{padding:50px 20px;text-align:center;color:var(--muted);}
   .stub h2{color:var(--text);margin-bottom:8px;}
 
+  .status-bar{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;margin-bottom:10px;font-size:.9rem;font-weight:600;}
+  .status-ok{background:rgba(61,220,151,.12);color:var(--accent2);border:1px solid rgba(61,220,151,.35);}
+  .status-bad{background:rgba(255,92,114,.12);color:var(--tension);border:1px solid rgba(255,92,114,.35);}
+  .btn-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center;}
+
   .scenario-card{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;}
   .scenario-canvas-wrap{flex:0 0 auto;}
   canvas{background:#0b1020;border:1px solid var(--border);border-radius:8px;display:block;}
@@ -106,7 +111,23 @@
     </div>
   </div>
 
-  <div class="tab-content" id="tab-2" style="display:none;"><div class="panel stub"><h2>Why Triangles</h2><p>Not built yet.</p></div></div>
+  <div class="tab-content" id="tab-2" style="display:none;">
+    <div class="panel">
+      <h2>Why Triangles</h2>
+      <p class="note">For a joint to stay put, every push and pull on it — from the members connected to it and any
+      load — has to cancel out exactly. That's Newton's first law: no net force, no motion. A triangle gives every
+      joint enough directions of support to always find that balance. Some other shapes don't. Click members on and
+      off below and watch what happens.</p>
+    </div>
+    <div class="panel">
+      <div id="tab2-status" class="status-bar status-ok">Loading solver…</div>
+      <canvas id="tab2-canvas" width="360" height="320"></canvas>
+      <div class="btn-row">
+        <button class="btn" id="tab2-reset">Reset (all members)</button>
+        <span class="note">Click a member to remove or restore it. The two left-side pins can't move.</span>
+      </div>
+    </div>
+  </div>
   <div class="tab-content" id="tab-3" style="display:none;"><div class="panel stub"><h2>Load Path</h2><p>Not built yet.</p></div></div>
 
   <div class="tab-content" id="tab-4" style="display:none;">
@@ -189,7 +210,9 @@ def analyze(nodes_py, elems_py, fixed_py, load_node, load_vec, E, A):
     n = len(nodes)
     ndof = 2*n
     K = np.zeros((ndof, ndof))
+    degree = np.zeros(n, dtype=int)
     for i, j in elems:
+        degree[i] += 1; degree[j] += 1
         xi,yi = nodes[i]; xj,yj = nodes[j]
         L = float(np.hypot(xj-xi, yj-yi))
         c = (xj-xi)/L; s = (yj-yi)/L
@@ -201,9 +224,16 @@ def analyze(nodes_py, elems_py, fixed_py, load_node, load_vec, E, A):
             for b in range(4):
                 K[dofs[a],dofs[b]] += ke[a,b]
 
+    if degree[load_node] == 0:
+        return {"stable": False, "reason": "load_isolated"}
+
     fixed_dofs = set()
     for fn in fixed_nodes:
         fixed_dofs.add(2*fn); fixed_dofs.add(2*fn+1)
+    isolated = [i for i in range(n) if degree[i] == 0 and i not in fixed_nodes]
+    for i in isolated:
+        fixed_dofs.add(2*i); fixed_dofs.add(2*i+1)
+
     free = [d for d in range(ndof) if d not in fixed_dofs]
     F = np.zeros(ndof)
     F[2*load_node] = load_vec[0]
@@ -211,13 +241,19 @@ def analyze(nodes_py, elems_py, fixed_py, load_node, load_vec, E, A):
 
     Kff = K[np.ix_(free, free)]
     Ff = F[free]
-    try:
-        if np.linalg.matrix_rank(Kff) < len(free):
-            return {"stable": False}
-        uf = np.linalg.solve(Kff, Ff)
-    except np.linalg.LinAlgError:
-        return {"stable": False}
 
+    rank = np.linalg.matrix_rank(Kff)
+    if rank < len(free):
+        # Mechanism: the direction the shape can flex in without any member changing length is the
+        # right-singular-vector of Kff belonging to its (near-)zero singular value.
+        _, _, Vt = np.linalg.svd(Kff)
+        mode_free = Vt[-1]
+        full_mode = np.zeros(ndof)
+        for k_, d in enumerate(free):
+            full_mode[d] = mode_free[k_]
+        return {"stable": False, "reason": "mechanism", "mode": full_mode.tolist(), "isolated": isolated}
+
+    uf = np.linalg.solve(Kff, Ff)
     u = np.zeros(ndof)
     for k_, d in enumerate(free):
         u[d] = uf[k_]
@@ -230,7 +266,7 @@ def analyze(nodes_py, elems_py, fixed_py, load_node, load_vec, E, A):
         elong = (-c*u[2*i] - s*u[2*i+1] + c*u[2*j] + s*u[2*j+1])
         forces.append(float(E*A/L*elong))
 
-    return {"stable": True, "forces": forces}
+    return {"stable": True, "forces": forces, "dx": u[0::2].tolist(), "dy": u[1::2].tolist()}
 `);
   pyReady = true;
 }
@@ -376,10 +412,155 @@ document.getElementById("btn-next").addEventListener("click", ()=>{
   loadScenario(nextIdx);
 });
 
+// ---- Tab 2: Why Triangles ----
+const TAB2_NODES = [[0,0],[0,4],[4,0],[4,4]]; // 0,1 pinned (left); 2 bottom-right (loaded); 3 top-right
+const TAB2_FIXED = [0,1];
+const TAB2_LOAD_NODE = 2;
+const TAB2_LOAD = [0,-1];
+const TAB2_ELEMS = [[0,2],[1,3],[2,3],[0,3]]; // bottom, top, right, diagonal
+const TAB2_NAMES = ["bottom","top","right","diagonal"];
+let tab2Active = new Set([0,1,2,3]);
+let tab2Result = null;
+let tab2AnimId = null;
+let tab2T = 0;
+
+const tab2Canvas = document.getElementById("tab2-canvas");
+const tab2Ctx = tab2Canvas.getContext("2d");
+const TAB2_MARGIN = 55;
+
+function toTab2Canvas(x,y){
+  const xs = TAB2_NODES.map(n=>n[0]), ys = TAB2_NODES.map(n=>n[1]);
+  const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys);
+  const w = tab2Canvas.width - 2*TAB2_MARGIN, h = tab2Canvas.height - 2*TAB2_MARGIN - 20;
+  const scale = Math.min(w/(maxX-minX||1), h/(maxY-minY||1));
+  return [TAB2_MARGIN + (x-minX)*scale, tab2Canvas.height - TAB2_MARGIN - (y-minY)*scale];
+}
+
+function drawTab2(nodePositions){
+  tab2Ctx.clearRect(0,0,tab2Canvas.width,tab2Canvas.height);
+  const pts = nodePositions.map(n=>toTab2Canvas(n[0],n[1]));
+  const isolated = (tab2Result && tab2Result.isolated) || [];
+
+  TAB2_ELEMS.forEach((e,idx)=>{
+    const isActive = tab2Active.has(idx);
+    const [x1,y1] = pts[e[0]], [x2,y2] = pts[e[1]];
+    tab2Ctx.strokeStyle = isActive ? "#8a97c4" : "rgba(90,102,144,.2)";
+    tab2Ctx.lineWidth = isActive ? 3 : 1;
+    if(!isActive) tab2Ctx.setLineDash([3,3]);
+    tab2Ctx.beginPath(); tab2Ctx.moveTo(x1,y1); tab2Ctx.lineTo(x2,y2); tab2Ctx.stroke();
+    tab2Ctx.setLineDash([]);
+  });
+
+  TAB2_NODES.forEach((n,i)=>{
+    const [x,y] = pts[i];
+    const isFixed = TAB2_FIXED.includes(i);
+    const isLoad = i === TAB2_LOAD_NODE;
+    const isIsolated = isolated.includes(i);
+    tab2Ctx.beginPath();
+    tab2Ctx.arc(x,y,6,0,2*Math.PI);
+    tab2Ctx.fillStyle = isIsolated ? "#ffb347" : isFixed ? "#3ddc97" : (isLoad ? "#ffb347" : "#e7ecf7");
+    tab2Ctx.fill();
+    if(isFixed){
+      tab2Ctx.beginPath();
+      tab2Ctx.moveTo(x-9,y+14); tab2Ctx.lineTo(x+9,y+14); tab2Ctx.lineTo(x,y+2); tab2Ctx.closePath();
+      tab2Ctx.strokeStyle = "#3ddc97"; tab2Ctx.lineWidth = 1.5; tab2Ctx.stroke();
+    }
+    if(isLoad){
+      tab2Ctx.strokeStyle = "#ffb347"; tab2Ctx.lineWidth = 2;
+      tab2Ctx.beginPath(); tab2Ctx.moveTo(x,y+8); tab2Ctx.lineTo(x,y+26); tab2Ctx.stroke();
+      tab2Ctx.beginPath(); tab2Ctx.moveTo(x,y+26); tab2Ctx.lineTo(x-5,y+18); tab2Ctx.moveTo(x,y+26); tab2Ctx.lineTo(x+5,y+18); tab2Ctx.stroke();
+    }
+  });
+}
+
+function stopTab2Anim(){
+  if(tab2AnimId){ cancelAnimationFrame(tab2AnimId); tab2AnimId = null; }
+}
+
+function startTab2Wobble(mode){
+  stopTab2Anim();
+  tab2T = 0;
+  const AMPLITUDE = 3.2;
+  function frame(){
+    tab2T += 0.05;
+    const wobble = Math.sin(tab2T) * AMPLITUDE;
+    const offsetNodes = TAB2_NODES.map((n,i)=>[n[0] + mode[2*i]*wobble, n[1] + mode[2*i+1]*wobble]);
+    drawTab2(offsetNodes);
+    tab2AnimId = requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+function setTab2Status(cls, text){
+  const el = document.getElementById("tab2-status");
+  el.className = "status-bar " + cls;
+  el.textContent = text;
+}
+
+async function tab2Refresh(){
+  stopTab2Anim();
+  if(!pyReady){ setTab2Status("status-ok","Loading solver…"); return; }
+  const activeList = Array.from(tab2Active);
+  pyodide.globals.set("nodes_py", pyodide.toPy(TAB2_NODES));
+  pyodide.globals.set("elems_py", pyodide.toPy(activeList.map(i=>TAB2_ELEMS[i])));
+  pyodide.globals.set("fixed_py", pyodide.toPy(TAB2_FIXED));
+  const resultPy = await pyodide.runPythonAsync(
+    `analyze(nodes_py, elems_py, fixed_py, ${TAB2_LOAD_NODE}, [${TAB2_LOAD[0]}, ${TAB2_LOAD[1]}], 30800.0, 0.01284)`
+  );
+  const result = resultPy.toJs({dict_converter: Object.fromEntries});
+  resultPy.destroy();
+  tab2Result = result;
+
+  if(result.stable){
+    setTab2Status("status-ok","Stable — every joint's forces balance. This shape holds its form.");
+    drawTab2(TAB2_NODES);
+  } else if(result.reason === "load_isolated"){
+    setTab2Status("status-bad","The loaded corner has no members attached — nothing is holding it up at all.");
+    drawTab2(TAB2_NODES);
+  } else {
+    const isolated = result.isolated || [];
+    if(isolated.length > 0){
+      setTab2Status("status-bad", `Node ${isolated.map(i=>i+1).join(", ")} isn't connected to anything — it's just floating.`);
+      drawTab2(TAB2_NODES);
+    } else {
+      setTab2Status("status-bad","Unstable — this shape can flex without any member changing length. Watch it move.");
+      startTab2Wobble(result.mode);
+    }
+  }
+}
+
+tab2Canvas.addEventListener("click", async (e)=>{
+  const rect = tab2Canvas.getBoundingClientRect();
+  const scaleX = tab2Canvas.width/rect.width, scaleY = tab2Canvas.height/rect.height;
+  const px = (e.clientX-rect.left)*scaleX, py = (e.clientY-rect.top)*scaleY;
+  const pts = TAB2_NODES.map(n=>toTab2Canvas(n[0],n[1]));
+  let best=-1, bestDist=10;
+  TAB2_ELEMS.forEach((el,idx)=>{
+    const [x1,y1]=pts[el[0]], [x2,y2]=pts[el[1]];
+    const A=px-x1, B=py-y1, C=x2-x1, D=y2-y1;
+    const dot=A*C+B*D, lenSq=C*C+D*D;
+    let t = lenSq ? dot/lenSq : -1;
+    t = Math.max(0, Math.min(1, t));
+    const d = Math.hypot(px-(x1+t*C), py-(y1+t*D));
+    if(d<bestDist){bestDist=d; best=idx;}
+  });
+  if(best>=0){
+    if(tab2Active.has(best)) tab2Active.delete(best); else tab2Active.add(best);
+    await tab2Refresh();
+  }
+});
+
+document.getElementById("tab2-reset").addEventListener("click", async ()=>{
+  tab2Active = new Set([0,1,2,3]);
+  await tab2Refresh();
+});
+
 (async ()=>{
   document.getElementById("scenario-title").textContent = "Loading solver…";
   loadScenario(0);
+  drawTab2(TAB2_NODES);
   await initPyodide();
+  await tab2Refresh();
 })();
 </script>
 </body>
