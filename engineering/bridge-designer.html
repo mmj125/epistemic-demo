@@ -371,7 +371,7 @@ def analyze(nodes_py, elems_py, pin_node, roller_node, load_node, load_n, active
     K = np.zeros((ndof, ndof))
     degree = np.zeros(n, dtype=int)
     for idx in active_idx:
-        i, j = elems[idx]
+        i, j = elems[idx][0], elems[idx][1]  # elems entries carry a 3rd rod-type tag now, JS-side only
         degree[i] += 1; degree[j] += 1
         xi,yi = nodes[i]; xj,yj = nodes[j]
         L = float(np.hypot(xj-xi, yj-yi))
@@ -413,7 +413,7 @@ def analyze(nodes_py, elems_py, pin_node, roller_node, load_node, load_n, active
 
     forces = {}
     for idx in active_idx:
-        i, j = elems[idx]
+        i, j = elems[idx][0], elems[idx][1]  # elems entries carry a 3rd rod-type tag now, JS-side only
         xi,yi = nodes[i]; xj,yj = nodes[j]
         L = float(np.hypot(xj-xi, yj-yi))
         c = (xj-xi)/L; s = (yj-yi)/L
