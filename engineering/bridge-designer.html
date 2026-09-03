@@ -634,6 +634,10 @@ document.getElementById("btn-reset").addEventListener("click", async ()=>{
 
 document.getElementById("btn-regenerate").addEventListener("click", async ()=>{
   regenerate();
+  draw(null); // redraw immediately with the new geometry - refresh()'s draw() won't run until the
+              // async solve finishes, and without this the picture keeps showing the OLD structure
+              // for that whole gap while the span-note text already describes the new one.
+  setStatus(true, "Solving…");
   await refresh();
 });
 
