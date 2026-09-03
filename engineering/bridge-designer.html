@@ -441,8 +441,10 @@ function draw(result){
     }
     if(isLoad){
       ctx.strokeStyle = "#ffb347"; ctx.lineWidth = 1.8;
-      ctx.beginPath(); ctx.moveTo(x,y-6); ctx.lineTo(x,y-20); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x,y-20); ctx.lineTo(x-4,y-14); ctx.moveTo(x,y-20); ctx.lineTo(x+4,y-14); ctx.stroke();
+      // arrow points DOWN into the node (the load is a downward force), extending below the
+      // bottom row into open space - matching truss-designer.html's convention exactly.
+      ctx.beginPath(); ctx.moveTo(x,y+6); ctx.lineTo(x,y+20); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x,y+20); ctx.lineTo(x-4,y+14); ctx.moveTo(x,y+20); ctx.lineTo(x+4,y+14); ctx.stroke();
     }
   }
 }
