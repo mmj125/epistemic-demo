@@ -63,7 +63,9 @@
   <p>Pick a module scale and a number of layers below, then generate the full candidate "ground structure" for that
   configuration — every member the grid could possibly have, all present at once. From there, <strong>click any
   member or node to remove it</strong> (click again to put it back) to cut cost and mass while keeping the bridge
-  stable enough to hold a 1kg mass at the center of the 130cm span. Want fewer bays of bracing on just one row?
+  stable enough to hold a 1kg mass at the center of the 130cm span. The truss extends one extra bay past each
+  support onto the abutment — real bridges need to overlap the abutment, not just touch it at a single point.
+  Want fewer bays of bracing on just one row?
   Remove that row's members over the bays you don't want — you don't need to regenerate anything to do that, just
   click them off. Try a small scale and watch how many members it takes; try one layer and see if it's stiff enough
   before adding a second.</p>
@@ -290,20 +292,27 @@ let exagg = 15;
 let lastResult = null;
 let pyodide = null, pyReady = false;
 
+// A real bridge needs to physically rest on/overlap each abutment, not just touch it at a single
+// point at the very end of the required clear span - per Matt directly. So the supports sit one
+// bay in from each end of the truss, and the truss extends one extra bay past each support onto
+// the abutment. This is at least one bay each side; not yet made student-adjustable.
+const OVERLAP_BAYS = 1;
+
 function regenerate(){
   const scaleKey = document.getElementById("cfg-scale").value;
   const layers = Number(document.getElementById("cfg-layers").value);
   const scale = SCALES[scaleKey];
-  const bays = Math.round(TARGET_SPAN / scale.legLen);
+  const bays = Math.round(TARGET_SPAN / scale.legLen); // bays across the required clear span only
   const actualSpan = bays * scale.legLen;
+  const totalBays = bays + 2*OVERLAP_BAYS; // + one overlap bay onto each abutment
 
-  COLS = bays + 1;
+  COLS = totalBays + 1;
   const rows = layers + 1;
   const built = generateGroundStructure(COLS, rows, scale.legLen);
   NODES = built.nodes; ELEMS = built.elems;
-  PIN_NODE = 0;
-  ROLLER_NODE = COLS - 1;
-  LOAD_NODE = Math.floor((COLS - 1) / 2);
+  PIN_NODE = OVERLAP_BAYS;
+  ROLLER_NODE = COLS - 1 - OVERLAP_BAYS;
+  LOAD_NODE = Math.floor((PIN_NODE + ROLLER_NODE) / 2); // midspan between the actual supports, not the truss ends
   LOCKED_NODES = [PIN_NODE, ROLLER_NODE, LOAD_NODE];
   activeMembers = new Set(ELEMS.map((_,i)=>i));
   removedNodes = new Set();
@@ -314,7 +323,8 @@ function regenerate(){
   const diffNote = Math.abs(diff) < 0.01 ? "exactly the required span."
     : `${diff > 0 ? diff.toFixed(1)+"cm over" : Math.abs(diff).toFixed(1)+"cm under"} the required 130cm span — ${bays} bays of ${scale.legLen}cm don't divide it evenly.`;
   document.getElementById("cfg-span-note").textContent =
-    `${scale.name}: ${bays} bays × ${scale.legLen}cm legs = ${actualSpan.toFixed(1)}cm span, ${diffNote} `
+    `${scale.name}: ${bays} bays × ${scale.legLen}cm legs = ${actualSpan.toFixed(1)}cm span between supports, ${diffNote} `
+    + `Plus ${OVERLAP_BAYS} bay of overlap onto each abutment. `
     + `Diagonals are ${scale.hypLen}cm (${scale.hypColor}). ${NODES.length} nodes, ${ELEMS.length} candidate members.`;
 }
 
