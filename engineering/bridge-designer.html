@@ -59,12 +59,13 @@
 
 <header>
   <h1>Truss Bridge Designer</h1>
-  <p>The full candidate "ground structure" for an X-large-scale bridge (red 6.5cm legs, purple 9.5cm diagonals) —
-  20 bays, exactly spanning the required 130cm. Remove members to cut cost and mass while keeping the bridge stable
-  enough to hold a 1kg mass at the center of the span without excessive deflection.</p>
-  <p style="margin-top:8px;">This first version is one fixed scale and depth so the core interactive grid can be
-  checked before the rest is layered on — real cost/mass numbers, other module scales, adjustable depth, and the
-  iteration log are not built yet (see the note in the side panel).</p>
+  <p>Pick a module scale and a number of layers below, then generate the full candidate "ground structure" for that
+  configuration. Remove members to cut cost and mass while keeping the bridge stable enough to hold a 1kg mass at
+  the center of the 130cm span without excessive deflection. Try a small scale and watch how many members it takes;
+  try one layer and see if it's stiff enough before adding a second.</p>
+  <p style="margin-top:8px;">Real cost/mass numbers and the iteration log (for comparing different scale/layer
+  choices against each other) are not built yet (see the note in the side panel) — this round is the configurable
+  grid and the physics.</p>
 </header>
 
 <div class="layout">
@@ -100,6 +101,33 @@
         <button class="btn" id="btn-reset">Reset to Full Ground Structure</button>
         <span class="note" id="click-hint">Click a member to remove/restore it. Click a non-support node to remove/restore it (and its members).</span>
       </div>
+    </div>
+
+    <div class="panel">
+      <h2>Configuration</h2>
+      <div class="btn-row" style="margin-top:0;">
+        <label style="font-size:.85rem;color:var(--muted);">Module scale
+          <select id="cfg-scale" style="display:block;margin-top:4px;padding:7px 10px;background:var(--panel2);
+            border:1px solid var(--border);border-radius:6px;color:var(--text);">
+            <option value="small">Small (black leg / yellow diagonal)</option>
+            <option value="medium">Medium (yellow leg / gray diagonal)</option>
+            <option value="large">Large (gray leg / red diagonal)</option>
+            <option value="xlarge" selected>X-large (red leg / purple diagonal)</option>
+            <option value="xxl">XXL (purple leg / blue diagonal)</option>
+            <option value="huge">Huge (blue leg / orange diagonal)</option>
+          </select></label>
+        <label style="font-size:.85rem;color:var(--muted);">Layers
+          <select id="cfg-layers" style="display:block;margin-top:4px;padding:7px 10px;background:var(--panel2);
+            border:1px solid var(--border);border-radius:6px;color:var(--text);">
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select></label>
+        <button class="btn" id="btn-regenerate" style="align-self:flex-end;">Generate Ground Structure</button>
+      </div>
+      <p class="note" id="cfg-span-note"></p>
     </div>
 
     <div class="panel" id="report-panel" style="display:none;">
@@ -139,12 +167,21 @@
 
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
 <script>
-// Ground structure: X-large scale (red 6.5cm legs, purple 9.5cm diagonals), 20 bays x 2 layers (3 rows).
-// Generator validated against the real cantilever structure in engineering/prototypes/bridge_ground_structure_validate.py.
-const LEG = 6.5;
-const COLS = 21, ROWS = 3;
+// Ground structure generator: validated against the real cantilever structure in
+// engineering/prototypes/bridge_ground_structure_validate.py (exact match on the regular-grid subset).
+const TARGET_SPAN = 130; // cm
 const E = 21235.86, A = 0.08284; // N/cm^2, cm^2 - converted from the cantilever's real MASTAN material, see CLAUDE.md
 const LOAD_N = -9.81; // 1kg at midspan
+
+// Six named triangle-module scales, each a (leg rod, hypotenuse rod) pair - per Matt directly.
+const SCALES = {
+  small:  {name:"Small",   legLen:1.5, legColor:"black",  hypLen:2.5,  hypColor:"yellow"},
+  medium: {name:"Medium",  legLen:2.5, legColor:"yellow", hypLen:4,    hypColor:"gray"},
+  large:  {name:"Large",   legLen:4,   legColor:"gray",   hypLen:6.5,  hypColor:"red"},
+  xlarge: {name:"X-large", legLen:6.5, legColor:"red",    hypLen:9.5,  hypColor:"purple"},
+  xxl:    {name:"XXL",     legLen:9.5, legColor:"purple", hypLen:13.5, hypColor:"blue"},
+  huge:   {name:"Huge",    legLen:13.5,legColor:"blue",   hypLen:20,   hypColor:"orange"},
+};
 
 function generateGroundStructure(cols, rows, spacing){
   const nodes = [];
@@ -170,18 +207,50 @@ function generateGroundStructure(cols, rows, spacing){
   return {nodes, elems};
 }
 
-const {nodes: NODES, elems: ELEMS} = generateGroundStructure(COLS, ROWS, LEG);
-const PIN_NODE = 0;                 // bottom-left
-const ROLLER_NODE = COLS - 1;       // bottom-right
-const LOAD_NODE = Math.floor((COLS - 1) / 2); // bottom-center
-const LOCKED_NODES = [PIN_NODE, ROLLER_NODE, LOAD_NODE];
-
-let activeMembers = new Set(ELEMS.map((_,i)=>i));
-let removedNodes = new Set();
+// Mutable current configuration - regenerate() reassigns all of these.
+let NODES, ELEMS, COLS, PIN_NODE, ROLLER_NODE, LOAD_NODE, LOCKED_NODES;
+let activeMembers, removedNodes;
 let mode = "displacement";
 let exagg = 15;
 let lastResult = null;
 let pyodide = null, pyReady = false;
+
+function regenerate(){
+  const scaleKey = document.getElementById("cfg-scale").value;
+  const layers = Number(document.getElementById("cfg-layers").value);
+  const scale = SCALES[scaleKey];
+  const bays = Math.round(TARGET_SPAN / scale.legLen);
+  const actualSpan = bays * scale.legLen;
+
+  COLS = bays + 1;
+  const rows = layers + 1;
+  const built = generateGroundStructure(COLS, rows, scale.legLen);
+  NODES = built.nodes; ELEMS = built.elems;
+  PIN_NODE = 0;
+  ROLLER_NODE = COLS - 1;
+  LOAD_NODE = Math.floor((COLS - 1) / 2);
+  LOCKED_NODES = [PIN_NODE, ROLLER_NODE, LOAD_NODE];
+  activeMembers = new Set(ELEMS.map((_,i)=>i));
+  removedNodes = new Set();
+  view = {x:0, y:0, zoom:1};
+  autoFitView();
+
+  const diff = actualSpan - TARGET_SPAN;
+  const diffNote = Math.abs(diff) < 0.01 ? "exactly the required span."
+    : `${diff > 0 ? diff.toFixed(1)+"cm over" : Math.abs(diff).toFixed(1)+"cm under"} the required 130cm span — ${bays} bays of ${scale.legLen}cm don't divide it evenly.`;
+  document.getElementById("cfg-span-note").textContent =
+    `${scale.name}: ${bays} bays × ${scale.legLen}cm legs = ${actualSpan.toFixed(1)}cm span, ${diffNote} `
+    + `Diagonals are ${scale.hypLen}cm (${scale.hypColor}). ${NODES.length} nodes, ${ELEMS.length} candidate members.`;
+}
+
+function autoFitView(){
+  const maxX = Math.max(...NODES.map(n=>n[0]));
+  const maxY = Math.max(...NODES.map(n=>n[1]));
+  const drawableW = canvas.width - 2*BASE_MARGIN;
+  const drawableH = canvas.height - 2*BASE_MARGIN - 30; // leave room for the span-line label
+  const fitZoom = Math.min(drawableW / (maxX*BASE_SCALE || 1), drawableH / (maxY*BASE_SCALE || 1), 1);
+  view.zoom = Math.max(0.05, fitZoom);
+}
 
 const canvas = document.getElementById("bridge-canvas");
 const ctx = canvas.getContext("2d");
@@ -203,29 +272,23 @@ function fromCanvas(px,py){
 async function initPyodide(){
   pyodide = await loadPyodide({indexURL:"https://cdn.jsdelivr.net/pyodide/v0.26.2/full/"});
   await pyodide.loadPackage(["numpy"]);
-  pyodide.globals.set("NODES_PY", pyodide.toPy(NODES));
-  pyodide.globals.set("ELEMS_PY", pyodide.toPy(ELEMS));
   await pyodide.runPythonAsync(`
 import numpy as np
-NODES = np.array(NODES_PY, dtype=float)
-ELEMS = [tuple(e) for e in ELEMS_PY]
 E = ${E}
 A = ${A}
-PIN_NODE = ${PIN_NODE}
-ROLLER_NODE = ${ROLLER_NODE}
-LOAD_NODE = ${LOAD_NODE}
-LOAD_N = ${LOAD_N}
 
-def analyze(active_idx):
+def analyze(nodes_py, elems_py, pin_node, roller_node, load_node, load_n, active_idx):
+    nodes = np.array(nodes_py, dtype=float)
+    elems = [tuple(e) for e in elems_py]
     active_idx = list(active_idx)
-    n = len(NODES)
+    n = len(nodes)
     ndof = 2*n
     K = np.zeros((ndof, ndof))
     degree = np.zeros(n, dtype=int)
     for idx in active_idx:
-        i, j = ELEMS[idx]
+        i, j = elems[idx]
         degree[i] += 1; degree[j] += 1
-        xi,yi = NODES[i]; xj,yj = NODES[j]
+        xi,yi = nodes[i]; xj,yj = nodes[j]
         L = float(np.hypot(xj-xi, yj-yi))
         c = (xj-xi)/L; s = (yj-yi)/L
         k = E*A/L
@@ -236,19 +299,19 @@ def analyze(active_idx):
             for b in range(4):
                 K[dofs[a],dofs[b]] += ke[a,b]
 
-    if degree[LOAD_NODE] == 0:
+    if degree[load_node] == 0:
         return {"stable": False, "reason": "load_isolated"}
 
     # Pin restrains x and y; roller restrains y only - a real structural-engineering choice
     # (statically determinate simply-supported span), not something a student can remove.
-    fixed_dofs = {2*PIN_NODE, 2*PIN_NODE+1, 2*ROLLER_NODE+1}
-    isolated = [i for i in range(n) if degree[i]==0 and i not in (PIN_NODE, ROLLER_NODE)]
+    fixed_dofs = {2*pin_node, 2*pin_node+1, 2*roller_node+1}
+    isolated = [i for i in range(n) if degree[i]==0 and i not in (pin_node, roller_node)]
     for i in isolated:
         fixed_dofs.add(2*i); fixed_dofs.add(2*i+1)
 
     free = [d for d in range(ndof) if d not in fixed_dofs]
     F = np.zeros(ndof)
-    F[2*LOAD_NODE+1] = LOAD_N
+    F[2*load_node+1] = load_n
 
     Kff = K[np.ix_(free, free)]
     Ff = F[free]
@@ -265,8 +328,8 @@ def analyze(active_idx):
 
     forces = {}
     for idx in active_idx:
-        i, j = ELEMS[idx]
-        xi,yi = NODES[i]; xj,yj = NODES[j]
+        i, j = elems[idx]
+        xi,yi = nodes[i]; xj,yj = nodes[j]
         L = float(np.hypot(xj-xi, yj-yi))
         c = (xj-xi)/L; s = (yj-yi)/L
         elong = (-c*u[2*i] - s*u[2*i+1] + c*u[2*j] + s*u[2*j+1])
@@ -295,8 +358,12 @@ function effectiveActiveMembers(){
 async function runAnalysis(){
   if(!pyReady) return null;
   const activeList = effectiveActiveMembers();
+  pyodide.globals.set("nodes_py", pyodide.toPy(NODES));
+  pyodide.globals.set("elems_py", pyodide.toPy(ELEMS));
   pyodide.globals.set("active_idx_py", pyodide.toPy(activeList));
-  const resultPy = await pyodide.runPythonAsync(`analyze(active_idx_py)`);
+  const resultPy = await pyodide.runPythonAsync(
+    `analyze(nodes_py, elems_py, ${PIN_NODE}, ${ROLLER_NODE}, ${LOAD_NODE}, ${LOAD_N}, active_idx_py)`
+  );
   const result = resultPy.toJs({dict_converter: Object.fromEntries});
   resultPy.destroy();
   result._activeList = activeList;
@@ -565,7 +632,13 @@ document.getElementById("btn-reset").addEventListener("click", async ()=>{
   await refresh();
 });
 
+document.getElementById("btn-regenerate").addEventListener("click", async ()=>{
+  regenerate();
+  await refresh();
+});
+
 (async ()=>{
+  regenerate();
   draw(null);
   await initPyodide();
   await refresh();
