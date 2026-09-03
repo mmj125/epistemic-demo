@@ -67,9 +67,9 @@
   Remove that row's members over the bays you don't want — you don't need to regenerate anything to do that, just
   click them off. Try a small scale and watch how many members it takes; try one layer and see if it's stiff enough
   before adding a second.</p>
-  <p style="margin-top:8px;">Real cost/mass numbers and the iteration log (for comparing different scale/layer
-  choices against each other) are not built yet (see the note in the side panel) — this round is the configurable
-  grid and the physics.</p>
+  <p style="margin-top:8px;">The side panel now tracks a real bill of materials (rods and connectors, by color
+  and count) and an iteration log — click "Run Simulation" any time to score your current design and compare it
+  against your last one, even after switching to a completely different scale or layer count.</p>
 </header>
 
 <div class="layout">
@@ -168,9 +168,60 @@
         <dt>Removed nodes</dt><dd id="stat-nodes">0 / —</dd>
         <dt>Total member length</dt><dd id="stat-length">— cm</dd>
       </dl>
-      <p class="note warn">Cost, mass, other module scales (Small through Huge), adjustable depth, and the iteration
-      log aren't wired up yet — this round is the interactive grid and the physics only. See CLAUDE.md's "Truss
-      bridge activity" section for what's next.</p>
+      <h2 style="margin-top:14px;">Bill of Materials</h2>
+      <dl class="stat-grid">
+        <dt id="stat-leg-label">Leg rods</dt><dd id="stat-leg-count">—</dd>
+        <dt id="stat-hyp-label">Diagonal rods</dt><dd id="stat-hyp-count">—</dd>
+        <dt>Connectors (gray, ≤4-way)</dt><dd id="stat-gray-count">—</dd>
+        <dt>Connectors (blue, 5–7-way)</dt><dd id="stat-blue-count">—</dd>
+        <dt>Total mass</dt><dd id="stat-mass">— g</dd>
+        <dt>Total cost</dt><dd id="stat-cost">—</dd>
+      </dl>
+      <div id="capacity-warning" class="status-bar status-bad" style="display:none;margin-top:10px;"></div>
+      <p class="note">Cost is total rod length (no per-rod dollar price exists for this catalog, so this ports the
+      same length-as-cost convention Matt's own spreadsheet used for the cantilever, not a real dollar figure).
+      Connector type is by degree (≤4 → gray, 5–7 → blue) — Matt's stated capacities, not an explicit rule he's
+      confirmed, so treat it as a placeholder like the cantilever's early connector logic was.</p>
+    </div>
+
+    <div class="panel" id="iteration-panel">
+      <h2>Iteration Log</h2>
+      <p class="note">"Run Simulation" logs the current design — including its scale and layer count — and scores it
+      against your last logged iteration. Lower is better. You can regenerate at a completely different scale or
+      layer count and log that too; the log compares across configurations, not just within one.</p>
+      <p style="font-size:.85rem;color:var(--muted);margin-top:8px;">
+        Current weights — Deflection: <strong id="w-defl-display" style="color:var(--text);">40</strong>,
+        Cost: <strong id="w-cost-display" style="color:var(--text);">0.3</strong>,
+        Mass: <strong id="w-mass-display" style="color:var(--text);">1</strong>
+      </p>
+      <details id="weight-details" style="margin-top:10px;">
+        <summary style="cursor:pointer;font-size:.82rem;color:var(--accent);">Instructor: set weights for this assignment</summary>
+        <div class="btn-row" style="margin-top:10px;">
+          <label style="font-size:.82rem;color:var(--muted);">Deflection weight
+            <input type="number" id="w-defl" value="40" step="5" style="width:70px;"></label>
+          <label style="font-size:.82rem;color:var(--muted);">Cost weight
+            <input type="number" id="w-cost" value="0.3" step="0.1" style="width:60px;"></label>
+          <label style="font-size:.82rem;color:var(--muted);">Mass weight
+            <input type="number" id="w-mass" value="1" step="0.1" style="width:60px;"></label>
+          <button class="btn" id="btn-genlink">Generate link for students</button>
+        </div>
+        <p class="note">These fields update the display above live, for your own preview. To lock a specific
+        weighting for students, click "Generate link" and share that URL instead of this page's own address.</p>
+        <input type="text" id="student-link" readonly style="width:100%;margin-top:6px;padding:7px 10px;
+          background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);
+          font-family:monospace;font-size:.78rem;display:none;" onclick="this.select()">
+      </details>
+      <div class="btn-row">
+        <button class="btn" id="btn-run" style="background:var(--accent);border-color:var(--accent);color:#0b1020;font-weight:600;">Run Simulation</button>
+      </div>
+      <div id="compare-banner" class="status-bar status-ok" style="margin-top:10px;">Run a simulation to log your first iteration.</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Iter</th><th>Scale</th><th>Layers</th><th>Members</th><th>Cost</th><th>Mass (g)</th><th>Deflection (cm)</th><th>Score</th></tr></thead>
+          <tbody id="history-body"></tbody>
+        </table>
+      </div>
+      <p class="note">Click any row to restore that exact design (including its scale and layer count).</p>
     </div>
   </div>
 </div>
@@ -202,20 +253,34 @@ function generateGroundStructure(cols, rows, spacing){
       nodes.push([c*spacing, r*spacing]);
     }
   }
+  // Third element tags each member's rod type ('leg' = horizontal/vertical, 'hyp' = diagonal) -
+  // the two use different-colored, different-length rods per SCALES, needed for the bill of materials.
   const elems = [];
   for(let r=0; r<rows; r++)
     for(let c=0; c<cols-1; c++)
-      elems.push([index[`${c},${r}`], index[`${c+1},${r}`]]);
+      elems.push([index[`${c},${r}`], index[`${c+1},${r}`], 'leg']);
   for(let r=0; r<rows-1; r++)
     for(let c=0; c<cols; c++)
-      elems.push([index[`${c},${r}`], index[`${c},${r+1}`]]);
+      elems.push([index[`${c},${r}`], index[`${c},${r+1}`], 'leg']);
   for(let r=0; r<rows-1; r++)
     for(let c=0; c<cols-1; c++){
-      elems.push([index[`${c},${r}`], index[`${c+1},${r+1}`]]);
-      elems.push([index[`${c+1},${r}`], index[`${c},${r+1}`]]);
+      elems.push([index[`${c},${r}`], index[`${c+1},${r+1}`], 'hyp']);
+      elems.push([index[`${c+1},${r}`], index[`${c},${r+1}`], 'hyp']);
     }
   return {nodes, elems};
 }
+
+// Full rod catalog (length cm, mass g per rod) - real mini K'NEX numbers Matt gave directly,
+// same source as the six SCALES pairs above. Connector data: gray (<=4-way) and blue (5-7-way)
+// are the only two connector types used (both are 3D connectors, per Matt's correction) - no
+// dollar price exists for either rods or connectors, so cost is total rod length (cm), the same
+// convention Matt's own cantilever spreadsheet used (cost of members = length of members).
+const ROD_CATALOG = {
+  black:{len:1.5, mass:0.1}, yellow:{len:2.5, mass:0.3}, gray:{len:4,   mass:0.5},
+  red:  {len:6.5, mass:0.7}, purple:{len:9.5, mass:0.9}, blue:{len:13.5,mass:1.3},
+  orange:{len:20, mass:1.9},
+};
+const CONNECTOR = {gray:{mass:1.7, maxDegree:4}, blue:{mass:1.3, maxDegree:7}};
 
 // Mutable current configuration - regenerate() reassigns all of these.
 let NODES, ELEMS, COLS, PIN_NODE, ROLLER_NODE, LOAD_NODE, LOCKED_NODES;
@@ -386,6 +451,38 @@ function setStatus(ok, text){
   bar.textContent = text;
 }
 
+// Bill of materials for the current active/removed selection at the current scale. Connector
+// type is by node degree (<=4 -> gray, 5-7 -> blue) - Matt's stated capacities, not a rule he's
+// explicitly confirmed, so a degree>7 node is flagged as over-capacity rather than silently
+// assigned a connector that can't really hold that many rods.
+function computeBOM(){
+  const scale = SCALES[document.getElementById("cfg-scale").value];
+  const legRod = ROD_CATALOG[scale.legColor];
+  const hypRod = ROD_CATALOG[scale.hypColor];
+  const active = effectiveActiveMembers();
+  const degree = new Array(NODES.length).fill(0);
+  let legCount = 0, hypCount = 0, totalLen = 0;
+  for(const idx of active){
+    const [i,j,type] = ELEMS[idx];
+    degree[i]++; degree[j]++;
+    totalLen += memberLength(idx);
+    if(type === 'leg') legCount++; else hypCount++;
+  }
+  let grayConn = 0, blueConn = 0;
+  const overCapacityNodes = [];
+  for(let i=0;i<NODES.length;i++){
+    if(removedNodes.has(i) || degree[i] === 0) continue;
+    if(degree[i] <= CONNECTOR.gray.maxDegree) grayConn++;
+    else { blueConn++; if(degree[i] > CONNECTOR.blue.maxDegree) overCapacityNodes.push(i+1); }
+  }
+  const rodMass = legCount*legRod.mass + hypCount*hypRod.mass;
+  const connMass = grayConn*CONNECTOR.gray.mass + blueConn*CONNECTOR.blue.mass;
+  return {
+    scale, legCount, hypCount, grayConn, blueConn, overCapacityNodes,
+    totalMass: rodMass + connMass, totalCost: totalLen, totalLen,
+  };
+}
+
 function updateStats(result){
   const active = effectiveActiveMembers();
   document.getElementById("stat-members").textContent = `${active.length} / ${ELEMS.length}`;
@@ -399,6 +496,27 @@ function updateStats(result){
   } else {
     document.getElementById("stat-dx").textContent = "—";
     document.getElementById("stat-dy").textContent = "—";
+  }
+
+  const bom = computeBOM();
+  document.getElementById("stat-leg-label").textContent = `Leg rods (${bom.scale.legColor})`;
+  document.getElementById("stat-hyp-label").textContent = `Diagonal rods (${bom.scale.hypColor})`;
+  document.getElementById("stat-leg-count").textContent = bom.legCount;
+  document.getElementById("stat-hyp-count").textContent = bom.hypCount;
+  document.getElementById("stat-gray-count").textContent = bom.grayConn;
+  document.getElementById("stat-blue-count").textContent = bom.blueConn;
+  document.getElementById("stat-mass").textContent = bom.totalMass.toFixed(1) + " g";
+  document.getElementById("stat-cost").textContent = bom.totalCost.toFixed(1) + " (rod-length units)";
+
+  const warnEl = document.getElementById("capacity-warning");
+  if(bom.overCapacityNodes.length){
+    warnEl.style.display = "flex";
+    const plural = bom.overCapacityNodes.length > 1;
+    warnEl.textContent = `⚠ Node${plural?'s':''} ${bom.overCapacityNodes.join(', ')} need${plural?'':'s'} more `
+      + `than 7 connections at once — that exceeds the strongest (blue) connector's capacity. This design `
+      + `isn't physically buildable as drawn; remove a member at that node or spread the bracing out.`;
+  } else {
+    warnEl.style.display = "none";
   }
 }
 
@@ -651,11 +769,151 @@ document.getElementById("btn-regenerate").addEventListener("click", async ()=>{
   await refresh();
 });
 
+// ---- Iteration log: score = weighted sum of |deflection| + cost + mass, compared against the
+// previously logged iteration. Each entry snapshots scale/layers AND the exact active-member/
+// removed-node selection, since (unlike the cantilever tool) students can regenerate an entirely
+// different grid between iterations, not just trim one fixed grid. ----
+let weights = {};
+
+// Reads weights from the input elements themselves rather than hardcoding defaults a second time
+// here - the cantilever tool shipped a bug once where the JS's own hardcoded defaults drifted out
+// of sync with the HTML inputs' defaults; this avoids that class of bug entirely.
+function readWeightsFromInputs(){
+  weights = {
+    defl: Number(document.getElementById("w-defl").value),
+    cost: Number(document.getElementById("w-cost").value),
+    mass: Number(document.getElementById("w-mass").value),
+  };
+  document.getElementById("w-defl-display").textContent = weights.defl;
+  document.getElementById("w-cost-display").textContent = weights.cost;
+  document.getElementById("w-mass-display").textContent = weights.mass;
+}
+
+function applyUrlWeights(){
+  const params = new URLSearchParams(window.location.search);
+  const wDefl = params.get("wDefl"), wCost = params.get("wCost"), wMass = params.get("wMass");
+  if(wDefl !== null && wCost !== null && wMass !== null){
+    document.getElementById("w-defl").value = wDefl;
+    document.getElementById("w-cost").value = wCost;
+    document.getElementById("w-mass").value = wMass;
+    // Hides the whole disclosure, not just collapses it - a student following a locked link has
+    // no UI path to change the weights, matching the cantilever tool's exact pattern.
+    document.getElementById("weight-details").style.display = "none";
+  }
+}
+
+let history = [];
+
+function computeScore(entry){
+  return weights.defl*Math.abs(entry.deflection) + weights.cost*entry.cost + weights.mass*entry.mass;
+}
+
+function renderHistory(){
+  const body = document.getElementById("history-body");
+  body.innerHTML = "";
+  const scored = history.map(h=>({...h, score:computeScore(h)}));
+  scored.sort((a,b)=>a.score-b.score);
+  for(const h of scored){
+    const tr = document.createElement("tr");
+    tr.style.cursor = "pointer";
+    tr.innerHTML = `<td>${h.iter}</td><td>${SCALES[h.scaleKey].name}</td><td>${h.layers}</td>
+      <td>${h.members}</td><td>${h.cost.toFixed(1)}</td><td>${h.mass.toFixed(1)}</td>
+      <td>${h.deflection.toFixed(4)}</td><td>${h.score.toFixed(2)}</td>`;
+    tr.addEventListener("click", ()=>restoreIteration(h));
+    body.appendChild(tr);
+  }
+}
+
+function showCompareBanner(newEntry){
+  const banner = document.getElementById("compare-banner");
+  if(history.length < 2){
+    banner.className = "status-bar status-ok";
+    banner.textContent = `Iteration ${newEntry.iter} logged. Run another to start comparing.`;
+    return;
+  }
+  const prev = history[history.length-2];
+  const newScore = computeScore(newEntry), prevScore = computeScore(prev);
+  if(newScore < prevScore){
+    banner.className = "status-bar status-ok";
+    banner.textContent = `Iteration ${newEntry.iter} scored ${newScore.toFixed(2)}, better than `
+      + `Iteration ${prev.iter}'s ${prevScore.toFixed(2)}.`;
+  } else {
+    banner.className = "status-bar status-bad";
+    banner.innerHTML = `Iteration ${newEntry.iter} scored ${newScore.toFixed(2)}, worse than `
+      + `Iteration ${prev.iter}'s ${prevScore.toFixed(2)}. `
+      + `<button class="btn" id="btn-revert" style="margin-left:8px;">Revert to Iteration ${prev.iter}</button>`;
+    document.getElementById("btn-revert").addEventListener("click", ()=>restoreIteration(prev));
+  }
+}
+
+function runSimulation(){
+  if(!lastResult || !lastResult.stable){
+    const banner = document.getElementById("compare-banner");
+    banner.className = "status-bar status-bad";
+    banner.textContent = "Can't log an unstable design — fix the structure so it's stable first.";
+    return;
+  }
+  const bom = computeBOM();
+  const entry = {
+    iter: history.length+1,
+    scaleKey: document.getElementById("cfg-scale").value,
+    layers: Number(document.getElementById("cfg-layers").value),
+    members: effectiveActiveMembers().length,
+    cost: bom.totalCost,
+    mass: bom.totalMass,
+    deflection: lastResult.dy[LOAD_NODE],
+    snapshot: {
+      scaleKey: document.getElementById("cfg-scale").value,
+      layers: document.getElementById("cfg-layers").value,
+      activeMembers: new Set(activeMembers),
+      removedNodes: new Set(removedNodes),
+    },
+  };
+  history.push(entry);
+  renderHistory();
+  showCompareBanner(entry);
+}
+
+async function restoreIteration(entry){
+  document.getElementById("cfg-scale").value = entry.snapshot.scaleKey;
+  document.getElementById("cfg-layers").value = entry.snapshot.layers;
+  regenerate(); // rebuilds NODES/ELEMS/full activeMembers/removedNodes for that scale+layers...
+  activeMembers = new Set(entry.snapshot.activeMembers); // ...then the snapshot's exact selection
+  removedNodes = new Set(entry.snapshot.removedNodes);   // overrides regenerate()'s "everything on" default
+  draw(null);
+  setStatus(true, "Solving…");
+  await refresh();
+}
+
+["w-defl","w-cost","w-mass"].forEach(id=>{
+  document.getElementById(id).addEventListener("input", ()=>{
+    readWeightsFromInputs();
+    renderHistory();
+  });
+});
+
+document.getElementById("btn-run").addEventListener("click", runSimulation);
+
+document.getElementById("btn-genlink").addEventListener("click", ()=>{
+  readWeightsFromInputs();
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.searchParams.set("wDefl", weights.defl);
+  url.searchParams.set("wCost", weights.cost);
+  url.searchParams.set("wMass", weights.mass);
+  const field = document.getElementById("student-link");
+  field.value = url.toString();
+  field.style.display = "block";
+});
+
 (async ()=>{
   regenerate();
   draw(null);
+  applyUrlWeights();
+  readWeightsFromInputs();
   await initPyodide();
   await refresh();
+  runSimulation(); // auto-log the initial full ground structure as Iteration 1
 })();
 </script>
 </body>
