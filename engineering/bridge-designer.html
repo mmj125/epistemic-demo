@@ -34,7 +34,8 @@
   .btn:hover{border-color:var(--accent);}
   .btn-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center;}
   .zoom-controls{display:flex;gap:6px;align-items:center;}
-  .zoom-controls button{width:32px;height:32px;font-size:1.1rem;line-height:1;}
+  .zoom-controls button{height:32px;font-size:.85rem;line-height:1;}
+  .zoom-controls button#btn-zoom-in,.zoom-controls button#btn-zoom-out{width:32px;font-size:1.1rem;padding:0;}
   .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;font-size:.88rem;}
   .stat-grid dt{color:var(--muted);}
   .stat-grid dd{margin:0;font-weight:600;}
@@ -60,9 +61,12 @@
 <header>
   <h1>Truss Bridge Designer</h1>
   <p>Pick a module scale and a number of layers below, then generate the full candidate "ground structure" for that
-  configuration. Remove members to cut cost and mass while keeping the bridge stable enough to hold a 1kg mass at
-  the center of the 130cm span without excessive deflection. Try a small scale and watch how many members it takes;
-  try one layer and see if it's stiff enough before adding a second.</p>
+  configuration — every member the grid could possibly have, all present at once. From there, <strong>click any
+  member or node to remove it</strong> (click again to put it back) to cut cost and mass while keeping the bridge
+  stable enough to hold a 1kg mass at the center of the 130cm span. Want fewer bays of bracing on just one row?
+  Remove that row's members over the bays you don't want — you don't need to regenerate anything to do that, just
+  click them off. Try a small scale and watch how many members it takes; try one layer and see if it's stiff enough
+  before adding a second.</p>
   <p style="margin-top:8px;">Real cost/mass numbers and the iteration log (for comparing different scale/layer
   choices against each other) are not built yet (see the note in the side panel) — this round is the configurable
   grid and the physics.</p>
@@ -76,6 +80,12 @@
         <button class="mode-btn" data-mode="axial">Axial Force Diagram</button>
         <button class="mode-btn" data-mode="report">Element Report</button>
         <button class="mode-btn" data-mode="deflected">Deflected Shape</button>
+      </div>
+      <div style="background:rgba(91,140,255,.12);border:1px solid rgba(91,140,255,.4);border-radius:8px;
+        padding:9px 12px;margin-bottom:10px;font-size:.85rem;color:var(--text);">
+        <strong style="color:var(--accent);">Click any member or node below to remove it</strong> — click it again
+        to put it back. This is how you trim the full grid down to a real design, including making just one row
+        shorter than the rest.
       </div>
       <div id="status-bar" class="status-bar status-ok">Loading solver…</div>
       <canvas id="bridge-canvas" width="900" height="420"></canvas>
