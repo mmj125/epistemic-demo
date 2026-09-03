@@ -83,6 +83,9 @@
         <button class="mode-btn" data-mode="report">Element Report</button>
         <button class="mode-btn" data-mode="deflected">Deflected Shape</button>
       </div>
+      <label style="font-size:.82rem;color:var(--muted);display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+        <input type="checkbox" id="chk-labels" checked> Show member/node numbers
+      </label>
       <div style="background:rgba(91,140,255,.12);border:1px solid rgba(91,140,255,.4);border-radius:8px;
         padding:9px 12px;margin-bottom:10px;font-size:.85rem;color:var(--text);">
         <strong style="color:var(--accent);">Click any member or node below to remove it</strong> — click it again
@@ -290,6 +293,7 @@ let activeMembers, removedNodes;
 let mode = "displacement";
 let exagg = 15;
 let lastResult = null;
+let showLabels = true;
 let pyodide = null, pyReady = false;
 
 // A real bridge needs to physically rest on/overlap each abutment, not just touch it at a single
@@ -607,6 +611,19 @@ function draw(result){
       ctx.beginPath(); ctx.moveTo(xi,yi); ctx.lineTo(xj,yj); ctx.stroke();
       ctx.setLineDash([]);
     }
+
+    if(showLabels){
+      // Offset along this member's own perpendicular (not a fixed screen offset) so that
+      // two diagonals of the same X-brace, which share a midpoint, don't draw on top of each other -
+      // same trick used in truss-designer.html.
+      const dxp = xj-xi, dyp = yj-yi;
+      const lenp = Math.hypot(dxp,dyp) || 1;
+      const nx = -dyp/lenp, ny = dxp/lenp;
+      const mx = (xi+xj)/2 + nx*9, my = (yi+yj)/2 + ny*9;
+      ctx.font = "9px sans-serif";
+      ctx.fillStyle = isActive ? "rgba(210,218,240,.75)" : "rgba(120,130,160,.5)";
+      ctx.fillText(String(idx+1), mx, my);
+    }
   }
 
   if(mode === "deflected" && result && result.stable){
@@ -650,6 +667,11 @@ function draw(result){
       // bottom row into open space - matching truss-designer.html's convention exactly.
       ctx.beginPath(); ctx.moveTo(x,y+6); ctx.lineTo(x,y+20); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(x,y+20); ctx.lineTo(x-4,y+14); ctx.moveTo(x,y+20); ctx.lineTo(x+4,y+14); ctx.stroke();
+    }
+    if(showLabels){
+      ctx.font = "bold 10px sans-serif";
+      ctx.fillStyle = removed ? "rgba(120,130,160,.5)" : "#f4f7ff";
+      ctx.fillText(String(i+1), x+7, y-7);
     }
   }
 }
@@ -744,6 +766,11 @@ document.getElementById("btn-zoom-out").addEventListener("click", ()=>{
 });
 document.getElementById("btn-zoom-reset").addEventListener("click", ()=>{
   view = {x:0, y:0, zoom:1}; draw(lastResult);
+});
+
+document.getElementById("chk-labels").addEventListener("change", (e)=>{
+  showLabels = e.target.checked;
+  draw(lastResult);
 });
 
 document.querySelectorAll(".mode-btn").forEach(btn=>{
