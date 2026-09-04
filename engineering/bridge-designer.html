@@ -62,8 +62,9 @@
   <h1>Truss Bridge Designer</h1>
   <p>Pick a module scale and a number of layers below, then generate the full candidate "ground structure" for that
   configuration — every member the grid could possibly have, all present at once. From there, <strong>click any
-  member or node to remove it</strong> (click again to put it back) to cut cost and mass while keeping the bridge
-  stable enough to hold a 1kg mass at the center of the 130cm span. The truss extends one extra bay past each
+  member or node to remove it</strong> (click again to put it back) to cut cost and keep the load spread out — not
+  overloading any single member — while keeping the bridge stable enough to hold a 1kg mass at the center of the
+  130cm span. The truss extends one extra bay past each
   support onto the abutment — real bridges need to overlap the abutment, not just touch it at a single point.
   Want fewer bays of bracing on just one row?
   Remove that row's members over the bays you don't want — you don't need to regenerate anything to do that, just
@@ -163,7 +164,12 @@
       <dl class="stat-grid">
         <dt>Horizontal (x) displacement</dt><dd id="stat-dx">—</dd>
         <dt>Vertical (y) displacement</dt><dd id="stat-dy">—</dd>
+        <dt>Force concentration (peak member force)</dt><dd id="stat-force">—</dd>
+        <dt>Highest-loaded member</dt><dd id="stat-force-member">—</dd>
       </dl>
+      <p class="note">If a physical build breaks, this is the member to check first — a real break usually happens
+      at whichever member (or its connector) is carrying the most force, not just wherever there's the least
+      material.</p>
     </div>
 
     <div class="panel">
@@ -183,18 +189,22 @@
       </dl>
       <p class="note">Cost is $1 per cm of rod plus $10 per connector — real dollar prices, summed directly. Every
       connector is modeled as gray: most students end up using gray anyway, so this keeps the model simple instead
-      of tracking connector type by node degree.</p>
+      of tracking connector type by node degree. Mass is shown here for build reference (how heavy the physical
+      bridge will be) but isn't one of the three scored criteria below — those are deflection, cost, and force
+      concentration.</p>
     </div>
 
     <div class="panel" id="iteration-panel">
       <h2>Iteration Log</h2>
       <p class="note">"Run Simulation" logs the current design — including its scale and layer count — and scores it
-      against your last logged iteration. Lower is better. You can regenerate at a completely different scale or
-      layer count and log that too; the log compares across configurations, not just within one.</p>
+      against your last logged iteration. Lower is better. Force concentration is the largest force carried by any
+      single member (N) — low means the load is spread out across many members, high means one member is doing most
+      of the work. You can regenerate at a completely different scale or layer count and log that too; the log
+      compares across configurations, not just within one.</p>
       <p style="font-size:.85rem;color:var(--muted);margin-top:8px;">
         Current weights — Deflection: <strong id="w-defl-display" style="color:var(--text);">40</strong>,
         Cost: <strong id="w-cost-display" style="color:var(--text);">0.3</strong>,
-        Mass: <strong id="w-mass-display" style="color:var(--text);">1</strong>
+        Force concentration: <strong id="w-force-display" style="color:var(--text);">3</strong>
       </p>
       <details id="weight-details" style="margin-top:10px;">
         <summary style="cursor:pointer;font-size:.82rem;color:var(--accent);">Instructor: set weights for this assignment</summary>
@@ -203,8 +213,8 @@
             <input type="number" id="w-defl" value="40" step="5" style="width:70px;"></label>
           <label style="font-size:.82rem;color:var(--muted);">Cost weight
             <input type="number" id="w-cost" value="0.3" step="0.1" style="width:60px;"></label>
-          <label style="font-size:.82rem;color:var(--muted);">Mass weight
-            <input type="number" id="w-mass" value="1" step="0.1" style="width:60px;"></label>
+          <label style="font-size:.82rem;color:var(--muted);">Force concentration weight
+            <input type="number" id="w-force" value="3" step="0.5" style="width:70px;"></label>
           <button class="btn" id="btn-genlink">Generate link for students</button>
         </div>
         <p class="note">These fields update the display above live, for your own preview. To lock a specific
@@ -219,7 +229,7 @@
       <div id="compare-banner" class="status-bar status-ok" style="margin-top:10px;">Run a simulation to log your first iteration.</div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>Iter</th><th>Scale</th><th>Layers</th><th>Members</th><th>Cost</th><th>Mass (g)</th><th>Deflection (cm)</th><th>Score</th></tr></thead>
+          <thead><tr><th>Iter</th><th>Scale</th><th>Layers</th><th>Members</th><th>Cost</th><th>Force conc. (N)</th><th>Deflection (cm)</th><th>Score</th></tr></thead>
           <tbody id="history-body"></tbody>
         </table>
       </div>
@@ -464,6 +474,19 @@ function setStatus(ok, text){
   bar.textContent = text;
 }
 
+// Force concentration: the largest force carried by any single active member - a real, physically
+// meaningful third criterion (unlike mass, which just tracks cost) since real breaks happen where
+// force peaks, not wherever there's the least material. Computed for free from the solver's own
+// per-member force output, no failure-load data needed.
+function peakForce(result, active){
+  let force = 0, member = null;
+  for(const idx of active){
+    const f = Math.abs(result.forces[idx]);
+    if(f > force){ force = f; member = idx; }
+  }
+  return {force, member};
+}
+
 // Bill of materials for the current active/removed selection at the current scale. Every
 // connector is modeled as gray, regardless of node degree - per Matt directly, to keep the model
 // simple (most students end up using gray anyway).
@@ -505,9 +528,14 @@ function updateStats(result){
   if(result && result.stable){
     document.getElementById("stat-dx").textContent = result.dx[LOAD_NODE].toFixed(4) + " cm";
     document.getElementById("stat-dy").textContent = result.dy[LOAD_NODE].toFixed(4) + " cm";
+    const pf = peakForce(result, active);
+    document.getElementById("stat-force").textContent = pf.force.toFixed(2) + " N";
+    document.getElementById("stat-force-member").textContent = pf.member !== null ? ("Member #" + (pf.member+1)) : "—";
   } else {
     document.getElementById("stat-dx").textContent = "—";
     document.getElementById("stat-dy").textContent = "—";
+    document.getElementById("stat-force").textContent = "—";
+    document.getElementById("stat-force-member").textContent = "—";
   }
 
   const bom = computeBOM();
@@ -792,10 +820,10 @@ document.getElementById("btn-regenerate").addEventListener("click", async ()=>{
   await refresh();
 });
 
-// ---- Iteration log: score = weighted sum of |deflection| + cost + mass, compared against the
-// previously logged iteration. Each entry snapshots scale/layers AND the exact active-member/
-// removed-node selection, since (unlike the cantilever tool) students can regenerate an entirely
-// different grid between iterations, not just trim one fixed grid. ----
+// ---- Iteration log: score = weighted sum of |deflection| + cost + force concentration, compared
+// against the previously logged iteration. Each entry snapshots scale/layers AND the exact
+// active-member/removed-node selection, since (unlike the cantilever tool) students can regenerate
+// an entirely different grid between iterations, not just trim one fixed grid. ----
 let weights = {};
 
 // Reads weights from the input elements themselves rather than hardcoding defaults a second time
@@ -805,20 +833,20 @@ function readWeightsFromInputs(){
   weights = {
     defl: Number(document.getElementById("w-defl").value),
     cost: Number(document.getElementById("w-cost").value),
-    mass: Number(document.getElementById("w-mass").value),
+    force: Number(document.getElementById("w-force").value),
   };
   document.getElementById("w-defl-display").textContent = weights.defl;
   document.getElementById("w-cost-display").textContent = weights.cost;
-  document.getElementById("w-mass-display").textContent = weights.mass;
+  document.getElementById("w-force-display").textContent = weights.force;
 }
 
 function applyUrlWeights(){
   const params = new URLSearchParams(window.location.search);
-  const wDefl = params.get("wDefl"), wCost = params.get("wCost"), wMass = params.get("wMass");
-  if(wDefl !== null && wCost !== null && wMass !== null){
+  const wDefl = params.get("wDefl"), wCost = params.get("wCost"), wForce = params.get("wForce");
+  if(wDefl !== null && wCost !== null && wForce !== null){
     document.getElementById("w-defl").value = wDefl;
     document.getElementById("w-cost").value = wCost;
-    document.getElementById("w-mass").value = wMass;
+    document.getElementById("w-force").value = wForce;
     // Hides the whole disclosure, not just collapses it - a student following a locked link has
     // no UI path to change the weights, matching the cantilever tool's exact pattern.
     document.getElementById("weight-details").style.display = "none";
@@ -828,7 +856,7 @@ function applyUrlWeights(){
 let history = [];
 
 function computeScore(entry){
-  return weights.defl*Math.abs(entry.deflection) + weights.cost*entry.cost + weights.mass*entry.mass;
+  return weights.defl*Math.abs(entry.deflection) + weights.cost*entry.cost + weights.force*entry.peakForce;
 }
 
 function renderHistory(){
@@ -840,7 +868,7 @@ function renderHistory(){
     const tr = document.createElement("tr");
     tr.style.cursor = "pointer";
     tr.innerHTML = `<td>${h.iter}</td><td>${SCALES[h.scaleKey].name}</td><td>${h.layers}</td>
-      <td>${h.members}</td><td>${h.cost.toFixed(1)}</td><td>${h.mass.toFixed(1)}</td>
+      <td>${h.members}</td><td>${h.cost.toFixed(1)}</td><td>${h.peakForce.toFixed(2)}</td>
       <td>${h.deflection.toFixed(4)}</td><td>${h.score.toFixed(2)}</td>`;
     tr.addEventListener("click", ()=>restoreIteration(h));
     body.appendChild(tr);
@@ -877,13 +905,14 @@ function runSimulation(){
     return;
   }
   const bom = computeBOM();
+  const active = effectiveActiveMembers();
   const entry = {
     iter: history.length+1,
     scaleKey: document.getElementById("cfg-scale").value,
     layers: Number(document.getElementById("cfg-layers").value),
-    members: effectiveActiveMembers().length,
+    members: active.length,
     cost: bom.totalCost,
-    mass: bom.totalMass,
+    peakForce: peakForce(lastResult, active).force,
     deflection: lastResult.dy[LOAD_NODE],
     snapshot: {
       scaleKey: document.getElementById("cfg-scale").value,
@@ -908,7 +937,7 @@ async function restoreIteration(entry){
   await refresh();
 }
 
-["w-defl","w-cost","w-mass"].forEach(id=>{
+["w-defl","w-cost","w-force"].forEach(id=>{
   document.getElementById(id).addEventListener("input", ()=>{
     readWeightsFromInputs();
     renderHistory();
@@ -923,7 +952,7 @@ document.getElementById("btn-genlink").addEventListener("click", ()=>{
   url.search = "";
   url.searchParams.set("wDefl", weights.defl);
   url.searchParams.set("wCost", weights.cost);
-  url.searchParams.set("wMass", weights.mass);
+  url.searchParams.set("wForce", weights.force);
   const field = document.getElementById("student-link");
   field.value = url.toString();
   field.style.display = "block";

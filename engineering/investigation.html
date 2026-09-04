@@ -164,27 +164,30 @@
   <div class="tab-content" id="tab-5" style="display:none;">
     <div class="panel">
       <h2>Iteration Log</h2>
-      <p class="note">These are four designs a different student already tried — real deflection, cost, and mass
-      numbers, just not yours. There's no single "best" one here. Which design wins depends entirely on how much
-      each of the three things is worth to whoever's deciding. Drag the sliders and watch the winner change.</p>
+      <p class="note">These are four designs a different student already tried — real deflection, cost, and force
+      concentration numbers, just not yours. Force concentration is the largest force carried by any single member:
+      low means the load is spread out, high means one member is doing most of the work — the member (or connector)
+      most likely to be the one that fails first in a physical build. There's no single "best" design here. Which
+      one wins depends entirely on how much each of the three things is worth to whoever's deciding. Drag the
+      sliders and watch the winner change.</p>
     </div>
     <div class="panel">
       <div class="tbl-wrap" style="max-height:none;">
         <table>
-          <thead><tr><th>Design</th><th>Deflection (cm)</th><th>Cost</th><th>Mass (g)</th><th>Score</th></tr></thead>
+          <thead><tr><th>Design</th><th>Deflection (cm)</th><th>Cost</th><th>Force conc. (lbf)</th><th>Score</th></tr></thead>
           <tbody id="tab5-body"></tbody>
         </table>
       </div>
       <div class="btn-row" style="margin-top:14px;flex-direction:column;align-items:stretch;gap:14px;">
         <label style="font-size:.85rem;color:var(--muted);display:flex;align-items:center;gap:10px;">
-          Deflection weight <input type="range" id="tab5-w-defl" min="0" max="500" value="150" style="flex:1;">
+          Deflection weight <input type="range" id="tab5-w-defl" min="0" max="4000" step="10" value="150" style="flex:1;">
           <strong id="tab5-w-defl-val" style="min-width:3em;text-align:right;color:var(--text);">150</strong></label>
         <label style="font-size:.85rem;color:var(--muted);display:flex;align-items:center;gap:10px;">
-          Cost weight <input type="range" id="tab5-w-cost" min="0" max="2" step="0.05" value="0.1" style="flex:1;">
+          Cost weight <input type="range" id="tab5-w-cost" min="0" max="10" step="0.1" value="0.1" style="flex:1;">
           <strong id="tab5-w-cost-val" style="min-width:3em;text-align:right;color:var(--text);">0.1</strong></label>
         <label style="font-size:.85rem;color:var(--muted);display:flex;align-items:center;gap:10px;">
-          Mass weight <input type="range" id="tab5-w-mass" min="0" max="5" step="0.1" value="1" style="flex:1;">
-          <strong id="tab5-w-mass-val" style="min-width:3em;text-align:right;color:var(--text);">1</strong></label>
+          Force concentration weight <input type="range" id="tab5-w-force" min="0" max="500" value="25" style="flex:1;">
+          <strong id="tab5-w-force-val" style="min-width:3em;text-align:right;color:var(--text);">25</strong></label>
       </div>
       <p class="note" id="tab5-callout" style="margin-top:12px;"></p>
       <p class="note">This is exactly how the real Iteration Log in the design tool works — same three weights, same
@@ -234,7 +237,7 @@
     <div class="panel">
       <div class="btn-row" style="flex-direction:column;align-items:stretch;gap:14px;">
         <label style="font-size:.85rem;color:var(--muted);">Claim — which design do you think best balances
-          deflection, cost, and mass, and for what weighting?
+          deflection, cost, and force concentration, and for what weighting?
           <textarea id="tab7-claim" rows="3" style="width:100%;margin-top:4px;padding:10px;background:var(--panel2);
             border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:.88rem;resize:vertical;"></textarea></label>
         <label style="font-size:.85rem;color:var(--muted);">Evidence — what specific numbers from your Iteration Log support this?
@@ -798,16 +801,21 @@ async function tab3Refresh(){
 }
 
 // ---- Tab 5: Iteration Log (weighting demo, no solver needed - these are fixed example designs) ----
+// Real, solver-verified numbers (not hand-picked placeholders) - each row is an actual member subset
+// of the 81-member ground structure, re-derived the same way the comparison-figure demonstration was:
+// Full Ground Structure = all 81 members; Trimmed/Lean/Overtrimmed = greedy-optimized subsets at
+// decreasing deflection-weight strength (57/37/36 members respectively). Cost includes both rod AND
+// connector cost ($1/cm + $10/connector), matching truss-designer.html's real formula.
 const TAB5_DESIGNS = [
-  {name:"Full Ground Structure", defl:0.64, cost:913.5, mass:110.0},
-  {name:"Trimmed", defl:0.81, cost:740, mass:88},
-  {name:"Lean", defl:1.35, cost:580, mass:68},
-  {name:"Overtrimmed", defl:2.9, cost:510, mass:59},
+  {name:"Full Ground Structure", defl:0.64, cost:1193.5, force:2.07},
+  {name:"Trimmed", defl:0.65, cost:911.5, force:2.19},
+  {name:"Lean", defl:0.91, cost:633.5, force:3.00},
+  {name:"Overtrimmed", defl:1.57, cost:614.0, force:4.00},
 ];
-let tab5Weights = {defl:150, cost:0.1, mass:1};
+let tab5Weights = {defl:150, cost:0.1, force:25};
 
 function tab5Score(d){
-  return tab5Weights.defl*d.defl + tab5Weights.cost*d.cost + tab5Weights.mass*d.mass;
+  return tab5Weights.defl*d.defl + tab5Weights.cost*d.cost + tab5Weights.force*d.force;
 }
 
 function renderTab5(){
@@ -820,14 +828,14 @@ function renderTab5(){
     const tr = document.createElement("tr");
     if(i===bestIdx) tr.style.background = "rgba(61,220,151,.10)";
     tr.innerHTML = `<td>${d.name}${i===bestIdx?" ★":""}</td><td>${d.defl.toFixed(2)}</td>`
-      + `<td>${d.cost.toFixed(1)}</td><td>${d.mass.toFixed(1)}</td><td>${scores[i].toFixed(1)}</td>`;
+      + `<td>${d.cost.toFixed(1)}</td><td>${d.force.toFixed(2)}</td><td>${scores[i].toFixed(1)}</td>`;
     tbody.appendChild(tr);
   });
   document.getElementById("tab5-callout").textContent =
     `Right now, "${TAB5_DESIGNS[bestIdx].name}" wins. Push one slider all the way up and watch whether it stays the winner.`;
 }
 
-["defl","cost","mass"].forEach(key=>{
+["defl","cost","force"].forEach(key=>{
   const input = document.getElementById(`tab5-w-${key}`);
   const val = document.getElementById(`tab5-w-${key}-val`);
   input.addEventListener("input", ()=>{
@@ -882,14 +890,16 @@ async function tab7GetFeedback(){
 
   const systemPrompt = `You are an engineering teacher giving formative feedback to an 8th-grade student on a
 cantilever truss design project (the "ground structure" method: students start from a full candidate set of
-truss members and remove some to minimize a weighted combination of deflection, cost, and mass under a fixed
-tip load, then build the winning design physically out of K'NEX). Be direct, encouraging, and specific. You are
-not grading a single "correct" design - there isn't one; different weightings of deflection/cost/mass legitimately
-favor different designs. Your job is to push back if the argument leans on only one metric (e.g. "it has the least
-deflection" without discussing cost or mass), doesn't cite the student's own actual numbers, or treats one iteration
-as proof rather than one data point among several they tried. If they discussed the predicted-vs-measured deflection
-gap, check their explanation is a plausible physical reason (joint play, the 2D/half-load model simplification,
-measurement error) rather than hand-waved. Keep the response to 150-220 words, plain language appropriate for a
+truss members and remove some to minimize a weighted combination of deflection, cost, and force concentration
+(the largest force carried by any single member - low means the load is spread out, high means one member is
+doing most of the work) under a fixed tip load, then build the winning design physically out of K'NEX). Be
+direct, encouraging, and specific. You are not grading a single "correct" design - there isn't one; different
+weightings of deflection/cost/force concentration legitimately favor different designs. Your job is to push back
+if the argument leans on only one metric (e.g. "it has the least deflection" without discussing cost or force
+concentration), doesn't cite the student's own actual numbers, or treats one iteration as proof rather than one
+data point among several they tried. If they discussed the predicted-vs-measured deflection gap, check their
+explanation is a plausible physical reason (joint play, the 2D/half-load model simplification, measurement error)
+rather than hand-waved. Keep the response to 150-220 words, plain language appropriate for a
 13-year-old, and do not use em dashes.`;
 
   const userPrompt = `CLAIM: ${claim}\n\nEVIDENCE: ${evidence}\n\nTRADEOFFS: ${tradeoffs}\n\nREFLECTION: ${reflection}`;

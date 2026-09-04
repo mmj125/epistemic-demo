@@ -59,9 +59,9 @@
 <header>
   <h1>Cantilever Truss Designer</h1>
   <p>This is the full 81-member "ground structure" — every candidate connection between the 28 grid nodes. Your job is to
-  remove members (and non-support nodes) to bring down cost and mass, while keeping the structure stable and its
-  deflection under control. A K'NEX mass hangs from the bottom-right node; the four left-edge nodes are pinned supports
-  and can't be removed.</p>
+  remove members (and non-support nodes) to bring down cost and keep the load spread out — not overloading any single
+  member — while keeping the structure stable and its deflection under control. A K'NEX mass hangs from the bottom-right
+  node; the four left-edge nodes are pinned supports and can't be removed.</p>
   <p style="margin-top:8px;">This screen only models <strong>one face</strong> of your real, physical build — the real
   structure is two of this exact shape, mirrored, connected front-to-back with purple/blue rods. The load here is set
   to half the real hanging mass, since the two faces share it between them. Whatever you remove on this screen, remove
@@ -113,13 +113,15 @@
     <div class="panel" id="iteration-panel">
       <h2>Iteration Log</h2>
       <p class="note">Click "Run Simulation" to log your current design and score it against your last logged iteration
-      &mdash; lower is better. Cost is a real dollar figure ($1 per cm of rod, $10 per connector); mass is in grams.
-      The weighting below (how much deflection vs. cost vs. mass matters) is set by your instructor for this
-      assignment, not something to change mid-assignment.</p>
+      &mdash; lower is better. Cost is a real dollar figure ($1 per cm of rod, $10 per connector). Force concentration
+      is the largest force carried by any single member (lbf) &mdash; low means the load is spread out across many
+      members, high means one member is doing most of the work. The weighting below (how much deflection vs. cost
+      vs. force concentration matters) is set by your instructor for this assignment, not something to change
+      mid-assignment.</p>
       <p style="font-size:.85rem;color:var(--muted);margin-top:8px;">
         Current weights &mdash; Deflection: <strong id="w-defl-display" style="color:var(--text);">150</strong>,
         Cost: <strong id="w-cost-display" style="color:var(--text);">0.1</strong>,
-        Mass: <strong id="w-mass-display" style="color:var(--text);">1</strong>
+        Force concentration: <strong id="w-force-display" style="color:var(--text);">25</strong>
       </p>
       <details style="margin-top:10px;">
         <summary style="cursor:pointer;font-size:.82rem;color:var(--accent);">Instructor: set weights for this assignment</summary>
@@ -128,8 +130,8 @@
             <input type="number" id="w-defl" value="150" step="10" style="width:70px;"></label>
           <label style="font-size:.82rem;color:var(--muted);">Cost weight
             <input type="number" id="w-cost" value="0.1" step="0.05" style="width:60px;"></label>
-          <label style="font-size:.82rem;color:var(--muted);">Mass weight
-            <input type="number" id="w-mass" value="1" step="0.1" style="width:60px;"></label>
+          <label style="font-size:.82rem;color:var(--muted);">Force concentration weight
+            <input type="number" id="w-force" value="25" step="5" style="width:70px;"></label>
           <button class="btn" id="btn-genlink">Generate link for students</button>
         </div>
         <p class="note">These fields update the display above live, for your own preview. To lock a specific
@@ -142,7 +144,7 @@
       <div id="compare-banner" class="status-bar status-ok" style="margin-top:10px;">Run a simulation to log your first iteration.</div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>Iter</th><th>Members</th><th>Purple</th><th>Blue</th><th>Cost</th><th>Mass (g)</th><th>Deflection (cm)</th><th>Score</th></tr></thead>
+          <thead><tr><th>Iter</th><th>Members</th><th>Purple</th><th>Blue</th><th>Cost</th><th>Force conc. (lbf)</th><th>Deflection (cm)</th><th>Score</th></tr></thead>
           <tbody id="history-body"></tbody>
         </table>
       </div>
@@ -156,7 +158,12 @@
       <dl class="stat-grid">
         <dt>Horizontal (x) displacement</dt><dd id="stat-dx">—</dd>
         <dt>Vertical (y) displacement</dt><dd id="stat-dy">—</dd>
+        <dt>Force concentration (peak member force)</dt><dd id="stat-force">—</dd>
+        <dt>Highest-loaded member</dt><dd id="stat-force-member">—</dd>
       </dl>
+      <p class="note">If a physical build breaks, this is the member to check first — a real break usually happens
+      at whichever member (or its connector) is carrying the most force, not just wherever there's the least
+      material.</p>
     </div>
 
     <div class="panel">
@@ -181,7 +188,9 @@
       mini K'NEX numbers (Purple: 9.5cm / 0.9g, Blue: 13.5cm / 1.3g, connectors: 0.81g / $10 each). One connector per
       node that still has a member attached, regardless of how many members meet there — one uniform connector
       type/price for this kit, not a type-per-degree rule.</p>
-      <p class="note">Total cost is $1 per cm of rod plus $10 per connector — real dollar prices, summed directly.</p>
+      <p class="note">Total cost is $1 per cm of rod plus $10 per connector — real dollar prices, summed directly.
+      Mass is shown here for build reference (how heavy the physical truss will be) but isn't one of the three
+      scored criteria below — those are deflection, cost, and force concentration.</p>
     </div>
 
     <div class="panel">
@@ -233,7 +242,7 @@ let showLabels = true;
 let lastResult = null;
 let pyodide = null, pyReady = false;
 let history = [];
-let weights = {defl:0, cost:0, mass:0}; // populated from the input fields' own HTML defaults on load, see bottom of file
+let weights = {defl:0, cost:0, force:0}; // populated from the input fields' own HTML defaults on load, see bottom of file
 let testRunCount = 0;
 
 const canvas = document.getElementById("truss-canvas");
@@ -376,9 +385,20 @@ function computeMetrics(result){
   const connectorCost = connectorCount*CONNECTOR_COST_USD;
   const cost = rodCost + connectorCost;
   const mass = purple*PURPLE_MASS_G + blue*BLUE_MASS_G + connectorCount*CONNECTOR_MASS_G;
+  // Force concentration: the largest force carried by any single active member - a real, physically
+  // meaningful third criterion (unlike mass, which just tracks cost) since real breaks happen where
+  // force peaks, not wherever there's the least material. Computed for free from the solver's own
+  // per-member force output, no failure-load data needed.
+  let peakForce = 0, peakMember = null;
+  if(result && result.stable){
+    for(const idx of active){
+      const f = Math.abs(result.forces[idx]);
+      if(f > peakForce){ peakForce = f; peakMember = idx; }
+    }
+  }
   return {
     memberCount: active.length,
-    purple, blue, totalLength, connectorCount, rodCost, connectorCost, cost, mass,
+    purple, blue, totalLength, connectorCount, rodCost, connectorCost, cost, mass, peakForce, peakMember,
     dx: result && result.stable ? result.dx[LOAD_NODE] : null,
     dy: result && result.stable ? result.dy[LOAD_NODE] : null,
   };
@@ -386,7 +406,7 @@ function computeMetrics(result){
 
 function computeScore(entry){
   const dyCm = Math.abs(entry.dy) * IN_TO_CM;
-  return weights.defl*dyCm + weights.cost*entry.cost + weights.mass*entry.mass;
+  return weights.defl*dyCm + weights.cost*entry.cost + weights.force*entry.peakForce;
 }
 
 function updateStats(result){
@@ -405,9 +425,13 @@ function updateStats(result){
   if(result && result.stable){
     document.getElementById("stat-dx").textContent = (m.dx*IN_TO_CM).toFixed(4) + " cm";
     document.getElementById("stat-dy").textContent = (m.dy*IN_TO_CM).toFixed(4) + " cm";
+    document.getElementById("stat-force").textContent = m.peakForce.toFixed(3) + " lbf";
+    document.getElementById("stat-force-member").textContent = m.peakMember !== null ? ("Member #" + (m.peakMember+1)) : "—";
   } else {
     document.getElementById("stat-dx").textContent = "—";
     document.getElementById("stat-dy").textContent = "—";
+    document.getElementById("stat-force").textContent = "—";
+    document.getElementById("stat-force-member").textContent = "—";
   }
 }
 
@@ -569,7 +593,7 @@ function renderHistory(){
     tr.style.cursor = "pointer";
     if(i === bestIdx) tr.style.background = "rgba(61,220,151,.10)";
     tr.innerHTML = `<td>${e.iter}${i===bestIdx ? " ★" : ""}</td><td>${e.memberCount}</td>
-      <td>${e.purple}</td><td>${e.blue}</td><td>${e.cost.toFixed(1)}</td><td>${e.mass.toFixed(1)}</td>
+      <td>${e.purple}</td><td>${e.blue}</td><td>${e.cost.toFixed(1)}</td><td>${e.peakForce.toFixed(3)}</td>
       <td>${(e.dy*IN_TO_CM).toFixed(4)}</td><td>${scores[i].toFixed(1)}</td>`;
     tr.addEventListener("click", async ()=>{
       activeMembers = new Set(e.activeMembers);
@@ -699,17 +723,17 @@ document.getElementById("chk-labels").addEventListener("change", (e)=>{
 function updateWeightDisplay(){
   document.getElementById("w-defl-display").textContent = weights.defl;
   document.getElementById("w-cost-display").textContent = weights.cost;
-  document.getElementById("w-mass-display").textContent = weights.mass;
+  document.getElementById("w-force-display").textContent = weights.force;
 }
 
 function readWeightsFromInputs(){
   weights.defl = Number(document.getElementById("w-defl").value) || 0;
   weights.cost = Number(document.getElementById("w-cost").value) || 0;
-  weights.mass = Number(document.getElementById("w-mass").value) || 0;
+  weights.force = Number(document.getElementById("w-force").value) || 0;
   updateWeightDisplay();
 }
 
-["w-defl","w-cost","w-mass"].forEach(id=>{
+["w-defl","w-cost","w-force"].forEach(id=>{
   document.getElementById(id).addEventListener("input", ()=>{
     readWeightsFromInputs();
     renderHistory();
@@ -717,22 +741,22 @@ function readWeightsFromInputs(){
 });
 
 // Weights are an instructor call, not something students adjust live (per Matt directly) - so the editable
-// inputs live inside a closed-by-default <details>, and a link carrying ?wDefl=&wCost=&wMass= locks them in
+// inputs live inside a closed-by-default <details>, and a link carrying ?wDefl=&wCost=&wForce= locks them in
 // for students entirely (that <details> section is hidden, not just collapsed) rather than leaving the
 // controls visible-but-discouraged.
 const urlParams = new URLSearchParams(window.location.search);
-const linkedWeights = ["wDefl","wCost","wMass"].every(k => urlParams.has(k));
+const linkedWeights = ["wDefl","wCost","wForce"].every(k => urlParams.has(k));
 if(linkedWeights){
   document.getElementById("w-defl").value = urlParams.get("wDefl");
   document.getElementById("w-cost").value = urlParams.get("wCost");
-  document.getElementById("w-mass").value = urlParams.get("wMass");
+  document.getElementById("w-force").value = urlParams.get("wForce");
   document.querySelector("#iteration-panel details").style.display = "none";
 }
 readWeightsFromInputs(); // seed `weights` (and the display) from the inputs, whether defaults or URL-supplied
 
 document.getElementById("btn-genlink").addEventListener("click", ()=>{
   const url = new URL(window.location.href);
-  url.search = `?wDefl=${weights.defl}&wCost=${weights.cost}&wMass=${weights.mass}`;
+  url.search = `?wDefl=${weights.defl}&wCost=${weights.cost}&wForce=${weights.force}`;
   const field = document.getElementById("student-link");
   field.value = url.toString();
   field.style.display = "block";
