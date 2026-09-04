@@ -177,16 +177,13 @@
       <dl class="stat-grid">
         <dt id="stat-leg-label">Leg rods</dt><dd id="stat-leg-count">—</dd>
         <dt id="stat-hyp-label">Diagonal rods</dt><dd id="stat-hyp-count">—</dd>
-        <dt>Connectors (gray, ≤4-way)</dt><dd id="stat-gray-count">—</dd>
-        <dt>Connectors (blue, 5–7-way)</dt><dd id="stat-blue-count">—</dd>
+        <dt>Connectors (gray)</dt><dd id="stat-connector-count">—</dd>
         <dt>Total mass</dt><dd id="stat-mass">— g</dd>
         <dt>Total cost</dt><dd id="stat-cost">—</dd>
       </dl>
-      <div id="capacity-warning" class="status-bar status-bad" style="display:none;margin-top:10px;"></div>
-      <p class="note">Cost is total rod length (no per-rod dollar price exists for this catalog, so this ports the
-      same length-as-cost convention Matt's own spreadsheet used for the cantilever, not a real dollar figure).
-      Connector type is by degree (≤4 → gray, 5–7 → blue) — Matt's stated capacities, not an explicit rule he's
-      confirmed, so treat it as a placeholder like the cantilever's early connector logic was.</p>
+      <p class="note">Cost is $1 per cm of rod plus $10 per connector — real dollar prices, summed directly. Every
+      connector is modeled as gray: most students end up using gray anyway, so this keeps the model simple instead
+      of tracking connector type by node degree.</p>
     </div>
 
     <div class="panel" id="iteration-panel">
@@ -276,16 +273,18 @@ function generateGroundStructure(cols, rows, spacing){
 }
 
 // Full rod catalog (length cm, mass g per rod) - real mini K'NEX numbers Matt gave directly,
-// same source as the six SCALES pairs above. Connector data: gray (<=4-way) and blue (5-7-way)
-// are the only two connector types used (both are 3D connectors, per Matt's correction) - no
-// dollar price exists for either rods or connectors, so cost is total rod length (cm), the same
-// convention Matt's own cantilever spreadsheet used (cost of members = length of members).
+// same source as the six SCALES pairs above. Every connector is modeled as gray, per Matt directly
+// (most students end up using gray anyway - blue was only needed for the highest-degree nodes,
+// and dropping that distinction simplifies the model with no real loss). Cost is $1 per cm of rod
+// plus $10 per connector - real dollar prices, same formula as the cantilever tool.
 const ROD_CATALOG = {
   black:{len:1.5, mass:0.1}, yellow:{len:2.5, mass:0.3}, gray:{len:4,   mass:0.5},
   red:  {len:6.5, mass:0.7}, purple:{len:9.5, mass:0.9}, blue:{len:13.5,mass:1.3},
   orange:{len:20, mass:1.9},
 };
-const CONNECTOR = {gray:{mass:1.7, maxDegree:4}, blue:{mass:1.3, maxDegree:7}};
+const CONNECTOR_MASS_G = 1.7;
+const CONNECTOR_COST_USD = 10;
+const ROD_COST_PER_CM = 1;
 
 // Mutable current configuration - regenerate() reassigns all of these.
 let NODES, ELEMS, COLS, PIN_NODE, ROLLER_NODE, LOAD_NODE, LOCKED_NODES;
@@ -465,10 +464,9 @@ function setStatus(ok, text){
   bar.textContent = text;
 }
 
-// Bill of materials for the current active/removed selection at the current scale. Connector
-// type is by node degree (<=4 -> gray, 5-7 -> blue) - Matt's stated capacities, not a rule he's
-// explicitly confirmed, so a degree>7 node is flagged as over-capacity rather than silently
-// assigned a connector that can't really hold that many rods.
+// Bill of materials for the current active/removed selection at the current scale. Every
+// connector is modeled as gray, regardless of node degree - per Matt directly, to keep the model
+// simple (most students end up using gray anyway).
 function computeBOM(){
   const scale = SCALES[document.getElementById("cfg-scale").value];
   const legRod = ROD_CATALOG[scale.legColor];
@@ -482,18 +480,18 @@ function computeBOM(){
     totalLen += memberLength(idx);
     if(type === 'leg') legCount++; else hypCount++;
   }
-  let grayConn = 0, blueConn = 0;
-  const overCapacityNodes = [];
+  let connectorCount = 0;
   for(let i=0;i<NODES.length;i++){
     if(removedNodes.has(i) || degree[i] === 0) continue;
-    if(degree[i] <= CONNECTOR.gray.maxDegree) grayConn++;
-    else { blueConn++; if(degree[i] > CONNECTOR.blue.maxDegree) overCapacityNodes.push(i+1); }
+    connectorCount++;
   }
   const rodMass = legCount*legRod.mass + hypCount*hypRod.mass;
-  const connMass = grayConn*CONNECTOR.gray.mass + blueConn*CONNECTOR.blue.mass;
+  const rodCost = totalLen*ROD_COST_PER_CM;
+  const connMass = connectorCount*CONNECTOR_MASS_G;
+  const connCost = connectorCount*CONNECTOR_COST_USD;
   return {
-    scale, legCount, hypCount, grayConn, blueConn, overCapacityNodes,
-    totalMass: rodMass + connMass, totalCost: totalLen, totalLen,
+    scale, legCount, hypCount, connectorCount,
+    totalMass: rodMass + connMass, totalCost: rodCost + connCost, totalLen,
   };
 }
 
@@ -517,21 +515,9 @@ function updateStats(result){
   document.getElementById("stat-hyp-label").textContent = `Diagonal rods (${bom.scale.hypColor})`;
   document.getElementById("stat-leg-count").textContent = bom.legCount;
   document.getElementById("stat-hyp-count").textContent = bom.hypCount;
-  document.getElementById("stat-gray-count").textContent = bom.grayConn;
-  document.getElementById("stat-blue-count").textContent = bom.blueConn;
+  document.getElementById("stat-connector-count").textContent = bom.connectorCount;
   document.getElementById("stat-mass").textContent = bom.totalMass.toFixed(1) + " g";
-  document.getElementById("stat-cost").textContent = bom.totalCost.toFixed(1) + " (rod-length units)";
-
-  const warnEl = document.getElementById("capacity-warning");
-  if(bom.overCapacityNodes.length){
-    warnEl.style.display = "flex";
-    const plural = bom.overCapacityNodes.length > 1;
-    warnEl.textContent = `⚠ Node${plural?'s':''} ${bom.overCapacityNodes.join(', ')} need${plural?'':'s'} more `
-      + `than 7 connections at once — that exceeds the strongest (blue) connector's capacity. This design `
-      + `isn't physically buildable as drawn; remove a member at that node or spread the bracing out.`;
-  } else {
-    warnEl.style.display = "none";
-  }
+  document.getElementById("stat-cost").textContent = "$" + bom.totalCost.toFixed(2);
 }
 
 function buildReport(result){
