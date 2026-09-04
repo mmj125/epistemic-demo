@@ -64,7 +64,10 @@
   configuration — every member the grid could possibly have, all present at once. From there, <strong>click any
   member or node to remove it</strong> (click again to put it back) to cut cost and keep the load spread out — not
   overloading any single member — while keeping the bridge stable enough to hold a 1kg mass at the center of the
-  130cm span. The truss extends one extra bay past each
+  130cm span. This screen only models <strong>one face</strong> of the real physical build — the real bridge is two
+  of this exact shape, mirrored, connected front-to-back. The load here is half the real hanging mass, since the
+  two faces share it between them; whatever you remove on this screen, remove from both faces on the physical
+  model. The truss extends one extra bay past each
   support onto the abutment — real bridges need to overlap the abutment, not just touch it at a single point.
   Want fewer bays of bracing on just one row?
   Remove that row's members over the bays you don't want — you don't need to regenerate anything to do that, just
@@ -244,7 +247,8 @@
 // engineering/prototypes/bridge_ground_structure_validate.py (exact match on the regular-grid subset).
 const TARGET_SPAN = 130; // cm
 const E = 21235.86, A = 0.08284; // N/cm^2, cm^2 - converted from the cantilever's real MASTAN material, see CLAUDE.md
-const LOAD_N = -9.81; // 1kg at midspan
+const LOAD_N = -4.905; // half of the real 1kg hanging mass (9.81N) - the real bridge is built as two
+// mirrored parallel truss faces sharing the load, same convention as the cantilever's -1.5lbf
 
 // Six named triangle-module scales, each a (leg rod, hypotenuse rod) pair - per Matt directly.
 const SCALES = {

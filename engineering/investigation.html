@@ -810,22 +810,23 @@ async function tab3Refresh(){
 
 // ---- Tab 4: Iteration Log (weighting demo, no solver needed - these are fixed example designs) ----
 // Real, solver-verified numbers (not hand-picked placeholders) - each row is an actual member subset
-// of the 81-member ground structure. Full Ground Structure = all 81 members; Trimmed/Overtrimmed =
-// greedy-optimized subsets at decreasing deflection-weight strength (57/36 members). Load-Balanced
-// (38 members) replaces an earlier "Lean" row that didn't earn its place - it was found by a
-// randomized-restart search explicitly minimizing peak member force (not deflection), and it's a
-// genuinely different kind of design: fewer members AND lower peak force than the full structure,
-// but higher deflection - proof that "spread the load out" is its own real design strategy, not
-// just a side effect of keeping more material. Cost includes both rod AND connector cost
-// ($1/cm + $10/connector), matching truss-designer.html's real formula. Force is in Newtons
+// of the 81-member ground structure, resolved at the corrected load (see truss-designer.html's
+// LOAD_LBF derivation: real hanging mass is 1.5kg total, this one face carries half - 0.75kg,
+// -1.65403 lbf, NOT the earlier legacy -1.5lbf). Full Ground Structure = all 81 members;
+// Trimmed/Overtrimmed = greedy-optimized subsets at decreasing deflection-weight strength (57/36
+// members). Load-Balanced (41 members) replaces an earlier "Lean" row that didn't earn its place -
+// found by a randomized-restart search explicitly minimizing peak member force (not deflection),
+// and it's a genuinely different kind of design: fewer members AND lower peak force than the full
+// structure, but higher deflection - proof that "spread the load out" is its own real design
+// strategy, not just a side effect of keeping more material. Cost includes both rod AND connector
+// cost ($1/cm + $10/connector), matching truss-designer.html's real formula. Force is in Newtons
 // (converted from the solver's native lbf at 4.44822 N/lbf) to match truss-designer.html and stay
-// metric like everything else on the page - only deflection/cost/mass ever used lbf's underlying
-// unit family, and force was the one holdout still labeled in lbf.
+// metric like everything else on the page.
 const TAB5_DESIGNS = [
-  {name:"Full Ground Structure", defl:0.64, cost:1193.5, force:9.21},
-  {name:"Trimmed", defl:0.65, cost:911.5, force:9.74},
-  {name:"Load-Balanced", defl:1.06, cost:645.0, force:8.41},
-  {name:"Overtrimmed", defl:1.57, cost:614.0, force:17.79},
+  {name:"Full Ground Structure", defl:0.70, cost:1193.5, force:10.15},
+  {name:"Trimmed", defl:0.72, cost:911.5, force:10.73},
+  {name:"Load-Balanced", defl:1.23, cost:679.5, force:9.82},
+  {name:"Overtrimmed", defl:1.73, cost:614.0, force:19.62},
 ];
 let tab5Weights = {defl:150, cost:0.1, force:5.6};
 

@@ -227,6 +227,12 @@ const LOAD_NODE = 24;
 const E = 30800.0, A = 0.01284;
 const IN_TO_CM = 2.54;
 const LBF_TO_N = 4.44822; // solver runs in lbf internally (matches the real MASTAN legacy numbers), converted to N at display/score time only, same treatment as inches->cm for deflection
+// Real hanging mass is 1.5kg total; the physical build is two mirrored truss faces sharing it, so
+// this one face carries half (0.75kg). Derived via Newtons (not a direct kg->lbf substitution -
+// 1kgf =/= 1lbf, off by a factor of ~2.2) per Matt directly: 0.75kg * 9.81 = 7.3575N, / LBF_TO_N.
+// This replaces the legacy MASTAN file's own -1.5lbf value (a deliberate, informed break from
+// exact-MASTAN-cross-check precision in favor of the physically correct half-load figure).
+const LOAD_LBF = -(0.75 * 9.81) / LBF_TO_N; // = -1.65403...
 // Real mini K'NEX rod/connector numbers.
 const PURPLE_LENGTH_CM = 9.5, PURPLE_MASS_G = 0.9;
 const BLUE_LENGTH_CM = 13.5, BLUE_MASS_G = 1.3;
@@ -303,7 +309,7 @@ def analyze(active_idx):
 
     free = [d for d in range(ndof) if d not in fixed_dofs]
     F = np.zeros(ndof)
-    F[2*LOAD_NODE+1] = -1.5
+    F[2*LOAD_NODE+1] = ${LOAD_LBF}
 
     Kff = K[np.ix_(free, free)]
     Ff = F[free]
