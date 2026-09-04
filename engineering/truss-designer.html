@@ -104,7 +104,7 @@
       <p class="note">Listed in member-number order — use the Force column yourself to judge which members are carrying little to no load.</p>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>Member #</th><th>Node i</th><th>Node j</th><th>Length (in)</th><th>Force (lbf)</th><th>Type</th></tr></thead>
+          <thead><tr><th>Member #</th><th>Node i</th><th>Node j</th><th>Length (in)</th><th>Force (N)</th><th>Type</th></tr></thead>
           <tbody id="report-body"></tbody>
         </table>
       </div>
@@ -114,14 +114,14 @@
       <h2>Iteration Log</h2>
       <p class="note">Click "Run Simulation" to log your current design and score it against your last logged iteration
       &mdash; lower is better. Cost is a real dollar figure ($1 per cm of rod, $10 per connector). Force concentration
-      is the largest force carried by any single member (lbf) &mdash; low means the load is spread out across many
+      is the largest force carried by any single member (N) &mdash; low means the load is spread out across many
       members, high means one member is doing most of the work. The weighting below (how much deflection vs. cost
       vs. force concentration matters) is set by your instructor for this assignment, not something to change
       mid-assignment.</p>
       <p style="font-size:.85rem;color:var(--muted);margin-top:8px;">
         Current weights &mdash; Deflection: <strong id="w-defl-display" style="color:var(--text);">150</strong>,
         Cost: <strong id="w-cost-display" style="color:var(--text);">0.1</strong>,
-        Force concentration: <strong id="w-force-display" style="color:var(--text);">25</strong>
+        Force concentration: <strong id="w-force-display" style="color:var(--text);">5.6</strong>
       </p>
       <details style="margin-top:10px;">
         <summary style="cursor:pointer;font-size:.82rem;color:var(--accent);">Instructor: set weights for this assignment</summary>
@@ -131,7 +131,7 @@
           <label style="font-size:.82rem;color:var(--muted);">Cost weight
             <input type="number" id="w-cost" value="0.1" step="0.05" style="width:60px;"></label>
           <label style="font-size:.82rem;color:var(--muted);">Force concentration weight
-            <input type="number" id="w-force" value="25" step="5" style="width:70px;"></label>
+            <input type="number" id="w-force" value="5.6" step="0.5" style="width:70px;"></label>
           <button class="btn" id="btn-genlink">Generate link for students</button>
         </div>
         <p class="note">These fields update the display above live, for your own preview. To lock a specific
@@ -144,7 +144,7 @@
       <div id="compare-banner" class="status-bar status-ok" style="margin-top:10px;">Run a simulation to log your first iteration.</div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>Iter</th><th>Members</th><th>Purple</th><th>Blue</th><th>Cost</th><th>Force conc. (lbf)</th><th>Deflection (cm)</th><th>Score</th></tr></thead>
+          <thead><tr><th>Iter</th><th>Members</th><th>Purple</th><th>Blue</th><th>Cost</th><th>Force conc. (N)</th><th>Deflection (cm)</th><th>Score</th></tr></thead>
           <tbody id="history-body"></tbody>
         </table>
       </div>
@@ -226,6 +226,7 @@ const FIXED_NODES = [0,6,12,18];
 const LOAD_NODE = 24;
 const E = 30800.0, A = 0.01284;
 const IN_TO_CM = 2.54;
+const LBF_TO_N = 4.44822; // solver runs in lbf internally (matches the real MASTAN legacy numbers), converted to N at display/score time only, same treatment as inches->cm for deflection
 // Real mini K'NEX rod/connector numbers.
 const PURPLE_LENGTH_CM = 9.5, PURPLE_MASS_G = 0.9;
 const BLUE_LENGTH_CM = 13.5, BLUE_MASS_G = 1.3;
@@ -406,7 +407,8 @@ function computeMetrics(result){
 
 function computeScore(entry){
   const dyCm = Math.abs(entry.dy) * IN_TO_CM;
-  return weights.defl*dyCm + weights.cost*entry.cost + weights.force*entry.peakForce;
+  const forceN = entry.peakForce * LBF_TO_N;
+  return weights.defl*dyCm + weights.cost*entry.cost + weights.force*forceN;
 }
 
 function updateStats(result){
@@ -425,7 +427,7 @@ function updateStats(result){
   if(result && result.stable){
     document.getElementById("stat-dx").textContent = (m.dx*IN_TO_CM).toFixed(4) + " cm";
     document.getElementById("stat-dy").textContent = (m.dy*IN_TO_CM).toFixed(4) + " cm";
-    document.getElementById("stat-force").textContent = m.peakForce.toFixed(3) + " lbf";
+    document.getElementById("stat-force").textContent = (m.peakForce*LBF_TO_N).toFixed(2) + " N";
     document.getElementById("stat-force-member").textContent = m.peakMember !== null ? ("Member #" + (m.peakMember+1)) : "—";
   } else {
     document.getElementById("stat-dx").textContent = "—";
@@ -452,7 +454,7 @@ function buildReport(result){
       : r.f > 0 ? '<span class="tag tag-tension">Tension</span>'
       : '<span class="tag tag-compression">Compression</span>';
     tr.innerHTML = `<td>${r.idx+1}</td><td>${r.i+1}</td><td>${r.j+1}</td>
-      <td>${r.L.toFixed(3)}</td><td>${r.f.toFixed(3)}</td><td>${type}</td>`;
+      <td>${r.L.toFixed(3)}</td><td>${(r.f*LBF_TO_N).toFixed(2)}</td><td>${type}</td>`;
     body.appendChild(tr);
   }
 }
@@ -593,7 +595,7 @@ function renderHistory(){
     tr.style.cursor = "pointer";
     if(i === bestIdx) tr.style.background = "rgba(61,220,151,.10)";
     tr.innerHTML = `<td>${e.iter}${i===bestIdx ? " ★" : ""}</td><td>${e.memberCount}</td>
-      <td>${e.purple}</td><td>${e.blue}</td><td>${e.cost.toFixed(1)}</td><td>${e.peakForce.toFixed(3)}</td>
+      <td>${e.purple}</td><td>${e.blue}</td><td>${e.cost.toFixed(1)}</td><td>${(e.peakForce*LBF_TO_N).toFixed(2)}</td>
       <td>${(e.dy*IN_TO_CM).toFixed(4)}</td><td>${scores[i].toFixed(1)}</td>`;
     tr.addEventListener("click", async ()=>{
       activeMembers = new Set(e.activeMembers);
