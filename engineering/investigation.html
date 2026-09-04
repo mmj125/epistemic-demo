@@ -64,15 +64,16 @@
 <header>
   <h1>Cantilever Truss Design</h1>
   <p>A guided path to the real design tool — read forces before you design with them, understand why triangles hold
-  their shape before you triangulate a real structure, and trace a load to its supports before you optimize one.</p>
+  their shape before you triangulate a real structure, trace a load to its supports before you optimize one, and
+  see how the scoring actually works before you design for it.</p>
 </header>
 
 <div class="tabbar" id="tabbar">
   <button class="tab-btn active" data-tab="1">1. Push &amp; Pull</button>
   <button class="tab-btn" data-tab="2">2. Why Triangles</button>
   <button class="tab-btn" data-tab="3">3. Load Path</button>
-  <button class="tab-btn" data-tab="4">4. Design &amp; Predict</button>
-  <button class="tab-btn" data-tab="5">5. Iteration Log</button>
+  <button class="tab-btn" data-tab="4">4. Iteration Log</button>
+  <button class="tab-btn" data-tab="5">5. Design &amp; Predict</button>
   <button class="tab-btn" data-tab="6">6. Predict vs. Build</button>
   <button class="tab-btn" data-tab="7">7. Design Argument</button>
 </div>
@@ -154,22 +155,14 @@
   </div>
 
   <div class="tab-content" id="tab-4" style="display:none;">
-    <div class="panel stub">
-      <h2>Design &amp; Predict</h2>
-      <p class="note">The full interactive design tool already exists as its own page.</p>
-      <p style="margin-top:14px;"><a class="btn" href="truss-designer.html" style="text-decoration:none;display:inline-block;">Open the Truss Designer →</a></p>
-    </div>
-  </div>
-
-  <div class="tab-content" id="tab-5" style="display:none;">
     <div class="panel">
       <h2>Iteration Log</h2>
-      <p class="note">These are four designs a different student already tried — real deflection, cost, and force
-      concentration numbers, just not yours. Force concentration is the largest force carried by any single member:
-      low means the load is spread out, high means one member is doing most of the work — the member (or connector)
-      most likely to be the one that fails first in a physical build. There's no single "best" design here — each
-      of the three sliders has its own favorite among these four. Drag one all the way up at a time and watch the
-      winner change.</p>
+      <p class="note">Before you design anything yourself, get a feel for how the scoring works. These are four
+      designs a different student already tried — real deflection, cost, and force concentration numbers, just not
+      yours. Force concentration is the largest force carried by any single member: low means the load is spread
+      out, high means one member is doing most of the work — the member (or connector) most likely to be the one
+      that fails first in a physical build. There's no single "best" design here — each of the three sliders has
+      its own favorite among these four. Drag one all the way up at a time and watch the winner change.</p>
     </div>
     <div class="panel">
       <div class="tbl-wrap" style="max-height:none;">
@@ -191,8 +184,17 @@
       </div>
       <p class="note" id="tab5-callout" style="margin-top:12px;"></p>
       <p class="note">This is exactly how the real Iteration Log in the design tool works — same three weights, same
-      scoring. Go try it for real in Tab 4 with your own designs, or use the link your instructor gave you if they
-      set specific weights for this assignment.</p>
+      scoring. Keep this in mind once you're designing for real in Tab 5, especially if your instructor has already
+      set specific weights for this assignment (they'll give you a link with those weights locked in).</p>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-5" style="display:none;">
+    <div class="panel stub">
+      <h2>Design &amp; Predict</h2>
+      <p class="note">Now that you've seen how the weighting decides which design wins, use that understanding here.
+      The full interactive design tool already exists as its own page.</p>
+      <p style="margin-top:14px;"><a class="btn" href="truss-designer.html" style="text-decoration:none;display:inline-block;">Open the Truss Designer →</a></p>
     </div>
   </div>
   <div class="tab-content" id="tab-6" style="display:none;">
@@ -806,7 +808,7 @@ async function tab3Refresh(){
   }
 }
 
-// ---- Tab 5: Iteration Log (weighting demo, no solver needed - these are fixed example designs) ----
+// ---- Tab 4: Iteration Log (weighting demo, no solver needed - these are fixed example designs) ----
 // Real, solver-verified numbers (not hand-picked placeholders) - each row is an actual member subset
 // of the 81-member ground structure. Full Ground Structure = all 81 members; Trimmed/Overtrimmed =
 // greedy-optimized subsets at decreasing deflection-weight strength (57/36 members). Load-Balanced
