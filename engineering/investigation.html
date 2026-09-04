@@ -167,9 +167,9 @@
       <p class="note">These are four designs a different student already tried — real deflection, cost, and force
       concentration numbers, just not yours. Force concentration is the largest force carried by any single member:
       low means the load is spread out, high means one member is doing most of the work — the member (or connector)
-      most likely to be the one that fails first in a physical build. There's no single "best" design here. Which
-      one wins depends entirely on how much each of the three things is worth to whoever's deciding. Drag the
-      sliders and watch the winner change.</p>
+      most likely to be the one that fails first in a physical build. There's no single "best" design here — each
+      of the three sliders has its own favorite among these four. Drag one all the way up at a time and watch the
+      winner change.</p>
     </div>
     <div class="panel">
       <div class="tbl-wrap" style="max-height:none;">
@@ -802,14 +802,18 @@ async function tab3Refresh(){
 
 // ---- Tab 5: Iteration Log (weighting demo, no solver needed - these are fixed example designs) ----
 // Real, solver-verified numbers (not hand-picked placeholders) - each row is an actual member subset
-// of the 81-member ground structure, re-derived the same way the comparison-figure demonstration was:
-// Full Ground Structure = all 81 members; Trimmed/Lean/Overtrimmed = greedy-optimized subsets at
-// decreasing deflection-weight strength (57/37/36 members respectively). Cost includes both rod AND
-// connector cost ($1/cm + $10/connector), matching truss-designer.html's real formula.
+// of the 81-member ground structure. Full Ground Structure = all 81 members; Trimmed/Overtrimmed =
+// greedy-optimized subsets at decreasing deflection-weight strength (57/36 members). Load-Balanced
+// (38 members) replaces an earlier "Lean" row that didn't earn its place - it was found by a
+// randomized-restart search explicitly minimizing peak member force (not deflection), and it's a
+// genuinely different kind of design: fewer members AND lower peak force than the full structure,
+// but higher deflection - proof that "spread the load out" is its own real design strategy, not
+// just a side effect of keeping more material. Cost includes both rod AND connector cost
+// ($1/cm + $10/connector), matching truss-designer.html's real formula.
 const TAB5_DESIGNS = [
   {name:"Full Ground Structure", defl:0.64, cost:1193.5, force:2.07},
   {name:"Trimmed", defl:0.65, cost:911.5, force:2.19},
-  {name:"Lean", defl:0.91, cost:633.5, force:3.00},
+  {name:"Load-Balanced", defl:1.06, cost:645.0, force:1.89},
   {name:"Overtrimmed", defl:1.57, cost:614.0, force:4.00},
 ];
 let tab5Weights = {defl:150, cost:0.1, force:25};
