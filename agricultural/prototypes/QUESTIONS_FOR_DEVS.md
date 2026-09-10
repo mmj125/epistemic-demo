@@ -47,6 +47,28 @@ against real Cycles output before concluding the gap is real.
    out thermal-time accumulation as the cause first (our value: 1783.6 vs. real
    1740.76 by harvest, within 2.5% -- fine). Are there different shape constants per
    crop, or a correction beyond the stated `PDf` adjustment (Eq. 7) we're missing?
+   Follow-up: even for corn itself the stated defaults run ~5% high at peak canopy
+   (real 0.943 vs. predicted 0.990) -- negligible for grain corn (harvest happens
+   well into senescence, after growth has already stopped) but compounds into a
+   real, growing error for a crop harvested mid-peak-growth (confirmed directly:
+   silage corn's aboveground biomass ratio to real output grows from 1.00 at
+   mid-season to 1.25 by its 85%-of-maturity harvest point, tracking almost exactly
+   with the compounding canopy-cover gap). A corn-specific refit (6, -20, -12, 12)
+   helps the level bias but not silage corn's underlying correlation problem (item 6).
+
+6. **Silage corn and winter wheat both show weak year-to-year correlation
+   (0.50 and 0.25) despite every individual mechanism checking out.** For silage
+   corn specifically: thermal-time accumulation matches real Cycles within 1%,
+   canopy cover matches within a few percent at every checked date, harvest date
+   (triggered at 85% of thermal time to maturity) matches real harvest dates to
+   1.1 days mean error across 13 years, and the aboveground-biomass-to-forage-yield
+   ratio is a rock-solid 0.9499-0.9500 across all 13 real harvests, no meaningful
+   year-to-year variation. None of that explains why the model doesn't track which
+   *years* were better or worse than others. Both problem crops share something
+   grain corn and soybean don't: neither is harvested at full senescence (silage at
+   85% of maturity while still actively growing; wheat crosses a real winter). Is
+   there a water-stress or weather-sensitivity mechanism that behaves differently
+   for these cases that we're missing entirely, rather than miscalibrating?
 
 ## Resolved without asking (kept here for the record, not blocking)
 

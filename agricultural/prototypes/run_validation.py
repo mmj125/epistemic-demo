@@ -13,13 +13,14 @@ import os
 sys.path.insert(0, os.path.dirname(__file__))
 from cycles_engine_validate import (
     REFERENCE_DATA_DIR, saxton_rawls, OM_FROM_SOC, simulate_soil_temp,
-    find_planting_doy, simulate_season,
+    find_planting_doy, simulate_season, CORN_CANOPY_SHAPE,
 )
 
 CORN = dict(
     tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=0.876,  # residual after the AG-biomass fix (see CLAUDE.md) -- ratio was 1.14, not 1.55
+    calibration_factor=0.841,  # residual after the AG-biomass fix + corn-specific canopy refit
+    canopy_shape=CORN_CANOPY_SHAPE,
     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=40.6875,
 )
 

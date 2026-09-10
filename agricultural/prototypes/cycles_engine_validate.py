@@ -289,7 +289,15 @@ def find_planting_doy(tsoil_by_doy, window, min_soil_temp):
 # guessing at blindly (see QUESTIONS_FOR_DEVS.md).
 # ---------------------------------------------------------------------------
 
-DEFAULT_CANOPY_SHAPE = (6, -20, -15, 16)
+DEFAULT_CANOPY_SHAPE = (6, -20, -15, 16)   # the paper's stated defaults
+CORN_CANOPY_SHAPE = (6, -20, -12, 12)      # refit from real corn FRAC INTERCEP data --
+                                            # the paper's own defaults run ~5% high at peak
+                                            # for corn itself, negligible for grain corn
+                                            # (harvest happens well into senescence, growth
+                                            # has already stopped) but compounds into a real,
+                                            # growing error for silage corn (harvested at 85%
+                                            # of maturity, mid-peak-growth) -- see module
+                                            # docstring and QUESTIONS_FOR_DEVS.md.
 
 
 def thermal_time_increment(tx, tn, base_t, opt_t, max_t):

@@ -13,7 +13,7 @@ import datetime
 
 sys.path.insert(0, os.path.dirname(__file__))
 from cycles_engine_validate import (
-    REFERENCE_DATA_DIR, saxton_rawls, OM_FROM_SOC, simulate_season,
+    REFERENCE_DATA_DIR, saxton_rawls, OM_FROM_SOC, simulate_season, CORN_CANOPY_SHAPE,
 )
 
 LAT = 40.6875
@@ -50,7 +50,10 @@ WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
 CORN_SILAGE = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
                     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
                     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=LAT,
-                    make_layers=make_layers, forage_fraction=0.95, calibration_factor=0.808)
+                    make_layers=make_layers, forage_fraction=0.95, calibration_factor=0.806,
+                    canopy_shape=CORN_CANOPY_SHAPE)  # real fix (thermal time, canopy shape, harvest
+                    # date, forage ratio all individually verified accurate) does NOT move correlation
+                    # (0.503 -> 0.501) -- see QUESTIONS_FOR_DEVS.md, this is a distinct, still-open item
 
 
 def load_weather():
