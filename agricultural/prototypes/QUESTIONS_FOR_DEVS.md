@@ -29,15 +29,54 @@ against real Cycles output before concluding the gap is real.
    confirm or correct.
 
 4. **Perennial forage cutting trigger (`CLIPPING_BIOMASS_THRESHOLD_UPPER` /
-   `HARVEST_TIMING` interaction).** For orchardgrass at Rock Springs, real cuts
-   happen at total biomass of 3.27, 1.94, 3.29, 3.01 Mg/ha within one season --
-   notably not consistently near the 4.0 Mg/ha upper threshold, and at irregular
-   28-42 day intervals. Two attempts at "cut when biomass reaches the upper
-   threshold OR thermal-time-since-last-cut reaches the `HARVEST_TIMING` fraction of
-   maturity, whichever first" both overestimate annual yield by ~1.8x with
-   near-zero/negative year-to-year correlation against real output. What's the
-   actual trigger logic (and does cutting reset thermal time to zero, or something
-   else)?
+   `HARVEST_TIMING` interaction).** For orchardgrass at Rock Springs (real
+   `GenericCrops.crop` values verified directly: `MATURITY_TT=1500`,
+   `CLIPPING_BIOMASS_THRESHOLD_UPPER=4` Mg/ha, `CLIPPING_BIOMASS_THRESHOLD_LOWER=1`
+   Mg/ha, `HARVEST_TIMING=60`%, `STANDING_RESIDUE_AT_HARVEST=50`%,
+   `RESIDUE_REMOVED=80`%), we've now ruled out four candidate trigger mechanisms
+   with real data, not just two:
+   - **Fixed absolute biomass threshold**: real pre-cut aboveground biomass across
+     1982's four cuts is 2.24, 1.27, 2.25, 2.10 Mg/ha -- none within reach of the
+     4.0 Mg/ha upper threshold (closest is 56% of it).
+   - **Fixed thermal-time-since-last-cut threshold**: real Cycles' own daily
+     THERMAL TIME column resets at each cut, but the thermal time accumulated
+     between resets varies from 442 to 802 degree-days across the four 1982
+     cuts -- there's no fixed value that would fit `HARVEST_TIMING=60%` of
+     `MATURITY_TT` (which would predict a fixed ~900).
+   - **Growth-rate plateau** (cut when regrowth stalls, regardless of absolute
+     level): checked the daily aboveground biomass trajectory for all four days
+     leading into each cut -- growth is steady and still increasing right up to
+     the cut day every time, no slowdown.
+   - **A simple fixed reset fraction after cutting**: comparing real Cycles' own
+     pre-cut aboveground biomass (from `harvest.txt`'s TOTAL BIOMASS minus ROOT
+     BIOMASS) against the very next value in the daily crop file (which already
+     reflects the post-cut state) gives a strikingly consistent ~25% carryover
+     ratio for 3 of the 4 real 1982 cuts (0.250, 0.250, 0.250) -- notably not the
+     `STANDING_RESIDUE_AT_HARVEST=50%` crop-file value read naively, and not the
+     literal `AG RESIDUE` harvest.txt column either (which nets out to ~5% of
+     aboveground biomass and is evidently a separate "litter left on the ground"
+     accounting, not the living carryover that continues to grow -- the
+     harvest.txt FORAGE YIELD + AG RESIDUE columns already sum to 100% of AG
+     biomass, so neither represents what's left standing). The same daily file's
+     thermal-time reset also lands at a similar ~25-33% fraction of its pre-cut
+     value in the same three cuts. One of the four cuts (1982-07-08, the one
+     with by far the shortest pre-cut biomass, 1.27 Mg/ha) is an outlier on both
+     measures at once (~34% and ~33%), suggesting a distinct rule may apply near
+     the `CLIPPING_BIOMASS_THRESHOLD_LOWER=1` boundary. Implementing the 25%
+     reset fraction (replacing an earlier attempt's 50% guess) on top of the
+     unchanged dual biomass-OR-thermal-time trigger did not fix correlation
+     (-0.276 -> 0.156, still not classroom-workable) and made the level bias
+     worse (ratio 1.825 -> 3.305), since the larger residual regrows faster and
+     causes more frequent cuts than reality.
+
+   With all four mechanical hypotheses now ruled out by direct comparison against
+   real per-cut data, what's left is either something not in the disclosed
+   management parameters at all (a scheduling constraint, e.g. a minimum days-
+   between-cuts rule, or a seasonal/photoperiod adjustment to the thermal-time
+   target) or a genuinely different formula than "biomass OR thermal-time,
+   whichever first." What is the actual trigger logic, and is the post-cut reset
+   (both biomass and thermal time) really a fixed ~25% carryover, or does it
+   depend on which threshold fired?
 
 5. **Canopy-cover shape constants (Eq. 6's `a`, `b`, `c`, `d`) per crop.** The paper
    gives explicit defaults (6, -20, -15, 16) but states they "represent a normalized
