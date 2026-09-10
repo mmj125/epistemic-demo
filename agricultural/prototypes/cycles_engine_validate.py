@@ -63,12 +63,22 @@ Status as of this validation pass:
     crop like corn; cold-temperature transpiration stress: real mechanism,
     correctly implemented, negligible effect at this site) none of them
     closed the remaining gap. Rather than keep guessing, a disclosed
-    calibration factor is applied instead -- see CALIBRATION_FACTOR below.
+    calibration factor is applied instead -- see "calibration_factor" below.
+    IMPORTANT: validating soybean and wheat afterward turned up a real bug
+    contributing to that gap, not just an unidentified mechanism -- harvest
+    index was being applied to *total* biomass, but real Cycles' own
+    HARVEST_INDEX column is defined against *aboveground* biomass only
+    (verified: 11.61 / (26.17 - 3.48 root) = 0.5117, matching the real
+    reported value exactly; 11.61 / 26.17 does not). Fixed by adding real
+    shoot/root partitioning (Eq. SI.8-11) before applying HI. Calibration
+    factors below are the *residual* needed after that fix, and are
+    crop-specific, not a universal constant -- soybean's residual runs the
+    opposite direction from corn's (under, not over), confirming this
+    isn't one missing mechanism that scales uniformly across crops.
 
-CALIBRATION_FACTOR = 0.645 is an empirical correction, not physics. It was
-computed by fitting this model's mean yield to real Cycles' mean yield for
-the validated Rock Springs continuous-corn scenario (real mean 10.93 Mg/ha
-÷ this model's pre-calibration mean 16.95 Mg/ha). It does not change
+crop["calibration_factor"] is an empirical correction, not physics --
+computed per crop by fitting this model's mean yield to real Cycles' mean
+yield for a validated scenario. It does not change
 year-to-year correlation (multiplying every value by a constant preserves
 ranking), only the absolute scale. Treat it as covering whatever specific
 mechanism this validation pass didn't identify, not as license to trust
@@ -89,7 +99,7 @@ import math
 
 REFERENCE_DATA_DIR = "/tmp/cycles-run"  # set to a local Cycles v1.4.4 sample directory to reproduce validation
 
-CALIBRATION_FACTOR = 0.645  # see module docstring
+# Calibration factors live per-crop, in each crop's own dict (see module docstring).
 
 
 # ---------------------------------------------------------------------------
@@ -292,15 +302,28 @@ def transpiration_temp_factor(tmean, min_t, threshold_t):
     return (tmean - min_t) / (threshold_t - min_t)
 
 
-def simulate_season(weather_rows, crop, root_max_m=1.4):
-    """weather_rows: dicts with doy, tx, tn, solar, rhx, rhn, wind, pp, in planting-day order."""
+TTF50_SHOOT_PARTITION = 0.5  # Eq. SI.8-11's own half-max point isn't given a numeric value anywhere
+                             # in either source -- using the literal reading of its name ("TTf50")
+
+
+def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
+    """Eq. SI.8-11: modified Michaelis-Menten allocation of new growth to shoot vs. root."""
+    ttf = max(1e-6, ttf)
+    return fsti + (fstf - fsti) / (1 + (ttf50 / ttf) ** 4)
+
+
+def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0):
+    """weather_rows: dicts with doy, tx, tn, solar, rhx, rhn, wind, pp, in planting-day order.
+    harvest_ttf: fraction of thermal time to maturity that triggers harvest -- 1.0 for grain
+    crops (HARVEST_TIMING=-999 in the real crop file), lower for forage/silage crops harvested
+    before full maturity (e.g. 0.85 for CornSilageRM.90's real HARVEST_TIMING=85)."""
     layers = crop["make_layers"]()
-    tt_cum, biomass = 0.0, 0.0
+    tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
     for w in weather_rows:
         dtt = thermal_time_increment(w["tx"], w["tn"], crop["base_t"], crop["opt_t"], crop["max_t"])
         tt_cum += dtt
         ttf = tt_cum / crop["tt_maturity"]
-        if ttf >= 1.0:
+        if ttf >= harvest_ttf:
             break
         eie = canopy_cover(ttf, crop.get("eix", 1.0))
         root_depth = root_max_m * min(1.0, ttf / 0.5)
@@ -323,11 +346,15 @@ def simulate_season(weather_rows, crop, root_max_m=1.4):
         extract_transpiration(layers, root_depth, TR_actual)
 
         GT = crop["wue"] / math.sqrt(Da) * TR_actual
-        biomass += max(0.0, min(GR, GT)) / 1000
+        dGB = max(0.0, min(GR, GT)) / 1000
+        biomass += dGB
+        ag_biomass += dGB * shoot_fraction(ttf, crop["fsti"], crop["fstf"])
 
     flowering_frac = crop["flowering_tt"] / crop["tt_maturity"]
     fpf = max(0.0, min(1.0, (tt_cum - crop["tt_maturity"] * flowering_frac) / (crop["tt_maturity"] * (1 - flowering_frac))))
     HI = crop["hi_x"] - (crop["hi_x"] - crop["hi_o"]) * math.exp(-crop["hi_slope"] * fpf)
     biomass_mg_ha = biomass * 10
-    grain_mg_ha = biomass * HI * 10 * CALIBRATION_FACTOR
-    return biomass_mg_ha, grain_mg_ha
+    ag_biomass_mg_ha = ag_biomass * 10
+    grain_mg_ha = ag_biomass * HI * 10 * crop.get("calibration_factor", 1.0)
+    forage_mg_ha = ag_biomass_mg_ha * crop.get("forage_fraction", 0.95) * crop.get("calibration_factor", 1.0)
+    return dict(total=biomass_mg_ha, ag=ag_biomass_mg_ha, grain=grain_mg_ha, forage=forage_mg_ha)

@@ -18,7 +18,8 @@ from cycles_engine_validate import (
 
 CORN = dict(
     tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
-    rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0,
+    rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
+    calibration_factor=0.876,  # residual after the AG-biomass fix (see CLAUDE.md) -- ratio was 1.14, not 1.55
     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=40.6875,
 )
 
@@ -84,8 +85,8 @@ def main():
         tsoil_by_doy = dict(zip(doys_sorted, tsoils))
         plant_doy = find_planting_doy(tsoil_by_doy, (110, 131), 12.0)
         rows = [daily[year][d] for d in range(plant_doy, 300) if d in daily[year]]
-        _, grain = simulate_season(rows, CORN)
-        results[year] = grain
+        result = simulate_season(rows, CORN)
+        results[year] = result["grain"]
 
     years = sorted(results)
     rv = [real_yield[y] for y in years]
