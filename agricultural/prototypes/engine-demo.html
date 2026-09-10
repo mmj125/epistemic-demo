@@ -27,11 +27,16 @@
   This is a validated-engine demo, not the classroom tool. It proves the from-scratch
   agroecosystem engine (see <code>cycles_engine_validate.py</code>) runs correctly in
   a real browser via Pyodide, no server, no backend, matching this platform's
-  architecture. It does not yet include nitrogen rate as a student control (that was
-  scoped but never built onto the validated engine, kept honest here rather than
-  faked) or arbitrary field/location selection (deferred, see CLAUDE.md). Weather
-  data is real NLDAS-2 reanalysis for Rock Springs, PA, 1980-2016, a public federal
-  dataset independent of Cycles' own licensing.
+  architecture. The nitrogen slider is a simplified mineral-N balance, not Cycles'
+  own six-pool soil carbon/nitrogen system (out of scope for v1, see CLAUDE.md) --
+  it assumes all crop nitrogen comes from the fertilizer you set here, with no
+  background soil-supplied nitrogen, so the "no effect" point sits higher than a
+  real fertilizer recommendation would (which also draws on soil mineralization
+  this simplified model doesn't include). Soybean fixes its own nitrogen (a legume,
+  per the real crop file) and is correctly unaffected by the slider. Arbitrary
+  field/location selection is still deferred (see CLAUDE.md). Weather data is real
+  NLDAS-2 reanalysis for Rock Springs, PA, 1980-2016, a public federal dataset
+  independent of Cycles' own licensing.
 </div>
 
 <div class="controls">
@@ -45,6 +50,15 @@
     <select id="yearSelect"></select>
   </label>
   <button id="runBtn" disabled>Loading Python engine...</button>
+</div>
+
+<div class="controls">
+  <label style="flex: 1 1 100%;">Nitrogen applied: <span id="nRateLabel">650</span> kg N/ha
+    <input type="range" id="nRateSlider" min="0" max="650" step="10" value="650" style="width: 100%;">
+  </label>
+</div>
+<div id="nRateNote" class="note" style="display: none; font-size: 13px;">
+  Soybean fixes its own nitrogen (a legume, per the real crop file) -- this slider has no effect on soybean yield.
 </div>
 
 <div id="status">Starting Pyodide...</div>
@@ -61,6 +75,19 @@ for (let y = 1980; y <= 2016; y++) {
 }
 
 let pyodide, WEATHER;
+
+const cropSelect = document.getElementById("cropSelect");
+const nRateSlider = document.getElementById("nRateSlider");
+const nRateLabel = document.getElementById("nRateLabel");
+const nRateNote = document.getElementById("nRateNote");
+
+function updateNRateUI() {
+  nRateLabel.textContent = nRateSlider.value;
+  nRateNote.style.display = cropSelect.value === "soybean" ? "block" : "none";
+}
+cropSelect.addEventListener("change", updateNRateUI);
+nRateSlider.addEventListener("input", updateNRateUI);
+updateNRateUI();
 
 async function init() {
   const status = document.getElementById("status");
@@ -93,6 +120,7 @@ document.getElementById("runBtn").addEventListener("click", async () => {
 
   pyodide.globals.set("weather_json", JSON.stringify(yearWeather));
   pyodide.globals.set("crop_name", crop);
+  pyodide.globals.set("n_rate_kg_ha", parseFloat(nRateSlider.value));
 
   const out = await pyodide.runPythonAsync(`
 import json
@@ -113,18 +141,22 @@ for d in doys_sorted:
     rows.append(dict(doy=d, pp=row[0], tx=row[1], tn=row[2], solar=row[3], rhx=row[4], rhn=row[5], wind=row[6]))
 
 crop = CORN if crop_name == "corn" else SOYBEAN
-result = simulate_season(rows, crop)
+result = simulate_season(rows, crop, n_rate_kg_ha=n_rate_kg_ha)
 json.dumps({"plant_doy": plant_doy, **result})
 `);
 
   const data = JSON.parse(out);
   const label = crop === "corn" ? "Grain yield" : "Soybean yield";
+  const nRow = crop === "corn"
+    ? `<tr><th>Nitrogen applied</th><td>${nRateSlider.value} kg N/ha</td></tr>`
+    : `<tr><th>Nitrogen applied</th><td>${nRateSlider.value} kg N/ha (no effect -- legume)</td></tr>`;
   result.innerHTML = `
     <div>${label} (${year}): <b>${data.grain.toFixed(2)} Mg/ha</b></div>
     <table>
       <tr><th>Planting day (soil-temp triggered)</th><td>DOY ${data.plant_doy}</td></tr>
       <tr><th>Total biomass</th><td>${data.total.toFixed(2)} Mg/ha</td></tr>
       <tr><th>Aboveground biomass</th><td>${data.ag.toFixed(2)} Mg/ha</td></tr>
+      ${nRow}
     </table>
   `;
   result.style.display = "block";
@@ -267,9 +299,18 @@ def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
     ttf = max(1e-6, ttf)
     return fsti + (fstf - fsti) / (1 + (ttf50/ttf)**4)
 
-def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0):
+NCRIT_FLOOR_MGHA = 1.0
+
+def n_marginal_demand_pct(biomass_mgha, crop):
+    biomass_mgha = max(biomass_mgha, 0.01)
+    if biomass_mgha < NCRIT_FLOOR_MGHA:
+        return crop["n_max_conc"] * 100
+    return crop["n_max_conc"] * 100 * (1 - crop["n_dilution_slope"]) * biomass_mgha ** (-crop["n_dilution_slope"])
+
+def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None):
     layers = crop["make_layers"]()
     tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
+    n_pool = n_rate_kg_ha if (n_rate_kg_ha is not None and not crop.get("legume", False)) else None
     for w in weather_rows:
         dtt = thermal_time_increment(w["tx"], w["tn"], crop["base_t"], crop["opt_t"], crop["max_t"])
         tt_cum += dtt
@@ -278,7 +319,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0):
             break
         eie = canopy_cover(ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE))
         root_depth = root_max_m * min(1.0, ttf/0.5)
-        redistribute(layers, w["pp"])
+        drainage_mm = redistribute(layers, w["pp"])
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
         soil_evaporation(layers, eto, eie)
         GR = crop["rue"] * eie * w["solar"]
@@ -293,7 +334,17 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0):
         TR_actual = TRp * water_stress
         extract_transpiration(layers, root_depth, TR_actual)
         GT = crop["wue"]/math.sqrt(Da) * TR_actual
-        dGB = max(0.0, min(GR, GT)) / 1000
+        dGB_water_limited = max(0.0, min(GR, GT)) / 1000
+        n_stress = 1.0
+        if n_pool is not None:
+            n_demand_kg_ha = dGB_water_limited * 10 * n_marginal_demand_pct(biomass * 10, crop) * 10
+            n_uptake_kg_ha = min(n_pool, n_demand_kg_ha)
+            n_stress = (n_uptake_kg_ha / n_demand_kg_ha) if n_demand_kg_ha > 0 else 1.0
+            n_pool -= n_uptake_kg_ha
+            profile_water_mm = sum(l["theta"] * l["thick"] * 1000 for l in layers)
+            if profile_water_mm > 0 and n_pool > 0 and drainage_mm > 0:
+                n_pool = max(0.0, n_pool - drainage_mm * (n_pool / profile_water_mm))
+        dGB = dGB_water_limited * n_stress
         biomass += dGB
         ag_biomass += dGB * shoot_fraction(ttf, crop["fsti"], crop["fstf"])
     flowering_frac = crop["flowering_tt"] / crop["tt_maturity"]
@@ -321,11 +372,13 @@ def make_layers():
 CORN = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
     calibration_factor=0.841, canopy_shape=CORN_CANOPY_SHAPE,
-    kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=40.6875, make_layers=make_layers)
+    kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=40.6875, make_layers=make_layers,
+    n_max_conc=0.055, n_dilution_slope=0.4, legume=False)
 
 SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43,
     rue=1.3, wue=4.5, hi_x=0.4, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
     calibration_factor=1.116, kc=1.0, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0,
+    n_max_conc=0.07, n_dilution_slope=0.4, legume=True,
     lat_deg=40.6875, make_layers=make_layers)
 `;
 

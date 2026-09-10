@@ -333,13 +333,73 @@ def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
     return fsti + (fstf - fsti) / (1 + (ttf50 / ttf) ** 4)
 
 
-def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0):
+# ---------------------------------------------------------------------------
+# Simplified mineral-N balance -- a student-facing knob (fertilizer rate),
+# NOT an attempt at Cycles' own six-pool soil carbon/nitrogen system (that
+# full model is explicitly out of scope for v1, see CLAUDE.md). This is a
+# standard "critical N dilution curve" (crop N demand falls as biomass
+# accumulates -- Justes et al. 1994 / Lemaire's dilution theory, a widely
+# used simplification, not a Cycles invention) driven by each crop's real
+# N_MAX_CONCENTRATION and N_DILUTION_SLOPE from GenericCrops.crop (corn:
+# 0.055 g/g, 0.4; soybean: 0.07 g/g, 0.4), plus a simple "well-mixed
+# reservoir" leaching model that reuses the water balance's own daily
+# drainage output (redistribute()'s return value, previously discarded) --
+# leaching loss = drainage_mm * (N remaining / current profile water, mm),
+# i.e. nitrate washes out in proportion to how much water leaves the profile
+# and how concentrated the remaining N pool is. Neither piece is a verified
+# Cycles formula; both are disclosed, defensible standard proxies, same
+# spirit as this file's existing soil-evaporation and fwc approximations.
+#
+# Legume crops (soybean: LEGUME=1 in the real crop file) are deliberately
+# exempt -- real soybeans fix atmospheric N via rhizobia symbiosis and are
+# not normally nitrogen-fertilized, so a fertilizer-rate knob correctly
+# has little/no effect on them. This isn't a modeled fixation submodel
+# (that level of detail isn't disclosed or needed for a v1 knob); it's a
+# direct, correct consequence of the same LEGUME flag already read from
+# the crop file elsewhere in this codebase.
+#
+# When n_rate_kg_ha is left as None (the default), none of this runs and
+# behavior is byte-identical to before this feature existed -- verified by
+# re-running run_validation.py / run_validation_rotation2.py unchanged.
+NCRIT_FLOOR_MGHA = 1.0  # dilution curve is flat (at N_MAX_CONCENTRATION) below this biomass; standard convention
+
+
+def n_critical_pct(biomass_mgha, crop):
+    """Whole-plant average/critical N concentration (%) at the given total biomass --
+    the standard dilution-curve quantity, %Nc(W) = a*W^-b. Not what a day-by-day
+    uptake calculation should use directly (see n_marginal_demand_pct below)."""
+    biomass_mgha = max(biomass_mgha, 0.01)
+    if biomass_mgha < NCRIT_FLOOR_MGHA:
+        return crop["n_max_conc"] * 100
+    return crop["n_max_conc"] * 100 * biomass_mgha ** (-crop["n_dilution_slope"])
+
+
+def n_marginal_demand_pct(biomass_mgha, crop):
+    """N (%) required per unit of NEW biomass added -- d(total plant N)/d(biomass), not
+    the whole-plant average concentration n_critical_pct returns. Total plant N content
+    at biomass W is a/100*W^(1-b) (the integral of the dilution curve), so its derivative
+    carries a (1-dilution_slope) factor; using n_critical_pct directly here would double-
+    count already-accumulated tissue's N on every day's new growth and roughly triple
+    total seasonal demand (caught by checking: an unconstrained run integrated to 668 kg
+    N/ha for a ~30 Mg/ha corn crop, well above real total-uptake figures for that yield
+    level; this closed-form marginal rate integrates to the correct ~a/100*W_final^(1-b)
+    total)."""
+    biomass_mgha = max(biomass_mgha, 0.01)
+    if biomass_mgha < NCRIT_FLOOR_MGHA:
+        return crop["n_max_conc"] * 100  # below the floor the curve is flat, so marginal = average
+    return crop["n_max_conc"] * 100 * (1 - crop["n_dilution_slope"]) * biomass_mgha ** (-crop["n_dilution_slope"])
+
+
+def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None):
     """weather_rows: dicts with doy, tx, tn, solar, rhx, rhn, wind, pp, in planting-day order.
     harvest_ttf: fraction of thermal time to maturity that triggers harvest -- 1.0 for grain
     crops (HARVEST_TIMING=-999 in the real crop file), lower for forage/silage crops harvested
-    before full maturity (e.g. 0.85 for CornSilageRM.90's real HARVEST_TIMING=85)."""
+    before full maturity (e.g. 0.85 for CornSilageRM.90's real HARVEST_TIMING=85).
+    n_rate_kg_ha: total fertilizer N applied at planting (kg N/ha), the student-facing nitrogen
+    knob -- see the mineral-N-balance section above. None (default) skips N tracking entirely."""
     layers = crop["make_layers"]()
     tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
+    n_pool = n_rate_kg_ha if (n_rate_kg_ha is not None and not crop.get("legume", False)) else None
     for w in weather_rows:
         dtt = thermal_time_increment(w["tx"], w["tn"], crop["base_t"], crop["opt_t"], crop["max_t"])
         tt_cum += dtt
@@ -349,7 +409,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0):
         eie = canopy_cover(ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE))
         root_depth = root_max_m * min(1.0, ttf / 0.5)
 
-        redistribute(layers, w["pp"])
+        drainage_mm = redistribute(layers, w["pp"])
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
         soil_evaporation(layers, eto, eie)
 
@@ -367,7 +427,19 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0):
         extract_transpiration(layers, root_depth, TR_actual)
 
         GT = crop["wue"] / math.sqrt(Da) * TR_actual
-        dGB = max(0.0, min(GR, GT)) / 1000
+        dGB_water_limited = max(0.0, min(GR, GT)) / 1000
+
+        n_stress = 1.0
+        if n_pool is not None:
+            n_demand_kg_ha = dGB_water_limited * 10 * n_marginal_demand_pct(biomass * 10, crop) * 10
+            n_uptake_kg_ha = min(n_pool, n_demand_kg_ha)
+            n_stress = (n_uptake_kg_ha / n_demand_kg_ha) if n_demand_kg_ha > 0 else 1.0
+            n_pool -= n_uptake_kg_ha
+            profile_water_mm = sum(l["theta"] * l["thick"] * 1000 for l in layers)
+            if profile_water_mm > 0 and n_pool > 0 and drainage_mm > 0:
+                n_pool = max(0.0, n_pool - drainage_mm * (n_pool / profile_water_mm))
+
+        dGB = dGB_water_limited * n_stress
         biomass += dGB
         ag_biomass += dGB * shoot_fraction(ttf, crop["fsti"], crop["fstf"])
 

@@ -38,7 +38,9 @@ def make_layers():
 SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43,
                rue=1.3, wue=4.5, hi_x=0.4, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
                kc=1.0, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=LAT,
-               make_layers=make_layers, calibration_factor=1.116)
+               make_layers=make_layers, calibration_factor=1.116,
+               n_max_conc=0.07, n_dilution_slope=0.4, legume=True)  # real GenericCrops.crop values;
+               # soybean fixes its own N (LEGUME=1) so the nitrogen knob correctly has no effect on it
 
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
              rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
