@@ -271,13 +271,25 @@ def find_planting_doy(tsoil_by_doy, window, min_soil_temp):
 
 
 # ---------------------------------------------------------------------------
-# Canopy cover (Eq. 6, default shape constants stated explicitly in the
-# paper) and radiation/water-limited growth (Eq. 3-5) with real soil
-# moisture coupled into actual (not just potential) transpiration -- the
-# single biggest fix in this validation pass, see module docstring.
+# Canopy cover (Eq. 6) and radiation/water-limited growth (Eq. 3-5) with
+# real soil moisture coupled into actual (not just potential) transpiration
+# -- the single biggest fix in this validation pass, see module docstring.
+#
+# The paper's default shape constants (6, -20, -15, 16) are stated to
+# "represent a normalized plant density (PDf) of 1" for the corn case it
+# demonstrates -- they do NOT transfer to other crops unchanged. Verified
+# directly for winter wheat: at the point real Cycles shows 0.746 canopy
+# cover, the corn defaults predict 0.886, a real, checked gap (thermal-time
+# accumulation was ruled out first as the cause -- ours matched real Cycles
+# to within 2.5%). A wheat-specific refit (5, -14, -15, 16), fit against 13
+# real FRAC INTERCEP data points across one real season, improves the level
+# bias (yield ratio 1.51 -> 1.40) but does NOT fix wheat's weak year-to-year
+# correlation (0.362 -> 0.253, actually worse) -- the real driver of that is
+# still unidentified. On the dev-questions list, not something to keep
+# guessing at blindly (see QUESTIONS_FOR_DEVS.md).
 # ---------------------------------------------------------------------------
 
-A, B, C, D = 6, -20, -15, 16
+DEFAULT_CANOPY_SHAPE = (6, -20, -15, 16)
 
 
 def thermal_time_increment(tx, tn, base_t, opt_t, max_t):
@@ -289,9 +301,10 @@ def thermal_time_increment(tx, tn, base_t, opt_t, max_t):
     return (opt_t - base_t) * (max_t - tmean) / (max_t - opt_t)
 
 
-def canopy_cover(ttf_norm, eix=1.0):
+def canopy_cover(ttf_norm, eix=1.0, shape=DEFAULT_CANOPY_SHAPE):
+    a, b, c, d = shape
     ttf_norm = max(0.0, ttf_norm)
-    return eix / (1 + math.exp(A + B * ttf_norm) + math.exp(C + D * ttf_norm))
+    return eix / (1 + math.exp(a + b * ttf_norm) + math.exp(c + d * ttf_norm))
 
 
 def transpiration_temp_factor(tmean, min_t, threshold_t):
@@ -325,7 +338,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0):
         ttf = tt_cum / crop["tt_maturity"]
         if ttf >= harvest_ttf:
             break
-        eie = canopy_cover(ttf, crop.get("eix", 1.0))
+        eie = canopy_cover(ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE))
         root_depth = root_max_m * min(1.0, ttf / 0.5)
 
         redistribute(layers, w["pp"])
