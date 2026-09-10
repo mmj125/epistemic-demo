@@ -64,15 +64,16 @@
 <header>
   <h1>Cantilever Truss Design</h1>
   <p>A guided path to the real design tool — read forces before you design with them, understand why triangles hold
-  their shape before you triangulate a real structure, and trace a load to its supports before you optimize one.</p>
+  their shape before you triangulate a real structure, trace a load to its supports before you optimize one, and
+  see how the scoring actually works before you design for it.</p>
 </header>
 
 <div class="tabbar" id="tabbar">
   <button class="tab-btn active" data-tab="1">1. Push &amp; Pull</button>
   <button class="tab-btn" data-tab="2">2. Why Triangles</button>
   <button class="tab-btn" data-tab="3">3. Load Path</button>
-  <button class="tab-btn" data-tab="4">4. Design &amp; Predict</button>
-  <button class="tab-btn" data-tab="5">5. Iteration Log</button>
+  <button class="tab-btn" data-tab="4">4. Iteration Log</button>
+  <button class="tab-btn" data-tab="5">5. Design &amp; Predict</button>
   <button class="tab-btn" data-tab="6">6. Predict vs. Build</button>
   <button class="tab-btn" data-tab="7">7. Design Argument</button>
 </div>
@@ -154,50 +155,56 @@
   </div>
 
   <div class="tab-content" id="tab-4" style="display:none;">
-    <div class="panel stub">
-      <h2>Design &amp; Predict</h2>
-      <p class="note">The full interactive design tool already exists as its own page.</p>
-      <p style="margin-top:14px;"><a class="btn" href="truss-designer.html" style="text-decoration:none;display:inline-block;">Open the Truss Designer →</a></p>
-    </div>
-  </div>
-
-  <div class="tab-content" id="tab-5" style="display:none;">
     <div class="panel">
       <h2>Iteration Log</h2>
-      <p class="note">These are four designs a different student already tried — real deflection, cost, and mass
-      numbers, just not yours. There's no single "best" one here. Which design wins depends entirely on how much
-      each of the three things is worth to whoever's deciding. Drag the sliders and watch the winner change.</p>
+      <p class="note">Before you design anything yourself, get a feel for how the scoring works. These are four
+      designs a different student already tried — real deflection, cost, and force concentration numbers, just not
+      yours. Force concentration is the largest force carried by any single member: low means the load is spread
+      out, high means one member is doing most of the work — the member (or connector) most likely to be the one
+      that fails first in a physical build. There's no single "best" design here — each of the three sliders has
+      its own favorite among these four. Drag one all the way up at a time and watch the winner change.</p>
     </div>
     <div class="panel">
       <div class="tbl-wrap" style="max-height:none;">
         <table>
-          <thead><tr><th>Design</th><th>Deflection (cm)</th><th>Cost</th><th>Mass (g)</th><th>Score</th></tr></thead>
+          <thead><tr><th>Design</th><th>Deflection (cm)</th><th>Cost</th><th>Force conc. (N)</th><th>Score</th></tr></thead>
           <tbody id="tab5-body"></tbody>
         </table>
       </div>
       <div class="btn-row" style="margin-top:14px;flex-direction:column;align-items:stretch;gap:14px;">
         <label style="font-size:.85rem;color:var(--muted);display:flex;align-items:center;gap:10px;">
-          Deflection weight <input type="range" id="tab5-w-defl" min="0" max="500" value="150" style="flex:1;">
+          Deflection weight <input type="range" id="tab5-w-defl" min="0" max="4000" step="10" value="150" style="flex:1;">
           <strong id="tab5-w-defl-val" style="min-width:3em;text-align:right;color:var(--text);">150</strong></label>
         <label style="font-size:.85rem;color:var(--muted);display:flex;align-items:center;gap:10px;">
-          Cost weight <input type="range" id="tab5-w-cost" min="0" max="2" step="0.05" value="0.1" style="flex:1;">
+          Cost weight <input type="range" id="tab5-w-cost" min="0" max="10" step="0.1" value="0.1" style="flex:1;">
           <strong id="tab5-w-cost-val" style="min-width:3em;text-align:right;color:var(--text);">0.1</strong></label>
         <label style="font-size:.85rem;color:var(--muted);display:flex;align-items:center;gap:10px;">
-          Mass weight <input type="range" id="tab5-w-mass" min="0" max="5" step="0.1" value="1" style="flex:1;">
-          <strong id="tab5-w-mass-val" style="min-width:3em;text-align:right;color:var(--text);">1</strong></label>
+          Force concentration weight <input type="range" id="tab5-w-force" min="0" max="150" step="1" value="5.6" style="flex:1;">
+          <strong id="tab5-w-force-val" style="min-width:3em;text-align:right;color:var(--text);">5.6</strong></label>
       </div>
       <p class="note" id="tab5-callout" style="margin-top:12px;"></p>
       <p class="note">This is exactly how the real Iteration Log in the design tool works — same three weights, same
-      scoring. Go try it for real in Tab 4 with your own designs, or use the link your instructor gave you if they
-      set specific weights for this assignment.</p>
+      scoring. Keep this in mind once you're designing for real in Tab 5, especially if your instructor has already
+      set specific weights for this assignment (they'll give you a link with those weights locked in).</p>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-5" style="display:none;">
+    <div class="panel stub">
+      <h2>Design &amp; Predict</h2>
+      <p class="note">Now that you've seen how the weighting decides which design wins, use that understanding here.
+      The full interactive design tool already exists as its own page.</p>
+      <p style="margin-top:14px;"><a class="btn" href="truss-designer.html" style="text-decoration:none;display:inline-block;">Open the Truss Designer →</a></p>
     </div>
   </div>
   <div class="tab-content" id="tab-6" style="display:none;">
     <div class="panel">
       <h2>Predict vs. Build</h2>
       <p class="note">Once your physical model is built and tested, come back here and compare what the design tool
-      predicted to what you actually measured. They won't match exactly — that's expected, and worth thinking about
-      why, not something to explain away.</p>
+      predicted to what you actually measured. This isn't really a test of whether you built it correctly — it's a
+      test of the model itself: how well does a 2D simplification at half the real load actually predict a real 3D
+      structure? They won't match exactly — that's expected, and worth thinking about why, not something to explain
+      away.</p>
     </div>
     <div class="panel">
       <div class="btn-row" style="flex-direction:column;align-items:stretch;gap:12px;">
@@ -227,17 +234,21 @@
   <div class="tab-content" id="tab-7" style="display:none;">
     <div class="panel">
       <h2>Design Argument</h2>
-      <p class="note">Make the case for your final design. There's no single right answer here — a design that's
-      best for one weighting can be a bad choice for another. What matters is whether your argument actually deals
-      with the tradeoff, using your own real numbers, rather than leaning on one metric alone.</p>
+      <p class="note">Make the case for your final design. In real engineering, an argument like this isn't about
+      proving your design is universally best — it's about justifying why it's the best choice given the specific
+      criteria and constraints (the weighting) you were assigned. A design that wins under one weighting can lose
+      under another; that's expected, not a flaw in your reasoning. What matters is whether your argument actually
+      deals with the tradeoff, using your own real numbers from your design process, rather than leaning on one
+      metric alone.</p>
     </div>
     <div class="panel">
       <div class="btn-row" style="flex-direction:column;align-items:stretch;gap:14px;">
-        <label style="font-size:.85rem;color:var(--muted);">Claim — which design do you think best balances
-          deflection, cost, and mass, and for what weighting?
+        <label style="font-size:.85rem;color:var(--muted);">Claim — given the deflection/cost/force concentration
+          weighting your instructor assigned, why is your final design the best one you found for it?
           <textarea id="tab7-claim" rows="3" style="width:100%;margin-top:4px;padding:10px;background:var(--panel2);
             border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:.88rem;resize:vertical;"></textarea></label>
-        <label style="font-size:.85rem;color:var(--muted);">Evidence — what specific numbers from your Iteration Log support this?
+        <label style="font-size:.85rem;color:var(--muted);">Evidence — what specific numbers from your Iteration Log,
+          compared against the assigned weighting, support this?
           <textarea id="tab7-evidence" rows="3" style="width:100%;margin-top:4px;padding:10px;background:var(--panel2);
             border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:.88rem;resize:vertical;"></textarea></label>
         <label style="font-size:.85rem;color:var(--muted);">Tradeoffs — what did you give up to get there? Would a
@@ -797,17 +808,30 @@ async function tab3Refresh(){
   }
 }
 
-// ---- Tab 5: Iteration Log (weighting demo, no solver needed - these are fixed example designs) ----
+// ---- Tab 4: Iteration Log (weighting demo, no solver needed - these are fixed example designs) ----
+// Real, solver-verified numbers (not hand-picked placeholders) - each row is an actual member subset
+// of the 81-member ground structure, resolved at the corrected load (see truss-designer.html's
+// LOAD_LBF derivation: real hanging mass is 1.5kg total, this one face carries half - 0.75kg,
+// -1.65403 lbf, NOT the earlier legacy -1.5lbf). Full Ground Structure = all 81 members;
+// Trimmed/Overtrimmed = greedy-optimized subsets at decreasing deflection-weight strength (57/36
+// members). Load-Balanced (41 members) replaces an earlier "Lean" row that didn't earn its place -
+// found by a randomized-restart search explicitly minimizing peak member force (not deflection),
+// and it's a genuinely different kind of design: fewer members AND lower peak force than the full
+// structure, but higher deflection - proof that "spread the load out" is its own real design
+// strategy, not just a side effect of keeping more material. Cost includes both rod AND connector
+// cost ($1/cm + $10/connector), matching truss-designer.html's real formula. Force is in Newtons
+// (converted from the solver's native lbf at 4.44822 N/lbf) to match truss-designer.html and stay
+// metric like everything else on the page.
 const TAB5_DESIGNS = [
-  {name:"Full Ground Structure", defl:0.64, cost:913.5, mass:110.0},
-  {name:"Trimmed", defl:0.81, cost:740, mass:88},
-  {name:"Lean", defl:1.35, cost:580, mass:68},
-  {name:"Overtrimmed", defl:2.9, cost:510, mass:59},
+  {name:"Full Ground Structure", defl:0.70, cost:1193.5, force:10.15},
+  {name:"Trimmed", defl:0.72, cost:911.5, force:10.73},
+  {name:"Load-Balanced", defl:1.23, cost:679.5, force:9.82},
+  {name:"Overtrimmed", defl:1.73, cost:614.0, force:19.62},
 ];
-let tab5Weights = {defl:150, cost:0.1, mass:1};
+let tab5Weights = {defl:150, cost:0.1, force:5.6};
 
 function tab5Score(d){
-  return tab5Weights.defl*d.defl + tab5Weights.cost*d.cost + tab5Weights.mass*d.mass;
+  return tab5Weights.defl*d.defl + tab5Weights.cost*d.cost + tab5Weights.force*d.force;
 }
 
 function renderTab5(){
@@ -820,14 +844,14 @@ function renderTab5(){
     const tr = document.createElement("tr");
     if(i===bestIdx) tr.style.background = "rgba(61,220,151,.10)";
     tr.innerHTML = `<td>${d.name}${i===bestIdx?" ★":""}</td><td>${d.defl.toFixed(2)}</td>`
-      + `<td>${d.cost.toFixed(1)}</td><td>${d.mass.toFixed(1)}</td><td>${scores[i].toFixed(1)}</td>`;
+      + `<td>${d.cost.toFixed(1)}</td><td>${d.force.toFixed(2)}</td><td>${scores[i].toFixed(1)}</td>`;
     tbody.appendChild(tr);
   });
   document.getElementById("tab5-callout").textContent =
     `Right now, "${TAB5_DESIGNS[bestIdx].name}" wins. Push one slider all the way up and watch whether it stays the winner.`;
 }
 
-["defl","cost","mass"].forEach(key=>{
+["defl","cost","force"].forEach(key=>{
   const input = document.getElementById(`tab5-w-${key}`);
   const val = document.getElementById(`tab5-w-${key}-val`);
   input.addEventListener("input", ()=>{
@@ -882,15 +906,20 @@ async function tab7GetFeedback(){
 
   const systemPrompt = `You are an engineering teacher giving formative feedback to an 8th-grade student on a
 cantilever truss design project (the "ground structure" method: students start from a full candidate set of
-truss members and remove some to minimize a weighted combination of deflection, cost, and mass under a fixed
-tip load, then build the winning design physically out of K'NEX). Be direct, encouraging, and specific. You are
-not grading a single "correct" design - there isn't one; different weightings of deflection/cost/mass legitimately
-favor different designs. Your job is to push back if the argument leans on only one metric (e.g. "it has the least
-deflection" without discussing cost or mass), doesn't cite the student's own actual numbers, or treats one iteration
-as proof rather than one data point among several they tried. If they discussed the predicted-vs-measured deflection
-gap, check their explanation is a plausible physical reason (joint play, the 2D/half-load model simplification,
-measurement error) rather than hand-waved. Keep the response to 150-220 words, plain language appropriate for a
-13-year-old, and do not use em dashes.`;
+truss members and remove some to minimize a weighted combination of deflection, cost, and force concentration
+(the largest force carried by any single member - low means the load is spread out, high means one member is
+doing most of the work) under a fixed tip load and an instructor-assigned weighting, then build the winning
+design physically out of K'NEX). Be direct, encouraging, and specific. You are not grading a single "correct"
+design - there isn't one; different weightings of deflection/cost/force concentration legitimately favor
+different designs, and the student's job is to justify their design as the best one they found for the SPECIFIC
+weighting they were assigned, not to claim it's universally best. Your job is to push back if the argument leans
+on only one metric (e.g. "it has the least deflection" without discussing cost or force concentration), doesn't
+name or use the assigned weighting at all, doesn't cite the student's own actual numbers from their design
+process (their Iteration Log), or treats one iteration as proof rather than one data point among several they
+tried. If they discussed the predicted-vs-measured deflection gap, check their explanation is a plausible
+physical reason (joint play, the 2D/half-load model simplification, measurement error) rather than hand-waved -
+and that they treated the comparison as a test of the model's quality, not just of their own building accuracy.
+Keep the response to 150-220 words, plain language appropriate for a 13-year-old, and do not use em dashes.`;
 
   const userPrompt = `CLAIM: ${claim}\n\nEVIDENCE: ${evidence}\n\nTRADEOFFS: ${tradeoffs}\n\nREFLECTION: ${reflection}`;
 
