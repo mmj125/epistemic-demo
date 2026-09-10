@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Cycles Engine Browser Demo</title>
+<style>
+  body { font-family: -apple-system, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; color: #222; }
+  h1 { font-size: 22px; }
+  .note { background: #fff8e1; border: 1px solid #e0c060; border-radius: 6px; padding: 12px 16px; font-size: 14px; margin: 16px 0; }
+  .controls { display: flex; gap: 16px; align-items: center; margin: 20px 0; flex-wrap: wrap; }
+  label { font-size: 14px; font-weight: 600; }
+  select, button { font-size: 15px; padding: 6px 10px; }
+  button { cursor: pointer; }
+  #status { color: #666; font-size: 14px; margin: 10px 0; }
+  #result { font-size: 16px; margin-top: 20px; padding: 16px; background: #f4f4f4; border-radius: 6px; display: none; }
+  #result b { font-size: 28px; }
+  table { border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+  td, th { border: 1px solid #ccc; padding: 4px 10px; text-align: right; }
+  th { background: #eee; }
+</style>
+</head>
+<body>
+
+<h1>Cycles Engine, running live in this browser</h1>
+
+<div class="note">
+  This is a validated-engine demo, not the classroom tool. It proves the from-scratch
+  agroecosystem engine (see <code>cycles_engine_validate.py</code>) runs correctly in
+  a real browser via Pyodide, no server, no backend, matching this platform's
+  architecture. It does not yet include nitrogen rate as a student control (that was
+  scoped but never built onto the validated engine, kept honest here rather than
+  faked) or arbitrary field/location selection (deferred, see CLAUDE.md). Weather
+  data is real NLDAS-2 reanalysis for Rock Springs, PA, 1980-2016, a public federal
+  dataset independent of Cycles' own licensing.
+</div>
+
+<div class="controls">
+  <label>Crop:
+    <select id="cropSelect">
+      <option value="corn">Corn (grain)</option>
+      <option value="soybean">Soybean</option>
+    </select>
+  </label>
+  <label>Weather year:
+    <select id="yearSelect"></select>
+  </label>
+  <button id="runBtn" disabled>Loading Python engine...</button>
+</div>
+
+<div id="status">Starting Pyodide...</div>
+<div id="result"></div>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+<script>
+const yearSelect = document.getElementById("yearSelect");
+for (let y = 1980; y <= 2016; y++) {
+  const opt = document.createElement("option");
+  opt.value = y; opt.textContent = y;
+  if (y === 2012) opt.selected = true; // a real dry year, makes a good first demo
+  yearSelect.appendChild(opt);
+}
+
+let pyodide, WEATHER;
+
+async function init() {
+  const [pyReady, weatherResp] = await Promise.all([
+    (async () => {
+      pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.2/full/" });
+      await pyodide.runPythonAsync(ENGINE_SOURCE);
+    })(),
+    fetch("weather_compact.json").then(r => r.json()),
+  ]);
+  WEATHER = weatherResp;
+  document.getElementById("status").textContent = "Ready.";
+  document.getElementById("runBtn").disabled = false;
+  document.getElementById("runBtn").textContent = "Run simulation";
+}
+
+document.getElementById("runBtn").addEventListener("click", async () => {
+  const crop = document.getElementById("cropSelect").value;
+  const year = yearSelect.value;
+  const status = document.getElementById("status");
+  const result = document.getElementById("result");
+  status.textContent = "Running...";
+  result.style.display = "none";
+
+  const yearWeather = WEATHER[year];
+  if (!yearWeather) { status.textContent = "No weather data for that year."; return; }
+
+  pyodide.globals.set("weather_json", JSON.stringify(yearWeather));
+  pyodide.globals.set("crop_name", crop);
+
+  const out = await pyodide.runPythonAsync(`
+import json
+wx = json.loads(weather_json)
+
+def find_planting(wx, window, min_soil_temp):
+    tmeans = {int(doy): (row[1] + row[2]) / 2 for doy, row in wx.items()}
+    doys_sorted = sorted(tmeans)
+    tsoils = simulate_soil_temp([tmeans[d] for d in doys_sorted], k=0.15)
+    tsoil_by_doy = dict(zip(doys_sorted, tsoils))
+    return find_planting_doy(tsoil_by_doy, window, min_soil_temp)
+
+plant_doy = find_planting(wx, (110, 131), 12.0)
+doys_sorted = sorted(int(d) for d in wx if int(d) >= plant_doy)
+rows = []
+for d in doys_sorted:
+    row = wx[str(d)]
+    rows.append(dict(doy=d, pp=row[0], tx=row[1], tn=row[2], solar=row[3], rhx=row[4], rhn=row[5], wind=row[6]))
+
+crop = CORN if crop_name == "corn" else SOYBEAN
+result = simulate_season(rows, crop)
+json.dumps({"plant_doy": plant_doy, **result})
+`);
+
+  const data = JSON.parse(out);
+  const label = crop === "corn" ? "Grain yield" : "Soybean yield";
+  result.innerHTML = `
+    <div>${label} (${year}): <b>${data.grain.toFixed(2)} Mg/ha</b></div>
+    <table>
+      <tr><th>Planting day (soil-temp triggered)</th><td>DOY ${data.plant_doy}</td></tr>
+      <tr><th>Total biomass</th><td>${data.total.toFixed(2)} Mg/ha</td></tr>
+      <tr><th>Aboveground biomass</th><td>${data.ag.toFixed(2)} Mg/ha</td></tr>
+    </table>
+  `;
+  result.style.display = "block";
+  status.textContent = "Done. Computed entirely in this browser tab, no server involved.";
+});
+
+const ENGINE_SOURCE = String.raw`
+import math
+
+def eto_fao56(doy, tmax, tmin, rs, rhmax, rhmin, wind_z, lat_deg, alt_m=0.0, wind_height_m=10.0):
+    tmean = (tmax + tmin) / 2
+    delta = 4098 * (0.6108 * math.exp(17.27 * tmean / (tmean + 237.3))) / (tmean + 237.3) ** 2
+    P = 101.3 * ((293 - 0.0065 * alt_m) / 293) ** 5.26
+    gamma = 0.000665 * P
+    def e0(t):
+        return 0.6108 * math.exp(17.27 * t / (t + 237.3))
+    es = (e0(tmax) + e0(tmin)) / 2
+    ea = (e0(tmin) * rhmax / 100 + e0(tmax) * rhmin / 100) / 2
+    phi = math.radians(lat_deg)
+    dr = 1 + 0.033 * math.cos(2 * math.pi / 365 * doy)
+    decl = 0.409 * math.sin(2 * math.pi / 365 * doy - 1.39)
+    ws = math.acos(max(-1.0, min(1.0, -math.tan(phi) * math.tan(decl))))
+    Gsc = 0.0820
+    Ra = (24 * 60 / math.pi) * Gsc * dr * (ws * math.sin(phi) * math.sin(decl) + math.cos(phi) * math.cos(decl) * math.sin(ws))
+    Rso = (0.75 + 2e-5 * alt_m) * Ra
+    Rns = (1 - 0.23) * rs
+    sigma = 4.903e-9
+    tmax_k, tmin_k = tmax + 273.16, tmin + 273.16
+    rs_rso = min(1.0, rs / Rso) if Rso > 0 else 0
+    Rnl = sigma * ((tmax_k ** 4 + tmin_k ** 4) / 2) * (0.34 - 0.14 * math.sqrt(max(0, ea))) * (1.35 * rs_rso - 0.35)
+    Rn = Rns - Rnl
+    u2 = wind_z * 4.87 / math.log(67.8 * wind_height_m - 5.42)
+    num = 0.408 * delta * Rn + gamma * (900 / (tmean + 273)) * u2 * (es - ea)
+    den = delta + gamma * (1 + 0.34 * u2)
+    return num / den
+
+def saxton_rawls(sand_pct, clay_pct, om_pct):
+    S, C, OM = sand_pct / 100, clay_pct / 100, om_pct
+    theta_1500t = (-0.024*S + 0.487*C + 0.006*OM + 0.005*(S*OM) - 0.013*(C*OM) + 0.068*(S*C) + 0.031)
+    theta_1500 = theta_1500t + (0.14*theta_1500t - 0.02)
+    theta_33t = (-0.251*S + 0.195*C + 0.011*OM + 0.006*(S*OM) - 0.027*(C*OM) + 0.452*(S*C) + 0.299)
+    theta_33 = theta_33t + (1.283*theta_33t**2 - 0.374*theta_33t - 0.015)
+    theta_s33t = (0.278*S + 0.034*C + 0.022*OM - 0.018*(S*OM) - 0.027*(C*OM) - 0.584*(S*C) + 0.078)
+    theta_s33 = theta_s33t + (0.636*theta_s33t - 0.107)
+    theta_sat = theta_33 + theta_s33 - 0.097*S + 0.043
+    return dict(pwp=max(0.01, theta_1500), fc=max(0.02, theta_33), sat=max(0.05, theta_sat))
+
+OM_FROM_SOC = 1.72
+
+def redistribute(layers, water_in_mm):
+    remaining = water_in_mm
+    for l in layers:
+        cap_mm = max(0.0, (l["fc"] - l["theta"]) * l["thick"] * 1000)
+        add = min(remaining, cap_mm + max(0.0, (l["sat"] - l["fc"]) * l["thick"] * 1000))
+        l["theta"] += add / (l["thick"] * 1000)
+        remaining -= add
+        excess_mm = max(0.0, (l["theta"] - l["fc"]) * l["thick"] * 1000)
+        l["theta"] -= excess_mm / (l["thick"] * 1000)
+        remaining += excess_mm
+    return remaining
+
+def soil_evaporation(layers, eto_mm, canopy_cover_frac):
+    l0 = layers[0]
+    demand_mm = eto_mm * (1 - canopy_cover_frac)
+    available_mm = max(0.0, (l0["theta"] - l0["pwp"]) * l0["thick"] * 1000)
+    actual_mm = min(demand_mm, available_mm)
+    l0["theta"] -= actual_mm / (l0["thick"] * 1000)
+    return actual_mm
+
+def root_zone_availability(layers, root_depth_m):
+    depth, avail, capacity = 0.0, 0.0, 0.0
+    for l in layers:
+        if depth >= root_depth_m:
+            break
+        d = min(l["thick"], root_depth_m - depth)
+        avail += max(0.0, l["theta"] - l["pwp"]) * d * 1000
+        capacity += (l["fc"] - l["pwp"]) * d * 1000
+        depth += l["thick"]
+    return avail / capacity if capacity > 0 else 1.0
+
+def extract_transpiration(layers, root_depth_m, tr_mm):
+    remaining, depth = tr_mm, 0.0
+    for l in layers:
+        if depth >= root_depth_m or remaining <= 0:
+            break
+        d = min(l["thick"], root_depth_m - depth)
+        avail_mm = max(0.0, l["theta"] - l["pwp"]) * d * 1000
+        take = min(remaining, avail_mm)
+        l["theta"] -= take / (l["thick"] * 1000)
+        remaining -= take
+        depth += l["thick"]
+    return tr_mm - remaining
+
+def simulate_soil_temp(daily_tmean, k=0.15, t0=None):
+    tsoil = t0 if t0 is not None else daily_tmean[0]
+    out = []
+    for t in daily_tmean:
+        tsoil = tsoil + k * (t - tsoil)
+        out.append(tsoil)
+    return out
+
+def find_planting_doy(tsoil_by_doy, window, min_soil_temp):
+    for doy in range(window[0], window[1] + 1):
+        if doy in tsoil_by_doy and tsoil_by_doy[doy] > min_soil_temp:
+            return doy
+    return window[1]
+
+DEFAULT_CANOPY_SHAPE = (6, -20, -15, 16)
+CORN_CANOPY_SHAPE = (6, -20, -12, 12)
+
+def thermal_time_increment(tx, tn, base_t, opt_t, max_t):
+    tmean = (tx + tn) / 2
+    if tmean <= base_t or tmean >= max_t:
+        return 0.0
+    if tmean <= opt_t:
+        return tmean - base_t
+    return (opt_t - base_t) * (max_t - tmean) / (max_t - opt_t)
+
+def canopy_cover(ttf_norm, eix=1.0, shape=DEFAULT_CANOPY_SHAPE):
+    a, b, c, d = shape
+    ttf_norm = max(0.0, ttf_norm)
+    return eix / (1 + math.exp(a + b*ttf_norm) + math.exp(c + d*ttf_norm))
+
+def transpiration_temp_factor(tmean, min_t, threshold_t):
+    if tmean <= min_t:
+        return 0.0
+    if tmean >= threshold_t:
+        return 1.0
+    return (tmean - min_t) / (threshold_t - min_t)
+
+TTF50_SHOOT_PARTITION = 0.5
+
+def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
+    ttf = max(1e-6, ttf)
+    return fsti + (fstf - fsti) / (1 + (ttf50/ttf)**4)
+
+def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0):
+    layers = crop["make_layers"]()
+    tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
+    for w in weather_rows:
+        dtt = thermal_time_increment(w["tx"], w["tn"], crop["base_t"], crop["opt_t"], crop["max_t"])
+        tt_cum += dtt
+        ttf = tt_cum / crop["tt_maturity"]
+        if ttf >= harvest_ttf:
+            break
+        eie = canopy_cover(ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE))
+        root_depth = root_max_m * min(1.0, ttf/0.5)
+        redistribute(layers, w["pp"])
+        eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
+        soil_evaporation(layers, eto, eie)
+        GR = crop["rue"] * eie * w["solar"]
+        tmean = (w["tx"] + w["tn"]) / 2
+        es = 0.6108 * math.exp(17.27*tmean/(tmean+237.3))
+        ea = es * (w["rhx"] + w["rhn"]) / 200
+        Da = max(0.05, es - ea)
+        TRp = (1 + (crop["kc"]-1)*eie) * eie * eto
+        TRp *= transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
+        avail_frac = root_zone_availability(layers, root_depth)
+        water_stress = max(0.0, min(1.0, avail_frac/0.5))
+        TR_actual = TRp * water_stress
+        extract_transpiration(layers, root_depth, TR_actual)
+        GT = crop["wue"]/math.sqrt(Da) * TR_actual
+        dGB = max(0.0, min(GR, GT)) / 1000
+        biomass += dGB
+        ag_biomass += dGB * shoot_fraction(ttf, crop["fsti"], crop["fstf"])
+    flowering_frac = crop["flowering_tt"] / crop["tt_maturity"]
+    fpf = max(0.0, min(1.0, (tt_cum - crop["tt_maturity"]*flowering_frac) / (crop["tt_maturity"]*(1-flowering_frac))))
+    HI = crop["hi_x"] - (crop["hi_x"] - crop["hi_o"]) * math.exp(-crop["hi_slope"]*fpf)
+    biomass_mg_ha = biomass * 10
+    ag_biomass_mg_ha = ag_biomass * 10
+    grain_mg_ha = ag_biomass * HI * 10 * crop.get("calibration_factor", 1.0)
+    return dict(total=biomass_mg_ha, ag=ag_biomass_mg_ha, grain=grain_mg_ha)
+
+SOIL_LAYERS_RAW = [
+    dict(thick=0.05, clay=21, sand=15, soc=1.74), dict(thick=0.05, clay=21, sand=15, soc=1.74),
+    dict(thick=0.10, clay=21, sand=15, soc=1.74), dict(thick=0.20, clay=37, sand=17, soc=0.27),
+    dict(thick=0.20, clay=37, sand=17, soc=0.27), dict(thick=0.20, clay=55, sand=4, soc=0.17),
+    dict(thick=0.20, clay=55, sand=4, soc=0.17), dict(thick=0.20, clay=55, sand=4, soc=0.17),
+    dict(thick=0.20, clay=55, sand=4, soc=0.17),
+]
+def make_layers():
+    layers = []
+    for L in SOIL_LAYERS_RAW:
+        hyd = saxton_rawls(L["sand"], L["clay"], L["soc"]*OM_FROM_SOC)
+        layers.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"]))
+    return layers
+
+CORN = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
+    rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
+    calibration_factor=0.841, canopy_shape=CORN_CANOPY_SHAPE,
+    kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=40.6875, make_layers=make_layers)
+
+SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43,
+    rue=1.3, wue=4.5, hi_x=0.4, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
+    calibration_factor=1.116, kc=1.0, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0,
+    lat_deg=40.6875, make_layers=make_layers)
+`;
+
+init();
+</script>
+</body>
+</html>
