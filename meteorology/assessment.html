@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>End-of-Unit Assessment | Meteorology & Climate Science | epiSTEMic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky:#eef3f7;--sky-dark:#c8d8e4;--ink:#101820;--ink-soft:#3c4a56;
+    --field:#f4f8fb;--panel:#ffffff;--border:#c9d8e2;--muted:#5f7180;
+    --solar:#e08a2e;--accent:#c0392b;--data:#2471a3;--trend:#154360;--log:#1e8449;--ai:#6c3483;
+    --gold:#c9920a;--gold-light:#fff8e8;--reveal:#1e8449;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:"DM Sans",sans-serif;background:var(--field);color:var(--ink);min-height:100vh;font-size:15px;}
+  body::before{content:"";position:fixed;inset:0;background-image:linear-gradient(var(--sky-dark) 1px,transparent 1px),linear-gradient(90deg,var(--sky-dark) 1px,transparent 1px);background-size:32px 32px;opacity:.2;pointer-events:none;z-index:0;}
+  .app{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:0 24px 100px;}
+
+  .nav{padding:14px 0;border-bottom:1px solid var(--border);margin-bottom:28px;display:flex;align-items:center;gap:12px;font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;}
+  .nav a{color:var(--muted);text-decoration:none;}
+  .nav a:hover{color:var(--data);}
+  .nav-sep{color:var(--border);}
+  .nav-current{color:var(--ink);}
+
+  header{padding:0 0 24px;border-bottom:2px solid var(--ink);margin-bottom:28px;}
+  .header-eyebrow{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+  header h1{font-family:"DM Serif Display",serif;font-size:clamp(24px,4vw,38px);line-height:1.1;}
+  header h1 em{font-style:italic;color:var(--accent);}
+  .header-sub{margin-top:8px;color:var(--ink-soft);font-weight:300;max-width:760px;line-height:1.65;font-size:14px;}
+
+  .panel{background:var(--panel);border:1.5px solid var(--border);border-radius:5px;overflow:hidden;margin-bottom:20px;}
+  .panel-header{padding:12px 18px;background:var(--ink);}
+  .panel-header h2{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--sky);font-weight:500;}
+  .panel-body{padding:18px;}
+
+  .instructions{background:var(--gold-light);border:1.5px solid var(--gold);border-radius:4px;padding:18px 22px;margin-bottom:24px;}
+  .instructions h3{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:8px;}
+  .instructions p{font-size:13.5px;line-height:1.65;color:var(--ink-soft);margin-bottom:6px;}
+  .instructions p:last-child{margin-bottom:0;}
+  .instructions strong{color:var(--ink);}
+
+  .context-block{font-size:13.5px;line-height:1.65;color:var(--ink-soft);padding:14px 16px;background:var(--sky);border-left:3px solid var(--data);margin-bottom:18px;}
+  .context-block strong{color:var(--ink);font-weight:500;}
+
+  .name-row{display:flex;gap:14px;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap;}
+  .name-field label{display:block;font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
+  .name-field input{padding:8px 10px;font-family:"DM Sans",sans-serif;font-size:14px;background:var(--field);border:1.5px solid var(--border);border-radius:3px;color:var(--ink);width:260px;}
+  .name-field input:focus{outline:none;border-color:var(--data);}
+  .seed-tag{font-family:"DM Mono",monospace;font-size:11px;color:var(--muted);padding:8px 10px;background:var(--field);border:1.5px solid var(--border);border-radius:3px;}
+
+  .sandbox-frame{width:100%;height:1400px;border:none;border-radius:0;background:#fff;}
+
+  .part-header{margin:36px 0 16px;padding-bottom:8px;border-bottom:1.5px solid var(--border);}
+  .part-label{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
+  .part-title{font-family:"DM Serif Display",serif;font-size:20px;color:var(--ink);}
+
+  .prompt-block{margin-bottom:20px;}
+  .prompt-label{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
+  .prompt-num{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:var(--ink);color:var(--sky);font-size:10px;border-radius:50%;flex-shrink:0;}
+  .prompt-question{font-size:13.5px;font-weight:500;color:var(--ink);margin-bottom:6px;line-height:1.4;}
+  .prompt-hint{font-size:12px;color:var(--muted);margin-bottom:8px;line-height:1.5;font-style:italic;}
+  textarea{width:100%;min-height:80px;padding:10px 12px;font-family:"DM Sans",sans-serif;font-size:13px;line-height:1.6;background:var(--field);border:1.5px solid var(--border);border-radius:3px;color:var(--ink);resize:vertical;}
+  textarea:focus{outline:none;border-color:var(--data);}
+
+  .btn-submit{padding:12px 26px;font-family:"DM Sans",sans-serif;font-size:14px;font-weight:500;background:var(--ai);color:white;border:none;border-radius:3px;cursor:pointer;margin-top:10px;}
+  .btn-submit:hover{background:#5b2c6f;}
+
+  #summary-area{display:none;margin-top:30px;}
+  #summary-area.visible{display:block;animation:fadeIn .4s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  .summary-panel{background:#f8f4fd;border:1.5px solid #c39bd3;border-radius:4px;padding:20px 22px;margin-bottom:20px;}
+  .summary-panel h3{font-family:"DM Serif Display",serif;font-size:18px;margin-bottom:12px;}
+  .summary-block{margin-bottom:14px;}
+  .summary-block-label{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
+  .summary-block-body{font-size:13px;line-height:1.6;color:var(--ink-soft);white-space:pre-wrap;}
+  .data-card{background:var(--panel);border:1.5px solid var(--border);border-radius:4px;padding:14px 16px;font-family:"DM Mono",monospace;font-size:12px;line-height:1.9;color:var(--ink-soft);}
+
+  .btn-reveal-grading{padding:9px 18px;font-family:"DM Sans",sans-serif;font-size:12.5px;font-weight:500;background:var(--field);color:var(--ink-soft);border:1.5px dashed var(--border);border-radius:3px;cursor:pointer;margin:16px 0;}
+  .btn-reveal-grading:hover{background:var(--ink);color:var(--sky);border-style:solid;}
+  #grading-reference{display:none;}
+  #grading-reference.visible{display:block;animation:fadeIn .3s ease;}
+  .grading-panel{background:var(--panel);border:1.5px solid var(--reveal);border-radius:4px;padding:18px 20px;}
+  .grading-panel h4{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--reveal);margin-bottom:10px;}
+  .grading-panel p{font-size:13px;line-height:1.65;color:var(--ink-soft);margin-bottom:8px;}
+  .grading-panel strong{color:var(--ink);}
+
+  .btn-print{padding:9px 18px;font-family:"DM Sans",sans-serif;font-size:12.5px;font-weight:500;background:var(--ink);color:var(--sky);border:none;border-radius:3px;cursor:pointer;margin-top:6px;}
+  .btn-print:hover{background:var(--ink-soft);}
+
+  @media print {
+    body::before{display:none;}
+    .no-print{display:none !important;}
+    #summary-area{display:block !important;}
+    #grading-reference{display:block !important;}
+    .app{max-width:100%;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="nav no-print">
+    <a href="investigation.html">Meteorology Investigation</a>
+    <span class="nav-sep">/</span>
+    <span class="nav-current">End-of-Unit Assessment</span>
+  </div>
+
+  <header>
+    <div class="header-eyebrow">Meteorology &amp; Climate Science &middot; End-of-Unit Assessment</div>
+    <h1>Investigate a <em>real</em> phenomenon</h1>
+    <p class="header-sub">This assessment assigns you a real comparison pulled from the same CERES and ERA5 data you used in the investigation &mdash; not made-up numbers. It is not a memory test &mdash; you may use your notebook and everything you learned in the investigation. What matters is whether you can read real data and reason about it, including about how sure scientists actually are.</p>
+  </header>
+
+  <div class="instructions no-print">
+    <h3>Before you begin</h3>
+    <p><strong>This is open-notes, not open-answer.</strong> You've been assigned one of several real comparisons at random. Your case may differ from a classmate's, so answers copied from someone else likely won't match your data.</p>
+    <p><strong>Cite what the display actually shows.</strong> Vague claims ("it went up") earn less credit than specific ones (direction, rough magnitude, where in the region the pattern is strongest or weakest).</p>
+    <p><strong>You are not told the name of the phenomenon.</strong> Part of what's being assessed is whether you can work out what's going on from the data and from what you already know about the energy budget, not whether you can recognize a vocabulary word.</p>
+  </div>
+
+  <div class="name-row no-print">
+    <div class="name-field">
+      <label>Student Name</label>
+      <input type="text" id="student-name" placeholder="Type your name">
+    </div>
+    <div class="seed-tag" id="seed-tag">Case ID: &mdash;</div>
+    <button class="btn-print no-print" onclick="window.print()" style="margin-top:0;">Print / Save as PDF</button>
+  </div>
+
+  <div class="context-block">
+    <strong>Your assignment:</strong> <span id="context-text">Loading case…</span>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><h2>Live Data &middot; Your Assigned Comparison</h2></div>
+    <div class="panel-body" style="padding:0;">
+      <iframe id="sandboxFrame" class="sandbox-frame" src="about:blank"></iframe>
+    </div>
+  </div>
+
+  <div class="part-header">
+    <div class="part-label">Part 1</div>
+    <div class="part-title">Reading the display</div>
+  </div>
+
+  <div class="prompt-block">
+    <div class="prompt-label"><span class="prompt-num">1</span>Panel A</div>
+    <div class="prompt-question">What pattern does Panel A show?</div>
+    <div class="prompt-hint">Cite direction, rough magnitude, and where in the region the pattern is strongest or weakest &mdash; not just "it went up" or "it went down."</div>
+    <textarea id="q1"></textarea>
+  </div>
+  <div class="prompt-block">
+    <div class="prompt-label"><span class="prompt-num">2</span>Panel B</div>
+    <div class="prompt-question">What pattern does Panel B show, and how does it compare to Panel A?</div>
+    <div class="prompt-hint">Similar direction and magnitude, or different? Does one lag, lead, or look unrelated to the other?</div>
+    <textarea id="q2"></textarea>
+  </div>
+
+  <div class="part-header">
+    <div class="part-label">Part 2</div>
+    <div class="part-title">Explaining it</div>
+  </div>
+
+  <div class="prompt-block">
+    <div class="prompt-label"><span class="prompt-num">3</span>Mechanism</div>
+    <div class="prompt-question">What physical mechanism would explain the pattern(s) you found?</div>
+    <div class="prompt-hint">Use what you know about the energy budget from the investigation &mdash; absorption, reflection, radiation, heat capacity, and so on.</div>
+    <textarea id="q3"></textarea>
+  </div>
+
+  <div class="part-header">
+    <div class="part-label">Part 3</div>
+    <div class="part-title">How sure are we?</div>
+  </div>
+
+  <div class="prompt-block">
+    <div class="prompt-label"><span class="prompt-num">4</span>Settledness</div>
+    <div class="prompt-question">Is this something climate scientists are confident about, or is it still being actively investigated?</div>
+    <div class="prompt-hint">What in your own data, or in its limits, supports your answer either way?</div>
+    <textarea id="q4"></textarea>
+  </div>
+  <div class="prompt-block">
+    <div class="prompt-label"><span class="prompt-num">5</span>Limitation</div>
+    <div class="prompt-question">Give one reason your two panels might not perfectly demonstrate what you think they demonstrate.</div>
+    <div class="prompt-hint">Does the variable or region you were given really isolate the thing you're claiming, or could something else explain the pattern?</div>
+    <textarea id="q5"></textarea>
+  </div>
+
+  <div class="part-header">
+    <div class="part-label">Part 4</div>
+    <div class="part-title">Reflection</div>
+  </div>
+
+  <div class="prompt-block">
+    <div class="prompt-label"><span class="prompt-num">6</span>Next steps</div>
+    <div class="prompt-question">If you had more data or more time, what would you want to check next?</div>
+    <textarea id="q6"></textarea>
+  </div>
+
+  <button class="btn-submit no-print" onclick="generateSummary()">Submit &amp; Generate Summary</button>
+
+  <div id="summary-area">
+    <div class="summary-panel">
+      <h3>Submission Summary</h3>
+      <div class="summary-block">
+        <div class="summary-block-label">Case data</div>
+        <div class="data-card" id="data-card"></div>
+      </div>
+      <div id="responses-summary"></div>
+    </div>
+
+    <button class="btn-reveal-grading no-print" onclick="revealGrading()">Reveal instructor grading reference</button>
+    <div id="grading-reference">
+      <div class="grading-panel" id="grading-panel-body"></div>
+    </div>
+    <div class="no-print" style="margin-top:16px;">
+      <button class="btn-print" onclick="window.print()">Print / Save as PDF for submission</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function pickOne(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
+
+// Each case points at a real, fixed slice of the same CERES/ERA5 data used
+// in the investigation - unlike anthropology's assessment, nothing here is
+// fabricated. The seed only decides WHICH real comparison a student gets,
+// not what the numbers are, so students who land on the same case will see
+// identical data. That's a real anti-copying tradeoff versus anthropology's
+// per-student fabricated numbers - acceptable for now, but if stronger
+// anti-copying is needed later, the fix is adding yearStart/yearEnd deep-link
+// params to the sandbox so the seed can also vary the year window per case.
+const ARCHETYPES_MET = {
+  ice_albedo: {
+    label: "the ice-albedo feedback",
+    assignment: "Panel A shows sea ice cover (siconc) in the Arctic (66.5&ndash;90&deg;N) as a trend map, 2000&ndash;2025. Panel B shows albedo for the same region and years.",
+    sandbox: {var:"siconc", region:"arctic", type:"trendmap", varB:"albedo", regionB:"arctic", typeB:"trendmap"},
+    tension: "As sea ice retreats, it exposes darker open ocean where there used to be bright, reflective ice. That lowers the surface's albedo, so more incoming sunlight gets absorbed instead of reflected, which warms the water and melts more ice &mdash; a self-reinforcing loop, not a one-time effect. A strong response notices that the siconc decline and the albedo decline track the same region and describes the loop, rather than just reporting that both went down.",
+    settled: "This is a well-established mechanism, not an open question. A student who frames it as uncertain has the settledness backwards."
+  },
+  sea_ice_asymmetry: {
+    label: "the Arctic/Antarctic sea-ice asymmetry",
+    assignment: "Panel A shows sea ice cover (siconc) in the Arctic (66.5&ndash;90&deg;N) as a trend map, 2000&ndash;2025. Panel B shows sea ice cover (siconc) in the Antarctic (90&ndash;66.5&deg;S), same years.",
+    sandbox: {var:"siconc", region:"arctic", type:"trendmap", varB:"siconc", regionB:"antarctic", typeB:"trendmap"},
+    tension: "Arctic sea ice has declined steadily. Antarctic sea ice stayed roughly stable, even slightly increased, for years before a sharp drop starting around 2016 that the tail end of this record should capture. The Arctic is an ocean mostly surrounded by land; Antarctica is a continent surrounded by open ocean, and Southern Ocean wind and circulation patterns drive Antarctic sea ice differently. A strong response notices the two panels do not mirror each other and does not force a single 'global warming does this everywhere the same way' story onto both.",
+    settled: "The asymmetry itself is well-documented. Exactly why the recent Antarctic drop happened when and how it did is still actively researched &mdash; a response that treats both panels as equally settled is missing that distinction."
+  },
+  polar_amplification: {
+    label: "polar amplification",
+    assignment: "Panel A shows 2m air temperature (t2m) in the Arctic (66.5&ndash;90&deg;N) as a trend map, 2000&ndash;2025. Panel B shows 2m air temperature (t2m) globally, same years.",
+    sandbox: {var:"t2m", region:"arctic", type:"trendmap", varB:"t2m", regionB:"global", typeB:"trendmap"},
+    tension: "The Arctic has warmed several times faster than the global average over the past few decades. The ice-albedo feedback is a major reason, but not the only one &mdash; atmospheric and ocean circulation changes, and how heat gets transported toward the poles, all play a role too. A strong response cites the actual magnitude difference between the two panels' trends rather than just noting both are positive, and doesn't claim ice-albedo feedback is the sole cause.",
+    settled: "The pattern itself (Arctic warming faster than the global average) is robustly observed. How much each individual driver contributes is still being worked out."
+  },
+  clouds: {
+    label: "clouds' dual radiative role",
+    assignment: "Panel A shows cloud area fraction (cld) globally as a trend map, 2000&ndash;2025. Panel B shows cloud radiative effect (cre) for the same region and years.",
+    sandbox: {var:"cld", region:"global", type:"trendmap", varB:"cre", regionB:"global", typeB:"trendmap"},
+    tension: "Clouds reflect incoming sunlight back to space (a cooling effect) but also trap outgoing heat the way greenhouse gases do (a warming effect). Which one wins depends on the cloud's type, altitude, and location &mdash; low thick clouds tend to cool, high thin clouds tend to warm. A strong response resists collapsing this into a single 'clouds cause warming' or 'clouds cause cooling' claim, since cld (how much cloud cover) and cre (the net radiative effect of that cover) don't have to move in the same direction. Noticing that they might not is exactly the reasoning this case is testing.",
+    settled: "This net balance, and especially how it might shift as the climate continues to warm, is genuinely one of the biggest open questions in climate science right now, not settled fact."
+  },
+  land_ocean: {
+    label: "land warming faster than ocean",
+    assignment: "Panel A shows 2m air temperature (t2m) globally as a time series, 2000&ndash;2025. Panel B shows sea surface temperature (sst) globally, same years.",
+    sandbox: {var:"t2m", region:"global", type:"timeseries", varB:"sst", regionB:"global", typeB:"timeseries"},
+    tension: "Given the same energy input, land surfaces warm up more, and faster, than ocean surfaces do &mdash; water has a much higher heat capacity and loses energy efficiently through evaporation, so it absorbs and stores more energy per degree of warming, while land has no such buffer. t2m (2m air temperature) is measured over both land and ocean grid cells combined, while sst is ocean-only, so a global t2m trend running visibly steeper than the global sst trend is an indirect but real signature of land's faster warming, not a direct land-only measurement. The strongest responses notice and name that limitation rather than treating t2m as a clean 'land temperature.'",
+    settled: "Well-established, and one of the more straightforwardly mechanistic comparisons in this set."
+  }
+};
+
+let CASE = null;
+
+function generateCase(seed){
+  const rng = mulberry32(seed);
+  const key = pickOne(rng, Object.keys(ARCHETYPES_MET));
+  const a = ARCHETYPES_MET[key];
+  const code = "MA-" + String(seed % 9000 + 1000);
+  return {seed, code, key, label: a.label, assignment: a.assignment, sandbox: a.sandbox, tension: a.tension, settled: a.settled};
+}
+
+function sandboxSrc(s){
+  const p = new URLSearchParams();
+  p.set("embed", "1");
+  p.set("var", s.var); p.set("region", s.region); p.set("type", s.type);
+  p.set("varB", s.varB); p.set("regionB", s.regionB); p.set("typeB", s.typeB);
+  p.set("run", "1");
+  return "energy-balance-sandbox.html?" + p.toString();
+}
+
+function val(id){ return document.getElementById(id).value.trim() || "(no response)"; }
+
+function generateSummary(){
+  const card = document.getElementById("data-card");
+  card.innerHTML =
+    "Case: " + CASE.code + " (seed " + CASE.seed + ")<br>" +
+    "Panel A: " + CASE.sandbox.var + " &middot; " + CASE.sandbox.region + " &middot; " + CASE.sandbox.type + "<br>" +
+    "Panel B: " + CASE.sandbox.varB + " &middot; " + CASE.sandbox.regionB + " &middot; " + CASE.sandbox.typeB;
+
+  const resp = document.getElementById("responses-summary");
+  const items = [
+    ["Q1 — Panel A", "q1"], ["Q2 — Panel B", "q2"], ["Q3 — Mechanism", "q3"],
+    ["Q4 — Settledness", "q4"], ["Q5 — Limitation", "q5"], ["Q6 — Reflection", "q6"],
+  ];
+  resp.innerHTML = "";
+  items.forEach(([label, id]) => {
+    const block = document.createElement("div");
+    block.className = "summary-block";
+    block.innerHTML = "<div class='summary-block-label'>" + label + "</div><div class='summary-block-body'>" + val(id) + "</div>";
+    resp.appendChild(block);
+  });
+
+  if(document.getElementById("student-name").value.trim()){
+    const nameBlock = document.createElement("div");
+    nameBlock.className = "summary-block";
+    nameBlock.innerHTML = "<div class='summary-block-label'>Student</div><div class='summary-block-body'>" + document.getElementById("student-name").value.trim() + "</div>";
+    resp.insertBefore(nameBlock, resp.firstChild);
+  }
+
+  document.getElementById("summary-area").classList.add("visible");
+  document.getElementById("summary-area").scrollIntoView({behavior: "smooth", block: "start"});
+}
+
+function revealGrading(){
+  const panel = document.getElementById("grading-panel-body");
+  panel.innerHTML =
+    "<h4>Instructor grading reference — Case " + CASE.code + " (" + CASE.label + ")</h4>" +
+    "<p><strong>Assignment given to the student:</strong> " + CASE.assignment + "</p>" +
+    "<p><strong>What's actually going on:</strong> " + CASE.tension + "</p>" +
+    "<p><strong>Settledness:</strong> " + CASE.settled + "</p>" +
+    "<p><strong>What to look for in a strong response:</strong> specific citation of what the two live panels actually showed (direction, rough magnitude, spatial extent) rather than generic description; a mechanism grounded in the energy budget; an accurate settledness judgment matching the note above, not a guess; and real engagement with Q5's limitation prompt rather than a throwaway line. Since the underlying data is real and shared with other students who drew the same case, look for the specific numbers and patterns actually visible in the panels above, not boilerplate that could describe any warming trend.</p>";
+  document.getElementById("grading-reference").classList.add("visible");
+}
+
+function initAssessment(){
+  const url = new URL(window.location.href);
+  let seed = url.searchParams.get("seed");
+  if(!seed){
+    seed = Math.floor(Math.random() * 1e9);
+    url.searchParams.set("seed", seed);
+    window.history.replaceState({}, "", url.toString());
+  }
+  seed = parseInt(seed, 10);
+  CASE = generateCase(seed);
+
+  document.getElementById("seed-tag").textContent = "Case ID: " + CASE.code;
+  document.getElementById("context-text").innerHTML = CASE.assignment;
+  document.getElementById("sandboxFrame").src = sandboxSrc(CASE.sandbox);
+}
+
+window.addEventListener("DOMContentLoaded", initAssessment);
+</script>
+</body>
+</html>
