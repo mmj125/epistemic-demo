@@ -357,6 +357,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     layers = crop["make_layers"]()
     tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
     n_pool = n_rate_kg_ha if (n_rate_kg_ha is not None and not crop.get("legume", False)) else None
+    n_leached_total = 0.0 if n_pool is not None else None
     history = [] if record_history else None
     for w in weather_rows:
         dtt = thermal_time_increment(w["tx"], w["tn"], crop["base_t"], crop["opt_t"], crop["max_t"])
@@ -390,7 +391,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             n_pool -= n_uptake_kg_ha
             profile_water_mm = sum(l["theta"] * l["thick"] * 1000 for l in layers)
             if profile_water_mm > 0 and n_pool > 0 and drainage_mm > 0:
-                n_pool = max(0.0, n_pool - drainage_mm * (n_pool / profile_water_mm))
+                leached_kg_ha = drainage_mm * (n_pool / profile_water_mm)
+                n_pool = max(0.0, n_pool - leached_kg_ha)
+                n_leached_total += leached_kg_ha
         dGB = dGB_water_limited * n_stress
         biomass += dGB
         ag_biomass += dGB * shoot_fraction(ttf, crop["fsti"], crop["fstf"])
@@ -404,6 +407,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     ag_biomass_mg_ha = ag_biomass * 10
     grain_mg_ha = ag_biomass * HI * 10 * crop.get("calibration_factor", 1.0)
     result = dict(total=biomass_mg_ha, ag=ag_biomass_mg_ha, grain=grain_mg_ha)
+    if n_leached_total is not None:
+        result["n_leached_kg_ha"] = n_leached_total
     if record_history:
         result["history"] = history
     return result
