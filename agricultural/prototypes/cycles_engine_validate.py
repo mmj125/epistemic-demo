@@ -390,16 +390,20 @@ def n_marginal_demand_pct(biomass_mgha, crop):
     return crop["n_max_conc"] * 100 * (1 - crop["n_dilution_slope"]) * biomass_mgha ** (-crop["n_dilution_slope"])
 
 
-def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None):
+def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False):
     """weather_rows: dicts with doy, tx, tn, solar, rhx, rhn, wind, pp, in planting-day order.
     harvest_ttf: fraction of thermal time to maturity that triggers harvest -- 1.0 for grain
     crops (HARVEST_TIMING=-999 in the real crop file), lower for forage/silage crops harvested
     before full maturity (e.g. 0.85 for CornSilageRM.90's real HARVEST_TIMING=85).
     n_rate_kg_ha: total fertilizer N applied at planting (kg N/ha), the student-facing nitrogen
-    knob -- see the mineral-N-balance section above. None (default) skips N tracking entirely."""
+    knob -- see the mineral-N-balance section above. None (default) skips N tracking entirely.
+    record_history: when True, also returns a day-by-day "history" list (doy, canopy cover,
+    water stress, cumulative aboveground biomass) for charting a season's progression --
+    purely additive, no effect on any of the other returned values or existing callers."""
     layers = crop["make_layers"]()
     tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
     n_pool = n_rate_kg_ha if (n_rate_kg_ha is not None and not crop.get("legume", False)) else None
+    history = [] if record_history else None
     for w in weather_rows:
         dtt = thermal_time_increment(w["tx"], w["tn"], crop["base_t"], crop["opt_t"], crop["max_t"])
         tt_cum += dtt
@@ -443,6 +447,10 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         biomass += dGB
         ag_biomass += dGB * shoot_fraction(ttf, crop["fsti"], crop["fstf"])
 
+        if record_history:
+            history.append(dict(doy=w["doy"], ttf=round(ttf, 4), canopy=round(eie, 4),
+                                 water_stress=round(water_stress, 4), ag_mg_ha=round(ag_biomass * 10, 4)))
+
     flowering_frac = crop["flowering_tt"] / crop["tt_maturity"]
     fpf = max(0.0, min(1.0, (tt_cum - crop["tt_maturity"] * flowering_frac) / (crop["tt_maturity"] * (1 - flowering_frac))))
     HI = crop["hi_x"] - (crop["hi_x"] - crop["hi_o"]) * math.exp(-crop["hi_slope"] * fpf)
@@ -450,4 +458,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     ag_biomass_mg_ha = ag_biomass * 10
     grain_mg_ha = ag_biomass * HI * 10 * crop.get("calibration_factor", 1.0)
     forage_mg_ha = ag_biomass_mg_ha * crop.get("forage_fraction", 0.95) * crop.get("calibration_factor", 1.0)
-    return dict(total=biomass_mg_ha, ag=ag_biomass_mg_ha, grain=grain_mg_ha, forage=forage_mg_ha)
+    result = dict(total=biomass_mg_ha, ag=ag_biomass_mg_ha, grain=grain_mg_ha, forage=forage_mg_ha)
+    if record_history:
+        result["history"] = history
+    return result
