@@ -61,35 +61,12 @@
   <h1>Cycles Engine, running live in this browser</h1>
   <div class="header-sub">
     A field simulation, computed entirely on your device the moment you press Run &mdash;
-    no Colab notebook, no login, no server round-trip. This page is a working prototype
-    of the interaction model for a future guided investigation, built on the same
-    from-scratch agroecosystem engine documented in <code>cycles_engine_validate.py</code>.
+    no Colab notebook, no login, no server round-trip. Built from CYCLES' own published
+    equations (Kemanian et al. 2024). Corn and soybean are shown here because both
+    already track real CYCLES output well; a few other rotations are still being
+    refined. Weather is real NLDAS-2 data for Rock Springs, PA, 1980&ndash;2016.
   </div>
 </header>
-
-<div class="panel">
-  <div class="panel-header"><h2>About this prototype</h2></div>
-  <div class="panel-body">
-    <p>
-      This engine is independently implemented from CYCLES' own published equations
-      (Kemanian et al. 2024 and its supplement), not from CYCLES' code or binary &mdash;
-      see <code>CLAUDE.md</code> for the full licensing rationale. Corn and soybean are
-      shown here because both already track real CYCLES output well enough to be
-      classroom-workable; a few other rotations (winter wheat, silage corn, pasture)
-      are still being refined and aren't shown yet.
-    </p>
-    <div class="note">
-      The nitrogen slider is a simplified mineral-N balance, not CYCLES' own six-pool
-      soil carbon/nitrogen system. It assumes all crop nitrogen comes from the
-      fertilizer you set here, with no background soil-supplied nitrogen &mdash; so the
-      point where more nitrogen stops mattering sits higher than a real fertilizer
-      recommendation would. Soybean fixes its own nitrogen (a legume, per the real crop
-      file) and is correctly unaffected by the slider. Weather is real NLDAS-2
-      reanalysis for Rock Springs, PA, 1980&ndash;2016, a public federal dataset
-      independent of CYCLES' own licensing.
-    </div>
-  </div>
-</div>
 
 <div class="panel">
   <div class="panel-header"><h2>Run a season</h2></div>
@@ -113,6 +90,10 @@
         <label>Nitrogen applied: <span class="nrate-value" id="nRateLabel">650</span> kg N/ha</label>
         <input type="range" id="nRateSlider" min="0" max="650" step="10" value="650">
       </div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin:-6px 0 8px;">
+      A simplified nitrogen balance with no background soil nitrogen &mdash; real
+      fertilizer recommendations run lower than the point where this slider stops mattering.
     </div>
     <div class="note" id="nRateNote" style="display:none;">
       Soybean fixes its own nitrogen (a legume, per the real crop file) &mdash; this
@@ -163,23 +144,14 @@
       A more realistic sequence than a single crop in a single year &mdash; corn one
       year, a winter cover crop planted right after harvest and terminated the
       following spring, then soybean. Evaluated on nitrogen leaching, not just yield,
-      since keeping nitrogen where you put it (rather than losing it to the
-      watershed) is the point of planting a cover crop at all.
+      since keeping nitrogen out of the watershed is the point of planting a cover
+      crop at all.
     </p>
-    <div class="note">
-      This is the cheap version of this idea, not the physically correct one: each
-      phase is simulated independently, with soil moisture reset to field capacity at
-      the start of every phase, the same simplification the rest of this engine
-      already uses. It cannot show the real reason farmers plant cover crops after a
-      heavily-fertilized cash crop &mdash; scavenging that crop's own leftover
-      nitrogen &mdash; because no state carries over between phases here. Instead,
-      "nitrogen available to the cover crop" below is something you set directly, standing
-      in for whatever residual nitrogen you imagine being left in the soil. The winter
-      cover crop itself is modeled using real winter wheat parameters, since that's
-      the only fall-planted, winter-surviving crop this engine has real data for &mdash;
-      not because winter wheat is the cover crop you'd actually plant, and not because
-      this engine's wheat behavior is well-validated (it isn't, see the note in the
-      first panel above).
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">
+      Each phase runs independently rather than carrying real soil state between
+      seasons, so "nitrogen available to the cover crop" is a number you set, not one
+      the model derives. The cover crop uses winter wheat's real parameters, the only
+      fall-planted crop this engine currently models.
     </div>
     <div class="controls">
       <div class="field">
@@ -214,7 +186,7 @@
 </div>
 
 <footer>
-  Prototype, not the classroom tool. See <code>CLAUDE.md</code>, "Agricultural unit," for full build status and open accuracy questions.
+  Prototype, not yet the finished classroom tool.
 </footer>
 
 </div>
