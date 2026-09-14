@@ -363,6 +363,23 @@ def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
 # re-running run_validation.py / run_validation_rotation2.py unchanged.
 NCRIT_FLOOR_MGHA = 1.0  # dilution curve is flat (at N_MAX_CONCENTRATION) below this biomass; standard convention
 
+# Background soil-supplied nitrogen from organic matter mineralization -- a real,
+# disclosed proxy for the gap already flagged above ("no background soil-supplied
+# nitrogen... the full six-pool system would include"), not a Cycles-verified rate.
+# Real unfertilized ("check plot") corn commonly draws on the order of 60-120 kg
+# N/ha of soil-supplied nitrogen over a season in temperate agricultural soils
+# (a standard range cited by land-grant nitrogen-rate guidance); spread over this
+# site's roughly 150-day growing season, 0.5 kg N/ha/day lands in the middle of
+# that range. Without this, a fixed fertilizer pool that runs out mid-season drops
+# n_stress to a hard, permanent 0 for every remaining day (no partial recovery,
+# since nothing ever refills the pool) -- producing an unrealistic "grows fine
+# then dies outright" response instead of a crop that's stressed during peak
+# demand and recovers, which in turn made the nitrogen-rate slider's marginal
+# grain response *increase* with more N over most of its range before hitting a
+# hard ceiling, the opposite of the diminishing returns a real N-response curve
+# shows. This constant is what fixes that; not itself Cycles- or site-verified.
+BACKGROUND_N_KG_HA_DAY = 0.5
+
 
 def n_critical_pct(biomass_mgha, crop):
     """Whole-plant average/critical N concentration (%) at the given total biomass --
@@ -390,6 +407,68 @@ def n_marginal_demand_pct(biomass_mgha, crop):
     return crop["n_max_conc"] * 100 * (1 - crop["n_dilution_slope"]) * biomass_mgha ** (-crop["n_dilution_slope"])
 
 
+def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf):
+    """Runs the same water/canopy physics as simulate_season's main loop below, but with
+    no nitrogen feedback at all, to precompute the day-by-day nitrogen DEMAND of the fully
+    unconstrained growth trajectory. This is a deliberate, verified duplication (not a
+    call to simulate_season itself) so this function's physics can be read and checked
+    directly against the main loop rather than trusted to a cleverer, harder-to-audit
+    reuse. It's safe to duplicate because dGB_water_limited never depends on biomass or
+    nitrogen status: canopy cover is a function of thermal-time fraction alone, and
+    transpiration-limited growth depends only on soil moisture, never on how much biomass
+    or N the crop has already accumulated -- so the unconstrained trajectory is identical
+    regardless of N rate and can be computed once, independent of the actual (possibly
+    N-limited) pass.
+
+    Why this exists: the previous approach computed demand from the plant's ACTUAL
+    (possibly already-stunted) biomass and paid it out of a single fertilizer pool on a
+    first-come-first-served basis -- once the pool hit exactly zero, n_stress locked at a
+    permanent 0 for every remaining day (nothing ever refills it), giving a "grows fine,
+    then dies outright" response. Because delaying that collapse into a period of higher
+    unconstrained growth is worth progressively more per added kg of N (right up until the
+    collapse is avoided entirely), the resulting yield-vs-N-rate curve had ACCELERATING
+    marginal returns followed by a hard cliff -- the opposite of the diminishing returns a
+    real nitrogen response curve shows, and not a curve a real economic optimum could be
+    built on. Returns a list of daily N demand (kg N/ha), one per day the main loop below
+    will actually iterate (same weather, crop, and harvest_ttf, so the two loops break at
+    the same day by construction, since thermal time never depends on nitrogen)."""
+    layers = crop["make_layers"]()
+    tt_cum, ref_biomass = 0.0, 0.0
+    demand = []
+    for w in weather_rows:
+        dtt = thermal_time_increment(w["tx"], w["tn"], crop["base_t"], crop["opt_t"], crop["max_t"])
+        tt_cum += dtt
+        ttf = tt_cum / crop["tt_maturity"]
+        if ttf >= harvest_ttf:
+            break
+        eie = canopy_cover(ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE))
+        root_depth = root_max_m * min(1.0, ttf / 0.5)
+
+        redistribute(layers, w["pp"])
+        eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
+        soil_evaporation(layers, eto, eie)
+
+        GR = crop["rue"] * eie * w["solar"]
+        tmean = (w["tx"] + w["tn"]) / 2
+        es = 0.6108 * math.exp(17.27 * tmean / (tmean + 237.3))
+        ea = es * (w["rhx"] + w["rhn"]) / 200
+        Da = max(0.05, es - ea)
+        TRp = (1 + (crop["kc"] - 1) * eie) * eie * eto
+        TRp *= transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
+
+        avail_frac = root_zone_availability(layers, root_depth)
+        water_stress = max(0.0, min(1.0, avail_frac / 0.5))
+        TR_actual = TRp * water_stress
+        extract_transpiration(layers, root_depth, TR_actual)
+
+        GT = crop["wue"] / math.sqrt(Da) * TR_actual
+        dGB_water_limited = max(0.0, min(GR, GT)) / 1000
+
+        demand.append(dGB_water_limited * 10 * n_marginal_demand_pct(ref_biomass * 10, crop) * 10)
+        ref_biomass += dGB_water_limited
+    return demand
+
+
 def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False):
     """weather_rows: dicts with doy, tx, tn, solar, rhx, rhn, wind, pp, in planting-day order.
     harvest_ttf: fraction of thermal time to maturity that triggers harvest -- 1.0 for grain
@@ -397,6 +476,24 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     before full maturity (e.g. 0.85 for CornSilageRM.90's real HARVEST_TIMING=85).
     n_rate_kg_ha: total fertilizer N applied at planting (kg N/ha), the student-facing nitrogen
     knob -- see the mineral-N-balance section above. None (default) skips N tracking entirely.
+    Nitrogen adequacy is applied as a single WHOLE-SEASON fraction of the unconstrained
+    trajectory's total N demand (computed via _reference_n_demand above), not a day-by-day
+    pool that can hit a hard, uncorrectable zero mid-season -- see that function's docstring
+    for why the day-by-day version produced an unrealistic accelerating-then-cliff yield
+    response instead of genuine diminishing returns. The fraction uses a QUADRATIC-PLATEAU
+    shape (f(x) = 2x - x^2 for x = supply/demand capped at 1, so f(0)=0, f(1)=1, and the two
+    pieces meet with zero slope at the join) rather than a plain linear-plateau (f(x) = x):
+    both are real, standard functional forms from the actual agronomic N-response literature
+    (e.g. Cerrato & Blackmer 1990, which compares exactly these model families for corn),
+    but a straight linear-plateau has CONSTANT marginal yield per added kg of N right up to
+    a sharp corner -- which would make a later economic-optimum calculation degenerate into
+    a step function (all-or-nothing at that corner) instead of a genuine interior maximum.
+    The quadratic-plateau gives real, smoothly diminishing marginal returns throughout the
+    rising portion, which is what makes a profit-maximizing nitrogen rate below the yield-
+    maximizing rate an actual computed result rather than an artifact of the curve's shape.
+    The day-by-day fertilizer pool is still tracked, but only to give leaching a real
+    trajectory (surplus N left in the pool after the season's rationed uptake washes out
+    with drainage as before); it no longer drives growth stress directly.
     record_history: when True, also returns a day-by-day "history" list (doy, canopy cover,
     water stress, cumulative aboveground biomass) for charting a season's progression --
     purely additive, no effect on any of the other returned values or existing callers."""
@@ -405,6 +502,24 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     n_pool = n_rate_kg_ha if (n_rate_kg_ha is not None and not crop.get("legume", False)) else None
     n_leached_total = 0.0 if n_pool is not None else None
     history = [] if record_history else None
+
+    n_stress_fraction, daily_demand, day_i = 1.0, None, 0
+    if n_pool is not None:
+        daily_demand = _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf)
+        total_demand_kg_ha = sum(daily_demand)
+        # Background credit only counts on days the reference trajectory actually grows
+        # (daily_demand[i] > 0 exactly when that day's dGB_water_limited > 0, i.e. the
+        # crop is biologically active, not frozen/dormant) -- a flat per-calendar-day
+        # rate calibrated against a corn/soybean summer growing season (see
+        # BACKGROUND_N_KG_HA_DAY's comment) silently swamped a winter cover crop's much
+        # smaller total demand when applied across its many dormant days too (caught by
+        # testing the corn/cover-crop/soybean rotation demo: background alone nearly
+        # matched the cover crop's whole-season N need before this gate was added).
+        active_days = sum(1 for d in daily_demand if d > 0)
+        total_supply_kg_ha = n_pool + BACKGROUND_N_KG_HA_DAY * active_days
+        supply_ratio = min(1.0, total_supply_kg_ha / total_demand_kg_ha) if total_demand_kg_ha > 0 else 1.0
+        n_stress_fraction = 2 * supply_ratio - supply_ratio ** 2  # quadratic-plateau, see docstring above
+
     for w in weather_rows:
         dtt = thermal_time_increment(w["tx"], w["tn"], crop["base_t"], crop["opt_t"], crop["max_t"])
         tt_cum += dtt
@@ -436,15 +551,18 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
 
         n_stress = 1.0
         if n_pool is not None:
-            n_demand_kg_ha = dGB_water_limited * 10 * n_marginal_demand_pct(biomass * 10, crop) * 10
-            n_uptake_kg_ha = min(n_pool, n_demand_kg_ha)
-            n_stress = (n_uptake_kg_ha / n_demand_kg_ha) if n_demand_kg_ha > 0 else 1.0
+            if dGB_water_limited > 0:
+                n_pool += BACKGROUND_N_KG_HA_DAY
+            n_stress = n_stress_fraction
+            target_uptake_kg_ha = n_stress_fraction * daily_demand[day_i]
+            n_uptake_kg_ha = min(n_pool, target_uptake_kg_ha)
             n_pool -= n_uptake_kg_ha
             profile_water_mm = sum(l["theta"] * l["thick"] * 1000 for l in layers)
             if profile_water_mm > 0 and n_pool > 0 and drainage_mm > 0:
                 leached_kg_ha = drainage_mm * (n_pool / profile_water_mm)
                 n_pool = max(0.0, n_pool - leached_kg_ha)
                 n_leached_total += leached_kg_ha
+            day_i += 1
 
         dGB = dGB_water_limited * n_stress
         biomass += dGB

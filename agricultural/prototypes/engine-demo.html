@@ -115,10 +115,34 @@
 <div class="panel">
   <div class="panel-header"><h2>How much does nitrogen matter?</h2></div>
   <div class="panel-body">
-    <p>Runs the selected crop and year at five fertilizer rates (0&ndash;650 kg N/ha) back to back, computed on the fly.</p>
+    <p>
+      Runs the selected crop and year at fourteen fertilizer rates (0&ndash;650 kg N/ha)
+      back to back, computed on the fly. Yield levels off well before 650 &mdash; every
+      kg of N applied past that point still leaches, and past a lower point still, it
+      also costs more than the extra grain is worth.
+    </p>
     <button id="nSweepBtn" class="btn btn-secondary" disabled>Run nitrogen comparison</button>
     <canvas class="chart" id="nSweepChart" width="800" height="200" style="margin-top:14px;display:none;"></canvas>
     <div class="sweep-note" id="nSweepNote" style="display:none;"></div>
+    <canvas class="chart" id="nLeachChart" width="800" height="160" style="margin-top:14px;display:none;"></canvas>
+    <div class="sweep-note" id="nLeachNote" style="display:none;"></div>
+
+    <div class="controls" style="margin-top:16px;">
+      <div class="field">
+        <label>Grain price ($/Mg)</label>
+        <input type="number" id="grainPriceInput" value="190" min="0" step="5" style="width:90px;font-family:'DM Mono',monospace;padding:6px 8px;border:1.5px solid var(--border);border-radius:3px;">
+      </div>
+      <div class="field">
+        <label>Fertilizer cost ($/kg N)</label>
+        <input type="number" id="fertCostInput" value="0.60" min="0" step="0.05" style="width:90px;font-family:'DM Mono',monospace;padding:6px 8px;border:1.5px solid var(--border);border-radius:3px;">
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin:-6px 0 10px;">
+      Rough, adjustable figures for illustrating the tradeoff, not a market quote for any
+      given day.
+    </div>
+    <canvas class="chart" id="nProfitChart" width="800" height="200" style="display:none;"></canvas>
+    <div class="sweep-note" id="nProfitNote" style="display:none;"></div>
   </div>
 </div>
 
@@ -394,11 +418,54 @@ def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
 
 NCRIT_FLOOR_MGHA = 1.0
 
+# Real unfertilized corn draws roughly 60-120 kg N/ha of soil-supplied N over a season
+# from organic-matter mineralization (a gap this simplified balance otherwise omits);
+# spread over a ~150-day season, 0.5 kg N/ha/day sits in the middle of that range.
+BACKGROUND_N_KG_HA_DAY = 0.5
+
 def n_marginal_demand_pct(biomass_mgha, crop):
     biomass_mgha = max(biomass_mgha, 0.01)
     if biomass_mgha < NCRIT_FLOOR_MGHA:
         return crop["n_max_conc"] * 100
     return crop["n_max_conc"] * 100 * (1 - crop["n_dilution_slope"]) * biomass_mgha ** (-crop["n_dilution_slope"])
+
+def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf):
+    # Unconstrained (no-nitrogen-feedback) water/canopy trajectory, used to precompute the
+    # season's total N demand up front. Canopy cover depends only on thermal time and
+    # transpiration-limited growth only on soil moisture, never on biomass or N status, so
+    # this trajectory is identical regardless of N rate -- see cycles_engine_validate.py's
+    # docstring for why a day-by-day pool that can hit a hard, uncorrectable zero mid-season
+    # was replaced with this whole-season approach.
+    layers = crop["make_layers"]()
+    tt_cum, ref_biomass = 0.0, 0.0
+    demand = []
+    for w in weather_rows:
+        dtt = thermal_time_increment(w["tx"], w["tn"], crop["base_t"], crop["opt_t"], crop["max_t"])
+        tt_cum += dtt
+        ttf = tt_cum / crop["tt_maturity"]
+        if ttf >= harvest_ttf:
+            break
+        eie = canopy_cover(ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE))
+        root_depth = root_max_m * min(1.0, ttf/0.5)
+        redistribute(layers, w["pp"])
+        eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
+        soil_evaporation(layers, eto, eie)
+        GR = crop["rue"] * eie * w["solar"]
+        tmean = (w["tx"] + w["tn"]) / 2
+        es = 0.6108 * math.exp(17.27*tmean/(tmean+237.3))
+        ea = es * (w["rhx"] + w["rhn"]) / 200
+        Da = max(0.05, es - ea)
+        TRp = (1 + (crop["kc"]-1)*eie) * eie * eto
+        TRp *= transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
+        avail_frac = root_zone_availability(layers, root_depth)
+        water_stress = max(0.0, min(1.0, avail_frac/0.5))
+        TR_actual = TRp * water_stress
+        extract_transpiration(layers, root_depth, TR_actual)
+        GT = crop["wue"]/math.sqrt(Da) * TR_actual
+        dGB_water_limited = max(0.0, min(GR, GT)) / 1000
+        demand.append(dGB_water_limited * 10 * n_marginal_demand_pct(ref_biomass * 10, crop) * 10)
+        ref_biomass += dGB_water_limited
+    return demand
 
 def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False):
     layers = crop["make_layers"]()
@@ -406,6 +473,14 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     n_pool = n_rate_kg_ha if (n_rate_kg_ha is not None and not crop.get("legume", False)) else None
     n_leached_total = 0.0 if n_pool is not None else None
     history = [] if record_history else None
+    n_stress_fraction, daily_demand, day_i = 1.0, None, 0
+    if n_pool is not None:
+        daily_demand = _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf)
+        total_demand_kg_ha = sum(daily_demand)
+        active_days = sum(1 for d in daily_demand if d > 0)  # gate background credit to biologically-active days only --
+        total_supply_kg_ha = n_pool + BACKGROUND_N_KG_HA_DAY * active_days  # a flat per-calendar-day rate swamps a mostly-dormant winter cover crop's demand otherwise
+        supply_ratio = min(1.0, total_supply_kg_ha / total_demand_kg_ha) if total_demand_kg_ha > 0 else 1.0
+        n_stress_fraction = 2 * supply_ratio - supply_ratio ** 2  # quadratic-plateau, smooth diminishing returns
     for w in weather_rows:
         dtt = thermal_time_increment(w["tx"], w["tn"], crop["base_t"], crop["opt_t"], crop["max_t"])
         tt_cum += dtt
@@ -432,15 +507,18 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         dGB_water_limited = max(0.0, min(GR, GT)) / 1000
         n_stress = 1.0
         if n_pool is not None:
-            n_demand_kg_ha = dGB_water_limited * 10 * n_marginal_demand_pct(biomass * 10, crop) * 10
-            n_uptake_kg_ha = min(n_pool, n_demand_kg_ha)
-            n_stress = (n_uptake_kg_ha / n_demand_kg_ha) if n_demand_kg_ha > 0 else 1.0
+            if dGB_water_limited > 0:
+                n_pool += BACKGROUND_N_KG_HA_DAY
+            n_stress = n_stress_fraction
+            target_uptake_kg_ha = n_stress_fraction * daily_demand[day_i]
+            n_uptake_kg_ha = min(n_pool, target_uptake_kg_ha)
             n_pool -= n_uptake_kg_ha
             profile_water_mm = sum(l["theta"] * l["thick"] * 1000 for l in layers)
             if profile_water_mm > 0 and n_pool > 0 and drainage_mm > 0:
                 leached_kg_ha = drainage_mm * (n_pool / profile_water_mm)
                 n_pool = max(0.0, n_pool - leached_kg_ha)
                 n_leached_total += leached_kg_ha
+            day_i += 1
         dGB = dGB_water_limited * n_stress
         biomass += dGB
         ag_biomass += dGB * shoot_fraction(ttf, crop["fsti"], crop["fstf"])
@@ -529,11 +607,20 @@ def bare_fallow_leaching(weather_rows, n_pool_initial, lat_deg=40.6875):
     nitrogen sitting in bare, uncropped soil over the same calendar window, with no
     plant uptake at all. Reuses the same water-balance and leaching mechanics
     simulate_season() uses (redistribute() for drainage, the same drainage-proportional
-    leaching formula) but skips every crop-growth calculation, since there's no crop."""
+    leaching formula) but skips every crop-growth calculation, since there's no crop.
+    Also credits the same BACKGROUND_N_KG_HA_DAY organic-matter mineralization
+    simulate_season() now applies to a cropped field, gated the same way (above-freezing
+    days only, as a simple proxy for biological activity) -- fallow soil keeps
+    mineralizing whether or not a crop is using the result, and leaving this out here
+    would have made the cover-crop-vs-bare-fallow comparison count background N for one
+    side but not the other."""
     layers = make_layers()
     n_pool = n_pool_initial
     n_leached_total = 0.0
     for w in weather_rows:
+        tmean = (w["tx"] + w["tn"]) / 2
+        if tmean > 0:
+            n_pool += BACKGROUND_N_KG_HA_DAY
         drainage_mm = redistribute(layers, w["pp"])
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], lat_deg)
         soil_evaporation(layers, eto, 0.0)  # eie=0: no canopy, bare soil evaporates at full potential rate
@@ -609,7 +696,7 @@ function drawBarChart(canvas, labels, values, opts) {
     const h = plotH * (v / maxV);
     const bx = pad.l + gap * i + (gap - barW) / 2;
     const by = pad.t + plotH - h;
-    ctx.fillStyle = opts.color || "#2471a3";
+    ctx.fillStyle = (opts.colors && opts.colors[i]) || opts.color || "#2471a3";
     ctx.fillRect(bx, by, barW, h);
   });
   ctx.fillStyle = "#5f7180"; ctx.textAlign = "center";
@@ -660,11 +747,50 @@ json.dumps({"plant_doy": plant_doy, **res})
   }
 });
 
+let lastNSweep = null;  // cached so the price/cost inputs can redraw the profit chart without re-running Pyodide
+
+function renderProfitChart() {
+  if (!lastNSweep || lastNSweep.crop === "soybean") return;
+  const grainPrice = parseFloat(document.getElementById("grainPriceInput").value) || 0;
+  const fertCost = parseFloat(document.getElementById("fertCostInput").value) || 0;
+  const data = lastNSweep.data;
+  const profits = data.map(d => d.grain * grainPrice - d.n_rate * fertCost);
+  let bestIdx = 0;
+  profits.forEach((p, i) => { if (p > profits[bestIdx]) bestIdx = i; });
+  const colors = profits.map((_, i) => i === bestIdx ? "#1e8449" : "#c9d8e2");
+  const canvas = document.getElementById("nProfitChart");
+  const note = document.getElementById("nProfitNote");
+  canvas.style.display = "block";
+  drawBarChart(canvas, data.map(d => d.n_rate + ""), profits, { color: "#2471a3", colors });
+  const bestN = data[bestIdx].n_rate;
+  // "Yield-maximizing" here means the first (lowest) rate that actually reaches peak yield,
+  // not just the last rate that was swept -- the curve plateaus well before 650 in most
+  // scenarios, so using the last sampled point would overstate how much N yield needs.
+  const maxGrain = Math.max(...data.map(d => d.grain));
+  const maxYieldIdx = data.findIndex(d => d.grain >= maxGrain - 0.005);
+  const yieldMaxN = data[maxYieldIdx].n_rate;
+  const extraN = yieldMaxN - bestN;
+  const extraLeach = data[maxYieldIdx].leached - data[bestIdx].leached;
+  if (extraN > 0) {
+    note.innerHTML = `Highlighted bar: <b>${bestN} kg N/ha</b> is the most profitable rate at these prices ` +
+      `(net $${profits[bestIdx].toFixed(0)}/ha) &mdash; lower than the ${yieldMaxN} kg N/ha it takes to max out yield. ` +
+      `Fertilizing up to that yield-maximizing point instead of stopping at the profit-maximizing one costs ` +
+      `${extraN} kg N/ha more, leaches an extra ${extraLeach.toFixed(1)} kg N/ha toward the watershed, and nets ` +
+      `$${(profits[bestIdx] - profits[maxYieldIdx]).toFixed(0)}/ha LESS profit, not more.`;
+  } else {
+    note.innerHTML = `At these prices, the most profitable rate (<b>${bestN} kg N/ha</b>) is also the yield-maximizing ` +
+      `rate &mdash; try raising the fertilizer cost or lowering the grain price to see the two split apart.`;
+  }
+  note.style.display = "block";
+}
+
 nSweepBtn.addEventListener("click", async () => {
   const crop = cropSelect.value;
   const year = yearSelect.value;
   const note = document.getElementById("nSweepNote");
   const canvas = document.getElementById("nSweepChart");
+  const leachCanvas = document.getElementById("nLeachChart");
+  const leachNote = document.getElementById("nLeachNote");
   nSweepBtn.disabled = true;
   nSweepBtn.textContent = "Running...";
   try {
@@ -673,21 +799,34 @@ nSweepBtn.addEventListener("click", async () => {
     const out = await pyodide.runPythonAsync(`
 crop_obj = CORN if run_crop == "corn" else SOYBEAN
 plant_doy, rows = build_season_rows(ALL_WX[run_year], crop_obj)
-rates = [0, 150, 300, 450, 650]
+rates = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650]
 sweep_out = []
 for r in rates:
     res = simulate_season(rows, crop_obj, n_rate_kg_ha=r)
-    sweep_out.append({"n_rate": r, "grain": res["grain"]})
+    sweep_out.append({"n_rate": r, "grain": res["grain"], "leached": res.get("n_leached_kg_ha", 0.0)})
 json.dumps(sweep_out)
 `);
     const data = JSON.parse(out);
+    lastNSweep = { crop, data };
     canvas.style.display = "block";
     drawBarChart(canvas, data.map(d => d.n_rate + ""), data.map(d => d.grain), { color: "#2471a3" });
     if (crop === "soybean") {
       note.textContent = "Soybean fixes its own nitrogen -- yield is identical at every rate, as expected.";
+      leachCanvas.style.display = "none";
+      leachNote.style.display = "none";
+      document.getElementById("nProfitChart").style.display = "none";
+      document.getElementById("nProfitNote").style.display = "none";
     } else {
       const lo = data[0].grain, hi = data[data.length - 1].grain;
-      note.textContent = `${year}: yield ranges from ${lo.toFixed(2)} to ${hi.toFixed(2)} Mg/ha across 0-650 kg N/ha applied.`;
+      note.textContent = `${year}: yield rises from ${lo.toFixed(2)} to ${hi.toFixed(2)} Mg/ha as nitrogen increases, ` +
+        `then flattens -- diminishing returns, not a hard cutoff.`;
+      leachCanvas.style.display = "block";
+      drawBarChart(leachCanvas, data.map(d => d.n_rate + ""), data.map(d => d.leached), { color: "#c0392b" });
+      leachNote.textContent = `Nitrogen leached toward the watershed keeps climbing even after yield stops responding ` +
+        `(${data[0].leached.toFixed(1)} to ${data[data.length - 1].leached.toFixed(1)} kg N/ha across the same range) -- ` +
+        `once the crop can't use more, every added kg just leaches.`;
+      leachNote.style.display = "block";
+      renderProfitChart();
     }
     note.style.display = "block";
   } catch (err) {
@@ -699,6 +838,9 @@ json.dumps(sweep_out)
     nSweepBtn.textContent = "Run nitrogen comparison";
   }
 });
+
+document.getElementById("grainPriceInput").addEventListener("input", renderProfitChart);
+document.getElementById("fertCostInput").addEventListener("input", renderProfitChart);
 
 yearSweepBtn.addEventListener("click", async () => {
   const crop = cropSelect.value;
