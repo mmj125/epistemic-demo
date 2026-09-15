@@ -147,15 +147,25 @@
 </div>
 
 <div class="panel">
-  <div class="panel-header"><h2>37 years of real weather, computed instantly</h2></div>
+  <div class="panel-header"><h2>Multiple years of real weather, computed instantly</h2></div>
   <div class="panel-body">
     <p>
-      Runs the selected crop at the current nitrogen rate across every year of real
-      Rock Springs weather on record, 1980&ndash;2016 &mdash; the same multi-decade
-      record this engine was validated against, computed client-side in a couple of
-      seconds instead of a Colab session.
+      Runs the selected crop at the current nitrogen rate across a chosen span of real
+      Rock Springs weather &mdash; anywhere from a couple of years to the full
+      1980&ndash;2016 record this engine was validated against, computed client-side in
+      a couple of seconds instead of a Colab session.
     </p>
-    <button id="yearSweepBtn" class="btn btn-secondary" disabled>Run all 37 years</button>
+    <div class="controls">
+      <div class="field">
+        <label>From</label>
+        <select id="sweepFromYear"></select>
+      </div>
+      <div class="field">
+        <label>To</label>
+        <select id="sweepToYear"></select>
+      </div>
+      <button id="yearSweepBtn" class="btn btn-secondary" disabled>Run years</button>
+    </div>
     <canvas class="chart" id="yearSweepChart" width="800" height="220" style="margin-top:14px;display:none;"></canvas>
     <div class="sweep-note" id="yearSweepNote" style="display:none;"></div>
   </div>
@@ -227,6 +237,27 @@ for (let y = 1980; y <= 2016; y++) {
   if (y === 2012) opt.selected = true; // a real dry year, makes a good first demo
   yearSelect.appendChild(opt);
 }
+
+const sweepFromYear = document.getElementById("sweepFromYear");
+const sweepToYear = document.getElementById("sweepToYear");
+for (let y = 1980; y <= 2016; y++) {
+  const fromOpt = document.createElement("option");
+  fromOpt.value = y; fromOpt.textContent = y;
+  if (y === 1980) fromOpt.selected = true;
+  sweepFromYear.appendChild(fromOpt);
+  const toOpt = document.createElement("option");
+  toOpt.value = y; toOpt.textContent = y;
+  if (y === 2016) toOpt.selected = true;
+  sweepToYear.appendChild(toOpt);
+}
+// Keep the range valid as either end moves, rather than letting a student pick a
+// backwards range and get a confusing empty/one-year result.
+sweepFromYear.addEventListener("change", () => {
+  if (parseInt(sweepFromYear.value, 10) > parseInt(sweepToYear.value, 10)) sweepToYear.value = sweepFromYear.value;
+});
+sweepToYear.addEventListener("change", () => {
+  if (parseInt(sweepToYear.value, 10) < parseInt(sweepFromYear.value, 10)) sweepFromYear.value = sweepToYear.value;
+});
 
 const rotYearSelect = document.getElementById("rotYearSelect");
 for (let y = 1980; y <= 2015; y++) { // needs year y+1 too, so 2016 can't be a starting year
@@ -845,18 +876,22 @@ document.getElementById("fertCostInput").addEventListener("input", renderProfitC
 yearSweepBtn.addEventListener("click", async () => {
   const crop = cropSelect.value;
   const nRate = parseFloat(nRateSlider.value);
+  const fromYear = parseInt(sweepFromYear.value, 10);
+  const toYear = parseInt(sweepToYear.value, 10);
   const note = document.getElementById("yearSweepNote");
   const canvas = document.getElementById("yearSweepChart");
   yearSweepBtn.disabled = true;
-  yearSweepBtn.textContent = "Running 37 seasons...";
+  yearSweepBtn.textContent = `Running ${toYear - fromYear + 1} season${toYear > fromYear ? "s" : ""}...`;
   try {
     const t0 = performance.now();
     pyodide.globals.set("run_crop", crop);
     pyodide.globals.set("run_n_rate", nRate);
+    pyodide.globals.set("run_from_year", fromYear);
+    pyodide.globals.set("run_to_year", toYear);
     const out = await pyodide.runPythonAsync(`
 crop_obj = CORN if run_crop == "corn" else SOYBEAN
 sweep_out = []
-for y in range(1980, 2017):
+for y in range(run_from_year, run_to_year + 1):
     wx_year = ALL_WX.get(str(y))
     if not wx_year:
         continue
@@ -872,7 +907,7 @@ json.dumps(sweep_out)
     const values = data.map(d => d.grain);
     const mean = values.reduce((a, b) => a + b, 0) / values.length;
     const min = Math.min(...values), max = Math.max(...values);
-    note.textContent = `${data.length} years, computed in ${elapsed}s. Mean ${mean.toFixed(2)} Mg/ha, range ${min.toFixed(2)}-${max.toFixed(2)} Mg/ha across real weather variability.`;
+    note.textContent = `${data.length} year${data.length === 1 ? "" : "s"} (${fromYear}–${toYear}), computed in ${elapsed}s. Mean ${mean.toFixed(2)} Mg/ha, range ${min.toFixed(2)}-${max.toFixed(2)} Mg/ha across real weather variability.`;
     note.style.display = "block";
   } catch (err) {
     note.textContent = "Failed: " + err.message;
@@ -880,7 +915,7 @@ json.dumps(sweep_out)
     console.error(err);
   } finally {
     yearSweepBtn.disabled = false;
-    yearSweepBtn.textContent = "Run all 37 years";
+    yearSweepBtn.textContent = "Run years";
   }
 });
 
