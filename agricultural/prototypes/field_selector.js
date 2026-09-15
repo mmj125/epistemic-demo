@@ -146,6 +146,76 @@ async function resolveFieldTile(kmlText, baseUrl) {
   return { parsed, centroid, tile, manifest, bytes };
 }
 
+// --- Soil lookup (STATSGO2, agricultural/prototypes/statsgo2_soil_grid.json.gz) ---
+//
+// Unlike the weather tiles above (still waiting on Matt's export), this data
+// is real and already committed to the repo -- see CLAUDE.md's "STATSGO2
+// soil export completed end to end" entry. It's a flat list of ~3044 grid
+// cells at 0.5-degree resolution (cell-centered at .25/.75), each carrying
+// the dominant STATSGO2 map-unit component's real horizon layers
+// (thick in meters, clay/sand in %, soc in % -- same shape as
+// run_validation.py's SOIL_LAYERS_RAW, so a resolved cell can be handed
+// straight to make_layers()/saxton_rawls() with no translation).
+//
+// Deep horizons frequently have no organic-matter measurement in the source
+// data (real SSURGO/STATSGO2 characteristic -- topsoil OM is measured far
+// more often than subsoil OM is). DEFAULT_SUBSOIL_SOC_PCT is a disclosed
+// stand-in for those nulls, not a real per-cell value -- chosen to sit in
+// the same 0.17-0.27% range Rock Springs' own real deep layers already use
+// in this codebase, not derived from this dataset itself.
+const DEFAULT_SUBSOIL_SOC_PCT = 0.2;
+
+// Small enough (3044 points) that a linear nearest-neighbor scan per lookup
+// is fine -- this runs once per field selection, not in a hot loop.
+function nearestSoilCell(lat, lng, grid) {
+  let best = null, bestDist = Infinity;
+  for (const cell of grid) {
+    const dLat = cell.lat - lat, dLon = cell.lon - lng;
+    const dist = Math.sqrt(dLat * dLat + dLon * dLon);
+    if (dist < bestDist) { bestDist = dist; best = cell; }
+  }
+  return { cell: best, distanceDeg: bestDist };
+}
+
+// Converts a raw grid cell's layers into the exact SOIL_LAYERS_RAW shape
+// used elsewhere in this codebase, filling null soc with the disclosed
+// default above rather than leaving it null for saxton_rawls() to choke on.
+function soilLayersForCell(cell) {
+  return cell.layers.map((l) => ({
+    thick: l.thick,
+    clay: l.clay,
+    sand: l.sand,
+    soc: l.soc == null ? DEFAULT_SUBSOIL_SOC_PCT : l.soc,
+  }));
+}
+
+async function loadSoilGrid(baseUrl) {
+  const res = await fetch(`${baseUrl}/statsgo2_soil_grid.json.gz`);
+  if (!res.ok) throw new Error(`Couldn't load soil grid (HTTP ${res.status}).`);
+  const buf = await res.arrayBuffer();
+  const ds = new DecompressionStream("gzip");
+  const decompressedStream = new Response(buf).body.pipeThrough(ds);
+  const text = await new Response(decompressedStream).text();
+  return JSON.parse(text);
+}
+
+// Full pipeline: KML text -> centroid -> nearest real STATSGO2 grid cell ->
+// SOIL_LAYERS_RAW-shaped layers ready for the engine. A distanceDeg well
+// above the 0.5-degree grid spacing means the point fell outside real
+// coverage (ocean, Great Lakes, just past the CONUS border) and the
+// returned profile shouldn't be trusted -- callers should check it.
+async function resolveFieldSoil(kmlText, baseUrl) {
+  const parsed = parseKML(kmlText);
+  const centroid = centroidOf(parsed);
+  const grid = await loadSoilGrid(baseUrl);
+  const { cell, distanceDeg } = nearestSoilCell(centroid.lat, centroid.lng, grid);
+  const layers = soilLayersForCell(cell);
+  return { parsed, centroid, cell, distanceDeg, layers };
+}
+
 if (typeof module !== "undefined") {
-  module.exports = { parseKML, polygonCentroid, centroidOf, tileForPoint, loadManifest, loadTile, resolveFieldTile, TILE_DEG };
+  module.exports = {
+    parseKML, polygonCentroid, centroidOf, tileForPoint, loadManifest, loadTile, resolveFieldTile, TILE_DEG,
+    nearestSoilCell, soilLayersForCell, loadSoilGrid, resolveFieldSoil, DEFAULT_SUBSOIL_SOC_PCT,
+  };
 }

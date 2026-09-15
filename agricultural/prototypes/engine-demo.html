@@ -223,11 +223,12 @@
   <div class="panel-header"><h2>Preview: pick a field anywhere in the US (KML)</h2></div>
   <div class="panel-body">
     <p>
-      Early plumbing test, not yet connected to real weather &mdash; upload a KML
-      boundary (e.g. exported from Google Earth) and this computes the field's
-      real area-weighted centroid and which weather tile it would need, so the
-      logic is proven before that tile data exists. A single dropped pin
-      (Point placemark) works too.
+      Not yet connected to a real simulation for an arbitrary field &mdash; upload a
+      KML boundary (e.g. exported from Google Earth) and this computes the
+      field's real area-weighted centroid, looks up its real STATSGO2 soil
+      profile (national soil survey data, already embedded in this page), and
+      shows which weather tile it would need once that data exists. A single
+      dropped pin (Point placemark) works too.
     </p>
     <input type="file" id="kmlInput" accept=".kml">
     <div id="kmlResult" style="display:none;margin-top:12px;">
@@ -1061,6 +1062,41 @@ function fieldTileForPoint(lat, lng, tileDeg = FIELD_TILE_DEG) {
   return { lat0, lon0, key: `${lat0}_${lon0}` };
 }
 
+// --- Soil lookup (real STATSGO2 data, agricultural/prototypes/field_selector.js
+// has the fuller comments -- inlined here the same way this whole file inlines
+// everything else). Unlike the weather tile above, this data is real and
+// already committed alongside this HTML file.
+const DEFAULT_SUBSOIL_SOC_PCT = 0.2;
+let soilGridCache = null;
+
+async function loadFieldSoilGrid() {
+  if (soilGridCache) return soilGridCache;
+  const res = await fetch("statsgo2_soil_grid.json.gz");
+  if (!res.ok) throw new Error(`Couldn't load soil grid (HTTP ${res.status}).`);
+  const buf = await res.arrayBuffer();
+  const ds = new DecompressionStream("gzip");
+  const text = await new Response(new Response(buf).body.pipeThrough(ds)).text();
+  soilGridCache = JSON.parse(text);
+  return soilGridCache;
+}
+
+function nearestFieldSoilCell(lat, lng, grid) {
+  let best = null, bestDist = Infinity;
+  for (const cell of grid) {
+    const dLat = cell.lat - lat, dLon = cell.lon - lng;
+    const dist = Math.sqrt(dLat * dLat + dLon * dLon);
+    if (dist < bestDist) { bestDist = dist; best = cell; }
+  }
+  return { cell: best, distanceDeg: bestDist };
+}
+
+function fieldSoilLayersForCell(cell) {
+  return cell.layers.map((l) => ({
+    thick: l.thick, clay: l.clay, sand: l.sand,
+    soc: l.soc == null ? DEFAULT_SUBSOIL_SOC_PCT : l.soc,
+  }));
+}
+
 document.getElementById("kmlInput").addEventListener("change", async (e) => {
   const file = e.target.files[0];
   const table = document.getElementById("kmlResultTable");
@@ -1072,13 +1108,24 @@ document.getElementById("kmlInput").addEventListener("change", async (e) => {
     const parsed = parseFieldKML(text);
     const centroid = parsed.kind === "point" ? { lat: parsed.lat, lng: parsed.lng } : fieldPolygonCentroid(parsed.vertices);
     const tile = fieldTileForPoint(centroid.lat, centroid.lng);
+
+    const grid = await loadFieldSoilGrid();
+    const { cell: soilCell, distanceDeg } = nearestFieldSoilCell(centroid.lat, centroid.lng, grid);
+    const layers = fieldSoilLayersForCell(soilCell);
+    const topsoil = layers[0];
+    const outsideCoverage = distanceDeg > 0.75; // grid spacing is 0.5 deg; a bigger gap means ocean/Great Lakes/border
+
     table.innerHTML = `
       <tr><th>Placemark type</th><td>${parsed.kind}${parsed.kind === "polygon" ? ` (${parsed.vertices.length} vertices)` : ""}</td></tr>
       <tr><th>Field centroid</th><td>${centroid.lat.toFixed(4)}, ${centroid.lng.toFixed(4)}</td></tr>
       <tr><th>Weather tile needed</th><td>${tile.key} (${FIELD_TILE_DEG}&deg;&times;${FIELD_TILE_DEG}&deg; box, corner at ${tile.lat0}&deg;N, ${tile.lon0}&deg;E)</td></tr>
+      <tr><th>Nearest soil profile</th><td>${soilCell.compname} series (STATSGO2 mukey ${soilCell.mukey}), ${distanceDeg.toFixed(2)}&deg; away, ${layers.length} layers</td></tr>
+      <tr><th>Topsoil (real STATSGO2)</th><td>${topsoil.clay}% clay, ${topsoil.sand}% sand, ${topsoil.soc.toFixed(2)}% SOC</td></tr>
     `;
     result.style.display = "block";
-    note.textContent = "Centroid and tile computed correctly -- this is what the real tool would fetch once CONUS weather tiles exist. No simulation runs yet.";
+    note.textContent = outsideCoverage
+      ? `Centroid and tile computed correctly, but the nearest soil profile is ${distanceDeg.toFixed(2)}° away -- this point likely falls outside real CONUS land coverage (ocean, a Great Lake, or just past the border). Soil data still pending real weather tiles either way -- see CLAUDE.md.`
+      : "Centroid, tile, and real soil profile all resolved correctly. Weather still pending Matt's CONUS tile export -- no simulation runs yet.";
     note.style.display = "block";
   } catch (err) {
     result.style.display = "none";
