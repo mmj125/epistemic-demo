@@ -219,6 +219,24 @@
   </div>
 </div>
 
+<div class="panel">
+  <div class="panel-header"><h2>Preview: pick a field anywhere in the US (KML)</h2></div>
+  <div class="panel-body">
+    <p>
+      Early plumbing test, not yet connected to real weather &mdash; upload a KML
+      boundary (e.g. exported from Google Earth) and this computes the field's
+      real area-weighted centroid and which weather tile it would need, so the
+      logic is proven before that tile data exists. A single dropped pin
+      (Point placemark) works too.
+    </p>
+    <input type="file" id="kmlInput" accept=".kml">
+    <div id="kmlResult" style="display:none;margin-top:12px;">
+      <table id="kmlResultTable"></table>
+    </div>
+    <div class="sweep-note" id="kmlNote" style="display:none;"></div>
+  </div>
+</div>
+
 <footer>
   Prototype, not yet the finished classroom tool.
 </footer>
@@ -985,6 +1003,87 @@ json.dumps({
     console.error(err);
   } finally {
     rotationBtn.disabled = false;
+  }
+});
+
+// --- KML field-selector preview (agricultural/prototypes/field_selector.js,
+// inlined here the same way this file inlines everything else). No real
+// weather data behind this yet -- see CLAUDE.md's Agricultural unit section
+// ("Multiple ag fields, Option 2") for the tiling plan this is proving out.
+const FIELD_TILE_DEG = 5;
+
+function parseFieldKML(kmlText) {
+  const doc = new DOMParser().parseFromString(kmlText, "text/xml");
+  if (doc.querySelector("parsererror")) throw new Error("That file isn't valid KML/XML.");
+  const placemarks = Array.from(doc.getElementsByTagName("Placemark"));
+  if (placemarks.length === 0) throw new Error("No Placemark found in this KML file.");
+  const pm = placemarks[0];
+
+  const point = pm.getElementsByTagName("Point")[0];
+  if (point) {
+    const coordText = point.getElementsByTagName("coordinates")[0]?.textContent?.trim();
+    if (!coordText) throw new Error("Point placemark has no coordinates.");
+    const [lng, lat] = coordText.split(",").map(Number);
+    return { kind: "point", lat, lng };
+  }
+
+  const ring = pm.getElementsByTagName("LinearRing")[0];
+  const coordEl = ring ? ring.getElementsByTagName("coordinates")[0] : pm.getElementsByTagName("coordinates")[0];
+  if (!coordEl) throw new Error("No Point or Polygon coordinates found in this KML file.");
+  const vertices = coordEl.textContent.trim().split(/\s+/).map((triplet) => {
+    const [lng, lat] = triplet.split(",").map(Number);
+    return { lat, lng };
+  }).filter((v) => Number.isFinite(v.lat) && Number.isFinite(v.lng));
+  if (vertices.length < 3) throw new Error("Polygon needs at least 3 valid vertices.");
+  return { kind: "polygon", vertices };
+}
+
+function fieldPolygonCentroid(vertices) {
+  let signedArea = 0, cx = 0, cy = 0;
+  const n = vertices.length;
+  for (let i = 0; i < n; i++) {
+    const p0 = vertices[i], p1 = vertices[(i + 1) % n];
+    const cross = p0.lng * p1.lat - p1.lng * p0.lat;
+    signedArea += cross;
+    cx += (p0.lng + p1.lng) * cross;
+    cy += (p0.lat + p1.lat) * cross;
+  }
+  signedArea *= 0.5;
+  if (Math.abs(signedArea) < 1e-12) {
+    return { lat: vertices.reduce((s, v) => s + v.lat, 0) / n, lng: vertices.reduce((s, v) => s + v.lng, 0) / n };
+  }
+  return { lat: cy / (6 * signedArea), lng: cx / (6 * signedArea) };
+}
+
+function fieldTileForPoint(lat, lng, tileDeg = FIELD_TILE_DEG) {
+  const lat0 = Math.floor(lat / tileDeg) * tileDeg;
+  const lon0 = Math.floor(lng / tileDeg) * tileDeg;
+  return { lat0, lon0, key: `${lat0}_${lon0}` };
+}
+
+document.getElementById("kmlInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  const table = document.getElementById("kmlResultTable");
+  const result = document.getElementById("kmlResult");
+  const note = document.getElementById("kmlNote");
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const parsed = parseFieldKML(text);
+    const centroid = parsed.kind === "point" ? { lat: parsed.lat, lng: parsed.lng } : fieldPolygonCentroid(parsed.vertices);
+    const tile = fieldTileForPoint(centroid.lat, centroid.lng);
+    table.innerHTML = `
+      <tr><th>Placemark type</th><td>${parsed.kind}${parsed.kind === "polygon" ? ` (${parsed.vertices.length} vertices)` : ""}</td></tr>
+      <tr><th>Field centroid</th><td>${centroid.lat.toFixed(4)}, ${centroid.lng.toFixed(4)}</td></tr>
+      <tr><th>Weather tile needed</th><td>${tile.key} (${FIELD_TILE_DEG}&deg;&times;${FIELD_TILE_DEG}&deg; box, corner at ${tile.lat0}&deg;N, ${tile.lon0}&deg;E)</td></tr>
+    `;
+    result.style.display = "block";
+    note.textContent = "Centroid and tile computed correctly -- this is what the real tool would fetch once CONUS weather tiles exist. No simulation runs yet.";
+    note.style.display = "block";
+  } catch (err) {
+    result.style.display = "none";
+    note.textContent = "Couldn't read that file: " + err.message;
+    note.style.display = "block";
   }
 });
 
