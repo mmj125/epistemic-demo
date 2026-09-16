@@ -132,11 +132,7 @@ async function loadTile(baseUrl, manifest, lat0, lon0) {
   return decompressed;
 }
 
-// Full pipeline: KML text -> centroid -> which tile -> that tile's raw bytes
-// (decoding the per-cell weather record out of the tile's binary layout is
-// deliberately NOT included here, since that layout is fixed by whatever
-// Matt's Colab export actually produces -- write that decoder once the real
-// manifest exists, against real bytes, not a guessed layout).
+// Full pipeline: KML text -> centroid -> which tile -> that tile's raw bytes.
 async function resolveFieldTile(kmlText, baseUrl) {
   const parsed = parseKML(kmlText);
   const centroid = centroidOf(parsed);
@@ -144,6 +140,85 @@ async function resolveFieldTile(kmlText, baseUrl) {
   const manifest = await loadManifest(baseUrl);
   const bytes = await loadTile(baseUrl, manifest, tile.lat0, tile.lon0);
   return { parsed, centroid, tile, manifest, bytes };
+}
+
+// --- Weather tile decoding (real layout, fixed by the Colab export script
+// that produced agricultural/prototypes' GitHub Release tiles, not guessed) ---
+//
+// Per tile file: cells in the exact order manifest.tiles[key].cells lists
+// them; each cell's days in chronological order across manifest.years[0]
+// through manifest.years[1] inclusive (real Gregorian leap days included,
+// matching cycles_engine_validate.py's own 13,515-day validated record for
+// 1980-2016); each day's fields in manifest.fields order; all little-endian
+// int16, scaled per manifest.scale. This is the same field order the
+// embedded engine's own ALL_WX already uses (see engine-demo.html's
+// to_row()), so a decoded cell is a drop-in replacement for one of ALL_WX's
+// years, no translation needed.
+
+function isLeapYear(y) {
+  return y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0);
+}
+
+// [[year, doy], ...] for every real calendar day from y0-01-01 through
+// y1-12-31 inclusive, in chronological order -- the same order the packer
+// script iterated in when writing each cell's flat day sequence.
+function allYearDoys(y0, y1) {
+  const out = [];
+  for (let y = y0; y <= y1; y++) {
+    const n = isLeapYear(y) ? 366 : 365;
+    for (let d = 1; d <= n; d++) out.push([y, d]);
+  }
+  return out;
+}
+
+// Decodes one cell out of a tile's decompressed bytes into
+// {year: {doy: [field...]}}, matching ALL_WX's own shape exactly.
+function decodeCellWeather(bytes, cellIndex, manifest, tileEntry) {
+  const days = allYearDoys(manifest.years[0], manifest.years[1]);
+  if (tileEntry && tileEntry.n_days != null && tileEntry.n_days !== days.length) {
+    throw new Error(`Tile n_days (${tileEntry.n_days}) doesn't match the manifest's declared year range (${days.length} days) -- decoder/packer are out of sync.`);
+  }
+  const nFields = manifest.fields.length;
+  const view = new Int16Array(bytes);
+  const recordsPerCell = days.length * nFields;
+  const offset = cellIndex * recordsPerCell;
+
+  const wx = {};
+  for (let i = 0; i < days.length; i++) {
+    const [year, doy] = days[i];
+    const values = new Array(nFields);
+    for (let f = 0; f < nFields; f++) {
+      values[f] = view[offset + i * nFields + f] * manifest.scale[manifest.fields[f]];
+    }
+    if (!wx[year]) wx[year] = {};
+    wx[year][doy] = values;
+  }
+  return wx;
+}
+
+// Full pipeline: KML text -> centroid -> nearest real weather cell within
+// its tile -> decoded {year: {doy: [values]}}, ready to hand to the
+// embedded engine as ALL_WX. distanceDeg well above the tile's own
+// resolution_deg means no real cell was nearby (shouldn't happen once a
+// tile itself is found, since tiles are only built where real cells exist,
+// but checked anyway rather than trusted blindly).
+async function resolveFieldWeather(kmlText, baseUrl) {
+  const parsed = parseKML(kmlText);
+  const centroid = centroidOf(parsed);
+  const tile = tileForPoint(centroid.lat, centroid.lng);
+  const manifest = await loadManifest(baseUrl);
+  const tileEntry = manifest.tiles[tile.key];
+  if (!tileEntry) {
+    return { parsed, centroid, tile, manifest, weather: null, cell: null, distanceDeg: Infinity };
+  }
+  const bytes = await loadTile(baseUrl, manifest, tile.lat0, tile.lon0);
+  let bestIdx = 0, bestDist = Infinity;
+  tileEntry.cells.forEach(([clat, clon], idx) => {
+    const d = Math.hypot(clat - centroid.lat, clon - centroid.lng);
+    if (d < bestDist) { bestDist = d; bestIdx = idx; }
+  });
+  const weather = decodeCellWeather(bytes, bestIdx, manifest, tileEntry);
+  return { parsed, centroid, tile, manifest, weather, cell: tileEntry.cells[bestIdx], distanceDeg: bestDist };
 }
 
 // --- Soil lookup (STATSGO2, agricultural/prototypes/statsgo2_soil_grid.json.gz) ---
@@ -217,5 +292,6 @@ if (typeof module !== "undefined") {
   module.exports = {
     parseKML, polygonCentroid, centroidOf, tileForPoint, loadManifest, loadTile, resolveFieldTile, TILE_DEG,
     nearestSoilCell, soilLayersForCell, loadSoilGrid, resolveFieldSoil, DEFAULT_SUBSOIL_SOC_PCT,
+    isLeapYear, allYearDoys, decodeCellWeather, resolveFieldWeather,
   };
 }
