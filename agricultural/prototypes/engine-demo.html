@@ -220,21 +220,49 @@
 </div>
 
 <div class="panel">
-  <div class="panel-header"><h2>Preview: pick a field anywhere in the US (KML)</h2></div>
+  <div class="panel-header"><h2>Pick a field and run a simulation</h2></div>
   <div class="panel-body">
     <p>
-      Not yet connected to a real simulation for an arbitrary field &mdash; upload a
-      KML boundary (e.g. exported from Google Earth) and this computes the
-      field's real area-weighted centroid, looks up its real STATSGO2 soil
-      profile (national soil survey data, already embedded in this page), and
-      shows which weather tile it would need once that data exists. A single
-      dropped pin (Point placemark) works too.
+      Upload a KML boundary (or a single dropped pin from Google Earth) for a
+      real field anywhere in the CONUS and run the same validated corn model
+      used elsewhere in this demo against that field's real soil (STATSGO2)
+      and real weather (NLDAS-2, 1980&ndash;2016) &mdash; not a simplified
+      stand-in. Add a second field to compare two real locations side by
+      side. Nitrogen rate is fixed at 150 kg N/ha here (not adjustable in
+      this panel) so any difference you see reflects soil and weather, not a
+      fertilizer choice.
     </p>
-    <input type="file" id="kmlInput" accept=".kml">
-    <div id="kmlResult" style="display:none;margin-top:12px;">
-      <table id="kmlResultTable"></table>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:10px;">
+      <div>
+        <h3 style="margin:0 0 6px;font-size:13px;color:var(--muted);">Field A</h3>
+        <input type="file" id="kmlInputA" accept=".kml">
+        <div id="kmlResultA" style="display:none;margin-top:10px;"><table id="kmlResultTableA"></table></div>
+        <div class="sweep-note" id="kmlNoteA" style="display:none;"></div>
+      </div>
+      <div>
+        <h3 style="margin:0 0 6px;font-size:13px;color:var(--muted);">Field B (optional, for comparison)</h3>
+        <input type="file" id="kmlInputB" accept=".kml">
+        <div id="kmlResultB" style="display:none;margin-top:10px;"><table id="kmlResultTableB"></table></div>
+        <div class="sweep-note" id="kmlNoteB" style="display:none;"></div>
+      </div>
     </div>
-    <div class="sweep-note" id="kmlNote" style="display:none;"></div>
+    <div class="controls">
+      <div class="field">
+        <label>Weather year: <span id="fieldYearLabel">2012</span></label>
+        <input type="range" id="fieldYearSlider" min="1980" max="2016" step="1" value="2012">
+      </div>
+    </div>
+    <button id="fieldRunBtn" class="btn" disabled>Upload Field A to enable</button>
+    <div id="fieldRunStatus" style="font-family:'DM Mono',monospace;font-size:11.5px;color:var(--muted);margin:10px 0 4px;min-height:16px;"></div>
+    <div class="result" id="fieldRunResult" style="display:none;">
+      <table id="fieldRunTable"></table>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px;">
+        <canvas class="chart" id="fieldYieldChart" width="240" height="150"></canvas>
+        <canvas class="chart" id="fieldAgChart" width="240" height="150"></canvas>
+        <canvas class="chart" id="fieldLeachChart" width="240" height="150"></canvas>
+      </div>
+      <div class="sweep-note" id="fieldRunNote" style="margin-top:8px;"></div>
+    </div>
   </div>
 </div>
 
@@ -1097,40 +1125,215 @@ function fieldSoilLayersForCell(cell) {
   }));
 }
 
-document.getElementById("kmlInput").addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  const table = document.getElementById("kmlResultTable");
-  const result = document.getElementById("kmlResult");
-  const note = document.getElementById("kmlNote");
-  if (!file) return;
+// --- Weather tile lookup (real committed tiles, agricultural/prototypes/weather-tiles/,
+// same-origin -- see CLAUDE.md on why this replaced a GitHub Release: Release
+// assets don't send Access-Control-Allow-Origin, so a browser fetch from this
+// deployed page was blocked by CORS regardless of correct packaging).
+const WEATHER_BASE = "weather-tiles";
+let weatherManifestCache = null;
+const weatherTileCache = {};
+
+function fieldIsLeapYear(y) {
+  return y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0);
+}
+function fieldAllYearDoys(y0, y1) {
+  const out = [];
+  for (let y = y0; y <= y1; y++) {
+    const n = fieldIsLeapYear(y) ? 366 : 365;
+    for (let d = 1; d <= n; d++) out.push([y, d]);
+  }
+  return out;
+}
+// Decodes one cell out of a tile's decompressed bytes into {year: {doy: [field...]}},
+// the exact shape this page's own embedded ALL_WX already uses -- see
+// field_selector.js's decodeCellWeather() for the fuller comments on this layout.
+function fieldDecodeCellWeather(bytes, cellIndex, manifest, tileEntry) {
+  const days = fieldAllYearDoys(manifest.years[0], manifest.years[1]);
+  const nFields = manifest.fields.length;
+  const view = new Int16Array(bytes);
+  const recordsPerCell = days.length * nFields;
+  const offset = cellIndex * recordsPerCell;
+  const wx = {};
+  for (let i = 0; i < days.length; i++) {
+    const [year, doy] = days[i];
+    const values = new Array(nFields);
+    for (let f = 0; f < nFields; f++) {
+      values[f] = view[offset + i * nFields + f] * manifest.scale[manifest.fields[f]];
+    }
+    if (!wx[year]) wx[year] = {};
+    wx[year][doy] = values;
+  }
+  return wx;
+}
+async function loadFieldWeatherManifest() {
+  if (weatherManifestCache) return weatherManifestCache;
+  const res = await fetch(`${WEATHER_BASE}/manifest.json`);
+  if (!res.ok) throw new Error(`Couldn't load weather manifest (HTTP ${res.status}).`);
+  weatherManifestCache = await res.json();
+  return weatherManifestCache;
+}
+async function fieldNearestWeather(lat, lng) {
+  const manifest = await loadFieldWeatherManifest();
+  const tile = fieldTileForPoint(lat, lng);
+  const tileEntry = manifest.tiles[tile.key];
+  if (!tileEntry) return { weather: null, distanceDeg: Infinity, cell: null };
+  let bytes = weatherTileCache[tile.key];
+  if (!bytes) {
+    const res = await fetch(`${WEATHER_BASE}/${tileEntry.file}`);
+    if (!res.ok) throw new Error(`Couldn't load weather tile ${tile.key} (HTTP ${res.status}).`);
+    const buf = await res.arrayBuffer();
+    const ds = new DecompressionStream("gzip");
+    bytes = await new Response(new Response(buf).body.pipeThrough(ds)).arrayBuffer();
+    weatherTileCache[tile.key] = bytes;
+  }
+  let bestIdx = 0, bestDist = Infinity;
+  tileEntry.cells.forEach(([clat, clon], idx) => {
+    const d = Math.hypot(clat - lat, clon - lng);
+    if (d < bestDist) { bestDist = d; bestIdx = idx; }
+  });
+  const weather = fieldDecodeCellWeather(bytes, bestIdx, manifest, tileEntry);
+  return { weather, distanceDeg: bestDist, cell: tileEntry.cells[bestIdx] };
+}
+
+// --- Two-field slot state, upload handlers, and the comparison run ---
+const fieldState = { A: null, B: null };
+
+function wireFieldSlot(slot) {
+  document.getElementById(`kmlInput${slot}`).addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    const table = document.getElementById(`kmlResultTable${slot}`);
+    const result = document.getElementById(`kmlResult${slot}`);
+    const note = document.getElementById(`kmlNote${slot}`);
+    if (!file) return;
+    fieldState[slot] = null;
+    updateFieldRunButton();
+    try {
+      const text = await file.text();
+      const parsed = parseFieldKML(text);
+      const centroid = parsed.kind === "point" ? { lat: parsed.lat, lng: parsed.lng } : fieldPolygonCentroid(parsed.vertices);
+
+      const grid = await loadFieldSoilGrid();
+      const { cell: soilCell, distanceDeg: soilDist } = nearestFieldSoilCell(centroid.lat, centroid.lng, grid);
+      const layers = fieldSoilLayersForCell(soilCell);
+      const { weather, distanceDeg: wxDist, cell: wxCell } = await fieldNearestWeather(centroid.lat, centroid.lng);
+      const topsoil = layers[0];
+
+      const soilOut = soilDist > 0.75;
+      const wxOut = !weather || wxDist > 0.75;
+
+      table.innerHTML = `
+        <tr><th>Placemark type</th><td>${parsed.kind}${parsed.kind === "polygon" ? ` (${parsed.vertices.length} vertices)` : ""}</td></tr>
+        <tr><th>Field centroid</th><td>${centroid.lat.toFixed(4)}, ${centroid.lng.toFixed(4)}</td></tr>
+        <tr><th>Nearest soil profile</th><td>${soilCell.compname} series (mukey ${soilCell.mukey}), ${soilDist.toFixed(2)}&deg; away</td></tr>
+        <tr><th>Topsoil (real STATSGO2)</th><td>${topsoil.clay}% clay, ${topsoil.sand}% sand, ${topsoil.soc.toFixed(2)}% SOC</td></tr>
+        <tr><th>Nearest weather cell</th><td>${wxOut ? "no coverage" : `${wxCell[0].toFixed(2)}, ${wxCell[1].toFixed(2)} (${wxDist.toFixed(2)}&deg; away)`}</td></tr>
+      `;
+      result.style.display = "block";
+
+      if (soilOut || wxOut) {
+        fieldState[slot] = null;
+        note.textContent = `This point falls outside real CONUS coverage (soil ${soilDist.toFixed(2)}° away, weather ${wxOut ? "no tile" : wxDist.toFixed(2) + "°"} away) -- likely ocean, a Great Lake, or just past the border. Try a point further inland.`;
+      } else {
+        fieldState[slot] = { centroid, soilLayers: layers, weather, soilLabel: soilCell.compname, wxCell };
+        note.textContent = "Real soil and weather both resolved for this field -- ready to run.";
+      }
+      note.style.display = "block";
+    } catch (err) {
+      result.style.display = "none";
+      fieldState[slot] = null;
+      note.textContent = "Couldn't read that file: " + err.message;
+      note.style.display = "block";
+    }
+    updateFieldRunButton();
+  });
+}
+wireFieldSlot("A");
+wireFieldSlot("B");
+
+const fieldYearSlider = document.getElementById("fieldYearSlider");
+fieldYearSlider.addEventListener("input", () => {
+  document.getElementById("fieldYearLabel").textContent = fieldYearSlider.value;
+});
+
+function updateFieldRunButton() {
+  const btn = document.getElementById("fieldRunBtn");
+  if (fieldState.A && fieldState.B) {
+    btn.disabled = false; btn.textContent = "Run & compare both fields";
+  } else if (fieldState.A) {
+    btn.disabled = false; btn.textContent = "Run corn simulation for Field A";
+  } else {
+    btn.disabled = true; btn.textContent = "Upload Field A to enable";
+  }
+}
+
+async function runFieldSlot(slot, year) {
+  const state = fieldState[slot];
+  pyodide.globals.set("field_wx_json", JSON.stringify(state.weather));
+  pyodide.globals.set("field_soil_json", JSON.stringify(state.soilLayers));
+  pyodide.globals.set("field_year", String(year));
+  // Builds a fresh, call-scoped CORN variant with its own make_layers() closing
+  // over this field's own soil -- deliberately does NOT touch the shared global
+  // SOIL_LAYERS_RAW/CORN, so this never leaks into the Rock Springs panel above
+  // (or vice versa) regardless of which button a student clicks first or next.
+  const out = await pyodide.runPythonAsync(`
+import json as _json
+_field_wx = _json.loads(field_wx_json)
+_field_soil_raw = _json.loads(field_soil_json)
+def _field_make_layers():
+    out = []
+    for L in _field_soil_raw:
+        hyd = saxton_rawls(L["sand"], L["clay"], L["soc"] * OM_FROM_SOC)
+        out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"]))
+    return out
+_field_crop = dict(CORN)
+_field_crop["make_layers"] = _field_make_layers
+_wx_year = _field_wx.get(field_year)
+if _wx_year is None:
+    _result = {"error": f"No weather data for {field_year}"}
+else:
+    _plant_doy, _rows = build_season_rows(_wx_year, _field_crop)
+    _res = simulate_season(_rows, _field_crop, n_rate_kg_ha=150.0, record_history=False)
+    _result = {"plant_doy": _plant_doy, **_res}
+json.dumps(_result)
+`);
+  return JSON.parse(out);
+}
+
+document.getElementById("fieldRunBtn").addEventListener("click", async () => {
+  const status = document.getElementById("fieldRunStatus");
+  const resultBox = document.getElementById("fieldRunResult");
+  const year = parseInt(fieldYearSlider.value, 10);
+  status.textContent = "Running...";
+  resultBox.style.display = "none";
   try {
-    const text = await file.text();
-    const parsed = parseFieldKML(text);
-    const centroid = parsed.kind === "point" ? { lat: parsed.lat, lng: parsed.lng } : fieldPolygonCentroid(parsed.vertices);
-    const tile = fieldTileForPoint(centroid.lat, centroid.lng);
+    const slots = fieldState.B ? ["A", "B"] : ["A"];
+    const results = {};
+    for (const slot of slots) {
+      results[slot] = await runFieldSlot(slot, year);
+    }
+    const labels = slots.map((s) => `Field ${s}`);
+    const grain = slots.map((s) => results[s].grain ?? 0);
+    const ag = slots.map((s) => results[s].ag ?? 0);
+    const leached = slots.map((s) => results[s].n_leached_kg_ha ?? 0);
+    const colors = ["#2471a3", "#c0392b"];
 
-    const grid = await loadFieldSoilGrid();
-    const { cell: soilCell, distanceDeg } = nearestFieldSoilCell(centroid.lat, centroid.lng, grid);
-    const layers = fieldSoilLayersForCell(soilCell);
-    const topsoil = layers[0];
-    const outsideCoverage = distanceDeg > 0.75; // grid spacing is 0.5 deg; a bigger gap means ocean/Great Lakes/border
-
-    table.innerHTML = `
-      <tr><th>Placemark type</th><td>${parsed.kind}${parsed.kind === "polygon" ? ` (${parsed.vertices.length} vertices)` : ""}</td></tr>
-      <tr><th>Field centroid</th><td>${centroid.lat.toFixed(4)}, ${centroid.lng.toFixed(4)}</td></tr>
-      <tr><th>Weather tile needed</th><td>${tile.key} (${FIELD_TILE_DEG}&deg;&times;${FIELD_TILE_DEG}&deg; box, corner at ${tile.lat0}&deg;N, ${tile.lon0}&deg;E)</td></tr>
-      <tr><th>Nearest soil profile</th><td>${soilCell.compname} series (STATSGO2 mukey ${soilCell.mukey}), ${distanceDeg.toFixed(2)}&deg; away, ${layers.length} layers</td></tr>
-      <tr><th>Topsoil (real STATSGO2)</th><td>${topsoil.clay}% clay, ${topsoil.sand}% sand, ${topsoil.soc.toFixed(2)}% SOC</td></tr>
+    document.getElementById("fieldRunTable").innerHTML = `
+      <tr><th></th>${slots.map((s) => `<th>Field ${s}</th>`).join("")}</tr>
+      <tr><td>Planted (DOY)</td>${slots.map((s) => `<td>${results[s].plant_doy ?? "—"}</td>`).join("")}</tr>
+      <tr><td>Grain yield (Mg/ha)</td>${slots.map((s) => `<td>${(results[s].grain ?? 0).toFixed(2)}</td>`).join("")}</tr>
+      <tr><td>Aboveground biomass (Mg/ha)</td>${slots.map((s) => `<td>${(results[s].ag ?? 0).toFixed(2)}</td>`).join("")}</tr>
+      <tr><td>Nitrogen leached (kg N/ha)</td>${slots.map((s) => `<td>${(results[s].n_leached_kg_ha ?? 0).toFixed(1)}</td>`).join("")}</tr>
     `;
-    result.style.display = "block";
-    note.textContent = outsideCoverage
-      ? `Centroid and tile computed correctly, but the nearest soil profile is ${distanceDeg.toFixed(2)}° away -- this point likely falls outside real CONUS land coverage (ocean, a Great Lake, or just past the border). Soil data still pending real weather tiles either way -- see CLAUDE.md.`
-      : "Centroid, tile, and real soil profile all resolved correctly. Weather still pending Matt's CONUS tile export -- no simulation runs yet.";
-    note.style.display = "block";
+    drawBarChart(document.getElementById("fieldYieldChart"), labels, grain, { colors });
+    drawBarChart(document.getElementById("fieldAgChart"), labels, ag, { colors });
+    drawBarChart(document.getElementById("fieldLeachChart"), labels, leached, { colors });
+    document.getElementById("fieldRunNote").textContent = slots.length === 2
+      ? `Both fields run against the same ${year} weather year and a fixed 150 kg N/ha, so any difference is real soil and location, not a different input.`
+      : `Ran Field A for ${year}. Upload a Field B KML and run again to compare two real locations side by side.`;
+    resultBox.style.display = "block";
+    status.textContent = "";
   } catch (err) {
-    result.style.display = "none";
-    note.textContent = "Couldn't read that file: " + err.message;
-    note.style.display = "block";
+    status.textContent = "Couldn't run that simulation: " + err.message;
   }
 });
 
