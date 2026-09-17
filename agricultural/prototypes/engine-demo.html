@@ -69,6 +69,24 @@
 </header>
 
 <div class="panel">
+  <div class="panel-header"><h2>Select your site</h2></div>
+  <div class="panel-body">
+    <p>
+      One choice, used by the panels that need a real location: pick one of four
+      preset sites, or upload a KML boundary (or a single dropped pin from Google
+      Earth) for a real field of your own anywhere in the CONUS. Feeds "Run a
+      season" below, the nitrogen/tradeoff panel, and Field A of the
+      field-comparison panel further down &mdash; the years-of-weather and
+      rotation panels still run on Rock Springs only, not yet wired to this choice.
+    </p>
+    <div class="preset-row" id="currentSitePresetRow" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">...or upload your own field (KML):</div>
+    <input type="file" id="currentSiteKmlInput" accept=".kml">
+    <div class="sweep-note" id="currentSiteNote" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<div class="panel">
   <div class="panel-header"><h2>Run a season</h2></div>
   <div class="panel-body">
     <div class="controls">
@@ -99,6 +117,7 @@
       Soybean fixes its own nitrogen (a legume, per the real crop file) &mdash; this
       slider has no effect on soybean yield.
     </div>
+    <div class="sweep-note" id="runSeasonSiteMirror" style="margin-bottom:8px;"></div>
     <div id="status">Starting Pyodide&hellip;</div>
     <div class="result" id="result">
       <div class="headline" id="headline"></div>
@@ -109,24 +128,6 @@
       </div>
       <table id="resultTable"></table>
     </div>
-  </div>
-</div>
-
-<div class="panel">
-  <div class="panel-header"><h2>Select your site</h2></div>
-  <div class="panel-body">
-    <p>
-      One choice, used by the panels that need a real location: pick one of four
-      preset sites, or upload a KML boundary (or a single dropped pin from Google
-      Earth) for a real field of your own anywhere in the CONUS. Currently feeds
-      the nitrogen/tradeoff panel below and Field A of the field-comparison panel
-      further down &mdash; "Run a season" above and the years-of-weather and
-      rotation panels still run on Rock Springs only, not yet wired to this choice.
-    </p>
-    <div class="preset-row" id="currentSitePresetRow" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">...or upload your own field (KML):</div>
-    <input type="file" id="currentSiteKmlInput" accept=".kml">
-    <div class="sweep-note" id="currentSiteNote" style="margin-top:10px;"></div>
   </div>
 </div>
 
@@ -951,15 +952,44 @@ runBtn.addEventListener("click", async () => {
     pyodide.globals.set("run_year", year);
     pyodide.globals.set("run_crop", crop);
     pyodide.globals.set("run_n_rate", parseFloat(nRateSlider.value));
+    const usingResolvedSite = currentSite.kind === "resolved";
+    pyodide.globals.set("use_resolved_site", usingResolvedSite);
+    if (usingResolvedSite) {
+      pyodide.globals.set("site_wx_json", JSON.stringify(currentSite.weather));
+      pyodide.globals.set("site_soil_json", JSON.stringify(currentSite.soilLayers));
+    }
+    // Same use_resolved_site branch pattern as the nitrogen-sweep panel below --
+    // exact ALL_WX/default make_layers when currentSite is Rock Springs (the
+    // default, byte-identical to this handler's pre-site-picker behavior), a
+    // call-scoped dict(crop_obj) with its own make_layers() over the resolved
+    // site's soil otherwise. Applies to whichever crop is selected, corn or
+    // soybean, not just corn (unlike the field-comparison panel, which is
+    // corn-only) since this panel lets a student pick either.
     const out = await pyodide.runPythonAsync(`
 crop_obj = CORN if run_crop == "corn" else SOYBEAN
-plant_doy, rows = build_season_rows(ALL_WX[run_year], crop_obj)
+if use_resolved_site:
+    import json as _json
+    _site_wx = _json.loads(site_wx_json)
+    _site_soil = _json.loads(site_soil_json)
+    def _site_make_layers():
+        out = []
+        for L in _site_soil:
+            hyd = saxton_rawls(L["sand"], L["clay"], L["soc"] * OM_FROM_SOC)
+            out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"]))
+        return out
+    crop_obj = dict(crop_obj)
+    crop_obj["make_layers"] = _site_make_layers
+    _wx_year = _site_wx.get(run_year)
+else:
+    _wx_year = ALL_WX[run_year]
+plant_doy, rows = build_season_rows(_wx_year, crop_obj)
 res = simulate_season(rows, crop_obj, n_rate_kg_ha=run_n_rate, record_history=True)
 json.dumps({"plant_doy": plant_doy, **res})
 `);
     const data = JSON.parse(out);
     const label = crop === "corn" ? "Grain yield" : "Soybean yield";
-    document.getElementById("headline").innerHTML = `${label} (${year}): <b>${data.grain.toFixed(2)} Mg/ha</b>`;
+    const siteName = currentSite.kind === "rocksprings" ? "Rock Springs, PA" : currentSite.label;
+    document.getElementById("headline").innerHTML = `${label} (${siteName}, ${year}): <b>${data.grain.toFixed(2)} Mg/ha</b>`;
     drawSeasonChart(document.getElementById("seasonChart"), data.history);
     const nRow = crop === "corn"
       ? `<tr><th>Nitrogen applied</th><td>${nRateSlider.value} kg N/ha</td></tr>`
@@ -1676,7 +1706,6 @@ let currentSite = { kind: "rocksprings", label: "Rock Springs, PA (exact validat
 
 function describeCurrentSite() {
   const note = document.getElementById("currentSiteNote");
-  const mirror = document.getElementById("nSweepSiteMirror");
   let text;
   if (currentSite.kind === "rocksprings") {
     text = `Currently selected: ${currentSite.label}.`;
@@ -1688,11 +1717,15 @@ function describeCurrentSite() {
   }
   note.textContent = text;
   note.style.display = "block";
-  mirror.textContent = currentSite.kind === "rocksprings"
+  const mirrorText = currentSite.kind === "rocksprings"
     ? `Running against: ${currentSite.label}.`
     : `Running against: ${currentSite.label} -- approximate, same STATSGO2/NLDAS-2 nearest-cell lookup ` +
       `as Field A below, not the exact hand-validated Rock Springs data this panel uses by default.`;
-  mirror.style.display = "block";
+  ["nSweepSiteMirror", "runSeasonSiteMirror"].forEach((id) => {
+    const el = document.getElementById(id);
+    el.textContent = mirrorText;
+    el.style.display = "block";
+  });
 }
 describeCurrentSite();
 
