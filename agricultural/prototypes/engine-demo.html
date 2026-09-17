@@ -144,20 +144,33 @@
     <canvas class="chart" id="nProfitChart" width="800" height="200" style="display:none;"></canvas>
     <div class="sweep-note" id="nProfitNote" style="display:none;"></div>
 
-    <h3 id="nFrontierHeading" style="margin:22px 0 4px;font-size:14px;display:none;">Profit vs. leaching tradeoff</h3>
+    <h3 id="nFrontierHeading" style="margin:22px 0 4px;font-size:14px;display:none;">Three perspectives, one curve</h3>
     <p id="nFrontierIntro" style="display:none;">
-      The same fourteen runs, but plotted against each other instead of against
+      The same fourteen runs, plotted against each other instead of against
       nitrogen rate. Each dot is one nitrogen rate; the line connects them from
       lowest to highest. There is no dot up and to the left of this curve &mdash;
       for any given amount of leaching, this is the most profit that rate of
-      nitrogen can produce. A farmer wants to be as high as possible on the
-      curve, a water-quality advocate wants to be as far left as possible, and
-      a policymaker has to pick a point on it. None of the three can get an
-      answer the others must simply accept &mdash; every point on this line is
-      already optimal for its own leaching level.
+      nitrogen can produce. Three positions are marked on it, standing in for
+      three people who'd read this chart differently: a <b>farmer</b> maximizing
+      profit wherever it lands; a <b>water-quality advocate</b> minimizing
+      leaching, but not by demanding zero fertilizer &mdash; the mark below holds
+      to at least 80% of this run's maximum yield, closer to how a real advocate
+      argues (less fertilizer, not none); and a <b>policymaker</b> at the point
+      that best balances profit and leaching, each measured against its own best
+      and worst value in this sweep and weighted equally. None of the three can
+      hand the others an answer they're obligated to accept &mdash; every point
+      on this curve is already the most profit achievable at its own leaching
+      level, so the disagreement is genuinely about which point to stand on, not
+      about who has the better number.
     </p>
+    <div class="legend" id="nFrontierLegend" style="margin:0 0 6px;display:none;">
+      <span><span class="swatch" style="background:#1e8449;"></span>Farmer (max profit)</span>
+      <span><span class="swatch" style="background:#c0392b;"></span>Water-quality advocate (min leaching, &ge;80% max yield)</span>
+      <span><span class="swatch" style="background:#2471a3;"></span>Policymaker (balances both, equal weight)</span>
+    </div>
     <div style="font-size:11px;color:var(--muted);margin:0 0 4px;" id="nFrontierAxisLabel"></div>
     <canvas class="chart" id="nFrontierChart" width="800" height="220" style="display:none;"></canvas>
+    <table id="nFrontierTable" style="margin-top:10px;display:none;"></table>
     <div class="sweep-note" id="nFrontierNote" style="display:none;"></div>
   </div>
 </div>
@@ -941,7 +954,11 @@ json.dumps({"plant_doy": plant_doy, **res})
   }
 });
 
-function drawFrontierChart(canvas, points, highlightIdx) {
+function drawFrontierChart(canvas, points, highlights) {
+  // highlights: [{idx, color, label}, ...] -- several named positions can share one point,
+  // in which case their labels combine ("Farmer & Policymaker") rather than drawing on top
+  // of each other.
+  highlights = highlights || [];
   const ctx = canvas.getContext("2d");
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0, 0, W, H);
@@ -976,27 +993,41 @@ function drawFrontierChart(canvas, points, highlightIdx) {
     if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
   });
   ctx.stroke();
+
+  const byIdx = new Map();
+  highlights.forEach(h => {
+    if (!byIdx.has(h.idx)) byIdx.set(h.idx, []);
+    byIdx.get(h.idx).push(h);
+  });
+
   points.forEach((p, i) => {
     const { px, py } = toPx(p.x, p.y);
-    const isHi = i === highlightIdx;
-    const r = isHi ? 6 : 4;
+    const group = byIdx.get(i);
+    const r = group ? 6 : 4;
     ctx.beginPath(); ctx.arc(px, py, r + 2, 0, Math.PI * 2); ctx.fillStyle = "#fff"; ctx.fill();
-    ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fillStyle = isHi ? "#1e8449" : "#2471a3"; ctx.fill();
+    ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fillStyle = group ? group[0].color : "#2471a3"; ctx.fill();
   });
+
   ctx.fillStyle = "#5f7180"; ctx.textAlign = "left";
   const firstPx = toPx(points[0].x, points[0].y).px;
   const lastPx = toPx(points[points.length - 1].x, points[points.length - 1].y).px;
   ctx.fillText(points[0].x.toFixed(1), Math.max(pad.l, firstPx - 10), pad.t + plotH + 16);
   ctx.textAlign = "right";
   ctx.fillText(points[points.length - 1].x.toFixed(1), Math.min(pad.l + plotW, lastPx + 10), pad.t + plotH + 16);
-  if (highlightIdx != null) {
-    const hp = points[highlightIdx];
+
+  let groupIndex = 0;
+  byIdx.forEach((group, idx) => {
+    const hp = points[idx];
     const { px, py } = toPx(hp.x, hp.y);
-    ctx.fillStyle = "#1e8449";
+    const label = group.map(g => g.label).join(" & ");
+    ctx.fillStyle = group[0].color;
     const right = px > pad.l + plotW * 0.6;
     ctx.textAlign = right ? "right" : "left";
-    ctx.fillText(`${hp.n} kg N/ha`, px + (right ? -9 : 9), py - 10);
-  }
+    const above = groupIndex % 2 === 0;
+    const dy = above ? -10 : 20;
+    ctx.fillText(`${label} (${hp.n} kg N/ha)`, px + (right ? -9 : 9), py + dy);
+    groupIndex++;
+  });
   ctx.textAlign = "left";
 }
 
@@ -1038,21 +1069,89 @@ function renderProfitChart() {
 
   const heading = document.getElementById("nFrontierHeading");
   const intro = document.getElementById("nFrontierIntro");
+  const legend = document.getElementById("nFrontierLegend");
   const axisLabel = document.getElementById("nFrontierAxisLabel");
   const frontierCanvas = document.getElementById("nFrontierChart");
+  const frontierTable = document.getElementById("nFrontierTable");
   const frontierNote = document.getElementById("nFrontierNote");
   const points = data.map((d, i) => ({ x: d.leached, y: profits[i], n: d.n_rate }));
+
+  const farmerIdx = bestIdx;
+
+  // Water-quality advocate: minimize leaching, but subject to a real floor -- a real advocate
+  // argues for less fertilizer, not none, and "just apply zero" would be a trivial, unusable
+  // answer here. 80% of this run's own max yield is the floor; if no sampled rate clears it,
+  // fall back to whichever rate gets closest to max yield (the crop needs most of the range
+  // just to approach 80%, which is itself worth surfacing rather than hiding).
+  const maxGrainAll = Math.max(...data.map(d => d.grain));
+  const yieldFloor = 0.8 * maxGrainAll;
+  const floorCandidates = data.map((d, i) => i).filter(i => data[i].grain >= yieldFloor);
+  let waterIdx = floorCandidates.length
+    ? floorCandidates.reduce((best, i) => data[i].leached < data[best].leached ? i : best, floorCandidates[0])
+    : data.reduce((best, d, i) => d.grain > data[best].grain ? i : best, 0);
+
+  // Policymaker: balance profit and leaching, each normalized to this sweep's own best/worst
+  // and weighted equally -- but searched only between the farmer's and water advocate's own
+  // rates (inclusive), not the whole sweep. A free global search can otherwise pick a point
+  // outside that range entirely (caught in testing: it landed to the LEFT of the water
+  // advocate's own floor-constrained minimum, which contradicts "the policymaker picks a
+  // point between the two" and would read as a real inconsistency, not a nuance, to a
+  // student). Restricting the search to [lo, hi] guarantees the policymaker's pick is
+  // genuinely between the two named positions, whichever one happens to sit at higher N.
+  const minProfit = Math.min(...profits), maxProfit = Math.max(...profits);
+  const minLeach = Math.min(...data.map(d => d.leached)), maxLeach = Math.max(...data.map(d => d.leached));
+  const profitSpan = (maxProfit - minProfit) || 1, leachSpan = (maxLeach - minLeach) || 1;
+  const rangeLo = Math.min(farmerIdx, waterIdx), rangeHi = Math.max(farmerIdx, waterIdx);
+  let policyIdx = rangeLo, bestScore = -Infinity;
+  for (let i = rangeLo; i <= rangeHi; i++) {
+    const score = (profits[i] - minProfit) / profitSpan - (data[i].leached - minLeach) / leachSpan;
+    if (score > bestScore) { bestScore = score; policyIdx = i; }
+  }
+
+  const highlights = [
+    { idx: farmerIdx, color: "#1e8449", label: "Farmer" },
+    { idx: waterIdx, color: "#c0392b", label: "Water advocate" },
+    { idx: policyIdx, color: "#2471a3", label: "Policymaker" }
+  ];
+
   heading.style.display = "block";
   intro.style.display = "block";
+  legend.style.display = "flex";
   axisLabel.style.display = "block";
   axisLabel.textContent = "Y axis: profit ($/ha)  ·  X axis: nitrogen leached (kg N/ha)  ·  each dot is one nitrogen rate, low to high";
   frontierCanvas.style.display = "block";
-  drawFrontierChart(frontierCanvas, points, bestIdx);
-  const lowestLeach = points[0], highestLeach = points[points.length - 1];
-  frontierNote.innerHTML = `Going from <b>${lowestLeach.x.toFixed(1)} kg N/ha</b> leached (no fertilizer) to ` +
-    `<b>${highestLeach.x.toFixed(1)} kg N/ha</b> leached (650 kg N/ha applied), profit rises then falls back ` +
-    `&mdash; the green dot (${bestN} kg N/ha) is the highest point on the curve, not the rightmost one. Moving right ` +
-    `of it buys more leaching for less profit, not more of either.`;
+  drawFrontierChart(frontierCanvas, points, highlights);
+
+  frontierTable.style.display = "table";
+  const rows = [
+    { label: "Farmer (max profit)", idx: farmerIdx, color: "#1e8449" },
+    { label: "Water-quality advocate", idx: waterIdx, color: "#c0392b" },
+    { label: "Policymaker (balances both)", idx: policyIdx, color: "#2471a3" }
+  ];
+  frontierTable.innerHTML = `<tr><th>Perspective</th><th>N applied</th><th>Yield</th><th>Leached</th><th>Profit</th></tr>` +
+    rows.map(r => `<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;` +
+      `background:${r.color};margin-right:6px;vertical-align:middle;"></span>${r.label}</td>` +
+      `<td>${data[r.idx].n_rate} kg N/ha</td><td>${data[r.idx].grain.toFixed(2)} Mg/ha</td>` +
+      `<td>${data[r.idx].leached.toFixed(1)} kg N/ha</td><td>$${profits[r.idx].toFixed(0)}/ha</td></tr>`).join("");
+
+  const sameAsFarmer = waterIdx === farmerIdx;
+  const floorNote = floorCandidates.length
+    ? ""
+    : ` Even the lowest-leaching rate that still clears 80% of max yield here needs most of the ` +
+      `sweep's nitrogen range &mdash; this crop doesn't get close to its own potential on a little ` +
+      `fertilizer at this site and year.`;
+  if (sameAsFarmer) {
+    frontierNote.innerHTML = `At these prices, the farmer's profit-maximizing rate (<b>${data[farmerIdx].n_rate} kg N/ha</b>) ` +
+      `already clears the water-quality advocate's 80%-of-max-yield floor at the lowest possible leaching ` +
+      `&mdash; all three perspectives land on the same point here. Try raising the fertilizer cost, or a lower-yielding ` +
+      `year, to see them split apart.`;
+  } else {
+    frontierNote.innerHTML = `The farmer's rate leaches <b>${(data[farmerIdx].leached - data[waterIdx].leached).toFixed(1)} kg N/ha` +
+      `</b> more than the water-quality advocate's, for <b>$${(profits[farmerIdx] - profits[waterIdx]).toFixed(0)}/ha</b> more profit ` +
+      `and <b>${(data[farmerIdx].grain - data[waterIdx].grain).toFixed(2)} Mg/ha</b> more yield. The policymaker's pick sits ` +
+      `${policyIdx === farmerIdx ? "at the farmer's own point" : policyIdx === waterIdx ? "at the advocate's own point" : "between the two"} ` +
+      `on the curve.${floorNote}`;
+  }
   frontierNote.style.display = "block";
 }
 
@@ -1090,8 +1189,10 @@ json.dumps(sweep_out)
       document.getElementById("nProfitNote").style.display = "none";
       document.getElementById("nFrontierHeading").style.display = "none";
       document.getElementById("nFrontierIntro").style.display = "none";
+      document.getElementById("nFrontierLegend").style.display = "none";
       document.getElementById("nFrontierAxisLabel").style.display = "none";
       document.getElementById("nFrontierChart").style.display = "none";
+      document.getElementById("nFrontierTable").style.display = "none";
       document.getElementById("nFrontierNote").style.display = "none";
     } else {
       const lo = data[0].grain, hi = data[data.length - 1].grain;
