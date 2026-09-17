@@ -545,18 +545,63 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf):
         ref_biomass += dGB_water_limited
     return demand
 
-def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False):
+def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False,
+                     n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
+                     irrigation_trigger_frac=None, irrigation_amount_mm=25.0,
+                     tillage_doy=None, tillage_boost_days=30, tillage_boost_factor=2.0):
+    # n_applications: [(doy, amount_kg_ha), ...] real/disclosed Cycles usage (dated events,
+    # not one lump) -- Kemanian et al. 2024 Fig. 6 (wheat 80/60 fall/spring split), SI Sec. IX
+    # (Iowa maize, manured fields split 50/50 fall/spring). Replaces the day-0 lump if given.
+    # n_credit_kg_ha: previous-crop N credit, real/disclosed (SI Sec. IX: "60 kg/ha credit if
+    # maize followed soy"). manure_n_kg_ha/manure_availability: organic N amendment; 0.5 is the
+    # real disclosed availability discount vs. mineral N (SI Sec. IX), not invented.
+    # irrigation_trigger_frac/irrigation_amount_mm: irrigation is real in Cycles (operations
+    # "can be... conditional to soil moisture," Sec. 2.8) but no exact threshold/depth is
+    # disclosed -- both are real scenario configuration in Cycles itself, set here, not derived.
+    # tillage_doy/tillage_boost_days/tillage_boost_factor: tillage's real mechanism (soil mixing
+    # + faster organic-matter decomposition, Sec. 2.6) needs the full six-pool soil C/N system
+    # this engine doesn't implement (out of v1 scope) -- this is a disclosed placeholder for its
+    # practical effect only: a temporary background-mineralization boost, not the real physics.
     layers = crop["make_layers"]()
     tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
-    n_pool = n_rate_kg_ha if (n_rate_kg_ha is not None and not crop.get("legume", False)) else None
+    n_tracking_active = (not crop.get("legume", False)) and (
+        n_rate_kg_ha is not None or n_applications or n_credit_kg_ha or manure_n_kg_ha)
+    applications_by_doy = {}
+    if n_tracking_active:
+        if n_applications:
+            total_n_input_kg_ha = sum(amount for _, amount in n_applications)
+            n_pool = 0.0
+            for doy, amount in n_applications:
+                applications_by_doy[doy] = applications_by_doy.get(doy, 0.0) + amount
+        else:
+            total_n_input_kg_ha = n_rate_kg_ha or 0.0
+            n_pool = total_n_input_kg_ha
+        credit_and_manure = n_credit_kg_ha + manure_n_kg_ha * manure_availability
+        total_n_input_kg_ha += credit_and_manure
+        n_pool += credit_and_manure
+    else:
+        n_pool, total_n_input_kg_ha = None, None
     n_leached_total = 0.0 if n_pool is not None else None
+    irrigation_total_mm = 0.0
     history = [] if record_history else None
     n_stress_fraction, daily_demand, day_i = 1.0, None, 0
     if n_pool is not None:
         daily_demand = _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf)
         total_demand_kg_ha = sum(daily_demand)
-        active_days = sum(1 for d in daily_demand if d > 0)  # gate background credit to biologically-active days only --
-        total_supply_kg_ha = n_pool + BACKGROUND_N_KG_HA_DAY * active_days  # a flat per-calendar-day rate swamps a mostly-dormant winter cover crop's demand otherwise
+        # Season-total background, accounting for a tillage boost window if any -- must match
+        # the boosted rate exactly (not a flat estimate), since n_stress_fraction (and thus
+        # yield) is fixed from this total before the day loop runs; boosting only the day-by-day
+        # pool below would just leach out as unused surplus without ever reaching yield.
+        total_background_kg_ha = 0.0
+        for i, d in enumerate(daily_demand):
+            if d <= 0:
+                continue
+            rate = BACKGROUND_N_KG_HA_DAY
+            doy_i_ = weather_rows[i]["doy"]
+            if tillage_doy is not None and tillage_doy <= doy_i_ < tillage_doy + tillage_boost_days:
+                rate *= tillage_boost_factor
+            total_background_kg_ha += rate
+        total_supply_kg_ha = total_n_input_kg_ha + total_background_kg_ha
         supply_ratio = min(1.0, total_supply_kg_ha / total_demand_kg_ha) if total_demand_kg_ha > 0 else 1.0
         n_stress_fraction = 2 * supply_ratio - supply_ratio ** 2  # quadratic-plateau, smooth diminishing returns
     for w in weather_rows:
@@ -567,7 +612,13 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             break
         eie = canopy_cover(ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE))
         root_depth = root_max_m * min(1.0, ttf/0.5)
-        drainage_mm = redistribute(layers, w["pp"])
+        irrigation_mm = 0.0
+        if irrigation_trigger_frac is not None:
+            pre_avail_frac = root_zone_availability(layers, root_depth)
+            if pre_avail_frac < irrigation_trigger_frac:
+                irrigation_mm = irrigation_amount_mm
+                irrigation_total_mm += irrigation_mm
+        drainage_mm = redistribute(layers, w["pp"] + irrigation_mm)
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
         soil_evaporation(layers, eto, eie)
         GR = crop["rue"] * eie * w["solar"]
@@ -585,8 +636,13 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         dGB_water_limited = max(0.0, min(GR, GT)) / 1000
         n_stress = 1.0
         if n_pool is not None:
+            if w["doy"] in applications_by_doy:
+                n_pool += applications_by_doy[w["doy"]]
             if dGB_water_limited > 0:
-                n_pool += BACKGROUND_N_KG_HA_DAY
+                background_rate = BACKGROUND_N_KG_HA_DAY
+                if tillage_doy is not None and tillage_doy <= w["doy"] < tillage_doy + tillage_boost_days:
+                    background_rate *= tillage_boost_factor
+                n_pool += background_rate
             n_stress = n_stress_fraction
             target_uptake_kg_ha = n_stress_fraction * daily_demand[day_i]
             n_uptake_kg_ha = min(n_pool, target_uptake_kg_ha)
@@ -612,6 +668,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     result = dict(total=biomass_mg_ha, ag=ag_biomass_mg_ha, grain=grain_mg_ha)
     if n_leached_total is not None:
         result["n_leached_kg_ha"] = n_leached_total
+    if irrigation_trigger_frac is not None:
+        result["irrigation_mm"] = irrigation_total_mm
     if record_history:
         result["history"] = history
     return result
@@ -651,6 +709,42 @@ WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
     calibration_factor=0.716, canopy_shape=(5, -14, -15, 16),
     kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=40.6875, make_layers=make_layers,
     n_max_conc=0.07, n_dilution_slope=0.45, legume=False)
+
+# Two more cover-crop options, added per Matt's direct request (2026-09-17) to get closer to
+# real Cycles coverage without outkicking it. Radiation- and transpiration-use efficiency
+# (rue, wue) below are REAL, disclosed, citable numbers straight from Kemanian et al. 2024's
+# own SI Table SI.2 ("Sample crop parameters... from Kremer et al 2009 and Stockle and
+# Kemanian 2008"): C3 Grasses (barley/oats/ryegrass/wheat/winter rye) rue=1.7, wue=6.5; C3
+# Legumes (lentils/soybean/red clover/white clover/hairy vetch) rue=1.1, wue=4.5. Every OTHER
+# parameter (thermal time, temperature bounds, canopy shape, N-dilution) is NOT disclosed per-
+# species in either source and is borrowed here from the closest already-validated crop of the
+# same functional type (WHEAT for the grass, SOYBEAN for the legume) as a stated placeholder,
+# not a verified per-species value -- correct these once GenericCrops.crop's real per-species
+# numbers are available (Matt has reached out to a Cycles author for it directly).
+WINTER_RYE = dict(tt_maturity=WHEAT["tt_maturity"], flowering_tt=WHEAT["flowering_tt"],
+    base_t=WHEAT["base_t"], opt_t=WHEAT["opt_t"], max_t=WHEAT["max_t"],
+    rue=1.7, wue=6.5, hi_x=WHEAT["hi_x"], hi_o=WHEAT["hi_o"], hi_slope=WHEAT["hi_slope"],
+    fsti=WHEAT["fsti"], fstf=WHEAT["fstf"], calibration_factor=WHEAT["calibration_factor"],
+    canopy_shape=WHEAT["canopy_shape"], kc=WHEAT["kc"], eix=WHEAT["eix"],
+    tr_min_t=WHEAT["tr_min_t"], tr_threshold_t=WHEAT["tr_threshold_t"], lat_deg=40.6875,
+    make_layers=make_layers, n_max_conc=WHEAT["n_max_conc"], n_dilution_slope=WHEAT["n_dilution_slope"],
+    legume=False)
+
+HAIRY_VETCH = dict(tt_maturity=SOYBEAN["tt_maturity"], flowering_tt=SOYBEAN["flowering_tt"],
+    # Temperature response borrowed from WHEAT, not SOYBEAN, despite hairy vetch being a legume
+    # like soybean -- caught by testing: with soybean's base_t=5 (a warm-season crop), a winter
+    # cover crop planted in the fall barely grew at all (0.02 Mg/ha aboveground over a real
+    # fall-to-spring window), since soybean's thermal-time function returns ~zero through most
+    # of that cold window. Real hairy vetch is winter-hardy, cold-tolerant vegetative growth
+    # much closer to wheat's temperature response than soybean's -- using wheat's base/opt/max
+    # temperatures fixes this while keeping the real legume RUE/WUE and legume=True (soybean's
+    # own nitrogen-related legume behavior) for everything nitrogen-specific.
+    base_t=WHEAT["base_t"], opt_t=WHEAT["opt_t"], max_t=WHEAT["max_t"],
+    rue=1.1, wue=4.5, hi_x=SOYBEAN["hi_x"], hi_o=SOYBEAN["hi_o"], hi_slope=SOYBEAN["hi_slope"],
+    fsti=SOYBEAN["fsti"], fstf=SOYBEAN["fstf"], calibration_factor=SOYBEAN["calibration_factor"],
+    kc=SOYBEAN["kc"], eix=SOYBEAN["eix"], tr_min_t=WHEAT["tr_min_t"],
+    tr_threshold_t=WHEAT["tr_threshold_t"], lat_deg=40.6875, make_layers=make_layers,
+    n_max_conc=SOYBEAN["n_max_conc"], n_dilution_slope=SOYBEAN["n_dilution_slope"], legume=True)
 `;
 
 const DEMO_GLUE_SOURCE = String.raw`
@@ -661,12 +755,18 @@ def to_row(wx_year, d):
     v = wx_year[str(d)]
     return dict(doy=d, pp=v[0], tx=v[1], tn=v[2], solar=v[3], rhx=v[4], rhn=v[5], wind=v[6])
 
-def build_season_rows(wx_year, crop):
+def build_season_rows(wx_year, crop, plant_doy_override=None):
+    # plant_doy_override: lets a student choose planting date directly instead of the real,
+    # already-validated soil-temperature trigger (2.65 days mean error vs. real Cycles planting
+    # dates) -- not a new mechanism, just exposing an existing computed value as a real choice.
     tmeans = {int(doy): (row[1] + row[2]) / 2 for doy, row in wx_year.items()}
     doys_sorted = sorted(tmeans)
-    tsoils = simulate_soil_temp([tmeans[d] for d in doys_sorted], k=0.15)
-    tsoil_by_doy = dict(zip(doys_sorted, tsoils))
-    plant_doy = find_planting_doy(tsoil_by_doy, (110, 131), 12.0)
+    if plant_doy_override is not None:
+        plant_doy = plant_doy_override
+    else:
+        tsoils = simulate_soil_temp([tmeans[d] for d in doys_sorted], k=0.15)
+        tsoil_by_doy = dict(zip(doys_sorted, tsoils))
+        plant_doy = find_planting_doy(tsoil_by_doy, (110, 131), 12.0)
     doys = sorted(d for d in doys_sorted if d >= plant_doy)
     rows = [to_row(wx_year, d) for d in doys]
     return plant_doy, rows
