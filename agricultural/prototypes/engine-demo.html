@@ -113,22 +113,34 @@
 </div>
 
 <div class="panel">
+  <div class="panel-header"><h2>Select your site</h2></div>
+  <div class="panel-body">
+    <p>
+      One choice, used by the panels that need a real location: pick one of four
+      preset sites, or upload a KML boundary (or a single dropped pin from Google
+      Earth) for a real field of your own anywhere in the CONUS. Currently feeds
+      the nitrogen/tradeoff panel below and Field A of the field-comparison panel
+      further down &mdash; "Run a season" above and the years-of-weather and
+      rotation panels still run on Rock Springs only, not yet wired to this choice.
+    </p>
+    <div class="preset-row" id="currentSitePresetRow" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">...or upload your own field (KML):</div>
+    <input type="file" id="currentSiteKmlInput" accept=".kml">
+    <div class="sweep-note" id="currentSiteNote" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<div class="panel">
   <div class="panel-header"><h2>How much does nitrogen matter?</h2></div>
   <div class="panel-body">
     <p>
       Runs the selected crop and year (from "Run a season" above) at fourteen
       fertilizer rates (0&ndash;650 kg N/ha) back to back, computed on the fly, at
-      whichever site is chosen below. Yield levels off well before 650 &mdash; every
+      whichever site is chosen above. Yield levels off well before 650 &mdash; every
       kg of N applied past that point still leaches, and past a lower point still, it
       also costs more than the extra grain is worth.
     </p>
-    <div style="margin-bottom:14px;">
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px;">Site</div>
-      <div class="preset-row" id="nSweepPresetRow" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">...or upload your own field (KML):</div>
-      <input type="file" id="nSweepKmlInput" accept=".kml">
-      <div class="sweep-note" id="nSweepSiteNote" style="margin-top:8px;"></div>
-    </div>
+    <div class="sweep-note" id="nSweepSiteMirror" style="margin-bottom:14px;"></div>
     <button id="nSweepBtn" class="btn btn-secondary" disabled>Run nitrogen comparison</button>
     <canvas class="chart" id="nSweepChart" width="800" height="200" style="margin-top:14px;display:none;"></canvas>
     <div class="sweep-note" id="nSweepNote" style="display:none;"></div>
@@ -260,27 +272,21 @@
   <div class="panel-header"><h2>Pick a field and run a simulation</h2></div>
   <div class="panel-body">
     <p>
-      Pick a real site anywhere in the CONUS and run the same validated corn
-      model used elsewhere in this demo against that site's real soil
-      (STATSGO2) and real weather (NLDAS-2, 1980&ndash;2016) &mdash; not a
-      simplified stand-in. Choose one of four preset locations if you don't
-      have a specific field in mind, or upload a KML boundary (or a single
-      dropped pin from Google Earth) for a real field of your own. Add a
-      second site to compare two real locations side by side. Nitrogen rate
-      is fixed at 150 kg N/ha here (not adjustable in this panel) so any
-      difference you see reflects soil and weather, not a fertilizer choice.
-      The four presets (including Rock Springs) all resolve through this
-      same nearest-cell lookup, so they won't exactly match the exact,
-      hand-validated Rock Springs numbers used in the panels above &mdash;
-      that's expected, not a bug, and keeps all four presets on equal footing
-      with each other.
+      Runs the same validated corn model used elsewhere in this demo against
+      real soil (STATSGO2) and real weather (NLDAS-2, 1980&ndash;2016) &mdash;
+      not a simplified stand-in. Field A is whatever site you chose above; add
+      a second site below to compare two real locations side by side.
+      Nitrogen rate is fixed at 150 kg N/ha here (not adjustable in this
+      panel) so any difference you see reflects soil and weather, not a
+      fertilizer choice. Both fields always resolve through the same
+      nearest-cell lookup, including when Field A is Rock Springs &mdash; so
+      Field A here won't exactly match the exact, hand-validated Rock Springs
+      numbers used in the panels above, that's expected, not a bug, and keeps
+      Field A and Field B on equal footing for a fair comparison.
     </p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:10px;">
       <div>
-        <h3 style="margin:0 0 6px;font-size:13px;color:var(--muted);">Field A</h3>
-        <div class="preset-row" id="presetRowA" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
-        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">...or upload your own field (KML):</div>
-        <input type="file" id="kmlInputA" accept=".kml">
+        <h3 style="margin:0 0 6px;font-size:13px;color:var(--muted);">Field A (your selected site, above)</h3>
         <div id="kmlResultA" style="display:none;margin-top:10px;"><table id="kmlResultTableA"></table></div>
         <div class="sweep-note" id="kmlNoteA" style="display:none;"></div>
       </div>
@@ -299,7 +305,7 @@
         <input type="range" id="fieldYearSlider" min="1980" max="2016" step="1" value="2012">
       </div>
     </div>
-    <button id="fieldRunBtn" class="btn" disabled>Upload Field A to enable</button>
+    <button id="fieldRunBtn" class="btn" disabled>Resolving your selected site...</button>
     <div id="fieldRunStatus" style="font-family:'DM Mono',monospace;font-size:11.5px;color:var(--muted);margin:10px 0 4px;min-height:16px;"></div>
     <div class="result" id="fieldRunResult" style="display:none;">
       <table id="fieldRunTable"></table>
@@ -1185,11 +1191,11 @@ nSweepBtn.addEventListener("click", async () => {
   try {
     pyodide.globals.set("run_year", year);
     pyodide.globals.set("run_crop", crop);
-    const usingResolvedSite = nSweepSite.kind === "resolved";
+    const usingResolvedSite = currentSite.kind === "resolved";
     pyodide.globals.set("use_resolved_site", usingResolvedSite);
     if (usingResolvedSite) {
-      pyodide.globals.set("site_wx_json", JSON.stringify(nSweepSite.weather));
-      pyodide.globals.set("site_soil_json", JSON.stringify(nSweepSite.soilLayers));
+      pyodide.globals.set("site_wx_json", JSON.stringify(currentSite.weather));
+      pyodide.globals.set("site_soil_json", JSON.stringify(currentSite.soilLayers));
     }
     // When use_resolved_site is false (the default, Rock Springs), this reproduces
     // the exact pre-site-picker code path byte-for-byte -- ALL_WX/CORN/SOYBEAN
@@ -1241,7 +1247,7 @@ json.dumps(sweep_out)
       document.getElementById("nFrontierNote").style.display = "none";
     } else {
       const lo = data[0].grain, hi = data[data.length - 1].grain;
-      const siteName = nSweepSite.kind === "rocksprings" ? "Rock Springs, PA" : nSweepSite.label;
+      const siteName = currentSite.kind === "rocksprings" ? "Rock Springs, PA" : currentSite.label;
       note.textContent = `${siteName}, ${year}: yield rises from ${lo.toFixed(2)} to ${hi.toFixed(2)} Mg/ha as nitrogen increases, ` +
         `then flattens -- diminishing returns, not a hard cutoff.`;
       leachCanvas.style.display = "block";
@@ -1617,7 +1623,8 @@ function wireFieldSlot(slot) {
     }
   });
 }
-wireFieldSlot("A");
+// Only Field B gets its own upload/preset UI -- Field A is driven entirely by
+// the shared "Select your site" picker below (see syncFieldAFromCurrentSite()).
 wireFieldSlot("B");
 
 // Four preset sites, chosen to span genuinely different real soil/weather
@@ -1652,42 +1659,49 @@ function wirePresetRow(slot) {
     row.appendChild(btn);
   });
 }
-wirePresetRow("A");
 wirePresetRow("B");
 
-// --- Site picker for the "How much does nitrogen matter?" nitrogen-sweep/
-// frontier/three-perspectives panel. Rock Springs is deliberately
-// special-cased to keep using the exact embedded ALL_WX/SOIL_LAYERS_RAW data
-// (the same data every number quoted for this panel elsewhere in this
-// project was computed from), NOT the nearest-tile approximation the other
-// three presets and any uploaded KML use -- a different call than the
-// field-comparison panel above, which treats all four presets identically
-// on purpose (it's a fair A/B comparison, not a single validated demo site).
-// Defaults to Rock Springs on load so this panel behaves exactly as it
-// always has until a student actively picks somewhere else.
-let nSweepSite = { kind: "rocksprings", label: "Rock Springs, PA (exact validated data)" };
+// --- One shared site selection ("Select your site" panel), used by the
+// nitrogen-sweep/frontier/three-perspectives panel and by Field A of the
+// field-comparison panel below -- unifying what used to be two separate
+// site pickers into one. Rock Springs is deliberately special-cased to keep
+// an *option* for the exact embedded ALL_WX/SOIL_LAYERS_RAW data (the same
+// data every number ever quoted for the nitrogen-sweep panel was computed
+// from) alongside its real centroid, so consumers that want the exact data
+// (the nitrogen-sweep panel) and consumers that need the same approximate
+// lookup for every site regardless of name (Field A, for fair comparison
+// with Field B) can each get what they need from one shared object rather
+// than duplicating the picker. Defaults to Rock Springs on load.
+let currentSite = { kind: "rocksprings", label: "Rock Springs, PA (exact validated data)", centroid: { lat: 40.7093, lng: -77.9478 } };
 
-function describeNSweepSite() {
-  const note = document.getElementById("nSweepSiteNote");
-  if (nSweepSite.kind === "rocksprings") {
-    note.textContent = `Currently running against: ${nSweepSite.label}.`;
+function describeCurrentSite() {
+  const note = document.getElementById("currentSiteNote");
+  const mirror = document.getElementById("nSweepSiteMirror");
+  let text;
+  if (currentSite.kind === "rocksprings") {
+    text = `Currently selected: ${currentSite.label}.`;
   } else {
-    const t = nSweepSite.topsoil;
-    note.textContent = `Currently running against: ${nSweepSite.label} -- nearest real soil profile ` +
-      `${nSweepSite.soilLabel} (${t.clay}% clay, ${t.sand}% sand, ${t.soc.toFixed(2)}% SOC), ` +
-      `${nSweepSite.soilDist.toFixed(2)}° away; nearest weather cell ${nSweepSite.wxDist.toFixed(2)}° away. ` +
-      `Approximate, same STATSGO2/NLDAS-2 nearest-cell lookup as the field-comparison panel below, not the ` +
-      `exact hand-validated Rock Springs data this panel otherwise uses.`;
+    const t = currentSite.topsoil;
+    text = `Currently selected: ${currentSite.label} -- nearest real soil profile ` +
+      `${currentSite.soilLabel} (${t.clay}% clay, ${t.sand}% sand, ${t.soc.toFixed(2)}% SOC), ` +
+      `${currentSite.soilDist.toFixed(2)}° away; nearest weather cell ${currentSite.wxDist.toFixed(2)}° away.`;
   }
+  note.textContent = text;
   note.style.display = "block";
+  mirror.textContent = currentSite.kind === "rocksprings"
+    ? `Running against: ${currentSite.label}.`
+    : `Running against: ${currentSite.label} -- approximate, same STATSGO2/NLDAS-2 nearest-cell lookup ` +
+      `as Field A below, not the exact hand-validated Rock Springs data this panel uses by default.`;
+  mirror.style.display = "block";
 }
-describeNSweepSite();
+describeCurrentSite();
 
-async function setNSweepSite(kind, centroid, label) {
-  const note = document.getElementById("nSweepSiteNote");
+async function setCurrentSite(kind, centroid, label) {
+  const note = document.getElementById("currentSiteNote");
   if (kind === "rocksprings") {
-    nSweepSite = { kind: "rocksprings", label };
-    describeNSweepSite();
+    currentSite = { kind: "rocksprings", label, centroid };
+    describeCurrentSite();
+    await syncFieldAFromCurrentSite();
     return;
   }
   note.textContent = `Resolving ${label}...`;
@@ -1697,24 +1711,37 @@ async function setNSweepSite(kind, centroid, label) {
     if (r.soilOut || r.wxOut) {
       note.textContent = `${label} falls outside real CONUS coverage (soil ${r.soilDist.toFixed(2)}° away, ` +
         `weather ${r.wxOut ? "no tile" : r.wxDist.toFixed(2) + "°"} away) -- likely ocean, a Great Lake, or ` +
-        `just past the border. Nitrogen sweep still uses the previously selected site.`;
+        `just past the border. Still using the previously selected site.`;
       note.style.display = "block";
       return;
     }
-    nSweepSite = {
+    currentSite = {
       kind: "resolved", label, centroid,
       soilLayers: r.layers, weather: r.weather, soilLabel: r.soilCell.compname,
       soilDist: r.soilDist, wxDist: r.wxDist, topsoil: r.topsoil,
     };
-    describeNSweepSite();
+    describeCurrentSite();
+    await syncFieldAFromCurrentSite();
   } catch (err) {
-    note.textContent = `Couldn't resolve ${label}: ${err.message}. Nitrogen sweep still uses the previously selected site.`;
+    note.textContent = `Couldn't resolve ${label}: ${err.message}. Still using the previously selected site.`;
     note.style.display = "block";
   }
 }
 
-function wireNSweepPresetRow() {
-  const row = document.getElementById("nSweepPresetRow");
+// Field A always goes through the approximate STATSGO2/NLDAS-2 lookup
+// (reusing applyResolvedSite(), exactly like Field B), even when currentSite
+// is the "exact" Rock Springs mode -- this panel's whole point is a fair A/B
+// comparison, and using exact data for A while B is always approximate
+// would make that comparison uneven. The nitrogen-sweep panel, by contrast,
+// uses currentSite's exact/resolved distinction directly (see nSweepBtn's
+// click handler) since it isn't comparing two sites against each other.
+async function syncFieldAFromCurrentSite() {
+  await applyResolvedSite("A", currentSite.centroid, `shared site selection: ${currentSite.label}`);
+}
+syncFieldAFromCurrentSite();
+
+function wireCurrentSitePresetRow() {
+  const row = document.getElementById("currentSitePresetRow");
   PRESET_SITES.forEach((site) => {
     const btn = document.createElement("button");
     btn.type = "button";
@@ -1724,26 +1751,26 @@ function wireNSweepPresetRow() {
     btn.textContent = site.label;
     btn.addEventListener("click", () => {
       if (site.label === "Rock Springs, PA") {
-        setNSweepSite("rocksprings", null, "Rock Springs, PA (exact validated data)");
+        setCurrentSite("rocksprings", { lat: site.lat, lng: site.lng }, "Rock Springs, PA (exact validated data)");
       } else {
-        setNSweepSite("resolved", { lat: site.lat, lng: site.lng }, `${site.label} (${site.blurb})`);
+        setCurrentSite("resolved", { lat: site.lat, lng: site.lng }, `${site.label} (${site.blurb})`);
       }
     });
     row.appendChild(btn);
   });
 }
-wireNSweepPresetRow();
+wireCurrentSitePresetRow();
 
-document.getElementById("nSweepKmlInput").addEventListener("change", async (e) => {
+document.getElementById("currentSiteKmlInput").addEventListener("change", async (e) => {
   const file = e.target.files[0];
   if (!file) return;
   try {
     const text = await file.text();
     const parsed = parseFieldKML(text);
     const centroid = parsed.kind === "point" ? { lat: parsed.lat, lng: parsed.lng } : fieldPolygonCentroid(parsed.vertices);
-    await setNSweepSite("resolved", centroid, `your uploaded field (${centroid.lat.toFixed(4)}, ${centroid.lng.toFixed(4)})`);
+    await setCurrentSite("resolved", centroid, `your uploaded field (${centroid.lat.toFixed(4)}, ${centroid.lng.toFixed(4)})`);
   } catch (err) {
-    const note = document.getElementById("nSweepSiteNote");
+    const note = document.getElementById("currentSiteNote");
     note.textContent = "Couldn't read that file: " + err.message;
     note.style.display = "block";
   }
@@ -1761,7 +1788,7 @@ function updateFieldRunButton() {
   } else if (fieldState.A) {
     btn.disabled = false; btn.textContent = "Run corn simulation for Field A";
   } else {
-    btn.disabled = true; btn.textContent = "Upload Field A to enable";
+    btn.disabled = true; btn.textContent = "Resolving your selected site...";
   }
 }
 
