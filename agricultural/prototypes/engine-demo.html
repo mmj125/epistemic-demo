@@ -116,11 +116,19 @@
   <div class="panel-header"><h2>How much does nitrogen matter?</h2></div>
   <div class="panel-body">
     <p>
-      Runs the selected crop and year at fourteen fertilizer rates (0&ndash;650 kg N/ha)
-      back to back, computed on the fly. Yield levels off well before 650 &mdash; every
+      Runs the selected crop and year (from "Run a season" above) at fourteen
+      fertilizer rates (0&ndash;650 kg N/ha) back to back, computed on the fly, at
+      whichever site is chosen below. Yield levels off well before 650 &mdash; every
       kg of N applied past that point still leaches, and past a lower point still, it
       also costs more than the extra grain is worth.
     </p>
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px;">Site</div>
+      <div class="preset-row" id="nSweepPresetRow" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">...or upload your own field (KML):</div>
+      <input type="file" id="nSweepKmlInput" accept=".kml">
+      <div class="sweep-note" id="nSweepSiteNote" style="margin-top:8px;"></div>
+    </div>
     <button id="nSweepBtn" class="btn btn-secondary" disabled>Run nitrogen comparison</button>
     <canvas class="chart" id="nSweepChart" width="800" height="200" style="margin-top:14px;display:none;"></canvas>
     <div class="sweep-note" id="nSweepNote" style="display:none;"></div>
@@ -1177,9 +1185,36 @@ nSweepBtn.addEventListener("click", async () => {
   try {
     pyodide.globals.set("run_year", year);
     pyodide.globals.set("run_crop", crop);
+    const usingResolvedSite = nSweepSite.kind === "resolved";
+    pyodide.globals.set("use_resolved_site", usingResolvedSite);
+    if (usingResolvedSite) {
+      pyodide.globals.set("site_wx_json", JSON.stringify(nSweepSite.weather));
+      pyodide.globals.set("site_soil_json", JSON.stringify(nSweepSite.soilLayers));
+    }
+    // When use_resolved_site is false (the default, Rock Springs), this reproduces
+    // the exact pre-site-picker code path byte-for-byte -- ALL_WX/CORN/SOYBEAN
+    // untouched, no call-scoped copy. Only the resolved-site branch builds a
+    // dict(crop_obj) with its own make_layers() closure, the same pattern
+    // runFieldSlot() already uses for the field-comparison panel, so a sweep run
+    // here can never leak into (or be leaked into by) that panel's own state.
     const out = await pyodide.runPythonAsync(`
 crop_obj = CORN if run_crop == "corn" else SOYBEAN
-plant_doy, rows = build_season_rows(ALL_WX[run_year], crop_obj)
+if use_resolved_site:
+    import json as _json
+    _site_wx = _json.loads(site_wx_json)
+    _site_soil = _json.loads(site_soil_json)
+    def _site_make_layers():
+        out = []
+        for L in _site_soil:
+            hyd = saxton_rawls(L["sand"], L["clay"], L["soc"] * OM_FROM_SOC)
+            out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"]))
+        return out
+    crop_obj = dict(crop_obj)
+    crop_obj["make_layers"] = _site_make_layers
+    _wx_year = _site_wx.get(run_year)
+else:
+    _wx_year = ALL_WX[run_year]
+plant_doy, rows = build_season_rows(_wx_year, crop_obj)
 rates = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650]
 sweep_out = []
 for r in rates:
@@ -1206,7 +1241,8 @@ json.dumps(sweep_out)
       document.getElementById("nFrontierNote").style.display = "none";
     } else {
       const lo = data[0].grain, hi = data[data.length - 1].grain;
-      note.textContent = `${year}: yield rises from ${lo.toFixed(2)} to ${hi.toFixed(2)} Mg/ha as nitrogen increases, ` +
+      const siteName = nSweepSite.kind === "rocksprings" ? "Rock Springs, PA" : nSweepSite.label;
+      note.textContent = `${siteName}, ${year}: yield rises from ${lo.toFixed(2)} to ${hi.toFixed(2)} Mg/ha as nitrogen increases, ` +
         `then flattens -- diminishing returns, not a hard cutoff.`;
       leachCanvas.style.display = "block";
       drawBarChart(leachCanvas, data.map(d => d.n_rate + ""), data.map(d => d.leached), { color: "#c0392b" });
@@ -1512,6 +1548,20 @@ const fieldState = { A: null, B: null };
 // resolves real soil + weather for a given point, renders the result table,
 // and sets fieldState. placemarkDesc is just the "Placemark type" row's text,
 // since a preset has no real KML placemark to describe.
+// Pure resolver, no DOM/state side effects -- shared by the field-comparison
+// panel's applyResolvedSite() below and the nitrogen-sweep/frontier panel's
+// own site picker, so there's exactly one place that knows how to turn a
+// lat/lng into real soil + weather.
+async function resolveSiteAt(centroid) {
+  const grid = await loadFieldSoilGrid();
+  const { cell: soilCell, distanceDeg: soilDist } = nearestFieldSoilCell(centroid.lat, centroid.lng, grid);
+  const layers = fieldSoilLayersForCell(soilCell);
+  const { weather, distanceDeg: wxDist, cell: wxCell } = await fieldNearestWeather(centroid.lat, centroid.lng);
+  const soilOut = soilDist > 0.75;
+  const wxOut = !weather || wxDist > 0.75;
+  return { centroid, soilCell, soilDist, layers, topsoil: layers[0], weather, wxDist, wxCell, soilOut, wxOut };
+}
+
 async function applyResolvedSite(slot, centroid, placemarkDesc) {
   const table = document.getElementById(`kmlResultTable${slot}`);
   const result = document.getElementById(`kmlResult${slot}`);
@@ -1519,29 +1569,22 @@ async function applyResolvedSite(slot, centroid, placemarkDesc) {
   fieldState[slot] = null;
   updateFieldRunButton();
   try {
-    const grid = await loadFieldSoilGrid();
-    const { cell: soilCell, distanceDeg: soilDist } = nearestFieldSoilCell(centroid.lat, centroid.lng, grid);
-    const layers = fieldSoilLayersForCell(soilCell);
-    const { weather, distanceDeg: wxDist, cell: wxCell } = await fieldNearestWeather(centroid.lat, centroid.lng);
-    const topsoil = layers[0];
-
-    const soilOut = soilDist > 0.75;
-    const wxOut = !weather || wxDist > 0.75;
+    const r = await resolveSiteAt(centroid);
 
     table.innerHTML = `
       <tr><th>Placemark type</th><td>${placemarkDesc}</td></tr>
       <tr><th>Field centroid</th><td>${centroid.lat.toFixed(4)}, ${centroid.lng.toFixed(4)}</td></tr>
-      <tr><th>Nearest soil profile</th><td>${soilCell.compname} series (mukey ${soilCell.mukey}), ${soilDist.toFixed(2)}&deg; away</td></tr>
-      <tr><th>Topsoil (real STATSGO2)</th><td>${topsoil.clay}% clay, ${topsoil.sand}% sand, ${topsoil.soc.toFixed(2)}% SOC</td></tr>
-      <tr><th>Nearest weather cell</th><td>${wxOut ? "no coverage" : `${wxCell[0].toFixed(2)}, ${wxCell[1].toFixed(2)} (${wxDist.toFixed(2)}&deg; away)`}</td></tr>
+      <tr><th>Nearest soil profile</th><td>${r.soilCell.compname} series (mukey ${r.soilCell.mukey}), ${r.soilDist.toFixed(2)}&deg; away</td></tr>
+      <tr><th>Topsoil (real STATSGO2)</th><td>${r.topsoil.clay}% clay, ${r.topsoil.sand}% sand, ${r.topsoil.soc.toFixed(2)}% SOC</td></tr>
+      <tr><th>Nearest weather cell</th><td>${r.wxOut ? "no coverage" : `${r.wxCell[0].toFixed(2)}, ${r.wxCell[1].toFixed(2)} (${r.wxDist.toFixed(2)}&deg; away)`}</td></tr>
     `;
     result.style.display = "block";
 
-    if (soilOut || wxOut) {
+    if (r.soilOut || r.wxOut) {
       fieldState[slot] = null;
-      note.textContent = `This point falls outside real CONUS coverage (soil ${soilDist.toFixed(2)}° away, weather ${wxOut ? "no tile" : wxDist.toFixed(2) + "°"} away) -- likely ocean, a Great Lake, or just past the border. Try a point further inland.`;
+      note.textContent = `This point falls outside real CONUS coverage (soil ${r.soilDist.toFixed(2)}° away, weather ${r.wxOut ? "no tile" : r.wxDist.toFixed(2) + "°"} away) -- likely ocean, a Great Lake, or just past the border. Try a point further inland.`;
     } else {
-      fieldState[slot] = { centroid, soilLayers: layers, weather, soilLabel: soilCell.compname, wxCell };
+      fieldState[slot] = { centroid, soilLayers: r.layers, weather: r.weather, soilLabel: r.soilCell.compname, wxCell: r.wxCell };
       note.textContent = "Real soil and weather both resolved for this field -- ready to run.";
     }
     note.style.display = "block";
@@ -1611,6 +1654,100 @@ function wirePresetRow(slot) {
 }
 wirePresetRow("A");
 wirePresetRow("B");
+
+// --- Site picker for the "How much does nitrogen matter?" nitrogen-sweep/
+// frontier/three-perspectives panel. Rock Springs is deliberately
+// special-cased to keep using the exact embedded ALL_WX/SOIL_LAYERS_RAW data
+// (the same data every number quoted for this panel elsewhere in this
+// project was computed from), NOT the nearest-tile approximation the other
+// three presets and any uploaded KML use -- a different call than the
+// field-comparison panel above, which treats all four presets identically
+// on purpose (it's a fair A/B comparison, not a single validated demo site).
+// Defaults to Rock Springs on load so this panel behaves exactly as it
+// always has until a student actively picks somewhere else.
+let nSweepSite = { kind: "rocksprings", label: "Rock Springs, PA (exact validated data)" };
+
+function describeNSweepSite() {
+  const note = document.getElementById("nSweepSiteNote");
+  if (nSweepSite.kind === "rocksprings") {
+    note.textContent = `Currently running against: ${nSweepSite.label}.`;
+  } else {
+    const t = nSweepSite.topsoil;
+    note.textContent = `Currently running against: ${nSweepSite.label} -- nearest real soil profile ` +
+      `${nSweepSite.soilLabel} (${t.clay}% clay, ${t.sand}% sand, ${t.soc.toFixed(2)}% SOC), ` +
+      `${nSweepSite.soilDist.toFixed(2)}° away; nearest weather cell ${nSweepSite.wxDist.toFixed(2)}° away. ` +
+      `Approximate, same STATSGO2/NLDAS-2 nearest-cell lookup as the field-comparison panel below, not the ` +
+      `exact hand-validated Rock Springs data this panel otherwise uses.`;
+  }
+  note.style.display = "block";
+}
+describeNSweepSite();
+
+async function setNSweepSite(kind, centroid, label) {
+  const note = document.getElementById("nSweepSiteNote");
+  if (kind === "rocksprings") {
+    nSweepSite = { kind: "rocksprings", label };
+    describeNSweepSite();
+    return;
+  }
+  note.textContent = `Resolving ${label}...`;
+  note.style.display = "block";
+  try {
+    const r = await resolveSiteAt(centroid);
+    if (r.soilOut || r.wxOut) {
+      note.textContent = `${label} falls outside real CONUS coverage (soil ${r.soilDist.toFixed(2)}° away, ` +
+        `weather ${r.wxOut ? "no tile" : r.wxDist.toFixed(2) + "°"} away) -- likely ocean, a Great Lake, or ` +
+        `just past the border. Nitrogen sweep still uses the previously selected site.`;
+      note.style.display = "block";
+      return;
+    }
+    nSweepSite = {
+      kind: "resolved", label, centroid,
+      soilLayers: r.layers, weather: r.weather, soilLabel: r.soilCell.compname,
+      soilDist: r.soilDist, wxDist: r.wxDist, topsoil: r.topsoil,
+    };
+    describeNSweepSite();
+  } catch (err) {
+    note.textContent = `Couldn't resolve ${label}: ${err.message}. Nitrogen sweep still uses the previously selected site.`;
+    note.style.display = "block";
+  }
+}
+
+function wireNSweepPresetRow() {
+  const row = document.getElementById("nSweepPresetRow");
+  PRESET_SITES.forEach((site) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn btn-secondary";
+    btn.style.cssText = "font-size:11.5px;padding:6px 10px;";
+    btn.title = site.blurb;
+    btn.textContent = site.label;
+    btn.addEventListener("click", () => {
+      if (site.label === "Rock Springs, PA") {
+        setNSweepSite("rocksprings", null, "Rock Springs, PA (exact validated data)");
+      } else {
+        setNSweepSite("resolved", { lat: site.lat, lng: site.lng }, `${site.label} (${site.blurb})`);
+      }
+    });
+    row.appendChild(btn);
+  });
+}
+wireNSweepPresetRow();
+
+document.getElementById("nSweepKmlInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const parsed = parseFieldKML(text);
+    const centroid = parsed.kind === "point" ? { lat: parsed.lat, lng: parsed.lng } : fieldPolygonCentroid(parsed.vertices);
+    await setNSweepSite("resolved", centroid, `your uploaded field (${centroid.lat.toFixed(4)}, ${centroid.lng.toFixed(4)})`);
+  } catch (err) {
+    const note = document.getElementById("nSweepSiteNote");
+    note.textContent = "Couldn't read that file: " + err.message;
+    note.style.display = "block";
+  }
+});
 
 const fieldYearSlider = document.getElementById("fieldYearSlider");
 fieldYearSlider.addEventListener("input", () => {
