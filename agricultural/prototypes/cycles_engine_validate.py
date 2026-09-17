@@ -469,13 +469,53 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf):
     return demand
 
 
-def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False):
+def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False,
+                     n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
+                     irrigation_trigger_frac=None, irrigation_amount_mm=25.0,
+                     tillage_doy=None, tillage_boost_days=30, tillage_boost_factor=2.0):
     """weather_rows: dicts with doy, tx, tn, solar, rhx, rhn, wind, pp, in planting-day order.
     harvest_ttf: fraction of thermal time to maturity that triggers harvest -- 1.0 for grain
     crops (HARVEST_TIMING=-999 in the real crop file), lower for forage/silage crops harvested
     before full maturity (e.g. 0.85 for CornSilageRM.90's real HARVEST_TIMING=85).
     n_rate_kg_ha: total fertilizer N applied at planting (kg N/ha), the student-facing nitrogen
-    knob -- see the mineral-N-balance section above. None (default) skips N tracking entirely.
+    knob -- see the mineral-N-balance section above. None (default) skips N tracking entirely,
+    UNLESS n_applications, n_credit_kg_ha, or manure_n_kg_ha supply nitrogen some other way.
+
+    n_applications: optional list of (doy, amount_kg_ha) tuples -- real, disclosed Cycles usage
+    (Kemanian et al. 2024, Fig. 6: winter wheat fertilized 80/60 kg N/ha split fall-at-planting/
+    spring; SI Section IX: Iowa maize fertilized in one spring application, or 50/50 fall/spring
+    when manured). When given, REPLACES the single day-0 lump n_rate_kg_ha would otherwise add --
+    the pool starts at 0 and each listed amount is added to it on its scheduled day instead of
+    all at once. n_rate_kg_ha is still honored if n_applications is None (backward compatible,
+    single up-front lump, the original behavior).
+
+    n_credit_kg_ha: a previous-crop nitrogen credit added to the pool at day 0 -- real and
+    disclosed (SI Section IX: "a 60 kg/ha of N credit if maize followed soy").
+
+    manure_n_kg_ha, manure_availability: an organic nitrogen amendment, added to the pool at
+    day 0 as manure_n_kg_ha * manure_availability. The 0.5 default is a real, disclosed number
+    (SI Section IX: manure N "adjusted upward to account for 0.5 availability compared with
+    mineral N"), not an invented discount.
+
+    irrigation_trigger_frac, irrigation_amount_mm: irrigation is real and disclosed in Cycles
+    (operations "can be... conditional to soil temperature, soil moisture, and crop phenology
+    thresholds," Kemanian et al. 2024 Sec. 2.8) but no exact trigger threshold or application
+    depth is disclosed in the paper or its SI -- both are scenario-specific configuration in
+    real Cycles, not a formula to discover. irrigation_trigger_frac=None (default) means no
+    irrigation. When set, irrigation of irrigation_amount_mm is added to that day's water input
+    whenever root-zone available water (avail_frac, the same quantity water_stress is already
+    computed from) drops below the trigger -- the default trigger, if a caller chooses to use
+    one, is left to the caller to set explicitly rather than guessed at here.
+
+    tillage_doy, tillage_boost_days, tillage_boost_factor: tillage's real Cycles mechanism
+    (soil mixing by an implement-specific coefficient, plus temporarily faster soil organic
+    matter decomposition from disrupted aggregates -- Kemanian et al. 2024 Sec. 2.6, "tillage
+    stimulation of Cs degradation") is coupled to the full six-pool soil carbon/nitrogen
+    saturation system this engine deliberately does not implement (out of scope for v1, see
+    CLAUDE.md). This is NOT that mechanism -- it's a disclosed placeholder standing in for its
+    practical classroom-relevant effect: a temporary multiplier on BACKGROUND_N_KG_HA_DAY for
+    tillage_boost_days days starting at tillage_doy, representing "tillage briefly releases
+    previously-protected soil organic nitrogen." tillage_doy=None (default) means no effect.
     Nitrogen adequacy is applied as a single WHOLE-SEASON fraction of the unconstrained
     trajectory's total N demand (computed via _reference_n_demand above), not a day-by-day
     pool that can hit a hard, uncorrectable zero mid-season -- see that function's docstring
@@ -499,8 +539,25 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     purely additive, no effect on any of the other returned values or existing callers."""
     layers = crop["make_layers"]()
     tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
-    n_pool = n_rate_kg_ha if (n_rate_kg_ha is not None and not crop.get("legume", False)) else None
+    n_tracking_active = (not crop.get("legume", False)) and (
+        n_rate_kg_ha is not None or n_applications or n_credit_kg_ha or manure_n_kg_ha)
+    applications_by_doy = {}
+    if n_tracking_active:
+        if n_applications:
+            total_n_input_kg_ha = sum(amount for _, amount in n_applications)
+            n_pool = 0.0  # events fund the pool on their own scheduled days below, not all at once
+            for doy, amount in n_applications:
+                applications_by_doy[doy] = applications_by_doy.get(doy, 0.0) + amount
+        else:
+            total_n_input_kg_ha = n_rate_kg_ha or 0.0
+            n_pool = total_n_input_kg_ha  # original single-lump behavior, unchanged when n_applications isn't used
+        credit_and_manure = n_credit_kg_ha + manure_n_kg_ha * manure_availability
+        total_n_input_kg_ha += credit_and_manure
+        n_pool += credit_and_manure  # credit/manure land at day 0 either way, real applications are the only dated ones
+    else:
+        n_pool, total_n_input_kg_ha = None, None
     n_leached_total = 0.0 if n_pool is not None else None
+    irrigation_total_mm = 0.0
     history = [] if record_history else None
 
     n_stress_fraction, daily_demand, day_i = 1.0, None, 0
@@ -515,8 +572,25 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # smaller total demand when applied across its many dormant days too (caught by
         # testing the corn/cover-crop/soybean rotation demo: background alone nearly
         # matched the cover crop's whole-season N need before this gate was added).
-        active_days = sum(1 for d in daily_demand if d > 0)
-        total_supply_kg_ha = n_pool + BACKGROUND_N_KG_HA_DAY * active_days
+        # Total background contribution over the season, accounting for the tillage boost
+        # window if one applies -- this has to match the actual boosted rate exactly, not a
+        # flat estimate, because n_stress_fraction (and therefore yield) is fixed from this
+        # season-total BEFORE the day loop runs; a tillage boost only added to the day-by-day
+        # pool below would still leach out as unused surplus without ever affecting yield,
+        # since day-by-day uptake is already capped by n_stress_fraction, not by whether the
+        # pool physically has money on a given day (caught by testing: a first version boosted
+        # only the day-loop pool and yield came out completely unchanged from an unboosted run,
+        # a real bug, not a rounding artifact).
+        total_background_kg_ha = 0.0
+        for i, d in enumerate(daily_demand):
+            if d <= 0:
+                continue
+            rate = BACKGROUND_N_KG_HA_DAY
+            doy = weather_rows[i]["doy"]
+            if tillage_doy is not None and tillage_doy <= doy < tillage_doy + tillage_boost_days:
+                rate *= tillage_boost_factor
+            total_background_kg_ha += rate
+        total_supply_kg_ha = total_n_input_kg_ha + total_background_kg_ha
         supply_ratio = min(1.0, total_supply_kg_ha / total_demand_kg_ha) if total_demand_kg_ha > 0 else 1.0
         n_stress_fraction = 2 * supply_ratio - supply_ratio ** 2  # quadratic-plateau, see docstring above
 
@@ -529,7 +603,18 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         eie = canopy_cover(ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE))
         root_depth = root_max_m * min(1.0, ttf / 0.5)
 
-        drainage_mm = redistribute(layers, w["pp"])
+        # Irrigation (if requested) triggers off YESTERDAY's ending soil moisture, same
+        # quantity water_stress is computed from below, and is added to today's water input
+        # before infiltration/redistribution -- so irrigated water shows up in today's
+        # available water exactly like an equivalent rain event would.
+        irrigation_mm = 0.0
+        if irrigation_trigger_frac is not None:
+            pre_avail_frac = root_zone_availability(layers, root_depth)
+            if pre_avail_frac < irrigation_trigger_frac:
+                irrigation_mm = irrigation_amount_mm
+                irrigation_total_mm += irrigation_mm
+
+        drainage_mm = redistribute(layers, w["pp"] + irrigation_mm)
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
         soil_evaporation(layers, eto, eie)
 
@@ -551,8 +636,13 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
 
         n_stress = 1.0
         if n_pool is not None:
+            if w["doy"] in applications_by_doy:
+                n_pool += applications_by_doy[w["doy"]]
             if dGB_water_limited > 0:
-                n_pool += BACKGROUND_N_KG_HA_DAY
+                background_rate = BACKGROUND_N_KG_HA_DAY
+                if tillage_doy is not None and tillage_doy <= w["doy"] < tillage_doy + tillage_boost_days:
+                    background_rate *= tillage_boost_factor
+                n_pool += background_rate
             n_stress = n_stress_fraction
             target_uptake_kg_ha = n_stress_fraction * daily_demand[day_i]
             n_uptake_kg_ha = min(n_pool, target_uptake_kg_ha)
@@ -582,6 +672,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     result = dict(total=biomass_mg_ha, ag=ag_biomass_mg_ha, grain=grain_mg_ha, forage=forage_mg_ha)
     if n_leached_total is not None:
         result["n_leached_kg_ha"] = n_leached_total
+    if irrigation_trigger_frac is not None:
+        result["irrigation_mm"] = irrigation_total_mm
     if record_history:
         result["history"] = history
     return result

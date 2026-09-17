@@ -69,6 +69,24 @@
 </header>
 
 <div class="panel">
+  <div class="panel-header"><h2>Select your site</h2></div>
+  <div class="panel-body">
+    <p>
+      One choice, used by the panels that need a real location: pick one of four
+      preset sites, or upload a KML boundary (or a single dropped pin from Google
+      Earth) for a real field of your own anywhere in the CONUS. Feeds "Run a
+      season" below, the nitrogen/tradeoff panel, and Field A of the
+      field-comparison panel further down &mdash; the years-of-weather and
+      rotation panels still run on Rock Springs only, not yet wired to this choice.
+    </p>
+    <div class="preset-row" id="currentSitePresetRow" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">...or upload your own field (KML):</div>
+    <input type="file" id="currentSiteKmlInput" accept=".kml">
+    <div class="sweep-note" id="currentSiteNote" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<div class="panel">
   <div class="panel-header"><h2>Run a season</h2></div>
   <div class="panel-body">
     <div class="controls">
@@ -99,6 +117,7 @@
       Soybean fixes its own nitrogen (a legume, per the real crop file) &mdash; this
       slider has no effect on soybean yield.
     </div>
+    <div class="sweep-note" id="runSeasonSiteMirror" style="margin-bottom:8px;"></div>
     <div id="status">Starting Pyodide&hellip;</div>
     <div class="result" id="result">
       <div class="headline" id="headline"></div>
@@ -116,11 +135,13 @@
   <div class="panel-header"><h2>How much does nitrogen matter?</h2></div>
   <div class="panel-body">
     <p>
-      Runs the selected crop and year at fourteen fertilizer rates (0&ndash;650 kg N/ha)
-      back to back, computed on the fly. Yield levels off well before 650 &mdash; every
+      Runs the selected crop and year (from "Run a season" above) at fourteen
+      fertilizer rates (0&ndash;650 kg N/ha) back to back, computed on the fly, at
+      whichever site is chosen above. Yield levels off well before 650 &mdash; every
       kg of N applied past that point still leaches, and past a lower point still, it
       also costs more than the extra grain is worth.
     </p>
+    <div class="sweep-note" id="nSweepSiteMirror" style="margin-bottom:14px;"></div>
     <button id="nSweepBtn" class="btn btn-secondary" disabled>Run nitrogen comparison</button>
     <canvas class="chart" id="nSweepChart" width="800" height="200" style="margin-top:14px;display:none;"></canvas>
     <div class="sweep-note" id="nSweepNote" style="display:none;"></div>
@@ -143,6 +164,35 @@
     </div>
     <canvas class="chart" id="nProfitChart" width="800" height="200" style="display:none;"></canvas>
     <div class="sweep-note" id="nProfitNote" style="display:none;"></div>
+
+    <h3 id="nFrontierHeading" style="margin:22px 0 4px;font-size:14px;display:none;">Three perspectives, one curve</h3>
+    <p id="nFrontierIntro" style="display:none;">
+      The same fourteen runs, plotted against each other instead of against
+      nitrogen rate. Each dot is one nitrogen rate; the line connects them from
+      lowest to highest. There is no dot up and to the left of this curve &mdash;
+      for any given amount of leaching, this is the most profit that rate of
+      nitrogen can produce. Three positions are marked on it, standing in for
+      three people who'd read this chart differently: a <b>farmer</b> maximizing
+      profit wherever it lands; a <b>water-quality advocate</b> minimizing
+      leaching, but not by demanding zero fertilizer &mdash; the mark below holds
+      to at least 80% of this run's maximum yield, closer to how a real advocate
+      argues (less fertilizer, not none); and a <b>policymaker</b> at the point
+      that best balances profit and leaching, each measured against its own best
+      and worst value in this sweep and weighted equally. None of the three can
+      hand the others an answer they're obligated to accept &mdash; every point
+      on this curve is already the most profit achievable at its own leaching
+      level, so the disagreement is genuinely about which point to stand on, not
+      about who has the better number.
+    </p>
+    <div class="legend" id="nFrontierLegend" style="margin:0 0 6px;display:none;">
+      <span><span class="swatch" style="background:#1e8449;"></span>Farmer (max profit)</span>
+      <span><span class="swatch" style="background:#c0392b;"></span>Water-quality advocate (min leaching, &ge;80% max yield)</span>
+      <span><span class="swatch" style="background:#2471a3;"></span>Policymaker (balances both, equal weight)</span>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin:0 0 4px;" id="nFrontierAxisLabel"></div>
+    <canvas class="chart" id="nFrontierChart" width="800" height="220" style="display:none;"></canvas>
+    <table id="nFrontierTable" style="margin-top:10px;display:none;"></table>
+    <div class="sweep-note" id="nFrontierNote" style="display:none;"></div>
   </div>
 </div>
 
@@ -223,24 +273,28 @@
   <div class="panel-header"><h2>Pick a field and run a simulation</h2></div>
   <div class="panel-body">
     <p>
-      Upload a KML boundary (or a single dropped pin from Google Earth) for a
-      real field anywhere in the CONUS and run the same validated corn model
-      used elsewhere in this demo against that field's real soil (STATSGO2)
-      and real weather (NLDAS-2, 1980&ndash;2016) &mdash; not a simplified
-      stand-in. Add a second field to compare two real locations side by
-      side. Nitrogen rate is fixed at 150 kg N/ha here (not adjustable in
-      this panel) so any difference you see reflects soil and weather, not a
-      fertilizer choice.
+      Runs the same validated corn model used elsewhere in this demo against
+      real soil (STATSGO2) and real weather (NLDAS-2, 1980&ndash;2016) &mdash;
+      not a simplified stand-in. Field A is whatever site you chose above; add
+      a second site below to compare two real locations side by side.
+      Nitrogen rate is fixed at 150 kg N/ha here (not adjustable in this
+      panel) so any difference you see reflects soil and weather, not a
+      fertilizer choice. Both fields always resolve through the same
+      nearest-cell lookup, including when Field A is Rock Springs &mdash; so
+      Field A here won't exactly match the exact, hand-validated Rock Springs
+      numbers used in the panels above, that's expected, not a bug, and keeps
+      Field A and Field B on equal footing for a fair comparison.
     </p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:10px;">
       <div>
-        <h3 style="margin:0 0 6px;font-size:13px;color:var(--muted);">Field A</h3>
-        <input type="file" id="kmlInputA" accept=".kml">
+        <h3 style="margin:0 0 6px;font-size:13px;color:var(--muted);">Field A (your selected site, above)</h3>
         <div id="kmlResultA" style="display:none;margin-top:10px;"><table id="kmlResultTableA"></table></div>
         <div class="sweep-note" id="kmlNoteA" style="display:none;"></div>
       </div>
       <div>
         <h3 style="margin:0 0 6px;font-size:13px;color:var(--muted);">Field B (optional, for comparison)</h3>
+        <div class="preset-row" id="presetRowB" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">...or upload your own field (KML):</div>
         <input type="file" id="kmlInputB" accept=".kml">
         <div id="kmlResultB" style="display:none;margin-top:10px;"><table id="kmlResultTableB"></table></div>
         <div class="sweep-note" id="kmlNoteB" style="display:none;"></div>
@@ -252,7 +306,7 @@
         <input type="range" id="fieldYearSlider" min="1980" max="2016" step="1" value="2012">
       </div>
     </div>
-    <button id="fieldRunBtn" class="btn" disabled>Upload Field A to enable</button>
+    <button id="fieldRunBtn" class="btn" disabled>Resolving your selected site...</button>
     <div id="fieldRunStatus" style="font-family:'DM Mono',monospace;font-size:11.5px;color:var(--muted);margin:10px 0 4px;min-height:16px;"></div>
     <div class="result" id="fieldRunResult" style="display:none;">
       <table id="fieldRunTable"></table>
@@ -545,18 +599,63 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf):
         ref_biomass += dGB_water_limited
     return demand
 
-def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False):
+def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False,
+                     n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
+                     irrigation_trigger_frac=None, irrigation_amount_mm=25.0,
+                     tillage_doy=None, tillage_boost_days=30, tillage_boost_factor=2.0):
+    # n_applications: [(doy, amount_kg_ha), ...] real/disclosed Cycles usage (dated events,
+    # not one lump) -- Kemanian et al. 2024 Fig. 6 (wheat 80/60 fall/spring split), SI Sec. IX
+    # (Iowa maize, manured fields split 50/50 fall/spring). Replaces the day-0 lump if given.
+    # n_credit_kg_ha: previous-crop N credit, real/disclosed (SI Sec. IX: "60 kg/ha credit if
+    # maize followed soy"). manure_n_kg_ha/manure_availability: organic N amendment; 0.5 is the
+    # real disclosed availability discount vs. mineral N (SI Sec. IX), not invented.
+    # irrigation_trigger_frac/irrigation_amount_mm: irrigation is real in Cycles (operations
+    # "can be... conditional to soil moisture," Sec. 2.8) but no exact threshold/depth is
+    # disclosed -- both are real scenario configuration in Cycles itself, set here, not derived.
+    # tillage_doy/tillage_boost_days/tillage_boost_factor: tillage's real mechanism (soil mixing
+    # + faster organic-matter decomposition, Sec. 2.6) needs the full six-pool soil C/N system
+    # this engine doesn't implement (out of v1 scope) -- this is a disclosed placeholder for its
+    # practical effect only: a temporary background-mineralization boost, not the real physics.
     layers = crop["make_layers"]()
     tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
-    n_pool = n_rate_kg_ha if (n_rate_kg_ha is not None and not crop.get("legume", False)) else None
+    n_tracking_active = (not crop.get("legume", False)) and (
+        n_rate_kg_ha is not None or n_applications or n_credit_kg_ha or manure_n_kg_ha)
+    applications_by_doy = {}
+    if n_tracking_active:
+        if n_applications:
+            total_n_input_kg_ha = sum(amount for _, amount in n_applications)
+            n_pool = 0.0
+            for doy, amount in n_applications:
+                applications_by_doy[doy] = applications_by_doy.get(doy, 0.0) + amount
+        else:
+            total_n_input_kg_ha = n_rate_kg_ha or 0.0
+            n_pool = total_n_input_kg_ha
+        credit_and_manure = n_credit_kg_ha + manure_n_kg_ha * manure_availability
+        total_n_input_kg_ha += credit_and_manure
+        n_pool += credit_and_manure
+    else:
+        n_pool, total_n_input_kg_ha = None, None
     n_leached_total = 0.0 if n_pool is not None else None
+    irrigation_total_mm = 0.0
     history = [] if record_history else None
     n_stress_fraction, daily_demand, day_i = 1.0, None, 0
     if n_pool is not None:
         daily_demand = _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf)
         total_demand_kg_ha = sum(daily_demand)
-        active_days = sum(1 for d in daily_demand if d > 0)  # gate background credit to biologically-active days only --
-        total_supply_kg_ha = n_pool + BACKGROUND_N_KG_HA_DAY * active_days  # a flat per-calendar-day rate swamps a mostly-dormant winter cover crop's demand otherwise
+        # Season-total background, accounting for a tillage boost window if any -- must match
+        # the boosted rate exactly (not a flat estimate), since n_stress_fraction (and thus
+        # yield) is fixed from this total before the day loop runs; boosting only the day-by-day
+        # pool below would just leach out as unused surplus without ever reaching yield.
+        total_background_kg_ha = 0.0
+        for i, d in enumerate(daily_demand):
+            if d <= 0:
+                continue
+            rate = BACKGROUND_N_KG_HA_DAY
+            doy_i_ = weather_rows[i]["doy"]
+            if tillage_doy is not None and tillage_doy <= doy_i_ < tillage_doy + tillage_boost_days:
+                rate *= tillage_boost_factor
+            total_background_kg_ha += rate
+        total_supply_kg_ha = total_n_input_kg_ha + total_background_kg_ha
         supply_ratio = min(1.0, total_supply_kg_ha / total_demand_kg_ha) if total_demand_kg_ha > 0 else 1.0
         n_stress_fraction = 2 * supply_ratio - supply_ratio ** 2  # quadratic-plateau, smooth diminishing returns
     for w in weather_rows:
@@ -567,7 +666,13 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             break
         eie = canopy_cover(ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE))
         root_depth = root_max_m * min(1.0, ttf/0.5)
-        drainage_mm = redistribute(layers, w["pp"])
+        irrigation_mm = 0.0
+        if irrigation_trigger_frac is not None:
+            pre_avail_frac = root_zone_availability(layers, root_depth)
+            if pre_avail_frac < irrigation_trigger_frac:
+                irrigation_mm = irrigation_amount_mm
+                irrigation_total_mm += irrigation_mm
+        drainage_mm = redistribute(layers, w["pp"] + irrigation_mm)
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
         soil_evaporation(layers, eto, eie)
         GR = crop["rue"] * eie * w["solar"]
@@ -585,8 +690,13 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         dGB_water_limited = max(0.0, min(GR, GT)) / 1000
         n_stress = 1.0
         if n_pool is not None:
+            if w["doy"] in applications_by_doy:
+                n_pool += applications_by_doy[w["doy"]]
             if dGB_water_limited > 0:
-                n_pool += BACKGROUND_N_KG_HA_DAY
+                background_rate = BACKGROUND_N_KG_HA_DAY
+                if tillage_doy is not None and tillage_doy <= w["doy"] < tillage_doy + tillage_boost_days:
+                    background_rate *= tillage_boost_factor
+                n_pool += background_rate
             n_stress = n_stress_fraction
             target_uptake_kg_ha = n_stress_fraction * daily_demand[day_i]
             n_uptake_kg_ha = min(n_pool, target_uptake_kg_ha)
@@ -612,6 +722,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     result = dict(total=biomass_mg_ha, ag=ag_biomass_mg_ha, grain=grain_mg_ha)
     if n_leached_total is not None:
         result["n_leached_kg_ha"] = n_leached_total
+    if irrigation_trigger_frac is not None:
+        result["irrigation_mm"] = irrigation_total_mm
     if record_history:
         result["history"] = history
     return result
@@ -651,6 +763,42 @@ WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
     calibration_factor=0.716, canopy_shape=(5, -14, -15, 16),
     kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=40.6875, make_layers=make_layers,
     n_max_conc=0.07, n_dilution_slope=0.45, legume=False)
+
+# Two more cover-crop options, added per Matt's direct request (2026-09-17) to get closer to
+# real Cycles coverage without outkicking it. Radiation- and transpiration-use efficiency
+# (rue, wue) below are REAL, disclosed, citable numbers straight from Kemanian et al. 2024's
+# own SI Table SI.2 ("Sample crop parameters... from Kremer et al 2009 and Stockle and
+# Kemanian 2008"): C3 Grasses (barley/oats/ryegrass/wheat/winter rye) rue=1.7, wue=6.5; C3
+# Legumes (lentils/soybean/red clover/white clover/hairy vetch) rue=1.1, wue=4.5. Every OTHER
+# parameter (thermal time, temperature bounds, canopy shape, N-dilution) is NOT disclosed per-
+# species in either source and is borrowed here from the closest already-validated crop of the
+# same functional type (WHEAT for the grass, SOYBEAN for the legume) as a stated placeholder,
+# not a verified per-species value -- correct these once GenericCrops.crop's real per-species
+# numbers are available (Matt has reached out to a Cycles author for it directly).
+WINTER_RYE = dict(tt_maturity=WHEAT["tt_maturity"], flowering_tt=WHEAT["flowering_tt"],
+    base_t=WHEAT["base_t"], opt_t=WHEAT["opt_t"], max_t=WHEAT["max_t"],
+    rue=1.7, wue=6.5, hi_x=WHEAT["hi_x"], hi_o=WHEAT["hi_o"], hi_slope=WHEAT["hi_slope"],
+    fsti=WHEAT["fsti"], fstf=WHEAT["fstf"], calibration_factor=WHEAT["calibration_factor"],
+    canopy_shape=WHEAT["canopy_shape"], kc=WHEAT["kc"], eix=WHEAT["eix"],
+    tr_min_t=WHEAT["tr_min_t"], tr_threshold_t=WHEAT["tr_threshold_t"], lat_deg=40.6875,
+    make_layers=make_layers, n_max_conc=WHEAT["n_max_conc"], n_dilution_slope=WHEAT["n_dilution_slope"],
+    legume=False)
+
+HAIRY_VETCH = dict(tt_maturity=SOYBEAN["tt_maturity"], flowering_tt=SOYBEAN["flowering_tt"],
+    # Temperature response borrowed from WHEAT, not SOYBEAN, despite hairy vetch being a legume
+    # like soybean -- caught by testing: with soybean's base_t=5 (a warm-season crop), a winter
+    # cover crop planted in the fall barely grew at all (0.02 Mg/ha aboveground over a real
+    # fall-to-spring window), since soybean's thermal-time function returns ~zero through most
+    # of that cold window. Real hairy vetch is winter-hardy, cold-tolerant vegetative growth
+    # much closer to wheat's temperature response than soybean's -- using wheat's base/opt/max
+    # temperatures fixes this while keeping the real legume RUE/WUE and legume=True (soybean's
+    # own nitrogen-related legume behavior) for everything nitrogen-specific.
+    base_t=WHEAT["base_t"], opt_t=WHEAT["opt_t"], max_t=WHEAT["max_t"],
+    rue=1.1, wue=4.5, hi_x=SOYBEAN["hi_x"], hi_o=SOYBEAN["hi_o"], hi_slope=SOYBEAN["hi_slope"],
+    fsti=SOYBEAN["fsti"], fstf=SOYBEAN["fstf"], calibration_factor=SOYBEAN["calibration_factor"],
+    kc=SOYBEAN["kc"], eix=SOYBEAN["eix"], tr_min_t=WHEAT["tr_min_t"],
+    tr_threshold_t=WHEAT["tr_threshold_t"], lat_deg=40.6875, make_layers=make_layers,
+    n_max_conc=SOYBEAN["n_max_conc"], n_dilution_slope=SOYBEAN["n_dilution_slope"], legume=True)
 `;
 
 const DEMO_GLUE_SOURCE = String.raw`
@@ -661,12 +809,18 @@ def to_row(wx_year, d):
     v = wx_year[str(d)]
     return dict(doy=d, pp=v[0], tx=v[1], tn=v[2], solar=v[3], rhx=v[4], rhn=v[5], wind=v[6])
 
-def build_season_rows(wx_year, crop):
+def build_season_rows(wx_year, crop, plant_doy_override=None):
+    # plant_doy_override: lets a student choose planting date directly instead of the real,
+    # already-validated soil-temperature trigger (2.65 days mean error vs. real Cycles planting
+    # dates) -- not a new mechanism, just exposing an existing computed value as a real choice.
     tmeans = {int(doy): (row[1] + row[2]) / 2 for doy, row in wx_year.items()}
     doys_sorted = sorted(tmeans)
-    tsoils = simulate_soil_temp([tmeans[d] for d in doys_sorted], k=0.15)
-    tsoil_by_doy = dict(zip(doys_sorted, tsoils))
-    plant_doy = find_planting_doy(tsoil_by_doy, (110, 131), 12.0)
+    if plant_doy_override is not None:
+        plant_doy = plant_doy_override
+    else:
+        tsoils = simulate_soil_temp([tmeans[d] for d in doys_sorted], k=0.15)
+        tsoil_by_doy = dict(zip(doys_sorted, tsoils))
+        plant_doy = find_planting_doy(tsoil_by_doy, (110, 131), 12.0)
     doys = sorted(d for d in doys_sorted if d >= plant_doy)
     rows = [to_row(wx_year, d) for d in doys]
     return plant_doy, rows
@@ -798,15 +952,44 @@ runBtn.addEventListener("click", async () => {
     pyodide.globals.set("run_year", year);
     pyodide.globals.set("run_crop", crop);
     pyodide.globals.set("run_n_rate", parseFloat(nRateSlider.value));
+    const usingResolvedSite = currentSite.kind === "resolved";
+    pyodide.globals.set("use_resolved_site", usingResolvedSite);
+    if (usingResolvedSite) {
+      pyodide.globals.set("site_wx_json", JSON.stringify(currentSite.weather));
+      pyodide.globals.set("site_soil_json", JSON.stringify(currentSite.soilLayers));
+    }
+    // Same use_resolved_site branch pattern as the nitrogen-sweep panel below --
+    // exact ALL_WX/default make_layers when currentSite is Rock Springs (the
+    // default, byte-identical to this handler's pre-site-picker behavior), a
+    // call-scoped dict(crop_obj) with its own make_layers() over the resolved
+    // site's soil otherwise. Applies to whichever crop is selected, corn or
+    // soybean, not just corn (unlike the field-comparison panel, which is
+    // corn-only) since this panel lets a student pick either.
     const out = await pyodide.runPythonAsync(`
 crop_obj = CORN if run_crop == "corn" else SOYBEAN
-plant_doy, rows = build_season_rows(ALL_WX[run_year], crop_obj)
+if use_resolved_site:
+    import json as _json
+    _site_wx = _json.loads(site_wx_json)
+    _site_soil = _json.loads(site_soil_json)
+    def _site_make_layers():
+        out = []
+        for L in _site_soil:
+            hyd = saxton_rawls(L["sand"], L["clay"], L["soc"] * OM_FROM_SOC)
+            out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"]))
+        return out
+    crop_obj = dict(crop_obj)
+    crop_obj["make_layers"] = _site_make_layers
+    _wx_year = _site_wx.get(run_year)
+else:
+    _wx_year = ALL_WX[run_year]
+plant_doy, rows = build_season_rows(_wx_year, crop_obj)
 res = simulate_season(rows, crop_obj, n_rate_kg_ha=run_n_rate, record_history=True)
 json.dumps({"plant_doy": plant_doy, **res})
 `);
     const data = JSON.parse(out);
     const label = crop === "corn" ? "Grain yield" : "Soybean yield";
-    document.getElementById("headline").innerHTML = `${label} (${year}): <b>${data.grain.toFixed(2)} Mg/ha</b>`;
+    const siteName = currentSite.kind === "rocksprings" ? "Rock Springs, PA" : currentSite.label;
+    document.getElementById("headline").innerHTML = `${label} (${siteName}, ${year}): <b>${data.grain.toFixed(2)} Mg/ha</b>`;
     drawSeasonChart(document.getElementById("seasonChart"), data.history);
     const nRow = crop === "corn"
       ? `<tr><th>Nitrogen applied</th><td>${nRateSlider.value} kg N/ha</td></tr>`
@@ -824,6 +1007,83 @@ json.dumps({"plant_doy": plant_doy, **res})
     console.error(err);
   }
 });
+
+function drawFrontierChart(canvas, points, highlights) {
+  // highlights: [{idx, color, label}, ...] -- several named positions can share one point,
+  // in which case their labels combine ("Farmer & Policymaker") rather than drawing on top
+  // of each other.
+  highlights = highlights || [];
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  const pad = { l: 50, r: 16, t: 16, b: 26 };
+  const plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
+  const xs = points.map(p => p.x), ys = points.map(p => p.y);
+  const xMin = Math.min(...xs), xMax = Math.max(...xs);
+  const yMin = Math.min(0, Math.min(...ys));
+  const yMax = Math.max(...ys) * 1.1 || 1;
+  const xSpan = (xMax - xMin) || 1, ySpan = (yMax - yMin) || 1;
+  const toPx = (x, y) => ({
+    px: pad.l + plotW * (x - xMin) / xSpan,
+    py: pad.t + plotH * (1 - (y - yMin) / ySpan)
+  });
+  ctx.strokeStyle = "#c9d8e2"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t + plotH); ctx.lineTo(pad.l + plotW, pad.t + plotH); ctx.stroke();
+  ctx.font = "10px 'DM Mono', monospace";
+  [0, 0.5, 1].forEach(f => {
+    const y = pad.t + plotH * (1 - f);
+    ctx.strokeStyle = "#eef3f7"; ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + plotW, y); ctx.stroke();
+    ctx.fillStyle = "#5f7180";
+    ctx.fillText("$" + Math.round(yMin + ySpan * f), 2, y + 3);
+  });
+  if (yMin < 0) {
+    const zy = toPx(xMin, 0).py;
+    ctx.strokeStyle = "#5f7180"; ctx.beginPath(); ctx.moveTo(pad.l, zy); ctx.lineTo(pad.l + plotW, zy); ctx.stroke();
+  }
+  ctx.strokeStyle = "#2471a3"; ctx.lineWidth = 2; ctx.lineJoin = "round"; ctx.lineCap = "round";
+  ctx.beginPath();
+  points.forEach((p, i) => {
+    const { px, py } = toPx(p.x, p.y);
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  });
+  ctx.stroke();
+
+  const byIdx = new Map();
+  highlights.forEach(h => {
+    if (!byIdx.has(h.idx)) byIdx.set(h.idx, []);
+    byIdx.get(h.idx).push(h);
+  });
+
+  points.forEach((p, i) => {
+    const { px, py } = toPx(p.x, p.y);
+    const group = byIdx.get(i);
+    const r = group ? 6 : 4;
+    ctx.beginPath(); ctx.arc(px, py, r + 2, 0, Math.PI * 2); ctx.fillStyle = "#fff"; ctx.fill();
+    ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fillStyle = group ? group[0].color : "#2471a3"; ctx.fill();
+  });
+
+  ctx.fillStyle = "#5f7180"; ctx.textAlign = "left";
+  const firstPx = toPx(points[0].x, points[0].y).px;
+  const lastPx = toPx(points[points.length - 1].x, points[points.length - 1].y).px;
+  ctx.fillText(points[0].x.toFixed(1), Math.max(pad.l, firstPx - 10), pad.t + plotH + 16);
+  ctx.textAlign = "right";
+  ctx.fillText(points[points.length - 1].x.toFixed(1), Math.min(pad.l + plotW, lastPx + 10), pad.t + plotH + 16);
+
+  let groupIndex = 0;
+  byIdx.forEach((group, idx) => {
+    const hp = points[idx];
+    const { px, py } = toPx(hp.x, hp.y);
+    const label = group.map(g => g.label).join(" & ");
+    ctx.fillStyle = group[0].color;
+    const right = px > pad.l + plotW * 0.6;
+    ctx.textAlign = right ? "right" : "left";
+    const above = groupIndex % 2 === 0;
+    const dy = above ? -10 : 20;
+    ctx.fillText(`${label} (${hp.n} kg N/ha)`, px + (right ? -9 : 9), py + dy);
+    groupIndex++;
+  });
+  ctx.textAlign = "left";
+}
 
 let lastNSweep = null;  // cached so the price/cost inputs can redraw the profit chart without re-running Pyodide
 
@@ -860,6 +1120,93 @@ function renderProfitChart() {
       `rate &mdash; try raising the fertilizer cost or lowering the grain price to see the two split apart.`;
   }
   note.style.display = "block";
+
+  const heading = document.getElementById("nFrontierHeading");
+  const intro = document.getElementById("nFrontierIntro");
+  const legend = document.getElementById("nFrontierLegend");
+  const axisLabel = document.getElementById("nFrontierAxisLabel");
+  const frontierCanvas = document.getElementById("nFrontierChart");
+  const frontierTable = document.getElementById("nFrontierTable");
+  const frontierNote = document.getElementById("nFrontierNote");
+  const points = data.map((d, i) => ({ x: d.leached, y: profits[i], n: d.n_rate }));
+
+  const farmerIdx = bestIdx;
+
+  // Water-quality advocate: minimize leaching, but subject to a real floor -- a real advocate
+  // argues for less fertilizer, not none, and "just apply zero" would be a trivial, unusable
+  // answer here. 80% of this run's own max yield is the floor; if no sampled rate clears it,
+  // fall back to whichever rate gets closest to max yield (the crop needs most of the range
+  // just to approach 80%, which is itself worth surfacing rather than hiding).
+  const maxGrainAll = Math.max(...data.map(d => d.grain));
+  const yieldFloor = 0.8 * maxGrainAll;
+  const floorCandidates = data.map((d, i) => i).filter(i => data[i].grain >= yieldFloor);
+  let waterIdx = floorCandidates.length
+    ? floorCandidates.reduce((best, i) => data[i].leached < data[best].leached ? i : best, floorCandidates[0])
+    : data.reduce((best, d, i) => d.grain > data[best].grain ? i : best, 0);
+
+  // Policymaker: balance profit and leaching, each normalized to this sweep's own best/worst
+  // and weighted equally -- but searched only between the farmer's and water advocate's own
+  // rates (inclusive), not the whole sweep. A free global search can otherwise pick a point
+  // outside that range entirely (caught in testing: it landed to the LEFT of the water
+  // advocate's own floor-constrained minimum, which contradicts "the policymaker picks a
+  // point between the two" and would read as a real inconsistency, not a nuance, to a
+  // student). Restricting the search to [lo, hi] guarantees the policymaker's pick is
+  // genuinely between the two named positions, whichever one happens to sit at higher N.
+  const minProfit = Math.min(...profits), maxProfit = Math.max(...profits);
+  const minLeach = Math.min(...data.map(d => d.leached)), maxLeach = Math.max(...data.map(d => d.leached));
+  const profitSpan = (maxProfit - minProfit) || 1, leachSpan = (maxLeach - minLeach) || 1;
+  const rangeLo = Math.min(farmerIdx, waterIdx), rangeHi = Math.max(farmerIdx, waterIdx);
+  let policyIdx = rangeLo, bestScore = -Infinity;
+  for (let i = rangeLo; i <= rangeHi; i++) {
+    const score = (profits[i] - minProfit) / profitSpan - (data[i].leached - minLeach) / leachSpan;
+    if (score > bestScore) { bestScore = score; policyIdx = i; }
+  }
+
+  const highlights = [
+    { idx: farmerIdx, color: "#1e8449", label: "Farmer" },
+    { idx: waterIdx, color: "#c0392b", label: "Water advocate" },
+    { idx: policyIdx, color: "#2471a3", label: "Policymaker" }
+  ];
+
+  heading.style.display = "block";
+  intro.style.display = "block";
+  legend.style.display = "flex";
+  axisLabel.style.display = "block";
+  axisLabel.textContent = "Y axis: profit ($/ha)  ·  X axis: nitrogen leached (kg N/ha)  ·  each dot is one nitrogen rate, low to high";
+  frontierCanvas.style.display = "block";
+  drawFrontierChart(frontierCanvas, points, highlights);
+
+  frontierTable.style.display = "table";
+  const rows = [
+    { label: "Farmer (max profit)", idx: farmerIdx, color: "#1e8449" },
+    { label: "Water-quality advocate", idx: waterIdx, color: "#c0392b" },
+    { label: "Policymaker (balances both)", idx: policyIdx, color: "#2471a3" }
+  ];
+  frontierTable.innerHTML = `<tr><th>Perspective</th><th>N applied</th><th>Yield</th><th>Leached</th><th>Profit</th></tr>` +
+    rows.map(r => `<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;` +
+      `background:${r.color};margin-right:6px;vertical-align:middle;"></span>${r.label}</td>` +
+      `<td>${data[r.idx].n_rate} kg N/ha</td><td>${data[r.idx].grain.toFixed(2)} Mg/ha</td>` +
+      `<td>${data[r.idx].leached.toFixed(1)} kg N/ha</td><td>$${profits[r.idx].toFixed(0)}/ha</td></tr>`).join("");
+
+  const sameAsFarmer = waterIdx === farmerIdx;
+  const floorNote = floorCandidates.length
+    ? ""
+    : ` Even the lowest-leaching rate that still clears 80% of max yield here needs most of the ` +
+      `sweep's nitrogen range &mdash; this crop doesn't get close to its own potential on a little ` +
+      `fertilizer at this site and year.`;
+  if (sameAsFarmer) {
+    frontierNote.innerHTML = `At these prices, the farmer's profit-maximizing rate (<b>${data[farmerIdx].n_rate} kg N/ha</b>) ` +
+      `already clears the water-quality advocate's 80%-of-max-yield floor at the lowest possible leaching ` +
+      `&mdash; all three perspectives land on the same point here. Try raising the fertilizer cost, or a lower-yielding ` +
+      `year, to see them split apart.`;
+  } else {
+    frontierNote.innerHTML = `The farmer's rate leaches <b>${(data[farmerIdx].leached - data[waterIdx].leached).toFixed(1)} kg N/ha` +
+      `</b> more than the water-quality advocate's, for <b>$${(profits[farmerIdx] - profits[waterIdx]).toFixed(0)}/ha</b> more profit ` +
+      `and <b>${(data[farmerIdx].grain - data[waterIdx].grain).toFixed(2)} Mg/ha</b> more yield. The policymaker's pick sits ` +
+      `${policyIdx === farmerIdx ? "at the farmer's own point" : policyIdx === waterIdx ? "at the advocate's own point" : "between the two"} ` +
+      `on the curve.${floorNote}`;
+  }
+  frontierNote.style.display = "block";
 }
 
 nSweepBtn.addEventListener("click", async () => {
@@ -874,9 +1221,36 @@ nSweepBtn.addEventListener("click", async () => {
   try {
     pyodide.globals.set("run_year", year);
     pyodide.globals.set("run_crop", crop);
+    const usingResolvedSite = currentSite.kind === "resolved";
+    pyodide.globals.set("use_resolved_site", usingResolvedSite);
+    if (usingResolvedSite) {
+      pyodide.globals.set("site_wx_json", JSON.stringify(currentSite.weather));
+      pyodide.globals.set("site_soil_json", JSON.stringify(currentSite.soilLayers));
+    }
+    // When use_resolved_site is false (the default, Rock Springs), this reproduces
+    // the exact pre-site-picker code path byte-for-byte -- ALL_WX/CORN/SOYBEAN
+    // untouched, no call-scoped copy. Only the resolved-site branch builds a
+    // dict(crop_obj) with its own make_layers() closure, the same pattern
+    // runFieldSlot() already uses for the field-comparison panel, so a sweep run
+    // here can never leak into (or be leaked into by) that panel's own state.
     const out = await pyodide.runPythonAsync(`
 crop_obj = CORN if run_crop == "corn" else SOYBEAN
-plant_doy, rows = build_season_rows(ALL_WX[run_year], crop_obj)
+if use_resolved_site:
+    import json as _json
+    _site_wx = _json.loads(site_wx_json)
+    _site_soil = _json.loads(site_soil_json)
+    def _site_make_layers():
+        out = []
+        for L in _site_soil:
+            hyd = saxton_rawls(L["sand"], L["clay"], L["soc"] * OM_FROM_SOC)
+            out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"]))
+        return out
+    crop_obj = dict(crop_obj)
+    crop_obj["make_layers"] = _site_make_layers
+    _wx_year = _site_wx.get(run_year)
+else:
+    _wx_year = ALL_WX[run_year]
+plant_doy, rows = build_season_rows(_wx_year, crop_obj)
 rates = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650]
 sweep_out = []
 for r in rates:
@@ -894,9 +1268,17 @@ json.dumps(sweep_out)
       leachNote.style.display = "none";
       document.getElementById("nProfitChart").style.display = "none";
       document.getElementById("nProfitNote").style.display = "none";
+      document.getElementById("nFrontierHeading").style.display = "none";
+      document.getElementById("nFrontierIntro").style.display = "none";
+      document.getElementById("nFrontierLegend").style.display = "none";
+      document.getElementById("nFrontierAxisLabel").style.display = "none";
+      document.getElementById("nFrontierChart").style.display = "none";
+      document.getElementById("nFrontierTable").style.display = "none";
+      document.getElementById("nFrontierNote").style.display = "none";
     } else {
       const lo = data[0].grain, hi = data[data.length - 1].grain;
-      note.textContent = `${year}: yield rises from ${lo.toFixed(2)} to ${hi.toFixed(2)} Mg/ha as nitrogen increases, ` +
+      const siteName = currentSite.kind === "rocksprings" ? "Rock Springs, PA" : currentSite.label;
+      note.textContent = `${siteName}, ${year}: yield rises from ${lo.toFixed(2)} to ${hi.toFixed(2)} Mg/ha as nitrogen increases, ` +
         `then flattens -- diminishing returns, not a hard cutoff.`;
       leachCanvas.style.display = "block";
       drawBarChart(leachCanvas, data.map(d => d.n_rate + ""), data.map(d => d.leached), { color: "#c0392b" });
@@ -1198,57 +1580,234 @@ async function fieldNearestWeather(lat, lng) {
 // --- Two-field slot state, upload handlers, and the comparison run ---
 const fieldState = { A: null, B: null };
 
+// Shared by both input paths (KML upload and the four preset buttons below) --
+// resolves real soil + weather for a given point, renders the result table,
+// and sets fieldState. placemarkDesc is just the "Placemark type" row's text,
+// since a preset has no real KML placemark to describe.
+// Pure resolver, no DOM/state side effects -- shared by the field-comparison
+// panel's applyResolvedSite() below and the nitrogen-sweep/frontier panel's
+// own site picker, so there's exactly one place that knows how to turn a
+// lat/lng into real soil + weather.
+async function resolveSiteAt(centroid) {
+  const grid = await loadFieldSoilGrid();
+  const { cell: soilCell, distanceDeg: soilDist } = nearestFieldSoilCell(centroid.lat, centroid.lng, grid);
+  const layers = fieldSoilLayersForCell(soilCell);
+  const { weather, distanceDeg: wxDist, cell: wxCell } = await fieldNearestWeather(centroid.lat, centroid.lng);
+  const soilOut = soilDist > 0.75;
+  const wxOut = !weather || wxDist > 0.75;
+  return { centroid, soilCell, soilDist, layers, topsoil: layers[0], weather, wxDist, wxCell, soilOut, wxOut };
+}
+
+async function applyResolvedSite(slot, centroid, placemarkDesc) {
+  const table = document.getElementById(`kmlResultTable${slot}`);
+  const result = document.getElementById(`kmlResult${slot}`);
+  const note = document.getElementById(`kmlNote${slot}`);
+  fieldState[slot] = null;
+  updateFieldRunButton();
+  try {
+    const r = await resolveSiteAt(centroid);
+
+    table.innerHTML = `
+      <tr><th>Placemark type</th><td>${placemarkDesc}</td></tr>
+      <tr><th>Field centroid</th><td>${centroid.lat.toFixed(4)}, ${centroid.lng.toFixed(4)}</td></tr>
+      <tr><th>Nearest soil profile</th><td>${r.soilCell.compname} series (mukey ${r.soilCell.mukey}), ${r.soilDist.toFixed(2)}&deg; away</td></tr>
+      <tr><th>Topsoil (real STATSGO2)</th><td>${r.topsoil.clay}% clay, ${r.topsoil.sand}% sand, ${r.topsoil.soc.toFixed(2)}% SOC</td></tr>
+      <tr><th>Nearest weather cell</th><td>${r.wxOut ? "no coverage" : `${r.wxCell[0].toFixed(2)}, ${r.wxCell[1].toFixed(2)} (${r.wxDist.toFixed(2)}&deg; away)`}</td></tr>
+    `;
+    result.style.display = "block";
+
+    if (r.soilOut || r.wxOut) {
+      fieldState[slot] = null;
+      note.textContent = `This point falls outside real CONUS coverage (soil ${r.soilDist.toFixed(2)}° away, weather ${r.wxOut ? "no tile" : r.wxDist.toFixed(2) + "°"} away) -- likely ocean, a Great Lake, or just past the border. Try a point further inland.`;
+    } else {
+      fieldState[slot] = { centroid, soilLayers: r.layers, weather: r.weather, soilLabel: r.soilCell.compname, wxCell: r.wxCell };
+      note.textContent = "Real soil and weather both resolved for this field -- ready to run.";
+    }
+    note.style.display = "block";
+  } catch (err) {
+    result.style.display = "none";
+    fieldState[slot] = null;
+    note.textContent = "Couldn't resolve that location: " + err.message;
+    note.style.display = "block";
+  }
+  updateFieldRunButton();
+}
+
 function wireFieldSlot(slot) {
   document.getElementById(`kmlInput${slot}`).addEventListener("change", async (e) => {
     const file = e.target.files[0];
-    const table = document.getElementById(`kmlResultTable${slot}`);
-    const result = document.getElementById(`kmlResult${slot}`);
-    const note = document.getElementById(`kmlNote${slot}`);
     if (!file) return;
-    fieldState[slot] = null;
-    updateFieldRunButton();
     try {
       const text = await file.text();
       const parsed = parseFieldKML(text);
       const centroid = parsed.kind === "point" ? { lat: parsed.lat, lng: parsed.lng } : fieldPolygonCentroid(parsed.vertices);
-
-      const grid = await loadFieldSoilGrid();
-      const { cell: soilCell, distanceDeg: soilDist } = nearestFieldSoilCell(centroid.lat, centroid.lng, grid);
-      const layers = fieldSoilLayersForCell(soilCell);
-      const { weather, distanceDeg: wxDist, cell: wxCell } = await fieldNearestWeather(centroid.lat, centroid.lng);
-      const topsoil = layers[0];
-
-      const soilOut = soilDist > 0.75;
-      const wxOut = !weather || wxDist > 0.75;
-
-      table.innerHTML = `
-        <tr><th>Placemark type</th><td>${parsed.kind}${parsed.kind === "polygon" ? ` (${parsed.vertices.length} vertices)` : ""}</td></tr>
-        <tr><th>Field centroid</th><td>${centroid.lat.toFixed(4)}, ${centroid.lng.toFixed(4)}</td></tr>
-        <tr><th>Nearest soil profile</th><td>${soilCell.compname} series (mukey ${soilCell.mukey}), ${soilDist.toFixed(2)}&deg; away</td></tr>
-        <tr><th>Topsoil (real STATSGO2)</th><td>${topsoil.clay}% clay, ${topsoil.sand}% sand, ${topsoil.soc.toFixed(2)}% SOC</td></tr>
-        <tr><th>Nearest weather cell</th><td>${wxOut ? "no coverage" : `${wxCell[0].toFixed(2)}, ${wxCell[1].toFixed(2)} (${wxDist.toFixed(2)}&deg; away)`}</td></tr>
-      `;
-      result.style.display = "block";
-
-      if (soilOut || wxOut) {
-        fieldState[slot] = null;
-        note.textContent = `This point falls outside real CONUS coverage (soil ${soilDist.toFixed(2)}° away, weather ${wxOut ? "no tile" : wxDist.toFixed(2) + "°"} away) -- likely ocean, a Great Lake, or just past the border. Try a point further inland.`;
-      } else {
-        fieldState[slot] = { centroid, soilLayers: layers, weather, soilLabel: soilCell.compname, wxCell };
-        note.textContent = "Real soil and weather both resolved for this field -- ready to run.";
-      }
-      note.style.display = "block";
+      const desc = `${parsed.kind}${parsed.kind === "polygon" ? ` (${parsed.vertices.length} vertices)` : ""}`;
+      await applyResolvedSite(slot, centroid, desc);
     } catch (err) {
-      result.style.display = "none";
+      document.getElementById(`kmlResult${slot}`).style.display = "none";
       fieldState[slot] = null;
+      const note = document.getElementById(`kmlNote${slot}`);
       note.textContent = "Couldn't read that file: " + err.message;
       note.style.display = "block";
+      updateFieldRunButton();
     }
-    updateFieldRunButton();
   });
 }
-wireFieldSlot("A");
+// Only Field B gets its own upload/preset UI -- Field A is driven entirely by
+// the shared "Select your site" picker below (see syncFieldAFromCurrentSite()).
 wireFieldSlot("B");
+
+// Four preset sites, chosen to span genuinely different real soil/weather
+// regimes and already confirmed (via a direct Node check against the
+// committed weather-tiles manifest and statsgo2_soil_grid.json.gz before
+// this UI was built) to resolve to real, in-coverage cells -- not picked
+// blind. Coordinates are real places, not tile/grid centers, same as any
+// KML-uploaded field would be.
+const PRESET_SITES = [
+  { label: "Rock Springs, PA", lat: 40.7093, lng: -77.9478,
+    blurb: "Ridge-and-Valley Appalachians, humid continental" },
+  { label: "Central Iowa", lat: 42.0, lng: -93.6,
+    blurb: "Corn Belt, deep prairie soil" },
+  { label: "Western Kansas", lat: 37.97, lng: -100.87,
+    blurb: "Semi-arid High Plains, sandy soil" },
+  { label: "MD Eastern Shore", lat: 38.5, lng: -75.8,
+    blurb: "Chesapeake Bay coastal plain" },
+];
+
+function wirePresetRow(slot) {
+  const row = document.getElementById(`presetRow${slot}`);
+  PRESET_SITES.forEach((site) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn btn-secondary";
+    btn.style.cssText = "font-size:11.5px;padding:6px 10px;";
+    btn.title = site.blurb;
+    btn.textContent = site.label;
+    btn.addEventListener("click", () => {
+      applyResolvedSite(slot, { lat: site.lat, lng: site.lng }, `preset: ${site.label} (${site.blurb})`);
+    });
+    row.appendChild(btn);
+  });
+}
+wirePresetRow("B");
+
+// --- One shared site selection ("Select your site" panel), used by the
+// nitrogen-sweep/frontier/three-perspectives panel and by Field A of the
+// field-comparison panel below -- unifying what used to be two separate
+// site pickers into one. Rock Springs is deliberately special-cased to keep
+// an *option* for the exact embedded ALL_WX/SOIL_LAYERS_RAW data (the same
+// data every number ever quoted for the nitrogen-sweep panel was computed
+// from) alongside its real centroid, so consumers that want the exact data
+// (the nitrogen-sweep panel) and consumers that need the same approximate
+// lookup for every site regardless of name (Field A, for fair comparison
+// with Field B) can each get what they need from one shared object rather
+// than duplicating the picker. Defaults to Rock Springs on load.
+let currentSite = { kind: "rocksprings", label: "Rock Springs, PA (exact validated data)", centroid: { lat: 40.7093, lng: -77.9478 } };
+
+function describeCurrentSite() {
+  const note = document.getElementById("currentSiteNote");
+  let text;
+  if (currentSite.kind === "rocksprings") {
+    text = `Currently selected: ${currentSite.label}.`;
+  } else {
+    const t = currentSite.topsoil;
+    text = `Currently selected: ${currentSite.label} -- nearest real soil profile ` +
+      `${currentSite.soilLabel} (${t.clay}% clay, ${t.sand}% sand, ${t.soc.toFixed(2)}% SOC), ` +
+      `${currentSite.soilDist.toFixed(2)}° away; nearest weather cell ${currentSite.wxDist.toFixed(2)}° away.`;
+  }
+  note.textContent = text;
+  note.style.display = "block";
+  const mirrorText = currentSite.kind === "rocksprings"
+    ? `Running against: ${currentSite.label}.`
+    : `Running against: ${currentSite.label} -- approximate, same STATSGO2/NLDAS-2 nearest-cell lookup ` +
+      `as Field A below, not the exact hand-validated Rock Springs data this panel uses by default.`;
+  ["nSweepSiteMirror", "runSeasonSiteMirror"].forEach((id) => {
+    const el = document.getElementById(id);
+    el.textContent = mirrorText;
+    el.style.display = "block";
+  });
+}
+describeCurrentSite();
+
+async function setCurrentSite(kind, centroid, label) {
+  const note = document.getElementById("currentSiteNote");
+  if (kind === "rocksprings") {
+    currentSite = { kind: "rocksprings", label, centroid };
+    describeCurrentSite();
+    await syncFieldAFromCurrentSite();
+    return;
+  }
+  note.textContent = `Resolving ${label}...`;
+  note.style.display = "block";
+  try {
+    const r = await resolveSiteAt(centroid);
+    if (r.soilOut || r.wxOut) {
+      note.textContent = `${label} falls outside real CONUS coverage (soil ${r.soilDist.toFixed(2)}° away, ` +
+        `weather ${r.wxOut ? "no tile" : r.wxDist.toFixed(2) + "°"} away) -- likely ocean, a Great Lake, or ` +
+        `just past the border. Still using the previously selected site.`;
+      note.style.display = "block";
+      return;
+    }
+    currentSite = {
+      kind: "resolved", label, centroid,
+      soilLayers: r.layers, weather: r.weather, soilLabel: r.soilCell.compname,
+      soilDist: r.soilDist, wxDist: r.wxDist, topsoil: r.topsoil,
+    };
+    describeCurrentSite();
+    await syncFieldAFromCurrentSite();
+  } catch (err) {
+    note.textContent = `Couldn't resolve ${label}: ${err.message}. Still using the previously selected site.`;
+    note.style.display = "block";
+  }
+}
+
+// Field A always goes through the approximate STATSGO2/NLDAS-2 lookup
+// (reusing applyResolvedSite(), exactly like Field B), even when currentSite
+// is the "exact" Rock Springs mode -- this panel's whole point is a fair A/B
+// comparison, and using exact data for A while B is always approximate
+// would make that comparison uneven. The nitrogen-sweep panel, by contrast,
+// uses currentSite's exact/resolved distinction directly (see nSweepBtn's
+// click handler) since it isn't comparing two sites against each other.
+async function syncFieldAFromCurrentSite() {
+  await applyResolvedSite("A", currentSite.centroid, `shared site selection: ${currentSite.label}`);
+}
+syncFieldAFromCurrentSite();
+
+function wireCurrentSitePresetRow() {
+  const row = document.getElementById("currentSitePresetRow");
+  PRESET_SITES.forEach((site) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn btn-secondary";
+    btn.style.cssText = "font-size:11.5px;padding:6px 10px;";
+    btn.title = site.blurb;
+    btn.textContent = site.label;
+    btn.addEventListener("click", () => {
+      if (site.label === "Rock Springs, PA") {
+        setCurrentSite("rocksprings", { lat: site.lat, lng: site.lng }, "Rock Springs, PA (exact validated data)");
+      } else {
+        setCurrentSite("resolved", { lat: site.lat, lng: site.lng }, `${site.label} (${site.blurb})`);
+      }
+    });
+    row.appendChild(btn);
+  });
+}
+wireCurrentSitePresetRow();
+
+document.getElementById("currentSiteKmlInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const parsed = parseFieldKML(text);
+    const centroid = parsed.kind === "point" ? { lat: parsed.lat, lng: parsed.lng } : fieldPolygonCentroid(parsed.vertices);
+    await setCurrentSite("resolved", centroid, `your uploaded field (${centroid.lat.toFixed(4)}, ${centroid.lng.toFixed(4)})`);
+  } catch (err) {
+    const note = document.getElementById("currentSiteNote");
+    note.textContent = "Couldn't read that file: " + err.message;
+    note.style.display = "block";
+  }
+});
 
 const fieldYearSlider = document.getElementById("fieldYearSlider");
 fieldYearSlider.addEventListener("input", () => {
@@ -1262,7 +1821,7 @@ function updateFieldRunButton() {
   } else if (fieldState.A) {
     btn.disabled = false; btn.textContent = "Run corn simulation for Field A";
   } else {
-    btn.disabled = true; btn.textContent = "Upload Field A to enable";
+    btn.disabled = true; btn.textContent = "Resolving your selected site...";
   }
 }
 
