@@ -143,6 +143,22 @@
     </div>
     <canvas class="chart" id="nProfitChart" width="800" height="200" style="display:none;"></canvas>
     <div class="sweep-note" id="nProfitNote" style="display:none;"></div>
+
+    <h3 id="nFrontierHeading" style="margin:22px 0 4px;font-size:14px;display:none;">Profit vs. leaching tradeoff</h3>
+    <p id="nFrontierIntro" style="display:none;">
+      The same fourteen runs, but plotted against each other instead of against
+      nitrogen rate. Each dot is one nitrogen rate; the line connects them from
+      lowest to highest. There is no dot up and to the left of this curve &mdash;
+      for any given amount of leaching, this is the most profit that rate of
+      nitrogen can produce. A farmer wants to be as high as possible on the
+      curve, a water-quality advocate wants to be as far left as possible, and
+      a policymaker has to pick a point on it. None of the three can get an
+      answer the others must simply accept &mdash; every point on this line is
+      already optimal for its own leaching level.
+    </p>
+    <div style="font-size:11px;color:var(--muted);margin:0 0 4px;" id="nFrontierAxisLabel"></div>
+    <canvas class="chart" id="nFrontierChart" width="800" height="220" style="display:none;"></canvas>
+    <div class="sweep-note" id="nFrontierNote" style="display:none;"></div>
   </div>
 </div>
 
@@ -925,6 +941,65 @@ json.dumps({"plant_doy": plant_doy, **res})
   }
 });
 
+function drawFrontierChart(canvas, points, highlightIdx) {
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  const pad = { l: 50, r: 16, t: 16, b: 26 };
+  const plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
+  const xs = points.map(p => p.x), ys = points.map(p => p.y);
+  const xMin = Math.min(...xs), xMax = Math.max(...xs);
+  const yMin = Math.min(0, Math.min(...ys));
+  const yMax = Math.max(...ys) * 1.1 || 1;
+  const xSpan = (xMax - xMin) || 1, ySpan = (yMax - yMin) || 1;
+  const toPx = (x, y) => ({
+    px: pad.l + plotW * (x - xMin) / xSpan,
+    py: pad.t + plotH * (1 - (y - yMin) / ySpan)
+  });
+  ctx.strokeStyle = "#c9d8e2"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t + plotH); ctx.lineTo(pad.l + plotW, pad.t + plotH); ctx.stroke();
+  ctx.font = "10px 'DM Mono', monospace";
+  [0, 0.5, 1].forEach(f => {
+    const y = pad.t + plotH * (1 - f);
+    ctx.strokeStyle = "#eef3f7"; ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + plotW, y); ctx.stroke();
+    ctx.fillStyle = "#5f7180";
+    ctx.fillText("$" + Math.round(yMin + ySpan * f), 2, y + 3);
+  });
+  if (yMin < 0) {
+    const zy = toPx(xMin, 0).py;
+    ctx.strokeStyle = "#5f7180"; ctx.beginPath(); ctx.moveTo(pad.l, zy); ctx.lineTo(pad.l + plotW, zy); ctx.stroke();
+  }
+  ctx.strokeStyle = "#2471a3"; ctx.lineWidth = 2; ctx.lineJoin = "round"; ctx.lineCap = "round";
+  ctx.beginPath();
+  points.forEach((p, i) => {
+    const { px, py } = toPx(p.x, p.y);
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  });
+  ctx.stroke();
+  points.forEach((p, i) => {
+    const { px, py } = toPx(p.x, p.y);
+    const isHi = i === highlightIdx;
+    const r = isHi ? 6 : 4;
+    ctx.beginPath(); ctx.arc(px, py, r + 2, 0, Math.PI * 2); ctx.fillStyle = "#fff"; ctx.fill();
+    ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fillStyle = isHi ? "#1e8449" : "#2471a3"; ctx.fill();
+  });
+  ctx.fillStyle = "#5f7180"; ctx.textAlign = "left";
+  const firstPx = toPx(points[0].x, points[0].y).px;
+  const lastPx = toPx(points[points.length - 1].x, points[points.length - 1].y).px;
+  ctx.fillText(points[0].x.toFixed(1), Math.max(pad.l, firstPx - 10), pad.t + plotH + 16);
+  ctx.textAlign = "right";
+  ctx.fillText(points[points.length - 1].x.toFixed(1), Math.min(pad.l + plotW, lastPx + 10), pad.t + plotH + 16);
+  if (highlightIdx != null) {
+    const hp = points[highlightIdx];
+    const { px, py } = toPx(hp.x, hp.y);
+    ctx.fillStyle = "#1e8449";
+    const right = px > pad.l + plotW * 0.6;
+    ctx.textAlign = right ? "right" : "left";
+    ctx.fillText(`${hp.n} kg N/ha`, px + (right ? -9 : 9), py - 10);
+  }
+  ctx.textAlign = "left";
+}
+
 let lastNSweep = null;  // cached so the price/cost inputs can redraw the profit chart without re-running Pyodide
 
 function renderProfitChart() {
@@ -960,6 +1035,25 @@ function renderProfitChart() {
       `rate &mdash; try raising the fertilizer cost or lowering the grain price to see the two split apart.`;
   }
   note.style.display = "block";
+
+  const heading = document.getElementById("nFrontierHeading");
+  const intro = document.getElementById("nFrontierIntro");
+  const axisLabel = document.getElementById("nFrontierAxisLabel");
+  const frontierCanvas = document.getElementById("nFrontierChart");
+  const frontierNote = document.getElementById("nFrontierNote");
+  const points = data.map((d, i) => ({ x: d.leached, y: profits[i], n: d.n_rate }));
+  heading.style.display = "block";
+  intro.style.display = "block";
+  axisLabel.style.display = "block";
+  axisLabel.textContent = "Y axis: profit ($/ha)  ·  X axis: nitrogen leached (kg N/ha)  ·  each dot is one nitrogen rate, low to high";
+  frontierCanvas.style.display = "block";
+  drawFrontierChart(frontierCanvas, points, bestIdx);
+  const lowestLeach = points[0], highestLeach = points[points.length - 1];
+  frontierNote.innerHTML = `Going from <b>${lowestLeach.x.toFixed(1)} kg N/ha</b> leached (no fertilizer) to ` +
+    `<b>${highestLeach.x.toFixed(1)} kg N/ha</b> leached (650 kg N/ha applied), profit rises then falls back ` +
+    `&mdash; the green dot (${bestN} kg N/ha) is the highest point on the curve, not the rightmost one. Moving right ` +
+    `of it buys more leaching for less profit, not more of either.`;
+  frontierNote.style.display = "block";
 }
 
 nSweepBtn.addEventListener("click", async () => {
@@ -994,6 +1088,11 @@ json.dumps(sweep_out)
       leachNote.style.display = "none";
       document.getElementById("nProfitChart").style.display = "none";
       document.getElementById("nProfitNote").style.display = "none";
+      document.getElementById("nFrontierHeading").style.display = "none";
+      document.getElementById("nFrontierIntro").style.display = "none";
+      document.getElementById("nFrontierAxisLabel").style.display = "none";
+      document.getElementById("nFrontierChart").style.display = "none";
+      document.getElementById("nFrontierNote").style.display = "none";
     } else {
       const lo = data[0].grain, hi = data[data.length - 1].grain;
       note.textContent = `${year}: yield rises from ${lo.toFixed(2)} to ${hi.toFixed(2)} Mg/ha as nitrogen increases, ` +
