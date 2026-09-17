@@ -252,24 +252,34 @@
   <div class="panel-header"><h2>Pick a field and run a simulation</h2></div>
   <div class="panel-body">
     <p>
-      Upload a KML boundary (or a single dropped pin from Google Earth) for a
-      real field anywhere in the CONUS and run the same validated corn model
-      used elsewhere in this demo against that field's real soil (STATSGO2)
-      and real weather (NLDAS-2, 1980&ndash;2016) &mdash; not a simplified
-      stand-in. Add a second field to compare two real locations side by
-      side. Nitrogen rate is fixed at 150 kg N/ha here (not adjustable in
-      this panel) so any difference you see reflects soil and weather, not a
-      fertilizer choice.
+      Pick a real site anywhere in the CONUS and run the same validated corn
+      model used elsewhere in this demo against that site's real soil
+      (STATSGO2) and real weather (NLDAS-2, 1980&ndash;2016) &mdash; not a
+      simplified stand-in. Choose one of four preset locations if you don't
+      have a specific field in mind, or upload a KML boundary (or a single
+      dropped pin from Google Earth) for a real field of your own. Add a
+      second site to compare two real locations side by side. Nitrogen rate
+      is fixed at 150 kg N/ha here (not adjustable in this panel) so any
+      difference you see reflects soil and weather, not a fertilizer choice.
+      The four presets (including Rock Springs) all resolve through this
+      same nearest-cell lookup, so they won't exactly match the exact,
+      hand-validated Rock Springs numbers used in the panels above &mdash;
+      that's expected, not a bug, and keeps all four presets on equal footing
+      with each other.
     </p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:10px;">
       <div>
         <h3 style="margin:0 0 6px;font-size:13px;color:var(--muted);">Field A</h3>
+        <div class="preset-row" id="presetRowA" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">...or upload your own field (KML):</div>
         <input type="file" id="kmlInputA" accept=".kml">
         <div id="kmlResultA" style="display:none;margin-top:10px;"><table id="kmlResultTableA"></table></div>
         <div class="sweep-note" id="kmlNoteA" style="display:none;"></div>
       </div>
       <div>
         <h3 style="margin:0 0 6px;font-size:13px;color:var(--muted);">Field B (optional, for comparison)</h3>
+        <div class="preset-row" id="presetRowB" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">...or upload your own field (KML):</div>
         <input type="file" id="kmlInputB" accept=".kml">
         <div id="kmlResultB" style="display:none;margin-top:10px;"><table id="kmlResultTableB"></table></div>
         <div class="sweep-note" id="kmlNoteB" style="display:none;"></div>
@@ -1498,57 +1508,109 @@ async function fieldNearestWeather(lat, lng) {
 // --- Two-field slot state, upload handlers, and the comparison run ---
 const fieldState = { A: null, B: null };
 
+// Shared by both input paths (KML upload and the four preset buttons below) --
+// resolves real soil + weather for a given point, renders the result table,
+// and sets fieldState. placemarkDesc is just the "Placemark type" row's text,
+// since a preset has no real KML placemark to describe.
+async function applyResolvedSite(slot, centroid, placemarkDesc) {
+  const table = document.getElementById(`kmlResultTable${slot}`);
+  const result = document.getElementById(`kmlResult${slot}`);
+  const note = document.getElementById(`kmlNote${slot}`);
+  fieldState[slot] = null;
+  updateFieldRunButton();
+  try {
+    const grid = await loadFieldSoilGrid();
+    const { cell: soilCell, distanceDeg: soilDist } = nearestFieldSoilCell(centroid.lat, centroid.lng, grid);
+    const layers = fieldSoilLayersForCell(soilCell);
+    const { weather, distanceDeg: wxDist, cell: wxCell } = await fieldNearestWeather(centroid.lat, centroid.lng);
+    const topsoil = layers[0];
+
+    const soilOut = soilDist > 0.75;
+    const wxOut = !weather || wxDist > 0.75;
+
+    table.innerHTML = `
+      <tr><th>Placemark type</th><td>${placemarkDesc}</td></tr>
+      <tr><th>Field centroid</th><td>${centroid.lat.toFixed(4)}, ${centroid.lng.toFixed(4)}</td></tr>
+      <tr><th>Nearest soil profile</th><td>${soilCell.compname} series (mukey ${soilCell.mukey}), ${soilDist.toFixed(2)}&deg; away</td></tr>
+      <tr><th>Topsoil (real STATSGO2)</th><td>${topsoil.clay}% clay, ${topsoil.sand}% sand, ${topsoil.soc.toFixed(2)}% SOC</td></tr>
+      <tr><th>Nearest weather cell</th><td>${wxOut ? "no coverage" : `${wxCell[0].toFixed(2)}, ${wxCell[1].toFixed(2)} (${wxDist.toFixed(2)}&deg; away)`}</td></tr>
+    `;
+    result.style.display = "block";
+
+    if (soilOut || wxOut) {
+      fieldState[slot] = null;
+      note.textContent = `This point falls outside real CONUS coverage (soil ${soilDist.toFixed(2)}° away, weather ${wxOut ? "no tile" : wxDist.toFixed(2) + "°"} away) -- likely ocean, a Great Lake, or just past the border. Try a point further inland.`;
+    } else {
+      fieldState[slot] = { centroid, soilLayers: layers, weather, soilLabel: soilCell.compname, wxCell };
+      note.textContent = "Real soil and weather both resolved for this field -- ready to run.";
+    }
+    note.style.display = "block";
+  } catch (err) {
+    result.style.display = "none";
+    fieldState[slot] = null;
+    note.textContent = "Couldn't resolve that location: " + err.message;
+    note.style.display = "block";
+  }
+  updateFieldRunButton();
+}
+
 function wireFieldSlot(slot) {
   document.getElementById(`kmlInput${slot}`).addEventListener("change", async (e) => {
     const file = e.target.files[0];
-    const table = document.getElementById(`kmlResultTable${slot}`);
-    const result = document.getElementById(`kmlResult${slot}`);
-    const note = document.getElementById(`kmlNote${slot}`);
     if (!file) return;
-    fieldState[slot] = null;
-    updateFieldRunButton();
     try {
       const text = await file.text();
       const parsed = parseFieldKML(text);
       const centroid = parsed.kind === "point" ? { lat: parsed.lat, lng: parsed.lng } : fieldPolygonCentroid(parsed.vertices);
-
-      const grid = await loadFieldSoilGrid();
-      const { cell: soilCell, distanceDeg: soilDist } = nearestFieldSoilCell(centroid.lat, centroid.lng, grid);
-      const layers = fieldSoilLayersForCell(soilCell);
-      const { weather, distanceDeg: wxDist, cell: wxCell } = await fieldNearestWeather(centroid.lat, centroid.lng);
-      const topsoil = layers[0];
-
-      const soilOut = soilDist > 0.75;
-      const wxOut = !weather || wxDist > 0.75;
-
-      table.innerHTML = `
-        <tr><th>Placemark type</th><td>${parsed.kind}${parsed.kind === "polygon" ? ` (${parsed.vertices.length} vertices)` : ""}</td></tr>
-        <tr><th>Field centroid</th><td>${centroid.lat.toFixed(4)}, ${centroid.lng.toFixed(4)}</td></tr>
-        <tr><th>Nearest soil profile</th><td>${soilCell.compname} series (mukey ${soilCell.mukey}), ${soilDist.toFixed(2)}&deg; away</td></tr>
-        <tr><th>Topsoil (real STATSGO2)</th><td>${topsoil.clay}% clay, ${topsoil.sand}% sand, ${topsoil.soc.toFixed(2)}% SOC</td></tr>
-        <tr><th>Nearest weather cell</th><td>${wxOut ? "no coverage" : `${wxCell[0].toFixed(2)}, ${wxCell[1].toFixed(2)} (${wxDist.toFixed(2)}&deg; away)`}</td></tr>
-      `;
-      result.style.display = "block";
-
-      if (soilOut || wxOut) {
-        fieldState[slot] = null;
-        note.textContent = `This point falls outside real CONUS coverage (soil ${soilDist.toFixed(2)}° away, weather ${wxOut ? "no tile" : wxDist.toFixed(2) + "°"} away) -- likely ocean, a Great Lake, or just past the border. Try a point further inland.`;
-      } else {
-        fieldState[slot] = { centroid, soilLayers: layers, weather, soilLabel: soilCell.compname, wxCell };
-        note.textContent = "Real soil and weather both resolved for this field -- ready to run.";
-      }
-      note.style.display = "block";
+      const desc = `${parsed.kind}${parsed.kind === "polygon" ? ` (${parsed.vertices.length} vertices)` : ""}`;
+      await applyResolvedSite(slot, centroid, desc);
     } catch (err) {
-      result.style.display = "none";
+      document.getElementById(`kmlResult${slot}`).style.display = "none";
       fieldState[slot] = null;
+      const note = document.getElementById(`kmlNote${slot}`);
       note.textContent = "Couldn't read that file: " + err.message;
       note.style.display = "block";
+      updateFieldRunButton();
     }
-    updateFieldRunButton();
   });
 }
 wireFieldSlot("A");
 wireFieldSlot("B");
+
+// Four preset sites, chosen to span genuinely different real soil/weather
+// regimes and already confirmed (via a direct Node check against the
+// committed weather-tiles manifest and statsgo2_soil_grid.json.gz before
+// this UI was built) to resolve to real, in-coverage cells -- not picked
+// blind. Coordinates are real places, not tile/grid centers, same as any
+// KML-uploaded field would be.
+const PRESET_SITES = [
+  { label: "Rock Springs, PA", lat: 40.7093, lng: -77.9478,
+    blurb: "Ridge-and-Valley Appalachians, humid continental" },
+  { label: "Central Iowa", lat: 42.0, lng: -93.6,
+    blurb: "Corn Belt, deep prairie soil" },
+  { label: "Western Kansas", lat: 37.97, lng: -100.87,
+    blurb: "Semi-arid High Plains, sandy soil" },
+  { label: "MD Eastern Shore", lat: 38.5, lng: -75.8,
+    blurb: "Chesapeake Bay coastal plain" },
+];
+
+function wirePresetRow(slot) {
+  const row = document.getElementById(`presetRow${slot}`);
+  PRESET_SITES.forEach((site) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn btn-secondary";
+    btn.style.cssText = "font-size:11.5px;padding:6px 10px;";
+    btn.title = site.blurb;
+    btn.textContent = site.label;
+    btn.addEventListener("click", () => {
+      applyResolvedSite(slot, { lat: site.lat, lng: site.lng }, `preset: ${site.label} (${site.blurb})`);
+    });
+    row.appendChild(btn);
+  });
+}
+wirePresetRow("A");
+wirePresetRow("B");
 
 const fieldYearSlider = document.getElementById("fieldYearSlider");
 fieldYearSlider.addEventListener("input", () => {
