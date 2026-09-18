@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAMEL Notebook Catalog | epiSTEMic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bone:#e8e0d0;--bone-dark:#c9bfaa;--ink:#1a1612;--ink-soft:#4a3f35;
+    --field:#f5f0e8;--accent:#c0392b;--muted:#7a6f63;--panel:#ffffff;
+    --border:#d4c9b8;--teacher:#1a6f8a;--teacher-light:#eef6fc;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:"DM Sans",sans-serif;background:var(--field);color:var(--ink);min-height:100vh;}
+  .app{max-width:840px;margin:0 auto;padding:0 24px 80px;}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:24px 0;}
+  .back-link{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--teacher);text-decoration:none;}
+  .back-link:hover{color:var(--accent);}
+
+  .hero{padding:12px 0 32px;}
+  .hero-eyebrow{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}
+  .hero h1{font-family:"DM Serif Display",serif;font-size:clamp(28px,4.5vw,40px);line-height:1.15;margin-bottom:14px;}
+  .hero-sub{font-size:15px;line-height:1.7;color:var(--ink-soft);font-weight:300;max-width:640px;}
+  .hero-sub code{font-family:"DM Mono",monospace;font-size:13px;background:var(--bone);padding:1px 5px;border-radius:3px;}
+
+  .note{background:var(--teacher-light);border:1px solid #c8e0ea;border-radius:6px;padding:14px 16px;font-size:13px;line-height:1.6;color:var(--ink-soft);margin-bottom:36px;}
+
+  .section-label{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+
+  table{width:100%;border-collapse:collapse;margin-bottom:40px;background:var(--panel);border:1.5px solid var(--border);border-radius:6px;overflow:hidden;}
+  th{font-family:"DM Mono",monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left;padding:12px 16px;background:var(--bone);border-bottom:1px solid var(--border);}
+  td{padding:14px 16px;border-bottom:1px solid var(--bone);font-size:14px;vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  td.what{color:var(--ink-soft);font-size:13px;line-height:1.5;}
+  td.open{text-align:right;white-space:nowrap;}
+  td.open img{height:20px;vertical-align:middle;}
+  .count{font-family:"DM Mono",monospace;color:var(--muted);}
+
+  .sources{font-size:13px;line-height:1.7;color:var(--ink-soft);margin-bottom:40px;}
+  .sources a{color:var(--teacher);}
+
+  footer{border-top:1px solid var(--border);padding-top:24px;font-size:12px;color:var(--muted);line-height:1.7;}
+  footer a{color:var(--teacher);text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <a class="back-link" href="../index.html">&larr; epiSTEMic</a>
+  </div>
+
+  <div class="hero">
+    <div class="hero-eyebrow">Materials Science &amp; Nanotechnology</div>
+    <h1>CAMEL Notebook Catalog</h1>
+    <p class="hero-sub">Forty phone-friendly notebooks on chip scaling, 2D materials, and superconductivity, grouped into four rounds. Each one works with no Google account and no runtime &mdash; the pictures are already saved and respond to taps. Tap a badge to open it in Colab.</p>
+  </div>
+
+  <div class="note">This catalog is the menu a guided session was built from, not itself a guided epiSTEMic investigation &mdash; it's archived here for reference. The live notebooks are hosted and maintained in the <a href="https://github.com/reinhart-group/camel-2dcc" target="_blank" rel="noopener">reinhart-group/camel-2dcc</a> repository; the Colab links below open from there. Local copies of most notebooks are also kept in this folder.</div>
+
+  <div class="section-label">Catalog Notebooks</div>
+  <table>
+    <thead>
+      <tr><th>Round</th><th>Items</th><th></th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Notice and wonder</td>
+        <td class="count">8</td>
+        <td class="open"><a href="https://colab.research.google.com/github/reinhart-group/camel-2dcc/blob/summit-menu/notebooks/catalog/warmup.ipynb" target="_blank" rel="noopener"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a></td>
+      </tr>
+      <tr>
+        <td>Find the mess</td>
+        <td class="count">12</td>
+        <td class="open"><a href="https://colab.research.google.com/github/reinhart-group/camel-2dcc/blob/summit-menu/notebooks/catalog/mess.ipynb" target="_blank" rel="noopener"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a></td>
+      </tr>
+      <tr>
+        <td>Model it</td>
+        <td class="count">16</td>
+        <td class="open"><a href="https://colab.research.google.com/github/reinhart-group/camel-2dcc/blob/summit-menu/notebooks/catalog/model.ipynb" target="_blank" rel="noopener"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a></td>
+      </tr>
+      <tr>
+        <td>Turn the dials</td>
+        <td class="count">4</td>
+        <td class="open"><a href="https://colab.research.google.com/github/reinhart-group/camel-2dcc/blob/summit-menu/notebooks/catalog/dials.ipynb" target="_blank" rel="noopener"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="section-label">The Two That Need a Runtime</div>
+  <table>
+    <thead>
+      <tr><th>Notebook</th><th>What it is</th><th></th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Build your own widget</td>
+        <td class="what">Sign in and press play: the same widgets, rebuilt in a dozen lines of Python each, ending with a scaffold to break.</td>
+        <td class="open"><a href="https://colab.research.google.com/github/reinhart-group/camel-2dcc/blob/summit-menu/notebooks/python_demo.ipynb" target="_blank" rel="noopener"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a></td>
+      </tr>
+      <tr>
+        <td>3D surfaces</td>
+        <td class="what">Three real microscope scans sharing one viewer. Still pictures until you tap; the 3D needs the Plotly CDN, so it needs working wifi.</td>
+        <td class="open"><a href="https://colab.research.google.com/github/reinhart-group/camel-2dcc/blob/summit-menu/notebooks/catalog/surface3d.ipynb" target="_blank" rel="noopener"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="section-label">Sources</div>
+  <p class="sources">The curated context tables used across these notebooks (chip transistor counts, 2D-material properties, superconductor critical temperatures, data-centre electricity use) are rounded, widely reported figures chosen for classroom use, not primary LiST data &mdash; students should treat them as approximate. Full citations and caveats are in <a href="SOURCES.md">SOURCES.md</a>.</p>
+
+  <footer>
+    <p>epiSTEMic &middot; Penn State College of Education &middot; Catalog notebooks courtesy of <a href="https://github.com/reinhart-group/camel-2dcc" target="_blank" rel="noopener">reinhart-group/camel-2dcc</a></p>
+  </footer>
+
+</div>
+</body>
+</html>
