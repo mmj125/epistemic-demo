@@ -142,6 +142,13 @@
       also costs more than the extra grain is worth.
     </p>
     <div class="sweep-note" id="nSweepSiteMirror" style="margin-bottom:14px;"></div>
+    <div class="controls" id="nSweepTillageField" style="margin-bottom:10px;"></div>
+    <div style="font-size:12px;color:var(--muted);margin:-6px 0 10px;">
+      A tillage pass at planting mixes soil moisture within the implement's real depth and
+      temporarily boosts background soil nitrogen -- both real, disclosed mechanisms (see
+      CLAUDE.md), sized by the implement's own real depth/mixing-efficiency numbers, not a
+      guess. "No tillage" leaves every other number on this page unaffected.
+    </div>
     <button id="nSweepBtn" class="btn btn-secondary" disabled>Run nitrogen comparison</button>
     <canvas class="chart" id="nSweepChart" width="800" height="200" style="margin-top:14px;display:none;"></canvas>
     <div class="sweep-note" id="nSweepNote" style="display:none;"></div>
@@ -283,7 +290,10 @@
       nearest-cell lookup, including when Field A is Rock Springs &mdash; so
       Field A here won't exactly match the exact, hand-validated Rock Springs
       numbers used in the panels above, that's expected, not a bug, and keeps
-      Field A and Field B on equal footing for a fair comparison.
+      Field A and Field B on equal footing for a fair comparison. Tillage
+      practice is shared across both fields, not a per-field choice, so it
+      doesn't confound the location comparison the same way a per-field
+      nitrogen rate would.
     </p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:10px;">
       <div>
@@ -305,6 +315,7 @@
         <label>Weather year: <span id="fieldYearLabel">2012</span></label>
         <input type="range" id="fieldYearSlider" min="1980" max="2016" step="1" value="2012">
       </div>
+      <div id="fieldTillageField"></div>
     </div>
     <button id="fieldRunBtn" class="btn" disabled>Resolving your selected site...</button>
     <div id="fieldRunStatus" style="font-family:'DM Mono',monospace;font-size:11.5px;color:var(--muted);margin:10px 0 4px;min-height:16px;"></div>
@@ -1329,6 +1340,10 @@ nSweepBtn.addEventListener("click", async () => {
       pyodide.globals.set("site_wx_json", JSON.stringify(currentSite.weather));
       pyodide.globals.set("site_soil_json", JSON.stringify(currentSite.soilLayers));
     }
+    // "" (No tillage, the default) sets run_tillage falsy in Python below, which
+    // keeps tillage_doy/tillage_implement both None -- byte-identical to the
+    // pre-tillage-control code path, verified in CLAUDE.md's own account of this.
+    pyodide.globals.set("run_tillage", document.getElementById("nSweepTillage").value);
     // When use_resolved_site is false (the default, Rock Springs), this reproduces
     // the exact pre-site-picker code path byte-for-byte -- ALL_WX/CORN/SOYBEAN
     // untouched, no call-scoped copy. Only the resolved-site branch builds a
@@ -1352,11 +1367,13 @@ if use_resolved_site:
     _wx_year = _site_wx.get(run_year)
 else:
     _wx_year = ALL_WX[run_year]
+_tillage_val = run_tillage or None
 plant_doy, rows = build_season_rows(_wx_year, crop_obj)
 rates = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650]
 sweep_out = []
 for r in rates:
-    res = simulate_season(rows, crop_obj, n_rate_kg_ha=r)
+    res = simulate_season(rows, crop_obj, n_rate_kg_ha=r,
+                           tillage_doy=(plant_doy if _tillage_val else None), tillage_implement=_tillage_val)
     sweep_out.append({"n_rate": r, "grain": res["grain"], "leached": res.get("n_leached_kg_ha", 0.0)})
 json.dumps(sweep_out)
 `);
@@ -1817,6 +1834,33 @@ const SPECIES_REGISTRY = {
   },
 };
 
+// A curated subset of the real 86-implement TILLAGE_IMPLEMENTS table embedded in
+// ENGINE_SOURCE, chosen to span the actual real-world tillage-intensity spectrum
+// (no-till / reduced-till / conventional) farmers actually discuss, rather than
+// exposing all 86 named tools (most of which are harvesters/planters, not tillage
+// passes) -- keeping this to one dropdown, not a second Frankenstein control.
+// value must exactly match a key in TILLAGE_IMPLEMENTS or be "" for no tillage.
+// Applied at planting (tillage_doy = plant_doy): the engine's weather rows for a
+// season start at planting, so an earlier real-world pre-plant pass has no day to
+// land on here -- a disclosed simplification, not a claim that real tillage always
+// happens on planting day itself.
+const TILLAGE_OPTIONS = [
+  { value: "", label: "No tillage (direct seed)" },
+  { value: "Cultivator_field_w_spike_points", label: "Field cultivator (light, reduced-till)" },
+  { value: "Chisel_sweep_shovel", label: "Chisel plow (reduced-till)" },
+  { value: "Disk_tandem_heavy_primary_op", label: "Disk, tandem (moderate)" },
+  { value: "Plow_moldboard", label: "Moldboard plow (conventional, most aggressive)" },
+];
+
+function buildTillageFieldHTML(id) {
+  return `<div class="field">
+    <label>Tillage practice</label>
+    <select id="${id}">
+      ${TILLAGE_OPTIONS.map((o) => `<option value="${o.value}">${o.label}</option>`).join("")}
+    </select>
+  </div>`;
+}
+
 // Four preset sites, chosen to span genuinely different real soil/weather
 // regimes and already confirmed (via a direct Node check against the
 // committed weather-tiles manifest and statsgo2_soil_grid.json.gz before
@@ -1954,6 +1998,9 @@ function wireCurrentSitePresetRow() {
 }
 wireCurrentSitePresetRow();
 
+document.getElementById("nSweepTillageField").innerHTML = buildTillageFieldHTML("nSweepTillage");
+document.getElementById("fieldTillageField").innerHTML = buildTillageFieldHTML("fieldTillage");
+
 document.getElementById("currentSiteKmlInput").addEventListener("change", async (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -1985,11 +2032,16 @@ function updateFieldRunButton() {
   }
 }
 
-async function runFieldSlot(slot, year) {
+async function runFieldSlot(slot, year, tillageVal) {
   const state = fieldState[slot];
   pyodide.globals.set("field_wx_json", JSON.stringify(state.weather));
   pyodide.globals.set("field_soil_json", JSON.stringify(state.soilLayers));
   pyodide.globals.set("field_year", String(year));
+  // Shared across both fields (see the panel's own copy) rather than per-slot, so
+  // tillage never becomes a second confound alongside the location comparison.
+  // "" (No tillage, the default) reproduces this function's exact pre-tillage-
+  // control behavior, same as the nitrogen-sweep panel's own tillage control.
+  pyodide.globals.set("field_tillage", tillageVal || "");
   // Builds a fresh, call-scoped CORN variant with its own make_layers() closing
   // over this field's own soil -- deliberately does NOT touch the shared global
   // SOIL_LAYERS_RAW/CORN, so this never leaks into the Rock Springs panel above
@@ -2006,12 +2058,15 @@ def _field_make_layers():
     return out
 _field_crop = dict(CORN)
 _field_crop["make_layers"] = _field_make_layers
+_field_tillage_val = field_tillage or None
 _wx_year = _field_wx.get(field_year)
 if _wx_year is None:
     _result = {"error": f"No weather data for {field_year}"}
 else:
     _plant_doy, _rows = build_season_rows(_wx_year, _field_crop)
-    _res = simulate_season(_rows, _field_crop, n_rate_kg_ha=150.0, record_history=False)
+    _res = simulate_season(_rows, _field_crop, n_rate_kg_ha=150.0, record_history=False,
+                            tillage_doy=(_plant_doy if _field_tillage_val else None),
+                            tillage_implement=_field_tillage_val)
     _result = {"plant_doy": _plant_doy, **_res}
 json.dumps(_result)
 `);
@@ -2026,9 +2081,10 @@ document.getElementById("fieldRunBtn").addEventListener("click", async () => {
   resultBox.style.display = "none";
   try {
     const slots = fieldState.B ? ["A", "B"] : ["A"];
+    const tillageVal = document.getElementById("fieldTillage").value;
     const results = {};
     for (const slot of slots) {
-      results[slot] = await runFieldSlot(slot, year);
+      results[slot] = await runFieldSlot(slot, year, tillageVal);
     }
     const labels = slots.map((s) => `Field ${s}`);
     const grain = slots.map((s) => results[s].grain ?? 0);
@@ -2046,9 +2102,10 @@ document.getElementById("fieldRunBtn").addEventListener("click", async () => {
     drawBarChart(document.getElementById("fieldYieldChart"), labels, grain, { colors });
     drawBarChart(document.getElementById("fieldAgChart"), labels, ag, { colors });
     drawBarChart(document.getElementById("fieldLeachChart"), labels, leached, { colors });
+    const tillageLabel = TILLAGE_OPTIONS.find((o) => o.value === tillageVal)?.label ?? "No tillage (direct seed)";
     document.getElementById("fieldRunNote").textContent = slots.length === 2
-      ? `Both fields run against the same ${year} weather year and a fixed 150 kg N/ha, so any difference is real soil and location, not a different input.`
-      : `Ran Field A for ${year}. Upload a Field B KML and run again to compare two real locations side by side.`;
+      ? `Both fields run against the same ${year} weather year, ${tillageLabel.toLowerCase()}, and a fixed 150 kg N/ha, so any difference is real soil and location, not a different input.`
+      : `Ran Field A for ${year} (${tillageLabel.toLowerCase()}). Upload a Field B KML and run again to compare two real locations side by side.`;
     resultBox.style.display = "block";
     status.textContent = "";
   } catch (err) {
