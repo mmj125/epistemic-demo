@@ -242,13 +242,17 @@
       Each phase runs independently rather than carrying real soil state between
       seasons, so "nitrogen available to the cover crop" is a number you set, not one
       the model derives. The cover crop uses winter wheat's real parameters, the only
-      fall-planted crop this engine currently models.
+      fall-planted crop this engine currently models. Tillage practice below applies
+      only to the corn phase &mdash; the point in a real corn/cover/soybean rotation
+      where a primary tillage pass typically happens, not to the cover crop (usually
+      drilled with minimal disturbance) or the soybean phase.
     </div>
     <div class="controls">
       <div class="field">
         <label>Starting year (corn)</label>
         <select id="rotYearSelect"></select>
       </div>
+      <div id="rotTillageField"></div>
     </div>
     <div class="controls">
       <div class="field nrate-field">
@@ -1480,10 +1484,16 @@ rotationBtn.addEventListener("click", async () => {
     pyodide.globals.set("rot_year", year);
     pyodide.globals.set("rot_corn_n", cornN);
     pyodide.globals.set("rot_cover_n", coverN);
+    // "" (No tillage, the default) reproduces this panel's exact pre-tillage-control
+    // Python byte-for-byte, same as the other two panels' own tillage controls.
+    // Scoped to the corn phase only -- see the panel's own copy for why.
+    pyodide.globals.set("rot_tillage", document.getElementById("rotTillage").value);
     const out = await pyodide.runPythonAsync(`
 y1 = rot_year + 1
+_rot_tillage_val = rot_tillage or None
 plant_doy, corn_rows = build_season_rows(ALL_WX[str(rot_year)], CORN)
-corn_res = simulate_season(corn_rows, CORN, n_rate_kg_ha=rot_corn_n)
+corn_res = simulate_season(corn_rows, CORN, n_rate_kg_ha=rot_corn_n,
+                            tillage_doy=(plant_doy if _rot_tillage_val else None), tillage_implement=_rot_tillage_val)
 
 cc_rows = build_cover_crop_rows(ALL_WX[str(rot_year)], ALL_WX[str(y1)], plant_doy=288, term_doy=100)
 cc_res = simulate_season(cc_rows, WHEAT, n_rate_kg_ha=rot_cover_n)
@@ -1502,9 +1512,11 @@ json.dumps({
 })
 `);
     const data = JSON.parse(out);
+    const rotTillageVal = document.getElementById("rotTillage").value;
+    const rotTillageLabel = TILLAGE_OPTIONS.find((o) => o.value === rotTillageVal)?.label ?? "No tillage (direct seed)";
     document.getElementById("rotationTable").innerHTML = `
       <tr><th>Phase</th><th>Biomass (Mg/ha)</th><th>Yield (Mg/ha)</th><th>N leached (kg/ha)</th></tr>
-      <tr><td>Corn (${data.year}, planted DOY ${data.corn.plant_doy})</td>
+      <tr><td>Corn (${data.year}, planted DOY ${data.corn.plant_doy}, ${rotTillageLabel.toLowerCase()})</td>
           <td>${data.corn.ag.toFixed(2)}</td><td>${data.corn.grain.toFixed(2)} grain</td>
           <td>${data.corn.n_leached.toFixed(1)}</td></tr>
       <tr><td>Winter cover crop (DOY ${data.cover.first_doy} of ${data.year} &rarr; DOY ${data.cover.last_doy} of ${data.year1})</td>
@@ -2000,6 +2012,7 @@ wireCurrentSitePresetRow();
 
 document.getElementById("nSweepTillageField").innerHTML = buildTillageFieldHTML("nSweepTillage");
 document.getElementById("fieldTillageField").innerHTML = buildTillageFieldHTML("fieldTillage");
+document.getElementById("rotTillageField").innerHTML = buildTillageFieldHTML("rotTillage");
 
 document.getElementById("currentSiteKmlInput").addEventListener("change", async (e) => {
   const file = e.target.files[0];
