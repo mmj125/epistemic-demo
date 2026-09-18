@@ -799,6 +799,14 @@ HAIRY_VETCH = dict(tt_maturity=SOYBEAN["tt_maturity"], flowering_tt=SOYBEAN["flo
     kc=SOYBEAN["kc"], eix=SOYBEAN["eix"], tr_min_t=WHEAT["tr_min_t"],
     tr_threshold_t=WHEAT["tr_threshold_t"], lat_deg=40.6875, make_layers=make_layers,
     n_max_conc=SOYBEAN["n_max_conc"], n_dilution_slope=SOYBEAN["n_dilution_slope"], legume=True)
+
+# Lookup by id string so a caller (JS) can pass a crop's registry key straight
+# through as run_crop, instead of an if/elif chain that has to be extended by
+# hand every time a species is added -- see SPECIES_REGISTRY in the page's own
+# JS for the matching student-facing metadata (which of these are actually
+# offered as a choice, correlation against real Cycles output, whether the
+# parameters are real or a disclosed placeholder).
+CROPS = {"corn": CORN, "soybean": SOYBEAN, "wheat": WHEAT, "winter_rye": WINTER_RYE, "hairy_vetch": HAIRY_VETCH}
 `;
 
 const DEMO_GLUE_SOURCE = String.raw`
@@ -966,7 +974,7 @@ runBtn.addEventListener("click", async () => {
     // soybean, not just corn (unlike the field-comparison panel, which is
     // corn-only) since this panel lets a student pick either.
     const out = await pyodide.runPythonAsync(`
-crop_obj = CORN if run_crop == "corn" else SOYBEAN
+crop_obj = CROPS[run_crop]
 if use_resolved_site:
     import json as _json
     _site_wx = _json.loads(site_wx_json)
@@ -1234,7 +1242,7 @@ nSweepBtn.addEventListener("click", async () => {
     // runFieldSlot() already uses for the field-comparison panel, so a sweep run
     // here can never leak into (or be leaked into by) that panel's own state.
     const out = await pyodide.runPythonAsync(`
-crop_obj = CORN if run_crop == "corn" else SOYBEAN
+crop_obj = CROPS[run_crop]
 if use_resolved_site:
     import json as _json
     _site_wx = _json.loads(site_wx_json)
@@ -1318,7 +1326,7 @@ yearSweepBtn.addEventListener("click", async () => {
     pyodide.globals.set("run_from_year", fromYear);
     pyodide.globals.set("run_to_year", toYear);
     const out = await pyodide.runPythonAsync(`
-crop_obj = CORN if run_crop == "corn" else SOYBEAN
+crop_obj = CROPS[run_crop]
 sweep_out = []
 for y in range(run_from_year, run_to_year + 1):
     wx_year = ALL_WX.get(str(y))
@@ -1656,6 +1664,64 @@ function wireFieldSlot(slot) {
 // Only Field B gets its own upload/preset UI -- Field A is driven entirely by
 // the shared "Select your site" picker below (see syncFieldAFromCurrentSite()).
 wireFieldSlot("B");
+
+// Registry of every crop/species this project has looked at, real status
+// included -- not just the two ("corn"/"soybean") currently offered in "Run
+// a season." Built so a future crop/rotation picker can read from one source
+// of truth instead of hardcoded branches, and so a species crossing the
+// classroom-workable bar later (once GenericCrops.crop arrives from the
+// CYCLES developers) is a data edit here, not a UI rewrite. `pyKey` matches
+// a key in the embedded engine's own CROPS dict (see ENGINE_SOURCE) -- null
+// means no Python dict exists yet, so there's nothing to run even if a
+// picker listed it. Scope is species only, not rotations (a rotation is a
+// sequence of these plus timing, a separate structure not built yet).
+const SPECIES_REGISTRY = {
+  corn: {
+    label: "Corn (grain)", pyKey: "corn", legume: false, roles: ["cash"],
+    dataStatus: "validated", correlation: 0.771, workableAsCash: true, implementedInDemo: true,
+    notes: "Validated against real Cycles output, 0.771 correlation -- clears the classroom-workable bar (~0.6-0.7).",
+  },
+  soybean: {
+    label: "Soybean", pyKey: "soybean", legume: true, roles: ["cash"],
+    dataStatus: "validated", correlation: 0.846, workableAsCash: true, implementedInDemo: true,
+    notes: "Validated, 0.846 correlation. Legume -- nitrogen rate has no effect on yield, by design (real rhizobia N fixation, not a modeled nodulation submodel).",
+  },
+  wheat: {
+    label: "Winter wheat", pyKey: "wheat", legume: false, roles: ["cover"],
+    dataStatus: "validated", correlation: 0.253, workableAsCash: false, implementedInDemo: true,
+    notes: "Real GenericCrops.crop parameters, not a placeholder, but only 0.253 correlation as a grain crop -- below the classroom-workable bar, so not offered as a cash-crop choice. Used as-is for the fall-planted cover-crop role, where grain-yield correlation isn't the relevant measure. The real driver of its weak year-to-year tracking is still an open, evidence-backed question (QUESTIONS_FOR_DEVS.md item 7).",
+  },
+  winter_rye: {
+    label: "Winter rye (cover crop)", pyKey: "winter_rye", legume: false, roles: ["cover"],
+    dataStatus: "partial", correlation: null, workableAsCash: false, implementedInDemo: true,
+    notes: "Real radiation- and transpiration-use efficiency from Kemanian et al. 2024 SI Table SI.2. Thermal time, temperature response, and canopy shape are borrowed from wheat as a disclosed placeholder pending the real GenericCrops.crop file (Matt's contact at CYCLES hasn't replied yet).",
+  },
+  hairy_vetch: {
+    label: "Hairy vetch (cover crop)", pyKey: "hairy_vetch", legume: true, roles: ["cover"],
+    dataStatus: "partial", correlation: null, workableAsCash: false, implementedInDemo: true,
+    notes: "Real legume RUE/WUE from the SI table, nitrogen behavior borrowed from soybean's crop file. Temperature response borrowed from wheat, not soybean (soybean's own warm-season thresholds produced almost no winter growth -- a real bug caught and fixed this session). Pending the real GenericCrops.crop file for its own parameters.",
+  },
+  corn_silage: {
+    label: "Corn (silage)", pyKey: null, legume: false, roles: ["cash"],
+    dataStatus: "validated-not-workable", correlation: 0.501, workableAsCash: false, implementedInDemo: false,
+    notes: "Validated only in the standalone run_validation_rotation2.py harness, never ported into this interactive engine. 0.501 correlation, below the classroom-workable bar -- the underlying water-stress-timing gap (about an 11-day onset mismatch against real Cycles output) is unresolved, see QUESTIONS_FOR_DEVS.md item 6.",
+  },
+  orchardgrass: {
+    label: "Orchardgrass (pasture)", pyKey: null, legume: false, roles: ["cash"],
+    dataStatus: "unresolved", correlation: null, workableAsCash: false, implementedInDemo: false,
+    notes: "The real cutting/regrowth trigger is unresolved -- four separate mechanical hypotheses ruled out with direct evidence against real Cycles daily output, correlation still ranged from 0.109 down to -0.276 across attempted fixes. Needs CYCLES developer input (QUESTIONS_FOR_DEVS.md item 4). No Python dict exists for this species at all; deliberately not committed in its current state.",
+  },
+  white_clover: {
+    label: "White clover (pasture)", pyKey: null, legume: true, roles: ["cash"],
+    dataStatus: "unresolved", correlation: null, workableAsCash: false, implementedInDemo: false,
+    notes: "Same unresolved cutting-trigger issue as orchardgrass. No Python dict exists for this species.",
+  },
+  lotus_corniculatus: {
+    label: "Lotus corniculatus (birdsfoot trefoil, pasture)", pyKey: null, legume: true, roles: ["cash"],
+    dataStatus: "unresolved", correlation: null, workableAsCash: false, implementedInDemo: false,
+    notes: "Same unresolved cutting-trigger issue as orchardgrass. No Python dict exists for this species.",
+  },
+};
 
 // Four preset sites, chosen to span genuinely different real soil/weather
 // regimes and already confirmed (via a direct Node check against the
