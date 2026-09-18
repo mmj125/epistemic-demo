@@ -332,7 +332,18 @@ var CAMEL = (function(){
   /* ---- plot frame -------------------------------------------------- */
   function frame(o){
     var w = o.width || 520, h = o.height || 300;
-    var pad = {l: 56, r: 12, t: 14, b: 44};
+    var noteLines = [];
+    if (o.note){
+      var maxChars = Math.max(10, Math.floor((w - 24) / 6.2));
+      var words = String(o.note).split(" "), cur = "";
+      words.forEach(function(word){
+        var trial = cur ? cur + " " + word : word;
+        if (trial.length > maxChars && cur){ noteLines.push(cur); cur = word; }
+        else cur = trial;
+      });
+      if (cur) noteLines.push(cur);
+    }
+    var pad = {l: 56, r: 12, t: noteLines.length > 1 ? (4 + noteLines.length * 12) : 14, b: o.padB || 44};
     var xs = o.xdom, ys = o.ydom;
     function px(v){ return pad.l + (v - xs[0]) / (xs[1] - xs[0]) * (w - pad.l - pad.r); }
     function py(v){ return h - pad.b - (v - ys[0]) / (ys[1] - ys[0]) * (h - pad.t - pad.b); }
@@ -355,8 +366,10 @@ var CAMEL = (function(){
                        '" font-size="13" text-anchor="middle">' + esc(o.xlab) + '</text>');
     if (o.ylab) s.push('<text x="13" y="' + (h / 2) + '" font-size="13" text-anchor="middle" transform="rotate(-90 13 ' +
                        (h / 2) + ')">' + esc(o.ylab) + '</text>');
-    if (o.note) s.push('<text x="' + (w - pad.r) + '" y="' + (pad.t + 2) +
-                       '" font-size="11" fill="#6b7280" text-anchor="end">' + esc(o.note) + '</text>');
+    noteLines.forEach(function(line, li){
+      s.push('<text x="' + (w - pad.r) + '" y="' + (8 + li * 12) +
+             '" font-size="10" fill="#6b7280" text-anchor="end">' + esc(line) + '</text>');
+    });
     return {svg: s, px: px, py: py, w: w, h: h, pad: pad,
             done: function(){ s.push("</svg>"); return s.join(""); }};
   }
@@ -450,8 +463,12 @@ var CAMEL = (function(){
       dom = d.dom;
     }
     var w = o.width || 520, h = o.height || 300;
+    var maxNameLen = 0;
+    names.forEach(function(n){ maxNameLen = Math.max(maxNameLen, String(n).length); });
+    var boxRot = names.length > 2 || maxNameLen > 8;
     var f = frame({width: w, height: h, xlab: o.xlab || "", ylab: o.ylab, xdom: [0, names.length],
-                   ydom: dom, note: o.note || (d ? offscaleNote(d, o.what) : "")});
+                   ydom: dom, note: o.note || (d ? offscaleNote(d, o.what) : ""),
+                   xticks: [], padB: boxRot ? 130 : 44});
     names.forEach(function(n, i){
       var v = o.groups[n].filter(function(x){ return x !== null && !isNaN(x); });
       if (!v.length) return;
@@ -474,8 +491,12 @@ var CAMEL = (function(){
             (off ? ' stroke="' + col + '" stroke-width="1.1" stroke-dasharray="2 2"' : "") + "/>");
         });
       }
-      f.svg.push('<text x="' + cx + '" y="' + (f.h - f.pad.b + 19) + '" font-size="12" text-anchor="middle">' +
-        esc(n) + " (" + v.length + ")</text>");
+      var boxName = String(n).length > 12 ? String(n).slice(0, 11) + "…" : String(n);
+      var boxLab = esc(boxName) + " (" + v.length + ")";
+      f.svg.push('<text x="' + cx + '" y="' + (f.h - f.pad.b + (boxRot ? 14 : 19)) +
+        '" font-size="11" text-anchor="' + (boxRot ? "end" : "middle") + '"' +
+        (boxRot ? ' transform="rotate(-90 ' + cx + ' ' + (f.h - f.pad.b + 14) + ')"' : "") +
+        ">" + boxLab + "</text>");
     });
     return f.done();
   }
@@ -508,9 +529,10 @@ var CAMEL = (function(){
           '" font-size="11" text-anchor="middle" fill="#374151">' + tidy(d.value) + "</text>");
       }
       var lab = String(d.name), rot = items.length > 5 || lab.length > 7;
+      var dense = items.length > 8;
       f.svg.push('<text x="' + fmt(cx, 1) + '" y="' + (f.h - f.pad.b + (rot ? 14 : 17)) +
-        '" font-size="11" text-anchor="' + (rot ? "end" : "middle") + '"' +
-        (rot ? ' transform="rotate(-38 ' + fmt(cx, 1) + " " + (f.h - f.pad.b + 14) + ')"' : "") +
+        '" font-size="' + (dense ? 9 : 11) + '" text-anchor="' + (rot ? "end" : "middle") + '"' +
+        (rot ? ' transform="rotate(' + (dense ? -80 : -38) + ' ' + fmt(cx, 1) + " " + (f.h - f.pad.b + 14) + ')"' : "") +
         ">" + esc(lab) + "</text>");
     });
     return f.done();
@@ -761,7 +783,18 @@ var CAMEL = (function(){
   /* ---- plot frame -------------------------------------------------- */
   function frame(o){
     var w = o.width || 520, h = o.height || 300;
-    var pad = {l: 56, r: 12, t: 14, b: 44};
+    var noteLines = [];
+    if (o.note){
+      var maxChars = Math.max(10, Math.floor((w - 24) / 6.2));
+      var words = String(o.note).split(" "), cur = "";
+      words.forEach(function(word){
+        var trial = cur ? cur + " " + word : word;
+        if (trial.length > maxChars && cur){ noteLines.push(cur); cur = word; }
+        else cur = trial;
+      });
+      if (cur) noteLines.push(cur);
+    }
+    var pad = {l: 56, r: 12, t: noteLines.length > 1 ? (4 + noteLines.length * 12) : 14, b: o.padB || 44};
     var xs = o.xdom, ys = o.ydom;
     function px(v){ return pad.l + (v - xs[0]) / (xs[1] - xs[0]) * (w - pad.l - pad.r); }
     function py(v){ return h - pad.b - (v - ys[0]) / (ys[1] - ys[0]) * (h - pad.t - pad.b); }
@@ -784,8 +817,10 @@ var CAMEL = (function(){
                        '" font-size="13" text-anchor="middle">' + esc(o.xlab) + '</text>');
     if (o.ylab) s.push('<text x="13" y="' + (h / 2) + '" font-size="13" text-anchor="middle" transform="rotate(-90 13 ' +
                        (h / 2) + ')">' + esc(o.ylab) + '</text>');
-    if (o.note) s.push('<text x="' + (w - pad.r) + '" y="' + (pad.t + 2) +
-                       '" font-size="11" fill="#6b7280" text-anchor="end">' + esc(o.note) + '</text>');
+    noteLines.forEach(function(line, li){
+      s.push('<text x="' + (w - pad.r) + '" y="' + (8 + li * 12) +
+             '" font-size="10" fill="#6b7280" text-anchor="end">' + esc(line) + '</text>');
+    });
     return {svg: s, px: px, py: py, w: w, h: h, pad: pad,
             done: function(){ s.push("</svg>"); return s.join(""); }};
   }
@@ -879,8 +914,12 @@ var CAMEL = (function(){
       dom = d.dom;
     }
     var w = o.width || 520, h = o.height || 300;
+    var maxNameLen = 0;
+    names.forEach(function(n){ maxNameLen = Math.max(maxNameLen, String(n).length); });
+    var boxRot = names.length > 2 || maxNameLen > 8;
     var f = frame({width: w, height: h, xlab: o.xlab || "", ylab: o.ylab, xdom: [0, names.length],
-                   ydom: dom, note: o.note || (d ? offscaleNote(d, o.what) : "")});
+                   ydom: dom, note: o.note || (d ? offscaleNote(d, o.what) : ""),
+                   xticks: [], padB: boxRot ? 130 : 44});
     names.forEach(function(n, i){
       var v = o.groups[n].filter(function(x){ return x !== null && !isNaN(x); });
       if (!v.length) return;
@@ -903,8 +942,12 @@ var CAMEL = (function(){
             (off ? ' stroke="' + col + '" stroke-width="1.1" stroke-dasharray="2 2"' : "") + "/>");
         });
       }
-      f.svg.push('<text x="' + cx + '" y="' + (f.h - f.pad.b + 19) + '" font-size="12" text-anchor="middle">' +
-        esc(n) + " (" + v.length + ")</text>");
+      var boxName = String(n).length > 12 ? String(n).slice(0, 11) + "…" : String(n);
+      var boxLab = esc(boxName) + " (" + v.length + ")";
+      f.svg.push('<text x="' + cx + '" y="' + (f.h - f.pad.b + (boxRot ? 14 : 19)) +
+        '" font-size="11" text-anchor="' + (boxRot ? "end" : "middle") + '"' +
+        (boxRot ? ' transform="rotate(-90 ' + cx + ' ' + (f.h - f.pad.b + 14) + ')"' : "") +
+        ">" + boxLab + "</text>");
     });
     return f.done();
   }
@@ -937,9 +980,10 @@ var CAMEL = (function(){
           '" font-size="11" text-anchor="middle" fill="#374151">' + tidy(d.value) + "</text>");
       }
       var lab = String(d.name), rot = items.length > 5 || lab.length > 7;
+      var dense = items.length > 8;
       f.svg.push('<text x="' + fmt(cx, 1) + '" y="' + (f.h - f.pad.b + (rot ? 14 : 17)) +
-        '" font-size="11" text-anchor="' + (rot ? "end" : "middle") + '"' +
-        (rot ? ' transform="rotate(-38 ' + fmt(cx, 1) + " " + (f.h - f.pad.b + 14) + ')"' : "") +
+        '" font-size="' + (dense ? 9 : 11) + '" text-anchor="' + (rot ? "end" : "middle") + '"' +
+        (rot ? ' transform="rotate(' + (dense ? -80 : -38) + ' ' + fmt(cx, 1) + " " + (f.h - f.pad.b + 14) + ')"' : "") +
         ">" + esc(lab) + "</text>");
     });
     return f.done();
@@ -1203,7 +1247,18 @@ var CAMEL = (function(){
   /* ---- plot frame -------------------------------------------------- */
   function frame(o){
     var w = o.width || 520, h = o.height || 300;
-    var pad = {l: 56, r: 12, t: 14, b: 44};
+    var noteLines = [];
+    if (o.note){
+      var maxChars = Math.max(10, Math.floor((w - 24) / 6.2));
+      var words = String(o.note).split(" "), cur = "";
+      words.forEach(function(word){
+        var trial = cur ? cur + " " + word : word;
+        if (trial.length > maxChars && cur){ noteLines.push(cur); cur = word; }
+        else cur = trial;
+      });
+      if (cur) noteLines.push(cur);
+    }
+    var pad = {l: 56, r: 12, t: noteLines.length > 1 ? (4 + noteLines.length * 12) : 14, b: o.padB || 44};
     var xs = o.xdom, ys = o.ydom;
     function px(v){ return pad.l + (v - xs[0]) / (xs[1] - xs[0]) * (w - pad.l - pad.r); }
     function py(v){ return h - pad.b - (v - ys[0]) / (ys[1] - ys[0]) * (h - pad.t - pad.b); }
@@ -1226,8 +1281,10 @@ var CAMEL = (function(){
                        '" font-size="13" text-anchor="middle">' + esc(o.xlab) + '</text>');
     if (o.ylab) s.push('<text x="13" y="' + (h / 2) + '" font-size="13" text-anchor="middle" transform="rotate(-90 13 ' +
                        (h / 2) + ')">' + esc(o.ylab) + '</text>');
-    if (o.note) s.push('<text x="' + (w - pad.r) + '" y="' + (pad.t + 2) +
-                       '" font-size="11" fill="#6b7280" text-anchor="end">' + esc(o.note) + '</text>');
+    noteLines.forEach(function(line, li){
+      s.push('<text x="' + (w - pad.r) + '" y="' + (8 + li * 12) +
+             '" font-size="10" fill="#6b7280" text-anchor="end">' + esc(line) + '</text>');
+    });
     return {svg: s, px: px, py: py, w: w, h: h, pad: pad,
             done: function(){ s.push("</svg>"); return s.join(""); }};
   }
@@ -1321,8 +1378,12 @@ var CAMEL = (function(){
       dom = d.dom;
     }
     var w = o.width || 520, h = o.height || 300;
+    var maxNameLen = 0;
+    names.forEach(function(n){ maxNameLen = Math.max(maxNameLen, String(n).length); });
+    var boxRot = names.length > 2 || maxNameLen > 8;
     var f = frame({width: w, height: h, xlab: o.xlab || "", ylab: o.ylab, xdom: [0, names.length],
-                   ydom: dom, note: o.note || (d ? offscaleNote(d, o.what) : "")});
+                   ydom: dom, note: o.note || (d ? offscaleNote(d, o.what) : ""),
+                   xticks: [], padB: boxRot ? 130 : 44});
     names.forEach(function(n, i){
       var v = o.groups[n].filter(function(x){ return x !== null && !isNaN(x); });
       if (!v.length) return;
@@ -1345,8 +1406,12 @@ var CAMEL = (function(){
             (off ? ' stroke="' + col + '" stroke-width="1.1" stroke-dasharray="2 2"' : "") + "/>");
         });
       }
-      f.svg.push('<text x="' + cx + '" y="' + (f.h - f.pad.b + 19) + '" font-size="12" text-anchor="middle">' +
-        esc(n) + " (" + v.length + ")</text>");
+      var boxName = String(n).length > 12 ? String(n).slice(0, 11) + "…" : String(n);
+      var boxLab = esc(boxName) + " (" + v.length + ")";
+      f.svg.push('<text x="' + cx + '" y="' + (f.h - f.pad.b + (boxRot ? 14 : 19)) +
+        '" font-size="11" text-anchor="' + (boxRot ? "end" : "middle") + '"' +
+        (boxRot ? ' transform="rotate(-90 ' + cx + ' ' + (f.h - f.pad.b + 14) + ')"' : "") +
+        ">" + boxLab + "</text>");
     });
     return f.done();
   }
@@ -1379,9 +1444,10 @@ var CAMEL = (function(){
           '" font-size="11" text-anchor="middle" fill="#374151">' + tidy(d.value) + "</text>");
       }
       var lab = String(d.name), rot = items.length > 5 || lab.length > 7;
+      var dense = items.length > 8;
       f.svg.push('<text x="' + fmt(cx, 1) + '" y="' + (f.h - f.pad.b + (rot ? 14 : 17)) +
-        '" font-size="11" text-anchor="' + (rot ? "end" : "middle") + '"' +
-        (rot ? ' transform="rotate(-38 ' + fmt(cx, 1) + " " + (f.h - f.pad.b + 14) + ')"' : "") +
+        '" font-size="' + (dense ? 9 : 11) + '" text-anchor="' + (rot ? "end" : "middle") + '"' +
+        (rot ? ' transform="rotate(' + (dense ? -80 : -38) + ' ' + fmt(cx, 1) + " " + (f.h - f.pad.b + 14) + ')"' : "") +
         ">" + esc(lab) + "</text>");
     });
     return f.done();
@@ -1754,7 +1820,18 @@ var CAMEL = (function(){
   /* ---- plot frame -------------------------------------------------- */
   function frame(o){
     var w = o.width || 520, h = o.height || 300;
-    var pad = {l: 56, r: 12, t: 14, b: 44};
+    var noteLines = [];
+    if (o.note){
+      var maxChars = Math.max(10, Math.floor((w - 24) / 6.2));
+      var words = String(o.note).split(" "), cur = "";
+      words.forEach(function(word){
+        var trial = cur ? cur + " " + word : word;
+        if (trial.length > maxChars && cur){ noteLines.push(cur); cur = word; }
+        else cur = trial;
+      });
+      if (cur) noteLines.push(cur);
+    }
+    var pad = {l: 56, r: 12, t: noteLines.length > 1 ? (4 + noteLines.length * 12) : 14, b: o.padB || 44};
     var xs = o.xdom, ys = o.ydom;
     function px(v){ return pad.l + (v - xs[0]) / (xs[1] - xs[0]) * (w - pad.l - pad.r); }
     function py(v){ return h - pad.b - (v - ys[0]) / (ys[1] - ys[0]) * (h - pad.t - pad.b); }
@@ -1777,8 +1854,10 @@ var CAMEL = (function(){
                        '" font-size="13" text-anchor="middle">' + esc(o.xlab) + '</text>');
     if (o.ylab) s.push('<text x="13" y="' + (h / 2) + '" font-size="13" text-anchor="middle" transform="rotate(-90 13 ' +
                        (h / 2) + ')">' + esc(o.ylab) + '</text>');
-    if (o.note) s.push('<text x="' + (w - pad.r) + '" y="' + (pad.t + 2) +
-                       '" font-size="11" fill="#6b7280" text-anchor="end">' + esc(o.note) + '</text>');
+    noteLines.forEach(function(line, li){
+      s.push('<text x="' + (w - pad.r) + '" y="' + (8 + li * 12) +
+             '" font-size="10" fill="#6b7280" text-anchor="end">' + esc(line) + '</text>');
+    });
     return {svg: s, px: px, py: py, w: w, h: h, pad: pad,
             done: function(){ s.push("</svg>"); return s.join(""); }};
   }
@@ -1872,8 +1951,12 @@ var CAMEL = (function(){
       dom = d.dom;
     }
     var w = o.width || 520, h = o.height || 300;
+    var maxNameLen = 0;
+    names.forEach(function(n){ maxNameLen = Math.max(maxNameLen, String(n).length); });
+    var boxRot = names.length > 2 || maxNameLen > 8;
     var f = frame({width: w, height: h, xlab: o.xlab || "", ylab: o.ylab, xdom: [0, names.length],
-                   ydom: dom, note: o.note || (d ? offscaleNote(d, o.what) : "")});
+                   ydom: dom, note: o.note || (d ? offscaleNote(d, o.what) : ""),
+                   xticks: [], padB: boxRot ? 130 : 44});
     names.forEach(function(n, i){
       var v = o.groups[n].filter(function(x){ return x !== null && !isNaN(x); });
       if (!v.length) return;
@@ -1896,8 +1979,12 @@ var CAMEL = (function(){
             (off ? ' stroke="' + col + '" stroke-width="1.1" stroke-dasharray="2 2"' : "") + "/>");
         });
       }
-      f.svg.push('<text x="' + cx + '" y="' + (f.h - f.pad.b + 19) + '" font-size="12" text-anchor="middle">' +
-        esc(n) + " (" + v.length + ")</text>");
+      var boxName = String(n).length > 12 ? String(n).slice(0, 11) + "…" : String(n);
+      var boxLab = esc(boxName) + " (" + v.length + ")";
+      f.svg.push('<text x="' + cx + '" y="' + (f.h - f.pad.b + (boxRot ? 14 : 19)) +
+        '" font-size="11" text-anchor="' + (boxRot ? "end" : "middle") + '"' +
+        (boxRot ? ' transform="rotate(-90 ' + cx + ' ' + (f.h - f.pad.b + 14) + ')"' : "") +
+        ">" + boxLab + "</text>");
     });
     return f.done();
   }
@@ -1930,9 +2017,10 @@ var CAMEL = (function(){
           '" font-size="11" text-anchor="middle" fill="#374151">' + tidy(d.value) + "</text>");
       }
       var lab = String(d.name), rot = items.length > 5 || lab.length > 7;
+      var dense = items.length > 8;
       f.svg.push('<text x="' + fmt(cx, 1) + '" y="' + (f.h - f.pad.b + (rot ? 14 : 17)) +
-        '" font-size="11" text-anchor="' + (rot ? "end" : "middle") + '"' +
-        (rot ? ' transform="rotate(-38 ' + fmt(cx, 1) + " " + (f.h - f.pad.b + 14) + ')"' : "") +
+        '" font-size="' + (dense ? 9 : 11) + '" text-anchor="' + (rot ? "end" : "middle") + '"' +
+        (rot ? ' transform="rotate(' + (dense ? -80 : -38) + ' ' + fmt(cx, 1) + " " + (f.h - f.pad.b + 14) + ')"' : "") +
         ">" + esc(lab) + "</text>");
     });
     return f.done();
@@ -2222,7 +2310,18 @@ var CAMEL = (function(){
   /* ---- plot frame -------------------------------------------------- */
   function frame(o){
     var w = o.width || 520, h = o.height || 300;
-    var pad = {l: 56, r: 12, t: 14, b: 44};
+    var noteLines = [];
+    if (o.note){
+      var maxChars = Math.max(10, Math.floor((w - 24) / 6.2));
+      var words = String(o.note).split(" "), cur = "";
+      words.forEach(function(word){
+        var trial = cur ? cur + " " + word : word;
+        if (trial.length > maxChars && cur){ noteLines.push(cur); cur = word; }
+        else cur = trial;
+      });
+      if (cur) noteLines.push(cur);
+    }
+    var pad = {l: 56, r: 12, t: noteLines.length > 1 ? (4 + noteLines.length * 12) : 14, b: o.padB || 44};
     var xs = o.xdom, ys = o.ydom;
     function px(v){ return pad.l + (v - xs[0]) / (xs[1] - xs[0]) * (w - pad.l - pad.r); }
     function py(v){ return h - pad.b - (v - ys[0]) / (ys[1] - ys[0]) * (h - pad.t - pad.b); }
@@ -2245,8 +2344,10 @@ var CAMEL = (function(){
                        '" font-size="13" text-anchor="middle">' + esc(o.xlab) + '</text>');
     if (o.ylab) s.push('<text x="13" y="' + (h / 2) + '" font-size="13" text-anchor="middle" transform="rotate(-90 13 ' +
                        (h / 2) + ')">' + esc(o.ylab) + '</text>');
-    if (o.note) s.push('<text x="' + (w - pad.r) + '" y="' + (pad.t + 2) +
-                       '" font-size="11" fill="#6b7280" text-anchor="end">' + esc(o.note) + '</text>');
+    noteLines.forEach(function(line, li){
+      s.push('<text x="' + (w - pad.r) + '" y="' + (8 + li * 12) +
+             '" font-size="10" fill="#6b7280" text-anchor="end">' + esc(line) + '</text>');
+    });
     return {svg: s, px: px, py: py, w: w, h: h, pad: pad,
             done: function(){ s.push("</svg>"); return s.join(""); }};
   }
@@ -2340,8 +2441,12 @@ var CAMEL = (function(){
       dom = d.dom;
     }
     var w = o.width || 520, h = o.height || 300;
+    var maxNameLen = 0;
+    names.forEach(function(n){ maxNameLen = Math.max(maxNameLen, String(n).length); });
+    var boxRot = names.length > 2 || maxNameLen > 8;
     var f = frame({width: w, height: h, xlab: o.xlab || "", ylab: o.ylab, xdom: [0, names.length],
-                   ydom: dom, note: o.note || (d ? offscaleNote(d, o.what) : "")});
+                   ydom: dom, note: o.note || (d ? offscaleNote(d, o.what) : ""),
+                   xticks: [], padB: boxRot ? 130 : 44});
     names.forEach(function(n, i){
       var v = o.groups[n].filter(function(x){ return x !== null && !isNaN(x); });
       if (!v.length) return;
@@ -2364,8 +2469,12 @@ var CAMEL = (function(){
             (off ? ' stroke="' + col + '" stroke-width="1.1" stroke-dasharray="2 2"' : "") + "/>");
         });
       }
-      f.svg.push('<text x="' + cx + '" y="' + (f.h - f.pad.b + 19) + '" font-size="12" text-anchor="middle">' +
-        esc(n) + " (" + v.length + ")</text>");
+      var boxName = String(n).length > 12 ? String(n).slice(0, 11) + "…" : String(n);
+      var boxLab = esc(boxName) + " (" + v.length + ")";
+      f.svg.push('<text x="' + cx + '" y="' + (f.h - f.pad.b + (boxRot ? 14 : 19)) +
+        '" font-size="11" text-anchor="' + (boxRot ? "end" : "middle") + '"' +
+        (boxRot ? ' transform="rotate(-90 ' + cx + ' ' + (f.h - f.pad.b + 14) + ')"' : "") +
+        ">" + boxLab + "</text>");
     });
     return f.done();
   }
@@ -2398,9 +2507,10 @@ var CAMEL = (function(){
           '" font-size="11" text-anchor="middle" fill="#374151">' + tidy(d.value) + "</text>");
       }
       var lab = String(d.name), rot = items.length > 5 || lab.length > 7;
+      var dense = items.length > 8;
       f.svg.push('<text x="' + fmt(cx, 1) + '" y="' + (f.h - f.pad.b + (rot ? 14 : 17)) +
-        '" font-size="11" text-anchor="' + (rot ? "end" : "middle") + '"' +
-        (rot ? ' transform="rotate(-38 ' + fmt(cx, 1) + " " + (f.h - f.pad.b + 14) + ')"' : "") +
+        '" font-size="' + (dense ? 9 : 11) + '" text-anchor="' + (rot ? "end" : "middle") + '"' +
+        (rot ? ' transform="rotate(' + (dense ? -80 : -38) + ' ' + fmt(cx, 1) + " " + (f.h - f.pad.b + 14) + ')"' : "") +
         ">" + esc(lab) + "</text>");
     });
     return f.done();
@@ -2755,7 +2865,18 @@ var CAMEL = (function(){
   /* ---- plot frame -------------------------------------------------- */
   function frame(o){
     var w = o.width || 520, h = o.height || 300;
-    var pad = {l: 56, r: 12, t: 14, b: 44};
+    var noteLines = [];
+    if (o.note){
+      var maxChars = Math.max(10, Math.floor((w - 24) / 6.2));
+      var words = String(o.note).split(" "), cur = "";
+      words.forEach(function(word){
+        var trial = cur ? cur + " " + word : word;
+        if (trial.length > maxChars && cur){ noteLines.push(cur); cur = word; }
+        else cur = trial;
+      });
+      if (cur) noteLines.push(cur);
+    }
+    var pad = {l: 56, r: 12, t: noteLines.length > 1 ? (4 + noteLines.length * 12) : 14, b: o.padB || 44};
     var xs = o.xdom, ys = o.ydom;
     function px(v){ return pad.l + (v - xs[0]) / (xs[1] - xs[0]) * (w - pad.l - pad.r); }
     function py(v){ return h - pad.b - (v - ys[0]) / (ys[1] - ys[0]) * (h - pad.t - pad.b); }
@@ -2778,8 +2899,10 @@ var CAMEL = (function(){
                        '" font-size="13" text-anchor="middle">' + esc(o.xlab) + '</text>');
     if (o.ylab) s.push('<text x="13" y="' + (h / 2) + '" font-size="13" text-anchor="middle" transform="rotate(-90 13 ' +
                        (h / 2) + ')">' + esc(o.ylab) + '</text>');
-    if (o.note) s.push('<text x="' + (w - pad.r) + '" y="' + (pad.t + 2) +
-                       '" font-size="11" fill="#6b7280" text-anchor="end">' + esc(o.note) + '</text>');
+    noteLines.forEach(function(line, li){
+      s.push('<text x="' + (w - pad.r) + '" y="' + (8 + li * 12) +
+             '" font-size="10" fill="#6b7280" text-anchor="end">' + esc(line) + '</text>');
+    });
     return {svg: s, px: px, py: py, w: w, h: h, pad: pad,
             done: function(){ s.push("</svg>"); return s.join(""); }};
   }
@@ -2873,8 +2996,12 @@ var CAMEL = (function(){
       dom = d.dom;
     }
     var w = o.width || 520, h = o.height || 300;
+    var maxNameLen = 0;
+    names.forEach(function(n){ maxNameLen = Math.max(maxNameLen, String(n).length); });
+    var boxRot = names.length > 2 || maxNameLen > 8;
     var f = frame({width: w, height: h, xlab: o.xlab || "", ylab: o.ylab, xdom: [0, names.length],
-                   ydom: dom, note: o.note || (d ? offscaleNote(d, o.what) : "")});
+                   ydom: dom, note: o.note || (d ? offscaleNote(d, o.what) : ""),
+                   xticks: [], padB: boxRot ? 130 : 44});
     names.forEach(function(n, i){
       var v = o.groups[n].filter(function(x){ return x !== null && !isNaN(x); });
       if (!v.length) return;
@@ -2897,8 +3024,12 @@ var CAMEL = (function(){
             (off ? ' stroke="' + col + '" stroke-width="1.1" stroke-dasharray="2 2"' : "") + "/>");
         });
       }
-      f.svg.push('<text x="' + cx + '" y="' + (f.h - f.pad.b + 19) + '" font-size="12" text-anchor="middle">' +
-        esc(n) + " (" + v.length + ")</text>");
+      var boxName = String(n).length > 12 ? String(n).slice(0, 11) + "…" : String(n);
+      var boxLab = esc(boxName) + " (" + v.length + ")";
+      f.svg.push('<text x="' + cx + '" y="' + (f.h - f.pad.b + (boxRot ? 14 : 19)) +
+        '" font-size="11" text-anchor="' + (boxRot ? "end" : "middle") + '"' +
+        (boxRot ? ' transform="rotate(-90 ' + cx + ' ' + (f.h - f.pad.b + 14) + ')"' : "") +
+        ">" + boxLab + "</text>");
     });
     return f.done();
   }
@@ -2931,9 +3062,10 @@ var CAMEL = (function(){
           '" font-size="11" text-anchor="middle" fill="#374151">' + tidy(d.value) + "</text>");
       }
       var lab = String(d.name), rot = items.length > 5 || lab.length > 7;
+      var dense = items.length > 8;
       f.svg.push('<text x="' + fmt(cx, 1) + '" y="' + (f.h - f.pad.b + (rot ? 14 : 17)) +
-        '" font-size="11" text-anchor="' + (rot ? "end" : "middle") + '"' +
-        (rot ? ' transform="rotate(-38 ' + fmt(cx, 1) + " " + (f.h - f.pad.b + 14) + ')"' : "") +
+        '" font-size="' + (dense ? 9 : 11) + '" text-anchor="' + (rot ? "end" : "middle") + '"' +
+        (rot ? ' transform="rotate(' + (dense ? -80 : -38) + ' ' + fmt(cx, 1) + " " + (f.h - f.pad.b + 14) + ')"' : "") +
         ">" + esc(lab) + "</text>");
     });
     return f.done();
@@ -3204,7 +3336,18 @@ var CAMEL = (function(){
   /* ---- plot frame -------------------------------------------------- */
   function frame(o){
     var w = o.width || 520, h = o.height || 300;
-    var pad = {l: 56, r: 12, t: 14, b: 44};
+    var noteLines = [];
+    if (o.note){
+      var maxChars = Math.max(10, Math.floor((w - 24) / 6.2));
+      var words = String(o.note).split(" "), cur = "";
+      words.forEach(function(word){
+        var trial = cur ? cur + " " + word : word;
+        if (trial.length > maxChars && cur){ noteLines.push(cur); cur = word; }
+        else cur = trial;
+      });
+      if (cur) noteLines.push(cur);
+    }
+    var pad = {l: 56, r: 12, t: noteLines.length > 1 ? (4 + noteLines.length * 12) : 14, b: o.padB || 44};
     var xs = o.xdom, ys = o.ydom;
     function px(v){ return pad.l + (v - xs[0]) / (xs[1] - xs[0]) * (w - pad.l - pad.r); }
     function py(v){ return h - pad.b - (v - ys[0]) / (ys[1] - ys[0]) * (h - pad.t - pad.b); }
@@ -3227,8 +3370,10 @@ var CAMEL = (function(){
                        '" font-size="13" text-anchor="middle">' + esc(o.xlab) + '</text>');
     if (o.ylab) s.push('<text x="13" y="' + (h / 2) + '" font-size="13" text-anchor="middle" transform="rotate(-90 13 ' +
                        (h / 2) + ')">' + esc(o.ylab) + '</text>');
-    if (o.note) s.push('<text x="' + (w - pad.r) + '" y="' + (pad.t + 2) +
-                       '" font-size="11" fill="#6b7280" text-anchor="end">' + esc(o.note) + '</text>');
+    noteLines.forEach(function(line, li){
+      s.push('<text x="' + (w - pad.r) + '" y="' + (8 + li * 12) +
+             '" font-size="10" fill="#6b7280" text-anchor="end">' + esc(line) + '</text>');
+    });
     return {svg: s, px: px, py: py, w: w, h: h, pad: pad,
             done: function(){ s.push("</svg>"); return s.join(""); }};
   }
@@ -3322,8 +3467,12 @@ var CAMEL = (function(){
       dom = d.dom;
     }
     var w = o.width || 520, h = o.height || 300;
+    var maxNameLen = 0;
+    names.forEach(function(n){ maxNameLen = Math.max(maxNameLen, String(n).length); });
+    var boxRot = names.length > 2 || maxNameLen > 8;
     var f = frame({width: w, height: h, xlab: o.xlab || "", ylab: o.ylab, xdom: [0, names.length],
-                   ydom: dom, note: o.note || (d ? offscaleNote(d, o.what) : "")});
+                   ydom: dom, note: o.note || (d ? offscaleNote(d, o.what) : ""),
+                   xticks: [], padB: boxRot ? 130 : 44});
     names.forEach(function(n, i){
       var v = o.groups[n].filter(function(x){ return x !== null && !isNaN(x); });
       if (!v.length) return;
@@ -3346,8 +3495,12 @@ var CAMEL = (function(){
             (off ? ' stroke="' + col + '" stroke-width="1.1" stroke-dasharray="2 2"' : "") + "/>");
         });
       }
-      f.svg.push('<text x="' + cx + '" y="' + (f.h - f.pad.b + 19) + '" font-size="12" text-anchor="middle">' +
-        esc(n) + " (" + v.length + ")</text>");
+      var boxName = String(n).length > 12 ? String(n).slice(0, 11) + "…" : String(n);
+      var boxLab = esc(boxName) + " (" + v.length + ")";
+      f.svg.push('<text x="' + cx + '" y="' + (f.h - f.pad.b + (boxRot ? 14 : 19)) +
+        '" font-size="11" text-anchor="' + (boxRot ? "end" : "middle") + '"' +
+        (boxRot ? ' transform="rotate(-90 ' + cx + ' ' + (f.h - f.pad.b + 14) + ')"' : "") +
+        ">" + boxLab + "</text>");
     });
     return f.done();
   }
@@ -3380,9 +3533,10 @@ var CAMEL = (function(){
           '" font-size="11" text-anchor="middle" fill="#374151">' + tidy(d.value) + "</text>");
       }
       var lab = String(d.name), rot = items.length > 5 || lab.length > 7;
+      var dense = items.length > 8;
       f.svg.push('<text x="' + fmt(cx, 1) + '" y="' + (f.h - f.pad.b + (rot ? 14 : 17)) +
-        '" font-size="11" text-anchor="' + (rot ? "end" : "middle") + '"' +
-        (rot ? ' transform="rotate(-38 ' + fmt(cx, 1) + " " + (f.h - f.pad.b + 14) + ')"' : "") +
+        '" font-size="' + (dense ? 9 : 11) + '" text-anchor="' + (rot ? "end" : "middle") + '"' +
+        (rot ? ' transform="rotate(' + (dense ? -80 : -38) + ' ' + fmt(cx, 1) + " " + (f.h - f.pad.b + 14) + ')"' : "") +
         ">" + esc(lab) + "</text>");
     });
     return f.done();
@@ -3694,7 +3848,18 @@ var CAMEL = (function(){
   /* ---- plot frame -------------------------------------------------- */
   function frame(o){
     var w = o.width || 520, h = o.height || 300;
-    var pad = {l: 56, r: 12, t: 14, b: 44};
+    var noteLines = [];
+    if (o.note){
+      var maxChars = Math.max(10, Math.floor((w - 24) / 6.2));
+      var words = String(o.note).split(" "), cur = "";
+      words.forEach(function(word){
+        var trial = cur ? cur + " " + word : word;
+        if (trial.length > maxChars && cur){ noteLines.push(cur); cur = word; }
+        else cur = trial;
+      });
+      if (cur) noteLines.push(cur);
+    }
+    var pad = {l: 56, r: 12, t: noteLines.length > 1 ? (4 + noteLines.length * 12) : 14, b: o.padB || 44};
     var xs = o.xdom, ys = o.ydom;
     function px(v){ return pad.l + (v - xs[0]) / (xs[1] - xs[0]) * (w - pad.l - pad.r); }
     function py(v){ return h - pad.b - (v - ys[0]) / (ys[1] - ys[0]) * (h - pad.t - pad.b); }
@@ -3717,8 +3882,10 @@ var CAMEL = (function(){
                        '" font-size="13" text-anchor="middle">' + esc(o.xlab) + '</text>');
     if (o.ylab) s.push('<text x="13" y="' + (h / 2) + '" font-size="13" text-anchor="middle" transform="rotate(-90 13 ' +
                        (h / 2) + ')">' + esc(o.ylab) + '</text>');
-    if (o.note) s.push('<text x="' + (w - pad.r) + '" y="' + (pad.t + 2) +
-                       '" font-size="11" fill="#6b7280" text-anchor="end">' + esc(o.note) + '</text>');
+    noteLines.forEach(function(line, li){
+      s.push('<text x="' + (w - pad.r) + '" y="' + (8 + li * 12) +
+             '" font-size="10" fill="#6b7280" text-anchor="end">' + esc(line) + '</text>');
+    });
     return {svg: s, px: px, py: py, w: w, h: h, pad: pad,
             done: function(){ s.push("</svg>"); return s.join(""); }};
   }
@@ -3812,8 +3979,12 @@ var CAMEL = (function(){
       dom = d.dom;
     }
     var w = o.width || 520, h = o.height || 300;
+    var maxNameLen = 0;
+    names.forEach(function(n){ maxNameLen = Math.max(maxNameLen, String(n).length); });
+    var boxRot = names.length > 2 || maxNameLen > 8;
     var f = frame({width: w, height: h, xlab: o.xlab || "", ylab: o.ylab, xdom: [0, names.length],
-                   ydom: dom, note: o.note || (d ? offscaleNote(d, o.what) : "")});
+                   ydom: dom, note: o.note || (d ? offscaleNote(d, o.what) : ""),
+                   xticks: [], padB: boxRot ? 130 : 44});
     names.forEach(function(n, i){
       var v = o.groups[n].filter(function(x){ return x !== null && !isNaN(x); });
       if (!v.length) return;
@@ -3836,8 +4007,12 @@ var CAMEL = (function(){
             (off ? ' stroke="' + col + '" stroke-width="1.1" stroke-dasharray="2 2"' : "") + "/>");
         });
       }
-      f.svg.push('<text x="' + cx + '" y="' + (f.h - f.pad.b + 19) + '" font-size="12" text-anchor="middle">' +
-        esc(n) + " (" + v.length + ")</text>");
+      var boxName = String(n).length > 12 ? String(n).slice(0, 11) + "…" : String(n);
+      var boxLab = esc(boxName) + " (" + v.length + ")";
+      f.svg.push('<text x="' + cx + '" y="' + (f.h - f.pad.b + (boxRot ? 14 : 19)) +
+        '" font-size="11" text-anchor="' + (boxRot ? "end" : "middle") + '"' +
+        (boxRot ? ' transform="rotate(-90 ' + cx + ' ' + (f.h - f.pad.b + 14) + ')"' : "") +
+        ">" + boxLab + "</text>");
     });
     return f.done();
   }
@@ -3870,9 +4045,10 @@ var CAMEL = (function(){
           '" font-size="11" text-anchor="middle" fill="#374151">' + tidy(d.value) + "</text>");
       }
       var lab = String(d.name), rot = items.length > 5 || lab.length > 7;
+      var dense = items.length > 8;
       f.svg.push('<text x="' + fmt(cx, 1) + '" y="' + (f.h - f.pad.b + (rot ? 14 : 17)) +
-        '" font-size="11" text-anchor="' + (rot ? "end" : "middle") + '"' +
-        (rot ? ' transform="rotate(-38 ' + fmt(cx, 1) + " " + (f.h - f.pad.b + 14) + ')"' : "") +
+        '" font-size="' + (dense ? 9 : 11) + '" text-anchor="' + (rot ? "end" : "middle") + '"' +
+        (rot ? ' transform="rotate(' + (dense ? -80 : -38) + ' ' + fmt(cx, 1) + " " + (f.h - f.pad.b + 14) + ')"' : "") +
         ">" + esc(lab) + "</text>");
     });
     return f.done();
@@ -4229,7 +4405,18 @@ var CAMEL = (function(){
   /* ---- plot frame -------------------------------------------------- */
   function frame(o){
     var w = o.width || 520, h = o.height || 300;
-    var pad = {l: 56, r: 12, t: 14, b: 44};
+    var noteLines = [];
+    if (o.note){
+      var maxChars = Math.max(10, Math.floor((w - 24) / 6.2));
+      var words = String(o.note).split(" "), cur = "";
+      words.forEach(function(word){
+        var trial = cur ? cur + " " + word : word;
+        if (trial.length > maxChars && cur){ noteLines.push(cur); cur = word; }
+        else cur = trial;
+      });
+      if (cur) noteLines.push(cur);
+    }
+    var pad = {l: 56, r: 12, t: noteLines.length > 1 ? (4 + noteLines.length * 12) : 14, b: o.padB || 44};
     var xs = o.xdom, ys = o.ydom;
     function px(v){ return pad.l + (v - xs[0]) / (xs[1] - xs[0]) * (w - pad.l - pad.r); }
     function py(v){ return h - pad.b - (v - ys[0]) / (ys[1] - ys[0]) * (h - pad.t - pad.b); }
@@ -4252,8 +4439,10 @@ var CAMEL = (function(){
                        '" font-size="13" text-anchor="middle">' + esc(o.xlab) + '</text>');
     if (o.ylab) s.push('<text x="13" y="' + (h / 2) + '" font-size="13" text-anchor="middle" transform="rotate(-90 13 ' +
                        (h / 2) + ')">' + esc(o.ylab) + '</text>');
-    if (o.note) s.push('<text x="' + (w - pad.r) + '" y="' + (pad.t + 2) +
-                       '" font-size="11" fill="#6b7280" text-anchor="end">' + esc(o.note) + '</text>');
+    noteLines.forEach(function(line, li){
+      s.push('<text x="' + (w - pad.r) + '" y="' + (8 + li * 12) +
+             '" font-size="10" fill="#6b7280" text-anchor="end">' + esc(line) + '</text>');
+    });
     return {svg: s, px: px, py: py, w: w, h: h, pad: pad,
             done: function(){ s.push("</svg>"); return s.join(""); }};
   }
@@ -4347,8 +4536,12 @@ var CAMEL = (function(){
       dom = d.dom;
     }
     var w = o.width || 520, h = o.height || 300;
+    var maxNameLen = 0;
+    names.forEach(function(n){ maxNameLen = Math.max(maxNameLen, String(n).length); });
+    var boxRot = names.length > 2 || maxNameLen > 8;
     var f = frame({width: w, height: h, xlab: o.xlab || "", ylab: o.ylab, xdom: [0, names.length],
-                   ydom: dom, note: o.note || (d ? offscaleNote(d, o.what) : "")});
+                   ydom: dom, note: o.note || (d ? offscaleNote(d, o.what) : ""),
+                   xticks: [], padB: boxRot ? 130 : 44});
     names.forEach(function(n, i){
       var v = o.groups[n].filter(function(x){ return x !== null && !isNaN(x); });
       if (!v.length) return;
@@ -4371,8 +4564,12 @@ var CAMEL = (function(){
             (off ? ' stroke="' + col + '" stroke-width="1.1" stroke-dasharray="2 2"' : "") + "/>");
         });
       }
-      f.svg.push('<text x="' + cx + '" y="' + (f.h - f.pad.b + 19) + '" font-size="12" text-anchor="middle">' +
-        esc(n) + " (" + v.length + ")</text>");
+      var boxName = String(n).length > 12 ? String(n).slice(0, 11) + "…" : String(n);
+      var boxLab = esc(boxName) + " (" + v.length + ")";
+      f.svg.push('<text x="' + cx + '" y="' + (f.h - f.pad.b + (boxRot ? 14 : 19)) +
+        '" font-size="11" text-anchor="' + (boxRot ? "end" : "middle") + '"' +
+        (boxRot ? ' transform="rotate(-90 ' + cx + ' ' + (f.h - f.pad.b + 14) + ')"' : "") +
+        ">" + boxLab + "</text>");
     });
     return f.done();
   }
@@ -4405,9 +4602,10 @@ var CAMEL = (function(){
           '" font-size="11" text-anchor="middle" fill="#374151">' + tidy(d.value) + "</text>");
       }
       var lab = String(d.name), rot = items.length > 5 || lab.length > 7;
+      var dense = items.length > 8;
       f.svg.push('<text x="' + fmt(cx, 1) + '" y="' + (f.h - f.pad.b + (rot ? 14 : 17)) +
-        '" font-size="11" text-anchor="' + (rot ? "end" : "middle") + '"' +
-        (rot ? ' transform="rotate(-38 ' + fmt(cx, 1) + " " + (f.h - f.pad.b + 14) + ')"' : "") +
+        '" font-size="' + (dense ? 9 : 11) + '" text-anchor="' + (rot ? "end" : "middle") + '"' +
+        (rot ? ' transform="rotate(' + (dense ? -80 : -38) + ' ' + fmt(cx, 1) + " " + (f.h - f.pad.b + 14) + ')"' : "") +
         ">" + esc(lab) + "</text>");
     });
     return f.done();
