@@ -2717,10 +2717,13 @@ async function handleTillageCompareGuess(guessedLabel) {
   const status = document.getElementById("tillageCompareStatus");
   status.textContent = "Running all five practices at both nitrogen rates...";
   try {
-    const [lowGrain, highGrain] = await Promise.all([
-      runTillageCompareSet(TILLAGE_COMPARE_LOW_N),
-      runTillageCompareSet(TILLAGE_COMPARE_HIGH_N),
-    ]);
+    // Sequential, not Promise.all: both calls write to the same shared Pyodide
+    // global namespace (tc_n_rate etc.) before reading it back, so running them
+    // concurrently let the second call's globals.set() clobber the first call's
+    // inputs before its Python ever executed -- both runs silently used whichever
+    // rate won the race (real bug, caught live: every bar came out identical).
+    const lowGrain = await runTillageCompareSet(TILLAGE_COMPARE_LOW_N);
+    const highGrain = await runTillageCompareSet(TILLAGE_COMPARE_HIGH_N);
     const lowSpread = Math.max(...lowGrain) - Math.min(...lowGrain);
     const highSpread = Math.max(...highGrain) - Math.min(...highGrain);
     const winner = lowSpread > highSpread ? "low" : "high";
@@ -2767,10 +2770,10 @@ document.getElementById("nBalanceBtn").addEventListener("click", async () => {
   btn.disabled = true;
   try {
     status.textContent = "Running the rain comparison...";
-    const [dry, wet] = await Promise.all([
-      runNamedSeason("2016", rate),
-      runNamedSeason("1996", rate),
-    ]);
+    // Sequential, not Promise.all -- see the tillage-compare panel's own comment
+    // for why concurrent calls sharing Pyodide's global namespace is a real bug.
+    const dry = await runNamedSeason("2016", rate);
+    const wet = await runNamedSeason("1996", rate);
     drawNBalanceBars(document.getElementById("nBalanceChartRain"), [
       { label: "2016", sublabel: "dry year", uptake: dry.n_uptake_kg_ha, leached: dry.n_leached_kg_ha, remaining: dry.n_remaining_kg_ha },
       { label: "1996", sublabel: "wet year", uptake: wet.n_uptake_kg_ha, leached: wet.n_leached_kg_ha, remaining: wet.n_remaining_kg_ha },
@@ -2781,10 +2784,9 @@ document.getElementById("nBalanceBtn").addEventListener("click", async () => {
       resolveSiteAt({ lat: SOIL_COMPARE_B.lat, lng: SOIL_COMPARE_B.lng }),
     ]);
     status.textContent = "Running the soil comparison...";
-    const [iowa, kansas] = await Promise.all([
-      runResolvedSiteSeason(resolvedIowa, SOIL_COMPARE_YEAR, rate),
-      runResolvedSiteSeason(resolvedKansas, SOIL_COMPARE_YEAR, rate),
-    ]);
+    // Sequential, not Promise.all -- same shared-Pyodide-global race as above.
+    const iowa = await runResolvedSiteSeason(resolvedIowa, SOIL_COMPARE_YEAR, rate);
+    const kansas = await runResolvedSiteSeason(resolvedKansas, SOIL_COMPARE_YEAR, rate);
     drawNBalanceBars(document.getElementById("nBalanceChartSoil"), [
       { label: SOIL_COMPARE_A.label, sublabel: resolvedIowa.soilCell.compname, uptake: iowa.n_uptake_kg_ha, leached: iowa.n_leached_kg_ha, remaining: iowa.n_remaining_kg_ha },
       { label: SOIL_COMPARE_B.label, sublabel: resolvedKansas.soilCell.compname, uptake: kansas.n_uptake_kg_ha, leached: kansas.n_leached_kg_ha, remaining: kansas.n_remaining_kg_ha },
