@@ -52,7 +52,7 @@
 
 <div class="tabnav" id="tabnav"></div>
 
-<div id="tab-1" class="tab-content">
+<div id="tab-watch-season" class="tab-content">
   <div class="panel">
     <div class="panel-header"><h2>Watch a Season Grow</h2></div>
     <div class="panel-body">
@@ -81,7 +81,7 @@
   <iframe class="embed-frame" src="prototypes/engine-demo.html?embed=run-season" title="Run a season"></iframe>
 </div>
 
-<div id="tab-2" class="tab-content">
+<div id="tab-outcome-compare" class="tab-content">
   <div class="panel">
     <div class="panel-header"><h2>What Changes the Outcome?</h2></div>
     <div class="panel-body">
@@ -105,7 +105,7 @@
   </div>
 </div>
 
-<div id="tab-3" class="tab-content">
+<div id="tab-crop-choice" class="tab-content">
   <div class="panel">
     <div class="panel-header"><h2>Does Crop Choice Matter?</h2></div>
     <div class="panel-body">
@@ -122,25 +122,52 @@
   </div>
 </div>
 
-<div id="tab-4" class="tab-content">
+<div id="tab-tillage" class="tab-content">
   <div class="panel">
-    <div class="panel-header"><h2>Nitrogen and Tillage: No Single Best Rate</h2></div>
+    <div class="panel-header"><h2>Does Tillage Matter?</h2></div>
     <div class="panel-body">
       <div class="stub-tag">Not built yet</div>
       <p>
-        The richest piece already built, largely as-is: a fourteen-point nitrogen sweep,
-        an economic overlay (grain price vs. fertilizer cost), a tillage-practice
-        choice, and the profit-vs-leaching frontier chart with three marked positions
-        &mdash; a farmer maximizing profit, a water-quality advocate minimizing runoff
-        without demanding zero fertilizer, and a policymaker balancing both. The point
-        of this tab: every one of those three is standing on the same curve, and there
-        is no rate that's simply "best" independent of which of them you are.
+        Same site, same weather year, same nitrogen rate &mdash; only the tillage
+        practice changes, across the same five real implements already built into the
+        engine (no tillage, field cultivator, chisel plow, disk, moldboard plow,
+        spanning the real no-till-to-conventional intensity spectrum). Two real,
+        already-verified mechanisms drive what you'll see: tillage genuinely mixes soil
+        moisture within the implement's own real depth, and it temporarily boosts
+        background soil nitrogen, sized by the implement's own real mixing-efficiency
+        number, not a guess.
+      </p>
+      <p>
+        The catch, and the actual point of this tab: this only shows up when nitrogen
+        is the limiting factor. Run the comparison at a low nitrogen rate and tillage
+        measurably raises yield; run the exact same comparison at a high, non-limiting
+        rate and tillage does almost nothing &mdash; a real result already confirmed in
+        this engine, not asserted. Whether tillage "matters" depends on what else is
+        already limiting the crop, not on tillage alone.
       </p>
     </div>
   </div>
 </div>
 
-<div id="tab-5" class="tab-content">
+<div id="tab-nitrogen" class="tab-content">
+  <div class="panel">
+    <div class="panel-header"><h2>Nitrogen: No Single Best Rate</h2></div>
+    <div class="panel-body">
+      <div class="stub-tag">Not built yet</div>
+      <p>
+        The richest piece already built, largely as-is: a fourteen-point nitrogen sweep,
+        an economic overlay (grain price vs. fertilizer cost), and the profit-vs-leaching
+        frontier chart with three marked positions &mdash; a farmer maximizing profit, a
+        water-quality advocate minimizing runoff without demanding zero fertilizer, and
+        a policymaker balancing both. The point of this tab: every one of those three is
+        standing on the same curve, and there is no rate that's simply "best" independent
+        of which of them you are.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div id="tab-rotation" class="tab-content">
   <div class="panel">
     <div class="panel-header"><h2>Rotations and Cover Crops</h2></div>
     <div class="panel-body">
@@ -157,7 +184,7 @@
   </div>
 </div>
 
-<div id="tab-6" class="tab-content">
+<div id="tab-open" class="tab-content">
   <div class="panel">
     <div class="panel-header"><h2>Design Your Own Investigation</h2></div>
     <div class="panel-body">
@@ -182,12 +209,13 @@
 
 <script>
 const TABS = [
-  { id: "tab-1", label: "1. Watch a Season Grow" },
-  { id: "tab-2", label: "2. What Changes the Outcome?" },
-  { id: "tab-3", label: "3. Does Crop Choice Matter?" },
-  { id: "tab-4", label: "4. Nitrogen & Tillage" },
-  { id: "tab-5", label: "5. Rotations & Cover Crops" },
-  { id: "tab-6", label: "6. Design Your Own" },
+  { id: "tab-watch-season", label: "1. Watch a Season Grow" },
+  { id: "tab-outcome-compare", label: "2. What Changes the Outcome?" },
+  { id: "tab-crop-choice", label: "3. Does Crop Choice Matter?" },
+  { id: "tab-tillage", label: "4. Does Tillage Matter?" },
+  { id: "tab-nitrogen", label: "5. Nitrogen: No Single Best Rate" },
+  { id: "tab-rotation", label: "6. Rotations & Cover Crops" },
+  { id: "tab-open", label: "7. Design Your Own" },
 ];
 
 const nav = document.getElementById("tabnav");
@@ -205,7 +233,7 @@ function showTab(id) {
   document.querySelectorAll("#tabnav button").forEach((b) => b.classList.toggle("active", b.dataset.target === id));
 }
 
-showTab("tab-1");
+showTab("tab-watch-season");
 </script>
 
 </body>
