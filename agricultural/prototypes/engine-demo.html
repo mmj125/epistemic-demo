@@ -172,6 +172,30 @@
   </div>
 </div>
 
+<div class="panel" id="panel-crop-compare">
+  <div class="panel-header"><h2>Compare two crops</h2></div>
+  <div class="panel-body">
+    <p>
+      Corn and soybean, same site and year (Rock Springs, 2012), run across the
+      full nitrogen range. Predict which one yields more with no fertilizer
+      applied at all &mdash; then see the full picture, not just that one point.
+    </p>
+    <div class="controls">
+      <button class="btn" id="cropCompareGuessA" disabled>Loading engine&hellip;</button>
+      <button class="btn" id="cropCompareGuessB" disabled>Loading engine&hellip;</button>
+    </div>
+    <div id="cropCompareStatus" style="font-family:'DM Mono',monospace;font-size:11.5px;color:var(--muted);margin:10px 0 4px;min-height:16px;"></div>
+    <div class="result" id="cropCompareResult">
+      <div class="note" id="cropCompareVerdict"></div>
+      <canvas class="chart" id="cropCompareChart" width="800" height="220" style="margin-top:12px;"></canvas>
+      <div class="legend" style="margin-top:8px;">
+        <span><span class="swatch" style="background:#2471a3;"></span>Corn</span>
+        <span><span class="swatch" style="background:#c0392b;"></span>Soybean</span>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="panel">
   <div class="panel-header"><h2>How much does nitrogen matter?</h2></div>
   <div class="panel-body">
@@ -386,9 +410,10 @@
 // there) rather than duplicating this ~600KB engine+weather blob into a second file.
 // Each recognized ?embed= value hides the page's own header/footer and every panel
 // except the one it names. "run-season" also hides "Select your site" (currentSite
-// already defaults to Rock Springs with no click needed); "year-compare" and
-// "soil-compare" (Tab 2's two predict-then-reveal comparisons) both run on fixed,
-// hardcoded years/sites, not currentSite, so they don't need that panel either.
+// already defaults to Rock Springs with no click needed); "year-compare", "soil-
+// compare", and "crop-compare" (Tab 2 and Tab 3's predict-then-reveal comparisons)
+// all run on fixed, hardcoded years/sites/crops, not currentSite, so none of them
+// need that panel either.
 // Silently does nothing for any other value, same "ignore what isn't recognized"
 // convention the meteorology deep-link params use.
 (function () {
@@ -396,6 +421,7 @@
     "run-season": "panel-run-season",
     "year-compare": "panel-year-compare",
     "soil-compare": "panel-soil-compare",
+    "crop-compare": "panel-crop-compare",
   };
   const embed = new URLSearchParams(location.search).get("embed");
   const targetId = EMBED_PANELS[embed];
@@ -504,6 +530,10 @@ async function init() {
     document.getElementById("soilCompareGuessA").textContent = `I think ${SOIL_COMPARE_A.label} yields more`;
     document.getElementById("soilCompareGuessB").disabled = false;
     document.getElementById("soilCompareGuessB").textContent = `I think ${SOIL_COMPARE_B.label} yields more`;
+    document.getElementById("cropCompareGuessA").disabled = false;
+    document.getElementById("cropCompareGuessA").textContent = "I think corn yields more";
+    document.getElementById("cropCompareGuessB").disabled = false;
+    document.getElementById("cropCompareGuessB").textContent = "I think soybean yields more";
   } catch (err) {
     status.textContent = "Failed to load: " + err.message + " (see browser console for details -- try a different browser, or check that cdn.jsdelivr.net isn't blocked on this network)";
     console.error(err);
@@ -1277,6 +1307,62 @@ function drawFrontierChart(canvas, points, highlights) {
     ctx.fillText(`${label} (${hp.n} kg N/ha)`, px + (right ? -9 : 9), py + dy);
     groupIndex++;
   });
+  ctx.textAlign = "left";
+}
+
+// General-purpose multi-series line chart (x-axis is a real numeric scale, not
+// an index or fixed 0-1 range like drawSeasonChart's canopy/water-stress lines) --
+// built for the crop-comparison sweep below, generalized rather than one-off
+// since any future "two series across a shared numeric x-axis" need can reuse it.
+function drawLineChart(canvas, xValues, series, opts) {
+  opts = opts || {};
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  const pad = { l: 42, r: 16, t: 14, b: 24 };
+  const plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
+  const xMin = Math.min(...xValues), xMax = Math.max(...xValues);
+  const allY = series.flatMap((s) => s.values);
+  const yMin = 0, yMax = Math.max(...allY) * 1.1 || 1;
+  const xSpan = (xMax - xMin) || 1, ySpan = (yMax - yMin) || 1;
+  const toPx = (x, y) => ({
+    px: pad.l + plotW * (x - xMin) / xSpan,
+    py: pad.t + plotH * (1 - (y - yMin) / ySpan),
+  });
+  ctx.strokeStyle = "#c9d8e2"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t + plotH); ctx.lineTo(pad.l + plotW, pad.t + plotH); ctx.stroke();
+  ctx.font = "10px 'DM Mono', monospace";
+  [0, 0.5, 1].forEach((f) => {
+    const y = pad.t + plotH * (1 - f);
+    ctx.strokeStyle = "#eef3f7"; ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + plotW, y); ctx.stroke();
+    ctx.fillStyle = "#5f7180";
+    ctx.fillText((yMin + ySpan * f).toFixed(1), 2, y + 3);
+  });
+  series.forEach((s) => {
+    ctx.strokeStyle = s.color; ctx.lineWidth = 2; ctx.lineJoin = "round"; ctx.lineCap = "round";
+    ctx.beginPath();
+    xValues.forEach((x, i) => {
+      const { px, py } = toPx(x, s.values[i]);
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    });
+    ctx.stroke();
+  });
+  if (opts.markerX != null) {
+    const { px } = toPx(opts.markerX, 0);
+    ctx.strokeStyle = "#5f7180"; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(px, pad.t); ctx.lineTo(px, pad.t + plotH); ctx.stroke();
+    ctx.setLineDash([]);
+    if (opts.markerLabel) {
+      ctx.fillStyle = "#5f7180"; ctx.font = "10px 'DM Mono', monospace";
+      ctx.textAlign = px > pad.l + plotW * 0.7 ? "right" : "left";
+      ctx.fillText(opts.markerLabel, px + (px > pad.l + plotW * 0.7 ? -4 : 4), pad.t + 10);
+      ctx.textAlign = "left";
+    }
+  }
+  ctx.fillStyle = "#5f7180"; ctx.textAlign = "left";
+  ctx.fillText(xValues[0] + (opts.xSuffix || ""), pad.l, H - 6);
+  ctx.textAlign = "right";
+  ctx.fillText(xValues[xValues.length - 1] + (opts.xSuffix || ""), pad.l + plotW, H - 6);
   ctx.textAlign = "left";
 }
 
@@ -2326,6 +2412,81 @@ async function handleSoilCompareGuess(guessedLabel) {
 }
 document.getElementById("soilCompareGuessA").addEventListener("click", () => handleSoilCompareGuess(SOIL_COMPARE_A.label));
 document.getElementById("soilCompareGuessB").addEventListener("click", () => handleSoilCompareGuess(SOIL_COMPARE_B.label));
+
+// --- "Compare two crops": Tab 3's predict-then-reveal panel. The predict step
+// only asks about the N=0 point, but the reveal is the full nitrogen sweep for
+// both crops overlaid on one chart, since the real point here is the crossover
+// (soybean wins at low/no nitrogen, corn takes over once fertilized) rather than
+// a single fixed-rate snapshot -- a fixed-N comparison would only show one side
+// of this and could accidentally hide the more interesting result.
+const CROP_COMPARE_YEAR = "2012";
+const CROP_COMPARE_RATES = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650];
+
+async function runCropCompareSweep() {
+  pyodide.globals.set("cc_year", CROP_COMPARE_YEAR);
+  pyodide.globals.set("cc_rates_json", JSON.stringify(CROP_COMPARE_RATES));
+  const out = await pyodide.runPythonAsync(`
+import json as _json
+_cc_rates = _json.loads(cc_rates_json)
+_plant_doy_c, _rows_c = build_season_rows(ALL_WX[cc_year], CORN)
+_plant_doy_s, _rows_s = build_season_rows(ALL_WX[cc_year], SOYBEAN)
+_corn_out, _soy_out = [], []
+for _r in _cc_rates:
+    _corn_out.append(simulate_season(_rows_c, CORN, n_rate_kg_ha=_r)["grain"])
+    _soy_out.append(simulate_season(_rows_s, SOYBEAN, n_rate_kg_ha=_r)["grain"])
+json.dumps({"rates": _cc_rates, "corn": _corn_out, "soy": _soy_out})
+`);
+  return JSON.parse(out);
+}
+
+// Linear interpolation between the two swept rates that bracket the sign flip
+// in (corn - soybean) -- the real crossover point, not just "somewhere between
+// these two 50 kg N/ha samples." Returns null if the two curves never cross
+// across the whole swept range (shouldn't happen with these two crops here,
+// checked directly before shipping, but not assumed unconditionally true).
+function findCrossover(rates, corn, soy) {
+  for (let i = 0; i < rates.length - 1; i++) {
+    const d0 = corn[i] - soy[i], d1 = corn[i + 1] - soy[i + 1];
+    if ((d0 <= 0 && d1 > 0) || (d0 >= 0 && d1 < 0)) {
+      const frac = Math.abs(d0) / (Math.abs(d0) + Math.abs(d1) || 1);
+      return rates[i] + frac * (rates[i + 1] - rates[i]);
+    }
+  }
+  return null;
+}
+
+async function handleCropCompareGuess(guessedCrop) {
+  document.getElementById("cropCompareGuessA").disabled = true;
+  document.getElementById("cropCompareGuessB").disabled = true;
+  const status = document.getElementById("cropCompareStatus");
+  status.textContent = "Running the nitrogen sweep for both crops...";
+  try {
+    const data = await runCropCompareSweep();
+    const winnerAtZero = data.corn[0] > data.soy[0] ? "corn" : "soybean";
+    const correct = guessedCrop === winnerAtZero;
+    const crossover = findCrossover(data.rates, data.corn, data.soy);
+    const verdict = document.getElementById("cropCompareVerdict");
+    verdict.innerHTML = `<b>${correct ? "Correct" : "Not quite"}</b> &mdash; at zero fertilizer, ` +
+      `${winnerAtZero} yields more (corn ${data.corn[0].toFixed(2)} vs soybean ${data.soy[0].toFixed(2)} Mg/ha). ` +
+      `You guessed ${guessedCrop}.` +
+      (crossover != null
+        ? ` But that's only part of the story: below about ${crossover.toFixed(0)} kg N/ha soybean yields more, ` +
+          `above it corn takes over and keeps climbing while soybean stays flat &mdash; soybean fixes its own ` +
+          `nitrogen (a legume), so the fertilizer rate simply doesn't change its yield either way.`
+        : "");
+    drawLineChart(document.getElementById("cropCompareChart"), data.rates,
+      [{ label: "Corn", color: "#2471a3", values: data.corn }, { label: "Soybean", color: "#c0392b", values: data.soy }],
+      { xSuffix: " kg N/ha", markerX: crossover, markerLabel: crossover != null ? `~${crossover.toFixed(0)} kg N/ha` : null });
+    document.getElementById("cropCompareResult").style.display = "block";
+    status.textContent = "";
+  } catch (err) {
+    status.textContent = "Failed: " + err.message;
+    document.getElementById("cropCompareGuessA").disabled = false;
+    document.getElementById("cropCompareGuessB").disabled = false;
+  }
+}
+document.getElementById("cropCompareGuessA").addEventListener("click", () => handleCropCompareGuess("corn"));
+document.getElementById("cropCompareGuessB").addEventListener("click", () => handleCropCompareGuess("soybean"));
 
 init();
 </script>
