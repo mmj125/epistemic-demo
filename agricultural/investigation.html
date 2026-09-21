@@ -116,27 +116,20 @@
   <div class="panel">
     <div class="panel-header"><h2>Tillage Practice</h2></div>
     <div class="panel-body">
-      <div class="stub-tag">Not built yet</div>
       <p>
-        Same site, same weather year, same nitrogen rate &mdash; only the tillage
-        practice changes, across the same five real implements already built into the
-        engine (no tillage, field cultivator, chisel plow, disk, moldboard plow,
-        spanning the real no-till-to-conventional intensity spectrum). Two real,
-        already-verified mechanisms drive what you'll see: tillage genuinely mixes soil
-        moisture within the implement's own real depth, and it temporarily boosts
-        background soil nitrogen, sized by the implement's own real mixing-efficiency
-        number, not a guess.
-      </p>
-      <p>
-        The catch, and the actual point of this tab: this only shows up when nitrogen
-        is the limiting factor. Run the comparison at a low nitrogen rate and tillage
-        measurably raises yield; run the exact same comparison at a high, non-limiting
-        rate and tillage does almost nothing &mdash; a real result already confirmed in
-        this engine, not asserted. Whether tillage "matters" depends on what else is
-        already limiting the crop, not on tillage alone.
+        Same site, same weather year, same crop &mdash; only the tillage practice
+        changes, across the same five real implements already built into the engine
+        (no tillage, chisel plow, field cultivator, disk, moldboard plow, ordered by
+        their real soil-disturbance intensity, not by name). Two real, already-verified
+        mechanisms drive what you'll see: tillage genuinely mixes soil moisture within
+        the implement's own real depth, and it temporarily boosts background soil
+        nitrogen, sized by the implement's own real mixing-efficiency number, not a
+        guess. Predict where the five practices actually spread apart: at a low
+        nitrogen rate, or a high one.
       </p>
     </div>
   </div>
+  <iframe class="embed-frame" src="prototypes/engine-demo.html?embed=tillage-compare" title="Compare tillage practices" style="height:640px;"></iframe>
 </div>
 
 <div id="tab-nitrogen" class="tab-content">

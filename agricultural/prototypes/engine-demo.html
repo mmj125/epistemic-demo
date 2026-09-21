@@ -196,6 +196,34 @@
   </div>
 </div>
 
+<div class="panel" id="panel-tillage-compare">
+  <div class="panel-header"><h2>Compare tillage practices</h2></div>
+  <div class="panel-body">
+    <p>
+      Same site, year, and crop (Rock Springs corn, 2012) run across all five
+      tillage practices this engine models, at two different nitrogen rates.
+      Tillage genuinely mixes soil moisture within the implement's own real
+      depth and temporarily boosts background soil nitrogen, sized by each
+      implement's real mixing-efficiency number &mdash; but does that actually
+      change the yield you get? Predict where the five practices will spread
+      out more: at a low, nitrogen-limited rate, or a high rate where nitrogen
+      isn't holding the crop back at all.
+    </p>
+    <div class="controls">
+      <button class="btn" id="tillageCompareGuessA" disabled>Loading engine&hellip;</button>
+      <button class="btn" id="tillageCompareGuessB" disabled>Loading engine&hellip;</button>
+    </div>
+    <div id="tillageCompareStatus" style="font-family:'DM Mono',monospace;font-size:11.5px;color:var(--muted);margin:10px 0 4px;min-height:16px;"></div>
+    <div class="result" id="tillageCompareResult">
+      <div class="note" id="tillageCompareVerdict"></div>
+      <div style="font-size:11px;color:var(--muted);margin:12px 0 2px;">Low nitrogen (50 kg N/ha)</div>
+      <canvas class="chart" id="tillageCompareChartLow" width="800" height="180"></canvas>
+      <div style="font-size:11px;color:var(--muted);margin:14px 0 2px;">High nitrogen (650 kg N/ha)</div>
+      <canvas class="chart" id="tillageCompareChartHigh" width="800" height="180"></canvas>
+    </div>
+  </div>
+</div>
+
 <div class="panel">
   <div class="panel-header"><h2>How much does nitrogen matter?</h2></div>
   <div class="panel-body">
@@ -422,6 +450,7 @@
     "year-compare": "panel-year-compare",
     "soil-compare": "panel-soil-compare",
     "crop-compare": "panel-crop-compare",
+    "tillage-compare": "panel-tillage-compare",
   };
   const embed = new URLSearchParams(location.search).get("embed");
   const targetId = EMBED_PANELS[embed];
@@ -534,6 +563,10 @@ async function init() {
     document.getElementById("cropCompareGuessA").textContent = "I think corn yields more";
     document.getElementById("cropCompareGuessB").disabled = false;
     document.getElementById("cropCompareGuessB").textContent = "I think soybean yields more";
+    document.getElementById("tillageCompareGuessA").disabled = false;
+    document.getElementById("tillageCompareGuessA").textContent = `I think ${TILLAGE_COMPARE_LOW_N} kg N/ha shows a bigger spread`;
+    document.getElementById("tillageCompareGuessB").disabled = false;
+    document.getElementById("tillageCompareGuessB").textContent = `I think ${TILLAGE_COMPARE_HIGH_N} kg N/ha shows a bigger spread`;
   } catch (err) {
     status.textContent = "Failed to load: " + err.message + " (see browser console for details -- try a different browser, or check that cdn.jsdelivr.net isn't blocked on this network)";
     console.error(err);
@@ -2020,11 +2053,17 @@ const SPECIES_REGISTRY = {
 // season start at planting, so an earlier real-world pre-plant pass has no day to
 // land on here -- a disclosed simplification, not a claim that real tillage always
 // happens on planting day itself.
+// Ordered by real mixing_efficiency (soil-disturbance intensity), not by
+// name or guess: 0 / 0.265919 / 0.371806 / 0.657771 / 0.8 -- an earlier
+// version of this list had the cultivator and chisel plow in the wrong
+// order (and mislabeled the cultivator "light"), which was backwards from
+// the real TILLAGE_IMPLEMENTS data and the actual yield effect each one
+// produces. Fixed 2026-09-21.
 const TILLAGE_OPTIONS = [
   { value: "", label: "No tillage (direct seed)" },
-  { value: "Cultivator_field_w_spike_points", label: "Field cultivator (light, reduced-till)" },
   { value: "Chisel_sweep_shovel", label: "Chisel plow (reduced-till)" },
-  { value: "Disk_tandem_heavy_primary_op", label: "Disk, tandem (moderate)" },
+  { value: "Cultivator_field_w_spike_points", label: "Field cultivator (moderate, reduced-till)" },
+  { value: "Disk_tandem_heavy_primary_op", label: "Disk, tandem (moderate-heavy)" },
   { value: "Plow_moldboard", label: "Moldboard plow (conventional, most aggressive)" },
 ];
 
@@ -2487,6 +2526,74 @@ async function handleCropCompareGuess(guessedCrop) {
 }
 document.getElementById("cropCompareGuessA").addEventListener("click", () => handleCropCompareGuess("corn"));
 document.getElementById("cropCompareGuessB").addEventListener("click", () => handleCropCompareGuess("soybean"));
+
+// --- "Compare tillage practices": Tab 4's predict-then-reveal panel. Runs the
+// same 5 real implements already backing TILLAGE_OPTIONS at two nitrogen rates,
+// confirming a real, already-verified result: tillage's soil-mixing/background-N
+// boost only shows up in yield when nitrogen is actually limiting the crop --
+// at a non-limiting rate all five practices converge to the same number.
+const TILLAGE_COMPARE_YEAR = "2012";
+const TILLAGE_COMPARE_LOW_N = 50;
+const TILLAGE_COMPARE_HIGH_N = 650;
+// Short labels for the bar chart x-axis; index-matched to TILLAGE_OPTIONS.
+const TILLAGE_COMPARE_LABELS = ["None", "Chisel", "Cultiv.", "Disk", "Moldbrd"];
+
+async function runTillageCompareSet(nRate) {
+  pyodide.globals.set("tc_year", TILLAGE_COMPARE_YEAR);
+  pyodide.globals.set("tc_n_rate", nRate);
+  pyodide.globals.set("tc_implements_json", JSON.stringify(TILLAGE_OPTIONS.map((o) => o.value)));
+  const out = await pyodide.runPythonAsync(`
+import json as _json
+_tc_implements = _json.loads(tc_implements_json)
+_tc_out = []
+for _impl in _tc_implements:
+    _plant_doy_tc, _rows_tc = build_season_rows(ALL_WX[tc_year], CORN)
+    _kwargs = dict(n_rate_kg_ha=tc_n_rate)
+    if _impl:
+        _kwargs["tillage_doy"] = _plant_doy_tc
+        _kwargs["tillage_implement"] = _impl
+    _tc_out.append(simulate_season(_rows_tc, CORN, **_kwargs)["grain"])
+json.dumps(_tc_out)
+`);
+  return JSON.parse(out);
+}
+
+async function handleTillageCompareGuess(guessedLabel) {
+  document.getElementById("tillageCompareGuessA").disabled = true;
+  document.getElementById("tillageCompareGuessB").disabled = true;
+  const status = document.getElementById("tillageCompareStatus");
+  status.textContent = "Running all five practices at both nitrogen rates...";
+  try {
+    const [lowGrain, highGrain] = await Promise.all([
+      runTillageCompareSet(TILLAGE_COMPARE_LOW_N),
+      runTillageCompareSet(TILLAGE_COMPARE_HIGH_N),
+    ]);
+    const lowSpread = Math.max(...lowGrain) - Math.min(...lowGrain);
+    const highSpread = Math.max(...highGrain) - Math.min(...highGrain);
+    const winner = lowSpread > highSpread ? "low" : "high";
+    const correct = guessedLabel === winner;
+    const verdict = document.getElementById("tillageCompareVerdict");
+    verdict.innerHTML = `<b>${correct ? "Correct" : "Not quite"}</b> &mdash; the spread across all five ` +
+      `practices is ${(lowSpread / Math.min(...lowGrain) * 100).toFixed(1)}% of the lowest value at ` +
+      `${TILLAGE_COMPARE_LOW_N} kg N/ha (${Math.min(...lowGrain).toFixed(2)}&ndash;${Math.max(...lowGrain).toFixed(2)} Mg/ha), ` +
+      `versus ${(highSpread / Math.min(...highGrain) * 100).toFixed(2)}% at ${TILLAGE_COMPARE_HIGH_N} kg N/ha ` +
+      `(all five land at ${Math.min(...highGrain).toFixed(2)} Mg/ha). ` +
+      `Nitrogen is limiting the crop at ${TILLAGE_COMPARE_LOW_N} kg N/ha, so tillage's extra background nitrogen ` +
+      `and soil-moisture mixing actually reach the plant; at ${TILLAGE_COMPARE_HIGH_N} kg N/ha the crop already ` +
+      `has all the nitrogen and water it can use, so tillage has nothing left to add. You guessed ${guessedLabel} ` +
+      `nitrogen shows the bigger spread.`;
+    drawBarChart(document.getElementById("tillageCompareChartLow"), TILLAGE_COMPARE_LABELS, lowGrain, { color: "#2471a3" });
+    drawBarChart(document.getElementById("tillageCompareChartHigh"), TILLAGE_COMPARE_LABELS, highGrain, { color: "#c0392b" });
+    document.getElementById("tillageCompareResult").style.display = "block";
+    status.textContent = "";
+  } catch (err) {
+    status.textContent = "Failed: " + err.message;
+    document.getElementById("tillageCompareGuessA").disabled = false;
+    document.getElementById("tillageCompareGuessB").disabled = false;
+  }
+}
+document.getElementById("tillageCompareGuessA").addEventListener("click", () => handleTillageCompareGuess("low"));
+document.getElementById("tillageCompareGuessB").addEventListener("click", () => handleTillageCompareGuess("high"));
 
 init();
 </script>
