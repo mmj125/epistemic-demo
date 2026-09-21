@@ -131,6 +131,47 @@
   </div>
 </div>
 
+<div class="panel" id="panel-year-compare">
+  <div class="panel-header"><h2>Compare two years</h2></div>
+  <div class="panel-body">
+    <p>
+      Two real weather years at Rock Springs, PA &mdash; same crop (corn), same
+      nitrogen rate (650 kg N/ha, non-limiting, so the only thing actually varying
+      is the weather). Predict which one yields more before you see the numbers.
+    </p>
+    <div class="controls">
+      <button class="btn" id="yearCompareGuessA" disabled>Loading engine&hellip;</button>
+      <button class="btn" id="yearCompareGuessB" disabled>Loading engine&hellip;</button>
+    </div>
+    <div id="yearCompareStatus" style="font-family:'DM Mono',monospace;font-size:11.5px;color:var(--muted);margin:10px 0 4px;min-height:16px;"></div>
+    <div class="result" id="yearCompareResult">
+      <div class="note" id="yearCompareVerdict"></div>
+      <canvas class="chart" id="yearCompareChart" width="800" height="200" style="margin-top:12px;"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="panel" id="panel-soil-compare">
+  <div class="panel-header"><h2>Compare two soils</h2></div>
+  <div class="panel-body">
+    <p>
+      Two real locations, real STATSGO2 soil profiles &mdash; same weather year
+      (2012, a real Midwest drought year both these sites actually experienced),
+      same crop (corn), same nitrogen rate (650 kg N/ha), no tillage. Predict
+      which one yields more before you see the numbers.
+    </p>
+    <div class="controls">
+      <button class="btn" id="soilCompareGuessA" disabled>Loading engine&hellip;</button>
+      <button class="btn" id="soilCompareGuessB" disabled>Loading engine&hellip;</button>
+    </div>
+    <div id="soilCompareStatus" style="font-family:'DM Mono',monospace;font-size:11.5px;color:var(--muted);margin:10px 0 4px;min-height:16px;"></div>
+    <div class="result" id="soilCompareResult">
+      <div class="note" id="soilCompareVerdict"></div>
+      <canvas class="chart" id="soilCompareChart" width="800" height="200" style="margin-top:12px;"></canvas>
+    </div>
+  </div>
+</div>
+
 <div class="panel">
   <div class="panel-header"><h2>How much does nitrogen matter?</h2></div>
   <div class="panel-body">
@@ -343,17 +384,26 @@
 // Embed mode for nesting a single panel inside agricultural/investigation.html's guided
 // tabs, the same pattern meteorology/energy-balance-sandbox.html already uses (?embed=1
 // there) rather than duplicating this ~600KB engine+weather blob into a second file.
-// ?embed=run-season hides the page's own header/footer and every panel except "Run a
-// season" (which needs no site picker shown -- currentSite already defaults to Rock
-// Springs on load with no click required). Silently does nothing for any other value,
-// same "ignore what isn't recognized" convention the meteorology deep-link params use.
+// Each recognized ?embed= value hides the page's own header/footer and every panel
+// except the one it names. "run-season" also hides "Select your site" (currentSite
+// already defaults to Rock Springs with no click needed); "year-compare" and
+// "soil-compare" (Tab 2's two predict-then-reveal comparisons) both run on fixed,
+// hardcoded years/sites, not currentSite, so they don't need that panel either.
+// Silently does nothing for any other value, same "ignore what isn't recognized"
+// convention the meteorology deep-link params use.
 (function () {
+  const EMBED_PANELS = {
+    "run-season": "panel-run-season",
+    "year-compare": "panel-year-compare",
+    "soil-compare": "panel-soil-compare",
+  };
   const embed = new URLSearchParams(location.search).get("embed");
-  if (embed !== "run-season") return;
+  const targetId = EMBED_PANELS[embed];
+  if (!targetId) return;
   document.querySelector("header").style.display = "none";
   document.querySelector("#panel-select-site").style.display = "none";
   document.querySelectorAll(".wrap > .panel").forEach((p) => {
-    if (p.id !== "panel-run-season") p.style.display = "none";
+    if (p.id !== targetId) p.style.display = "none";
   });
   document.querySelector("footer").style.display = "none";
 })();
@@ -446,6 +496,14 @@ async function init() {
     nSweepBtn.disabled = false;
     yearSweepBtn.disabled = false;
     rotationBtn.disabled = false;
+    document.getElementById("yearCompareGuessA").disabled = false;
+    document.getElementById("yearCompareGuessA").textContent = `I think ${YEAR_COMPARE_A} yields more`;
+    document.getElementById("yearCompareGuessB").disabled = false;
+    document.getElementById("yearCompareGuessB").textContent = `I think ${YEAR_COMPARE_B} yields more`;
+    document.getElementById("soilCompareGuessA").disabled = false;
+    document.getElementById("soilCompareGuessA").textContent = `I think ${SOIL_COMPARE_A.label} yields more`;
+    document.getElementById("soilCompareGuessB").disabled = false;
+    document.getElementById("soilCompareGuessB").textContent = `I think ${SOIL_COMPARE_B.label} yields more`;
   } catch (err) {
     status.textContent = "Failed to load: " + err.message + " (see browser console for details -- try a different browser, or check that cdn.jsdelivr.net isn't blocked on this network)";
     console.error(err);
@@ -1910,6 +1968,24 @@ const PRESET_SITES = [
     blurb: "Chesapeake Bay coastal plain" },
 ];
 
+// Fixed pair for "Compare two years" -- chosen from the real 37-year record,
+// not the previously-assumed 2012 (dry) vs 1993 (wet): checked directly and
+// 2012 actually slightly OUTYIELDS 1993 at Rock Springs at every nitrogen
+// rate, since 2012's national drought reputation doesn't hold locally here.
+// 2016 and 1996 are this record's real lowest- and highest-yielding years
+// (verified consistent across N=50/150/650), a real +54% gap at N=650.
+const YEAR_COMPARE_A = "2016";
+const YEAR_COMPARE_B = "1996";
+const YEAR_COMPARE_N = 650;
+
+// Fixed pair for "Compare two soils" -- reuses the same Central Iowa/Western
+// Kansas pairing already verified in the field-comparison panel's own
+// earlier session (2012, real STATSGO2 soil, real weather-tile lookup).
+const SOIL_COMPARE_A = PRESET_SITES.find((s) => s.label === "Central Iowa");
+const SOIL_COMPARE_B = PRESET_SITES.find((s) => s.label === "Western Kansas");
+const SOIL_COMPARE_YEAR = "2012";
+const SOIL_COMPARE_N = 650;
+
 function wirePresetRow(slot) {
   const row = document.getElementById(`presetRow${slot}`);
   PRESET_SITES.forEach((site) => {
@@ -2145,6 +2221,111 @@ document.getElementById("fieldRunBtn").addEventListener("click", async () => {
     status.textContent = "Couldn't run that simulation: " + err.message;
   }
 });
+
+// --- "Compare two years" and "Compare two soils": predict-then-reveal panels
+// for agricultural/investigation.html's Tab 2 (Weather and Soil), embedded via
+// ?embed=year-compare / ?embed=soil-compare. Both follow the same shape proven
+// elsewhere in this project (meteorology's Predict & Compare, engineering's
+// Push & Pull): commit to a guess via a real button click BEFORE any number is
+// shown, then reveal -- not a plain "run and look" comparison.
+
+async function runNamedSeason(year, nRate) {
+  pyodide.globals.set("cmp_year", year);
+  pyodide.globals.set("cmp_n_rate", nRate);
+  const out = await pyodide.runPythonAsync(`
+plant_doy, rows = build_season_rows(ALL_WX[cmp_year], CORN)
+res = simulate_season(rows, CORN, n_rate_kg_ha=cmp_n_rate)
+json.dumps(res)
+`);
+  return JSON.parse(out);
+}
+
+async function handleYearCompareGuess(guessedLabel) {
+  document.getElementById("yearCompareGuessA").disabled = true;
+  document.getElementById("yearCompareGuessB").disabled = true;
+  const status = document.getElementById("yearCompareStatus");
+  status.textContent = "Running both years...";
+  try {
+    const resA = await runNamedSeason(YEAR_COMPARE_A, YEAR_COMPARE_N);
+    const resB = await runNamedSeason(YEAR_COMPARE_B, YEAR_COMPARE_N);
+    const winner = resA.grain > resB.grain ? YEAR_COMPARE_A : YEAR_COMPARE_B;
+    const correct = guessedLabel === winner;
+    const verdict = document.getElementById("yearCompareVerdict");
+    verdict.innerHTML = `<b>${correct ? "Correct" : "Not quite"}</b> &mdash; ${winner} yields more ` +
+      `(${resA.grain.toFixed(2)} vs ${resB.grain.toFixed(2)} Mg/ha, a ${Math.abs(resA.grain - resB.grain).toFixed(2)} Mg/ha gap). ` +
+      `You guessed ${guessedLabel}.`;
+    drawBarChart(document.getElementById("yearCompareChart"), [YEAR_COMPARE_A, YEAR_COMPARE_B], [resA.grain, resB.grain], { colors: ["#2471a3", "#c0392b"] });
+    document.getElementById("yearCompareResult").style.display = "block";
+    status.textContent = "";
+  } catch (err) {
+    status.textContent = "Failed: " + err.message;
+    document.getElementById("yearCompareGuessA").disabled = false;
+    document.getElementById("yearCompareGuessB").disabled = false;
+  }
+}
+document.getElementById("yearCompareGuessA").addEventListener("click", () => handleYearCompareGuess(YEAR_COMPARE_A));
+document.getElementById("yearCompareGuessB").addEventListener("click", () => handleYearCompareGuess(YEAR_COMPARE_B));
+
+// Generalizes runFieldSlot()'s call-scoped-dict(CORN) pattern to an explicit
+// resolved site/year/nRate instead of reading fieldState, so this panel can
+// run two fixed named sites without touching the field-comparison panel's
+// own state either way.
+async function runResolvedSiteSeason(resolved, year, nRate) {
+  pyodide.globals.set("cmp2_wx_json", JSON.stringify(resolved.weather));
+  pyodide.globals.set("cmp2_soil_json", JSON.stringify(resolved.layers));
+  pyodide.globals.set("cmp2_year", String(year));
+  pyodide.globals.set("cmp2_n_rate", nRate);
+  const out = await pyodide.runPythonAsync(`
+import json as _json
+_cmp2_wx = _json.loads(cmp2_wx_json)
+_cmp2_soil_raw = _json.loads(cmp2_soil_json)
+def _cmp2_make_layers():
+    out = []
+    for L in _cmp2_soil_raw:
+        hyd = saxton_rawls(L["sand"], L["clay"], L["soc"] * OM_FROM_SOC)
+        out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"]))
+    return out
+_cmp2_crop = dict(CORN)
+_cmp2_crop["make_layers"] = _cmp2_make_layers
+_wx_year = _cmp2_wx.get(cmp2_year)
+_plant_doy, _rows = build_season_rows(_wx_year, _cmp2_crop)
+_res = simulate_season(_rows, _cmp2_crop, n_rate_kg_ha=cmp2_n_rate, record_history=False)
+json.dumps(_res)
+`);
+  return JSON.parse(out);
+}
+
+async function handleSoilCompareGuess(guessedLabel) {
+  document.getElementById("soilCompareGuessA").disabled = true;
+  document.getElementById("soilCompareGuessB").disabled = true;
+  const status = document.getElementById("soilCompareStatus");
+  status.textContent = "Resolving real soil and weather for both sites...";
+  try {
+    const [resolvedA, resolvedB] = await Promise.all([
+      resolveSiteAt({ lat: SOIL_COMPARE_A.lat, lng: SOIL_COMPARE_A.lng }),
+      resolveSiteAt({ lat: SOIL_COMPARE_B.lat, lng: SOIL_COMPARE_B.lng }),
+    ]);
+    status.textContent = "Running both sites...";
+    const resA = await runResolvedSiteSeason(resolvedA, SOIL_COMPARE_YEAR, SOIL_COMPARE_N);
+    const resB = await runResolvedSiteSeason(resolvedB, SOIL_COMPARE_YEAR, SOIL_COMPARE_N);
+    const winner = resA.grain > resB.grain ? SOIL_COMPARE_A.label : SOIL_COMPARE_B.label;
+    const correct = guessedLabel === winner;
+    const verdict = document.getElementById("soilCompareVerdict");
+    verdict.innerHTML = `<b>${correct ? "Correct" : "Not quite"}</b> &mdash; ${winner} yields more ` +
+      `(${resA.grain.toFixed(2)} vs ${resB.grain.toFixed(2)} Mg/ha). ` +
+      `${SOIL_COMPARE_A.label}: ${resolvedA.soilCell.compname} series. ` +
+      `${SOIL_COMPARE_B.label}: ${resolvedB.soilCell.compname} series. You guessed ${guessedLabel}.`;
+    drawBarChart(document.getElementById("soilCompareChart"), [SOIL_COMPARE_A.label, SOIL_COMPARE_B.label], [resA.grain, resB.grain], { colors: ["#2471a3", "#c0392b"] });
+    document.getElementById("soilCompareResult").style.display = "block";
+    status.textContent = "";
+  } catch (err) {
+    status.textContent = "Failed: " + err.message;
+    document.getElementById("soilCompareGuessA").disabled = false;
+    document.getElementById("soilCompareGuessB").disabled = false;
+  }
+}
+document.getElementById("soilCompareGuessA").addEventListener("click", () => handleSoilCompareGuess(SOIL_COMPARE_A.label));
+document.getElementById("soilCompareGuessB").addEventListener("click", () => handleSoilCompareGuess(SOIL_COMPARE_B.label));
 
 init();
 </script>

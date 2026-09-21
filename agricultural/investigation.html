@@ -85,24 +85,17 @@
   <div class="panel">
     <div class="panel-header"><h2>Weather and Soil</h2></div>
     <div class="panel-body">
-      <div class="stub-tag">Not built yet</div>
       <p>
-        Two predict-then-check comparisons, each isolating one variable while holding
-        everything else fixed &mdash; the same "Predict &amp; Compare" pattern already
-        proven in the meteorology unit, rather than three separate near-identical tabs.
-      </p>
-      <p>
-        <b>Weather.</b> Same site, same crop, different years &mdash; a real
-        year-range sweep of Rock Springs weather, comparing a dry year against a wet one
-        and asking you to predict the yield gap before running it.
-      </p>
-      <p>
-        <b>Soil.</b> Same weather, different real locations &mdash; two
-        fields run side by side with real STATSGO2 soil profiles, tillage held at "no
-        tillage" so soil is the only thing that's actually varying.
+        Two comparisons, each isolating one variable while holding everything else
+        fixed. Both work the same way: make your prediction first, by clicking one of
+        the two buttons &mdash; the model only runs after you've committed to a guess,
+        so you find out whether you were right rather than just reading a chart someone
+        else already ran.
       </p>
     </div>
   </div>
+  <iframe class="embed-frame" src="prototypes/engine-demo.html?embed=year-compare" title="Compare two years" style="height:480px;"></iframe>
+  <iframe class="embed-frame" src="prototypes/engine-demo.html?embed=soil-compare" title="Compare two soils" style="height:480px;margin-top:22px;"></iframe>
 </div>
 
 <div id="tab-crop-choice" class="tab-content">
