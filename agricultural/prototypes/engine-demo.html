@@ -475,61 +475,86 @@
 </div>
 
 <div class="panel" id="panel-open-investigation">
-  <div class="panel-header"><h2>Set a nitrogen policy for your assigned field</h2></div>
+  <div class="panel-header"><h2>Design a nitrogen policy for your own field</h2></div>
   <div class="panel-body">
     <p>
-      You've been assigned a real field, chosen at random from the same real soil
-      (STATSGO2) and weather (NLDAS-2) data used elsewhere on this page &mdash; corn,
-      one representative year, real prices. Reloading keeps the same field; a fresh
-      visit assigns a new one. Your job: pick a nitrogen rate as a policy recommendation
-      and argue for it.
+      Pick a real field of your own, anywhere in the CONUS, using Google Earth and a
+      KML file (see Tab 2's tutorial if you haven't done this before). Then run this
+      model against it under different conditions &mdash; change one thing at a time,
+      log what happens, and build up real evidence before you argue for a policy.
     </p>
-    <p style="font-size:12px;color:var(--muted);">
-      Not every random field makes for an interesting policy question &mdash; some
-      soils and climates barely respond to nitrogen at all, and there'd be nothing
-      real to argue about. This assigns you one where a farmer maximizing profit and
-      an advocate minimizing runoff genuinely land on different rates, checked before
-      you see it, not guaranteed by pure chance.
-    </p>
-    <div id="oiStatus" style="font-family:'DM Mono',monospace;font-size:11.5px;color:var(--muted);margin:10px 0 4px;min-height:16px;">Loading engine&hellip;</div>
-    <div class="result" id="oiResult">
-      <div class="note" id="oiFieldInfo" style="margin-bottom:14px;"></div>
-      <div class="legend" id="oiLegend" style="margin:0 0 6px;">
-        <span><span class="swatch" style="background:#1e8449;"></span>Farmer (max profit)</span>
-        <span><span class="swatch" style="background:#c0392b;"></span>Water-quality advocate</span>
-        <span><span class="swatch" style="background:#2471a3;"></span>Policymaker</span>
-        <span><span class="swatch" style="background:#e08a2e;"></span>Your policy</span>
-      </div>
-      <div style="font-size:11px;color:var(--muted);margin:0 0 4px;">Y axis: profit ($/ha) &middot; X axis: nitrogen leached (kg N/ha) &middot; each dot is one nitrogen rate</div>
-      <canvas class="chart" id="oiFrontierChart" width="800" height="240"></canvas>
-      <table id="oiTable" style="margin-top:10px;"></table>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Upload your field (KML):</div>
+    <input type="file" id="oiKmlInput" accept=".kml">
+    <div id="oiFieldResult" style="display:none;margin-top:10px;"><table id="oiFieldTable"></table></div>
+    <div class="sweep-note" id="oiFieldNote" style="display:none;"></div>
 
-      <div class="controls" style="margin-top:18px;">
-        <div class="field nrate-field">
-          <label>Your policy: nitrogen rate <span class="nrate-value" id="oiRateLabel">150</span> kg N/ha</label>
-          <input type="range" id="oiRateSlider" min="0" max="650" step="50" value="150" disabled>
-        </div>
+    <div class="controls" style="margin-top:16px;">
+      <div class="field">
+        <label>Crop</label>
+        <select id="oiCropSelect">
+          <option value="corn">Corn (grain)</option>
+          <option value="soybean">Soybean</option>
+        </select>
       </div>
-      <div class="sweep-note" id="oiPolicyNote"></div>
+      <div class="field">
+        <label>Weather year: <span id="oiYearLabel">2012</span></label>
+        <input type="range" id="oiYearSlider" min="1980" max="2016" step="1" value="2012">
+      </div>
+    </div>
+    <div class="controls">
+      <div class="field nrate-field">
+        <label>Nitrogen rate: <span class="nrate-value" id="oiNRateLabel">150</span> kg N/ha</label>
+        <input type="range" id="oiNRateSlider" min="0" max="650" step="10" value="150">
+      </div>
+      <div id="oiTillageField"></div>
+    </div>
+    <button id="oiRunBtn" class="btn" disabled>Upload a field first</button>
+    <div id="oiRunStatus" style="font-family:'DM Mono',monospace;font-size:11.5px;color:var(--muted);margin:10px 0 4px;min-height:16px;"></div>
+
+    <table id="oiLogTable" style="margin-top:14px;"></table>
+    <div class="sweep-note" id="oiLogNote" style="display:none;margin-top:8px;">
+      Log at least 2 runs, changing one lever at a time, before the policy step below unlocks.
+    </div>
+
+    <div id="oiSynthesis" style="display:none;margin-top:24px;border-top:1.5px solid var(--border);padding-top:18px;">
+      <p style="font-size:13px;color:var(--ink-soft);margin:0 0 12px;">
+        You've logged enough runs to argue a policy. Below, see what a farmer maximizing
+        profit and a water-quality advocate minimizing runoff would each choose for your
+        field's current crop/tillage/year &mdash; then write your own recommendation as
+        the policymaker who has to weigh both. There's no computed "correct" policymaker
+        answer here; that call is yours to make and defend.
+      </p>
+      <button id="oiRefBtn" class="btn btn-secondary">See reference perspectives for your field</button>
+      <div id="oiRefResult" style="display:none;margin-top:12px;">
+        <div class="legend" id="oiLegend" style="margin:0 0 6px;">
+          <span><span class="swatch" style="background:#1e8449;"></span>Farmer (max profit)</span>
+          <span><span class="swatch" style="background:#c0392b;"></span>Water-quality advocate</span>
+          <span><span class="swatch" style="background:#e08a2e;"></span>Your latest logged run</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin:0 0 4px;">Y axis: profit ($/ha) &middot; X axis: nitrogen leached (kg N/ha) &middot; each dot is one nitrogen rate, at your current crop/tillage/year</div>
+        <canvas class="chart" id="oiFrontierChart" width="800" height="240"></canvas>
+        <table id="oiRefTable" style="margin-top:10px;"></table>
+      </div>
+      <div id="oiRefNote" class="sweep-note" style="display:none;margin-top:8px;"></div>
 
       <div style="margin-top:22px;">
         <div class="field" style="margin-bottom:12px;">
-          <label>Claim &mdash; what nitrogen rate are you recommending for this field, and for which perspective?</label>
+          <label>Claim &mdash; as the policymaker for this field, what nitrogen policy are you recommending?</label>
           <textarea id="oiClaim" rows="3" style="width:100%;margin-top:4px;padding:10px;background:var(--sky);border:1.5px solid var(--border);border-radius:4px;color:var(--ink);font-family:inherit;font-size:13.5px;resize:vertical;"></textarea>
         </div>
         <div class="field" style="margin-bottom:12px;">
-          <label>Evidence &mdash; cite the actual yield, leaching, and profit numbers from your run</label>
+          <label>Evidence &mdash; cite specific runs from your log above</label>
           <textarea id="oiEvidence" rows="3" style="width:100%;margin-top:4px;padding:10px;background:var(--sky);border:1.5px solid var(--border);border-radius:4px;color:var(--ink);font-family:inherit;font-size:13.5px;resize:vertical;"></textarea>
         </div>
         <div class="field" style="margin-bottom:12px;">
-          <label>Tradeoffs &mdash; what does your recommendation cost the other two perspectives?</label>
+          <label>Tradeoffs &mdash; what does your policy cost a farmer maximizing profit, or the environment?</label>
           <textarea id="oiTradeoffs" rows="3" style="width:100%;margin-top:4px;padding:10px;background:var(--sky);border:1.5px solid var(--border);border-radius:4px;color:var(--ink);font-family:inherit;font-size:13.5px;resize:vertical;"></textarea>
         </div>
         <div class="field" style="margin-bottom:12px;">
           <label>Reflection &mdash; why is a good nitrogen policy genuinely hard to set?</label>
           <textarea id="oiReflection" rows="3" style="width:100%;margin-top:4px;padding:10px;background:var(--sky);border:1.5px solid var(--border);border-radius:4px;color:var(--ink);font-family:inherit;font-size:13.5px;resize:vertical;"></textarea>
         </div>
-        <button id="oiFeedbackBtn" class="btn" style="background:var(--ai);border-color:var(--ai);" disabled>Get AI Feedback</button>
+        <button id="oiFeedbackBtn" class="btn" style="background:var(--ai);border-color:var(--ai);">Get AI Feedback</button>
         <div class="note" id="oiFeedbackArea" style="display:none;margin-top:10px;border-left-color:var(--ai);"></div>
       </div>
     </div>
@@ -554,6 +579,7 @@
 // convention the meteorology deep-link params use.
 (function () {
   const EMBED_PANELS = {
+    "select-site": "panel-select-site",
     "run-season": "panel-run-season",
     "year-compare": "panel-year-compare",
     "soil-compare": "panel-soil-compare",
@@ -567,7 +593,11 @@
   const targetId = EMBED_PANELS[embed];
   if (!targetId) return;
   document.querySelector("header").style.display = "none";
-  document.querySelector("#panel-select-site").style.display = "none";
+  // Only force-hide "Select your site" when it ISN'T the requested panel --
+  // "select-site" embeds it directly (Tab 2's KML-upload tutorial practice).
+  if (targetId !== "panel-select-site") {
+    document.querySelector("#panel-select-site").style.display = "none";
+  }
   document.querySelectorAll(".wrap > .panel").forEach((p) => {
     if (p.id !== targetId) p.style.display = "none";
   });
@@ -680,7 +710,8 @@ async function init() {
     document.getElementById("tillageCompareGuessB").textContent = `I think ${TILLAGE_COMPARE_HIGH_N} kg N/ha shows a bigger spread`;
     document.getElementById("nBalanceBtn").disabled = false;
     document.getElementById("nBalanceBtn").textContent = "Run comparison";
-    oiFindField();
+    oiEngineReady = true;
+    oiUpdateRunButton();
   } catch (err) {
     status.textContent = "Failed to load: " + err.message + " (see browser console for details -- try a different browser, or check that cdn.jsdelivr.net isn't blocked on this network)";
     console.error(err);
@@ -1905,6 +1936,15 @@ json.dumps({
 const FIELD_TILE_DEG = 5;
 
 function parseFieldKML(kmlText) {
+  // A KMZ file (Google Earth's zipped export format) starts with the ZIP magic
+  // bytes "PK" -- those two bytes survive UTF-8 decoding intact even though the
+  // rest of a binary zip won't, so this check is reliable without needing to
+  // actually unzip anything. Called out with its own message since exporting a
+  // .kmz instead of a plain .kml is the single most likely real trip-up (Google
+  // Earth Web's own "Export as KML file" option can still produce a .kmz).
+  if (kmlText.slice(0, 2) === "PK") {
+    throw new Error('This looks like a zipped KMZ file, not a plain KML file. Re-export/save it as "KML" (not "KMZ") -- see the tutorial for exact steps -- and try again.');
+  }
   const doc = new DOMParser().parseFromString(kmlText, "text/xml");
   if (doc.querySelector("parsererror")) throw new Error("That file isn't valid KML/XML.");
   const placemarks = Array.from(doc.getElementsByTagName("Placemark"));
@@ -2799,57 +2839,176 @@ document.getElementById("nBalanceBtn").addEventListener("click", async () => {
   btn.disabled = false;
 });
 
-// --- "Set a nitrogen policy for your assigned field": Tab 7's open-investigation panel.
-// A real, randomly-assigned field (not a student pick) rather than predict-then-reveal --
-// per Matt directly, this tab is about designing a comparison and arguing a policy, not
-// guessing an answer. Reuses the exact seeded-PRNG-in-URL pattern anthropology/assessment.html
-// already established (mulberry32, seed lives in ?seed=, a reload keeps the same field, a
-// fresh visit gets a new one) for the same reason: no two students should get an identical,
-// easily-shared answer by default.
-const OI_YEAR = "2012";
-const OI_RATES = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650];
-const OI_GRAIN_PRICE = 190, OI_FERT_COST = 0.60;
-const OI_MAX_ATTEMPTS = 8;
+// --- "Design a nitrogen policy for your own field": Tab 7's open-investigation panel.
+// Rebuilt 2026-09-21 per Matt directly: a student uploads their OWN real field via KML
+// (not a randomly-assigned one -- the earlier auto-generated-scenario version is gone,
+// including its seeded-PRNG/reject-resample machinery), then runs the model under
+// several already-live conditions (crop, nitrogen rate, tillage, weather year), logging
+// each run, before writing a final policy recommendation. Per Matt directly, only that
+// final step needs to be framed as the policymaker's -- the exploration phase itself
+// isn't locked into any one stakeholder lens.
 const OI_FEEDBACK_ENDPOINT = "https://epistemic-feedback.mmjohnson0505.workers.dev/";
+const OI_GRAIN_PRICE = 190, OI_FERT_COST = 0.60;
+const OI_SWEEP_RATES = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650];
 
-function mulberry32(seed) {
-  return function () {
-    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
+document.getElementById("oiTillageField").innerHTML = buildTillageFieldHTML("oiTillage");
+
+let oiField = null;   // resolved KML site: { weather, layers, soilLabel, centroid }
+let oiEngineReady = false;
+const oiRunLog = [];  // every logged run, appended, never overwritten
+
+function oiUpdateRunButton() {
+  const btn = document.getElementById("oiRunBtn");
+  if (!oiField) { btn.disabled = true; btn.textContent = "Upload a field first"; return; }
+  if (!oiEngineReady) { btn.disabled = true; btn.textContent = "Loading engine..."; return; }
+  btn.disabled = false;
+  btn.textContent = "Run this scenario";
 }
 
-function oiGetOrCreateSeed() {
-  const url = new URL(location.href);
-  let seed = url.searchParams.get("seed");
-  if (!seed) {
-    seed = Math.floor(Math.random() * 1e9);
-    url.searchParams.set("seed", seed);
-    history.replaceState(null, "", url);
+document.getElementById("oiKmlInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const note = document.getElementById("oiFieldNote");
+  const result = document.getElementById("oiFieldResult");
+  oiField = null;
+  oiUpdateRunButton();
+  try {
+    const text = await file.text();
+    const parsed = parseFieldKML(text);
+    const centroid = parsed.kind === "point" ? { lat: parsed.lat, lng: parsed.lng } : fieldPolygonCentroid(parsed.vertices);
+    const r = await resolveSiteAt(centroid);
+    document.getElementById("oiFieldTable").innerHTML = `
+      <tr><th>Field centroid</th><td>${centroid.lat.toFixed(4)}, ${centroid.lng.toFixed(4)}</td></tr>
+      <tr><th>Nearest soil profile</th><td>${r.soilCell.compname} series, ${r.soilDist.toFixed(2)}&deg; away</td></tr>
+      <tr><th>Topsoil (real STATSGO2)</th><td>${r.topsoil.clay}% clay, ${r.topsoil.sand}% sand, ${r.topsoil.soc.toFixed(2)}% SOC</td></tr>
+      <tr><th>Nearest weather cell</th><td>${r.wxOut ? "no coverage" : `${r.wxCell[0].toFixed(2)}, ${r.wxCell[1].toFixed(2)} (${r.wxDist.toFixed(2)}&deg; away)`}</td></tr>
+    `;
+    result.style.display = "block";
+    if (r.soilOut || r.wxOut) {
+      note.textContent = "This point falls outside real CONUS coverage -- likely ocean, a Great Lake, or just past the border. Try a point further inland.";
+    } else {
+      oiField = { centroid, soilLayers: r.layers, weather: r.weather, soilLabel: r.soilCell.compname };
+      note.textContent = "Real soil and weather both resolved for this field -- ready to run.";
+    }
+    note.style.display = "block";
+  } catch (err) {
+    result.style.display = "none";
+    note.textContent = "Couldn't read that file: " + err.message;
+    note.style.display = "block";
   }
-  return parseInt(seed, 10);
-}
+  oiUpdateRunButton();
+});
 
-let oiCandidateCellsCache = null;
-async function oiAllCandidateCells() {
-  if (oiCandidateCellsCache) return oiCandidateCellsCache;
-  const manifest = await loadFieldWeatherManifest();
-  const cells = [];
-  Object.values(manifest.tiles).forEach((tile) => {
-    tile.cells.forEach(([lat, lon]) => cells.push({ lat, lng: lon }));
-  });
-  oiCandidateCellsCache = cells;
-  return cells;
-}
+document.getElementById("oiYearSlider").addEventListener("input", () => {
+  document.getElementById("oiYearLabel").textContent = document.getElementById("oiYearSlider").value;
+});
+document.getElementById("oiNRateSlider").addEventListener("input", () => {
+  document.getElementById("oiNRateLabel").textContent = document.getElementById("oiNRateSlider").value;
+});
 
-async function oiRunSweep(resolved) {
-  pyodide.globals.set("oi_wx_json", JSON.stringify(resolved.weather));
-  pyodide.globals.set("oi_soil_json", JSON.stringify(resolved.layers));
-  pyodide.globals.set("oi_year", OI_YEAR);
-  pyodide.globals.set("oi_rates_json", JSON.stringify(OI_RATES));
+// Single simulate_season call against the uploaded field, generalized from
+// runFieldSlot()'s exact call-scoped-dict(crop) pattern to a variable crop
+// (via the CROPS registry) and a variable N rate, instead of runFieldSlot's
+// fixed CORN/150. Never touches the field-comparison panel's own fieldState.
+async function runOiScenario(cropKey, nRate, tillageVal, year) {
+  pyodide.globals.set("oi_wx_json", JSON.stringify(oiField.weather));
+  pyodide.globals.set("oi_soil_json", JSON.stringify(oiField.soilLayers));
+  pyodide.globals.set("oi_crop_key", cropKey);
+  pyodide.globals.set("oi_n_rate", nRate);
+  pyodide.globals.set("oi_tillage", tillageVal || "");
+  pyodide.globals.set("oi_year", String(year));
   const out = await pyodide.runPythonAsync(`
+import json as _json
+_oi_wx = _json.loads(oi_wx_json)
+_oi_soil_raw = _json.loads(oi_soil_json)
+def _oi_make_layers():
+    out = []
+    for L in _oi_soil_raw:
+        hyd = saxton_rawls(L["sand"], L["clay"], L["soc"] * OM_FROM_SOC)
+        out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"]))
+    return out
+_oi_crop = dict(CROPS[oi_crop_key])
+_oi_crop["make_layers"] = _oi_make_layers
+_oi_tillage_val = oi_tillage or None
+_wx_year = _oi_wx.get(oi_year)
+if _wx_year is None:
+    _result = {"error": f"No weather data for {oi_year}"}
+else:
+    _plant_doy, _rows = build_season_rows(_wx_year, _oi_crop)
+    _res = simulate_season(_rows, _oi_crop, n_rate_kg_ha=oi_n_rate, record_history=False,
+                            tillage_doy=(_plant_doy if _oi_tillage_val else None),
+                            tillage_implement=_oi_tillage_val)
+    _result = {"plant_doy": _plant_doy, **_res}
+json.dumps(_result)
+`);
+  return JSON.parse(out);
+}
+
+function oiRenderLog() {
+  const table = document.getElementById("oiLogTable");
+  table.innerHTML = `<tr><th>#</th><th>Crop</th><th>N (kg/ha)</th><th>Tillage</th><th>Year</th><th>Yield (Mg/ha)</th><th>Leached (kg N/ha)</th></tr>` +
+    oiRunLog.map((r, i) => `<tr><td>${i + 1}</td><td>${r.cropLabel}</td><td>${r.nRate}</td><td>${r.tillageLabel}</td>` +
+      `<td>${r.year}</td><td>${r.grain.toFixed(2)}</td><td>${r.leached.toFixed(1)}</td></tr>`).join("");
+  document.getElementById("oiLogNote").style.display = oiRunLog.length < 2 ? "block" : "none";
+  document.getElementById("oiSynthesis").style.display = oiRunLog.length >= 2 ? "block" : "none";
+}
+
+document.getElementById("oiRunBtn").addEventListener("click", async () => {
+  const status = document.getElementById("oiRunStatus");
+  const btn = document.getElementById("oiRunBtn");
+  btn.disabled = true;
+  status.textContent = "Running...";
+  try {
+    const cropKey = document.getElementById("oiCropSelect").value;
+    const cropLabel = document.getElementById("oiCropSelect").selectedOptions[0].textContent;
+    const nRate = parseInt(document.getElementById("oiNRateSlider").value, 10);
+    const tillageVal = document.getElementById("oiTillage").value;
+    const tillageLabel = document.getElementById("oiTillage").selectedOptions[0].textContent;
+    const year = parseInt(document.getElementById("oiYearSlider").value, 10);
+    const res = await runOiScenario(cropKey, nRate, tillageVal, year);
+    if (res.error) {
+      status.textContent = res.error;
+    } else {
+      oiRunLog.push({ cropKey, cropLabel, nRate, tillageVal, tillageLabel, year, grain: res.grain, leached: res.n_leached_kg_ha ?? 0 });
+      oiRenderLog();
+      status.textContent = "";
+    }
+  } catch (err) {
+    status.textContent = "Failed: " + err.message;
+  }
+  oiUpdateRunButton();
+});
+
+// 14-point nitrogen sweep at the CURRENT crop/tillage/year controls (not tied to
+// any one logged run), reusing the already-built, already-verified drawFrontierChart()
+// with zero new charting code. Deliberately shows only the farmer and water-advocate
+// reference points, not a third auto-computed "policymaker" dot -- the whole point of
+// this step is that the student IS the policymaker, making their own judgment call,
+// not confirming a formula's output.
+document.getElementById("oiRefBtn").addEventListener("click", async () => {
+  const note = document.getElementById("oiRefNote");
+  const result = document.getElementById("oiRefResult");
+  const cropKey = document.getElementById("oiCropSelect").value;
+  if (cropKey === "soybean") {
+    result.style.display = "none";
+    note.textContent = "Nitrogen doesn't affect soybean yield (it fixes its own, as a legume) -- switch to corn to see a real profit/leaching tradeoff.";
+    note.style.display = "block";
+    return;
+  }
+  note.style.display = "none";
+  const btn = document.getElementById("oiRefBtn");
+  btn.disabled = true;
+  btn.textContent = "Running sweep...";
+  try {
+    const tillageVal = document.getElementById("oiTillage").value;
+    const year = String(document.getElementById("oiYearSlider").value);
+    pyodide.globals.set("oi_wx_json", JSON.stringify(oiField.weather));
+    pyodide.globals.set("oi_soil_json", JSON.stringify(oiField.soilLayers));
+    pyodide.globals.set("oi_crop_key", cropKey);
+    pyodide.globals.set("oi_tillage", tillageVal || "");
+    pyodide.globals.set("oi_year", year);
+    pyodide.globals.set("oi_rates_json", JSON.stringify(OI_SWEEP_RATES));
+    const out = await pyodide.runPythonAsync(`
 import json as _json
 _oi_wx = _json.loads(oi_wx_json)
 _oi_soil_raw = _json.loads(oi_soil_json)
@@ -2860,140 +3019,52 @@ def _oi_make_layers():
         hyd = saxton_rawls(L["sand"], L["clay"], L["soc"] * OM_FROM_SOC)
         out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"]))
     return out
-_oi_crop = dict(CORN)
+_oi_crop = dict(CROPS[oi_crop_key])
 _oi_crop["make_layers"] = _oi_make_layers
+_oi_tillage_val = oi_tillage or None
 _wx_year = _oi_wx.get(oi_year)
 _plant_doy, _rows = build_season_rows(_wx_year, _oi_crop)
 _out = []
 for _r in _oi_rates:
-    _res = simulate_season(_rows, _oi_crop, n_rate_kg_ha=_r)
+    _res = simulate_season(_rows, _oi_crop, n_rate_kg_ha=_r, record_history=False,
+                            tillage_doy=(_plant_doy if _oi_tillage_val else None),
+                            tillage_implement=_oi_tillage_val)
     _out.append({"n_rate": _r, "grain": _res["grain"], "leached": _res.get("n_leached_kg_ha", 0.0)})
 json.dumps(_out)
 `);
-  return JSON.parse(out);
-}
-
-// Deliberately duplicates renderProfitChart()'s own farmer/water-advocate/policymaker
-// logic (Tab 5's already-shipped nitrogen-sweep panel) rather than refactoring that
-// panel to call this -- avoids any regression risk to already-verified Tab 5 behavior
-// while this new panel is being built and tested.
-function computeThreePerspectives(data, grainPrice, fertCost) {
-  const profits = data.map((d) => d.grain * grainPrice - d.n_rate * fertCost);
-  let farmerIdx = 0;
-  profits.forEach((p, i) => { if (p > profits[farmerIdx]) farmerIdx = i; });
-  const maxGrain = Math.max(...data.map((d) => d.grain));
-  const yieldFloor = 0.8 * maxGrain;
-  const floorCandidates = data.map((d, i) => i).filter((i) => data[i].grain >= yieldFloor);
-  let waterIdx = floorCandidates.length
-    ? floorCandidates.reduce((best, i) => data[i].leached < data[best].leached ? i : best, floorCandidates[0])
-    : data.reduce((best, d, i) => d.grain > data[best].grain ? i : best, 0);
-  const minProfit = Math.min(...profits), maxProfit = Math.max(...profits);
-  const minLeach = Math.min(...data.map((d) => d.leached)), maxLeach = Math.max(...data.map((d) => d.leached));
-  const profitSpan = (maxProfit - minProfit) || 1, leachSpan = (maxLeach - minLeach) || 1;
-  const rangeLo = Math.min(farmerIdx, waterIdx), rangeHi = Math.max(farmerIdx, waterIdx);
-  let policyIdx = rangeLo, bestScore = -Infinity;
-  for (let i = rangeLo; i <= rangeHi; i++) {
-    const score = (profits[i] - minProfit) / profitSpan - (data[i].leached - minLeach) / leachSpan;
-    if (score > bestScore) { bestScore = score; policyIdx = i; }
-  }
-  return { profits, farmerIdx, waterIdx, policyIdx };
-}
-
-// Draws a real random real-weather-cell candidate each attempt (not a synthetic point --
-// every candidate is a cell this project's own committed weather-tiles data actually
-// covers), resolves it, and accepts the first one where the farmer's and water advocate's
-// rates genuinely differ -- confirmed by direct testing (40 real sampled sites, 2012 corn)
-// to succeed on about 79% of individual draws, so OI_MAX_ATTEMPTS=8 fails essentially never
-// (roughly 0.21^8, far below one in a million). Falls back to the best (largest-gap)
-// attempt seen if every one somehow comes back degenerate, rather than looping forever.
-async function oiGenerateScenario(seed) {
-  const rng = mulberry32(seed);
-  const cells = await oiAllCandidateCells();
-  let best = null, bestGap = -1;
-  for (let attempt = 0; attempt < OI_MAX_ATTEMPTS; attempt++) {
-    const cell = cells[Math.floor(rng() * cells.length)];
-    const resolved = await resolveSiteAt({ lat: cell.lat, lng: cell.lng });
-    if (resolved.soilOut || resolved.wxOut || !resolved.weather[OI_YEAR]) continue;
-    const data = await oiRunSweep(resolved);
-    const { profits, farmerIdx, waterIdx, policyIdx } = computeThreePerspectives(data, OI_GRAIN_PRICE, OI_FERT_COST);
-    const gap = Math.abs(data[farmerIdx].n_rate - data[waterIdx].n_rate);
-    const result = { cell, resolved, data, profits, farmerIdx, waterIdx, policyIdx, gap };
-    if (gap > bestGap) { best = result; bestGap = gap; }
-    if (gap > 0) return result;
-  }
-  return best;
-}
-
-let oiScenario = null;
-
-function oiRedraw() {
-  if (!oiScenario) return;
-  const { data, profits, farmerIdx, waterIdx, policyIdx } = oiScenario;
-  const points = data.map((d, i) => ({ x: d.leached, y: profits[i] }));
-  const rate = parseInt(document.getElementById("oiRateSlider").value, 10);
-  const yourIdx = data.findIndex((d) => d.n_rate === rate);
-  const highlights = [
-    { idx: farmerIdx, color: "#1e8449", label: "Farmer" },
-    { idx: waterIdx, color: "#c0392b", label: "Water advocate" },
-    { idx: policyIdx, color: "#2471a3", label: "Policymaker" },
-  ];
-  if (yourIdx !== -1) highlights.push({ idx: yourIdx, color: "#e08a2e", label: "Your policy" });
-  drawFrontierChart(document.getElementById("oiFrontierChart"), points, highlights);
-  oiUpdatePolicyNote();
-}
-
-function oiUpdatePolicyNote() {
-  if (!oiScenario) return;
-  const { data, profits } = oiScenario;
-  const rate = parseInt(document.getElementById("oiRateSlider").value, 10);
-  const idx = data.findIndex((d) => d.n_rate === rate);
-  if (idx === -1) return;
-  document.getElementById("oiPolicyNote").innerHTML =
-    `At ${rate} kg N/ha: <b>${data[idx].grain.toFixed(2)} Mg/ha</b> yield, ` +
-    `<b>${data[idx].leached.toFixed(1)} kg N/ha</b> leached, <b>$${profits[idx].toFixed(0)}/ha</b> profit.`;
-}
-document.getElementById("oiRateSlider").addEventListener("input", () => {
-  document.getElementById("oiRateLabel").textContent = document.getElementById("oiRateSlider").value;
-  oiRedraw();
-});
-
-function oiRenderScenario(scenario) {
-  oiScenario = scenario;
-  const { resolved, data, profits, farmerIdx, waterIdx, policyIdx } = scenario;
-  document.getElementById("oiFieldInfo").innerHTML =
-    `Your assigned field: <b>${resolved.centroid.lat.toFixed(2)}, ${resolved.centroid.lng.toFixed(2)}</b> ` +
-    `&mdash; nearest real soil series: <b>${resolved.soilCell.compname}</b>. Corn, ${OI_YEAR} weather, ` +
-    `$${OI_GRAIN_PRICE}/Mg grain price, $${OI_FERT_COST}/kg N fertilizer cost.`;
-  const rows = [
-    { label: "Farmer (max profit)", idx: farmerIdx, color: "#1e8449" },
-    { label: "Water-quality advocate", idx: waterIdx, color: "#c0392b" },
-    { label: "Policymaker (balances both)", idx: policyIdx, color: "#2471a3" },
-  ];
-  document.getElementById("oiTable").innerHTML = `<tr><th>Perspective</th><th>N applied</th><th>Yield</th><th>Leached</th><th>Profit</th></tr>` +
-    rows.map((r) => `<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;` +
-      `background:${r.color};margin-right:6px;vertical-align:middle;"></span>${r.label}</td>` +
-      `<td>${data[r.idx].n_rate} kg N/ha</td><td>${data[r.idx].grain.toFixed(2)} Mg/ha</td>` +
-      `<td>${data[r.idx].leached.toFixed(1)} kg N/ha</td><td>$${profits[r.idx].toFixed(0)}/ha</td></tr>`).join("");
-  document.getElementById("oiRateSlider").disabled = false;
-  document.getElementById("oiRateSlider").value = "150";
-  document.getElementById("oiRateLabel").textContent = "150";
-  document.getElementById("oiFeedbackBtn").disabled = false;
-  oiRedraw();
-  document.getElementById("oiResult").style.display = "block";
-}
-
-async function oiFindField() {
-  const status = document.getElementById("oiStatus");
-  status.textContent = "Finding your assigned field...";
-  try {
-    const seed = oiGetOrCreateSeed();
-    const scenario = await oiGenerateScenario(seed);
-    oiRenderScenario(scenario);
-    status.textContent = "";
+    const data = JSON.parse(out);
+    const profits = data.map((d) => d.grain * OI_GRAIN_PRICE - d.n_rate * OI_FERT_COST);
+    let farmerIdx = 0;
+    profits.forEach((p, i) => { if (p > profits[farmerIdx]) farmerIdx = i; });
+    const maxGrain = Math.max(...data.map((d) => d.grain));
+    const floorCandidates = data.map((d, i) => i).filter((i) => data[i].grain >= 0.8 * maxGrain);
+    const waterIdx = floorCandidates.length
+      ? floorCandidates.reduce((best, i) => data[i].leached < data[best].leached ? i : best, floorCandidates[0])
+      : data.reduce((best, d, i) => d.grain > data[best].grain ? i : best, 0);
+    const points = data.map((d, i) => ({ x: d.leached, y: profits[i] }));
+    const highlights = [
+      { idx: farmerIdx, color: "#1e8449", label: "Farmer" },
+      { idx: waterIdx, color: "#c0392b", label: "Water advocate" },
+    ];
+    if (oiRunLog.length) {
+      const latest = oiRunLog[oiRunLog.length - 1];
+      const roundedRate = Math.round(latest.nRate / 50) * 50;
+      const yourIdx = data.findIndex((d) => d.n_rate === roundedRate);
+      if (yourIdx !== -1) highlights.push({ idx: yourIdx, color: "#e08a2e", label: "Your latest run" });
+    }
+    drawFrontierChart(document.getElementById("oiFrontierChart"), points, highlights);
+    document.getElementById("oiRefTable").innerHTML = `<tr><th>Perspective</th><th>N applied</th><th>Yield</th><th>Leached</th><th>Profit</th></tr>` +
+      [{ label: "Farmer (max profit)", idx: farmerIdx, color: "#1e8449" }, { label: "Water-quality advocate", idx: waterIdx, color: "#c0392b" }]
+        .map((r) => `<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${r.color};margin-right:6px;vertical-align:middle;"></span>${r.label}</td>` +
+          `<td>${data[r.idx].n_rate} kg N/ha</td><td>${data[r.idx].grain.toFixed(2)} Mg/ha</td><td>${data[r.idx].leached.toFixed(1)} kg N/ha</td><td>$${profits[r.idx].toFixed(0)}/ha</td></tr>`).join("");
+    result.style.display = "block";
   } catch (err) {
-    status.textContent = "Failed: " + err.message;
+    note.textContent = "Failed: " + err.message;
+    note.style.display = "block";
   }
-}
+  btn.disabled = false;
+  btn.textContent = "See reference perspectives for your field";
+});
 
 document.getElementById("oiFeedbackBtn").addEventListener("click", async () => {
   const btn = document.getElementById("oiFeedbackBtn");
@@ -3009,37 +3080,29 @@ document.getElementById("oiFeedbackBtn").addEventListener("click", async () => {
   const area = document.getElementById("oiFeedbackArea");
   area.style.display = "block";
   area.textContent = "Reading your argument...";
-  const { resolved, data, profits, farmerIdx, waterIdx, policyIdx } = oiScenario;
-  const rate = parseInt(document.getElementById("oiRateSlider").value, 10);
-  const idx = data.findIndex((d) => d.n_rate === rate);
-  const summary = `Field: ${resolved.centroid.lat.toFixed(2)}, ${resolved.centroid.lng.toFixed(2)} ` +
-    `(${resolved.soilCell.compname} series), corn, ${OI_YEAR} weather. ` +
-    `Student's chosen policy: ${rate} kg N/ha (${data[idx].grain.toFixed(2)} Mg/ha yield, ` +
-    `${data[idx].leached.toFixed(1)} kg N/ha leached, $${profits[idx].toFixed(0)}/ha profit). ` +
-    `Farmer's profit-maximizing rate: ${data[farmerIdx].n_rate} kg N/ha ($${profits[farmerIdx].toFixed(0)}/ha, ` +
-    `${data[farmerIdx].leached.toFixed(1)} kg N/ha leached). ` +
-    `Water-quality advocate's rate: ${data[waterIdx].n_rate} kg N/ha ` +
-    `(${data[waterIdx].leached.toFixed(1)} kg N/ha leached, $${profits[waterIdx].toFixed(0)}/ha profit). ` +
-    `Policymaker's balanced rate: ${data[policyIdx].n_rate} kg N/ha.`;
+
+  const logSummary = oiRunLog.map((r, i) =>
+    `Run ${i + 1}: ${r.cropLabel}, ${r.nRate} kg N/ha, ${r.tillageLabel}, ${r.year} weather -- ` +
+    `${r.grain.toFixed(2)} Mg/ha yield, ${r.leached.toFixed(1)} kg N/ha leached.`
+  ).join(" ");
 
   const systemPrompt = `You are an agricultural policy instructor giving formative feedback to an undergraduate
-student on an open-ended nitrogen policy investigation. The student was assigned a real, randomly-selected field
-(real soil data and real weather) and ran a real crop model across a range of nitrogen fertilizer rates. Three
-reference positions were computed for them: a farmer maximizing profit, a water-quality advocate minimizing
-nitrogen leaching without demanding zero fertilizer (a floor of at least 80% of the field's own maximum yield),
-and a policymaker balancing the two. The student then chose their own recommended nitrogen rate as a policy and
-must argue for it. The three things this exercise is meant to teach: farmers genuinely need to make a profit,
-the environmental cost (nitrogen leaching toward the watershed) is real and matters, and a solution that
-satisfies both well is genuinely hard to find, not just a matter of picking the "nice" answer. Ground truth for
-this specific run is given below as RUN DATA -- use ONLY those numbers, do not invent additional figures. Push
-back if the argument: doesn't cite the student's own actual numbers from RUN DATA; doesn't name which
-perspective (or which tradeoff) their policy prioritizes; claims their chosen rate is costless to the other two
-perspectives when the numbers show otherwise; or treats their one run as proof rather than one real data point.
-If they argue for a rate between the three reference points, check they explain why that's a defensible
-compromise rather than an arbitrary middle. Keep the response to 180-250 words, plain language for an
-undergraduate audience, and do not use em dashes.
+student on an open-ended nitrogen policy investigation. The student uploaded their own real field (real soil and
+weather data resolved for it) and ran a real crop model multiple times, changing one condition at a time (crop,
+nitrogen rate, tillage practice, or weather year) and logging each run. They are now writing a final policy
+recommendation AS A POLICYMAKER who has to balance a farmer's need to profit against the environmental cost of
+nitrogen leaching toward the watershed -- that stakeholder framing applies only to this final step, not to the
+exploration itself. Ground truth for this student's actual runs is given below as RUN LOG -- use ONLY those
+numbers, do not invent additional figures or assume rates/results not listed. Push back if the argument: doesn't
+cite specific runs from RUN LOG; doesn't explain what changed between runs and what that isolated; claims the
+recommended policy is costless to farmers or to the environment; treats a single run as proof rather than one
+data point among several; or never actually reasons as a policymaker weighing a real tradeoff (e.g. just restates
+a preference with no cost acknowledged). If only one or two runs are logged, note that a genuinely systematic
+investigation (changing one lever at a time, several times) would make for a stronger case, without being
+punitive about it. Keep the response to 180-250 words, plain language for an undergraduate audience, and do not
+use em dashes.
 
-RUN DATA: ${summary}`;
+RUN LOG: ${logSummary || "(no runs logged)"}`;
 
   const userPrompt = `CLAIM: ${claim}\n\nEVIDENCE: ${evidence}\n\nTRADEOFFS: ${tradeoffs}\n\nREFLECTION: ${reflection}`;
 

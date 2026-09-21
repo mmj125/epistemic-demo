@@ -96,6 +96,41 @@
   </div>
   <iframe class="embed-frame" src="prototypes/engine-demo.html?embed=year-compare" title="Compare two years" style="height:480px;"></iframe>
   <iframe class="embed-frame" src="prototypes/engine-demo.html?embed=soil-compare" title="Compare two soils" style="height:480px;margin-top:22px;"></iframe>
+
+  <div class="panel" style="margin-top:22px;">
+    <div class="panel-header"><h2>Picking a real field of your own</h2></div>
+    <div class="panel-body">
+      <p>
+        The two comparisons above use fixed sites so there's a known answer to predict.
+        Later in this investigation (Open Investigation, the last tab) you'll run this
+        same model against a real field of your own choosing, anywhere in the country.
+        Learn that skill now, on something low-stakes, before it's needed for real.
+      </p>
+      <div class="note">
+        <b>Recommended: Google Earth Pro (free, desktop).</b>
+        <ol style="margin:8px 0 10px;padding-left:20px;line-height:1.8;">
+          <li>Download and open Google Earth Pro, then search for your area of interest.</li>
+          <li>Use the "Add Placemark" (a pin) or "Add Polygon" tool to mark your field.</li>
+          <li>In the "Places" panel on the left, right-click your new placemark or polygon and choose "Save Place As...".</li>
+          <li>In the save dialog, set "Save as type" to <b>Kml (*.kml)</b> &mdash; not <b>Kmz (*.kmz)</b>, which is a compressed version this tool can't read directly.</li>
+          <li>Save the file, then upload it below to see it work.</li>
+        </ol>
+        <b>Alternative: Google Earth Web (earth.google.com).</b> Draw a placemark or shape,
+        save it to a project, then use the project's "Export as KML file" option. One real
+        catch: that option can sometimes still produce a <b>.kmz</b> file despite its name.
+        If the file you download ends in <code>.kmz</code>, either look for a plain-KML
+        export option or switch to Google Earth Pro above &mdash; this tool will tell you
+        plainly if a <code>.kmz</code> slips through, rather than failing silently.
+      </div>
+      <p style="font-size:12px;color:var(--muted);">
+        This upload here is just practice &mdash; it doesn't carry forward to the Open
+        Investigation tab, which has its own upload step. Try a real place you know (your
+        hometown, a local farm, anywhere) and confirm the tool finds real soil and weather
+        data for it.
+      </p>
+    </div>
+  </div>
+  <iframe class="embed-frame" src="prototypes/engine-demo.html?embed=select-site" title="Practice: upload a field" style="height:300px;margin-top:22px;"></iframe>
 </div>
 
 <div id="tab-crop-choice" class="tab-content">
@@ -173,17 +208,18 @@
     <div class="panel-header"><h2>Open Investigation</h2></div>
     <div class="panel-body">
       <p>
-        You're assigned a real field, chosen at random from real soil and weather
-        data &mdash; not one you pick yourself, and not guaranteed to be an easy one.
-        A farmer maximizing profit, a water-quality advocate minimizing runoff, and a
-        policymaker balancing both are all computed for your field before you decide
-        anything. Your job is to set your own nitrogen policy for this specific field
-        and argue for it, citing your own numbers, naming which perspective you're
-        prioritizing, and being honest about what it costs the other two.
+        Upload a real field of your own, anywhere in the CONUS, using Google Earth and
+        a KML file &mdash; see Tab 2 if you haven't done this yet. Then run this model
+        against it under different conditions (crop, nitrogen rate, tillage, weather
+        year), changing one lever at a time and logging what happens. Once you've
+        logged at least two runs, see what a farmer maximizing profit and a
+        water-quality advocate minimizing runoff would each choose for your field,
+        then write your own final recommendation as the policymaker who has to weigh
+        both &mdash; citing specific runs from your own log, not just a preference.
       </p>
     </div>
   </div>
-  <iframe class="embed-frame" src="prototypes/engine-demo.html?embed=open-investigation" title="Set a nitrogen policy for your assigned field" style="height:1500px;"></iframe>
+  <iframe class="embed-frame" src="prototypes/engine-demo.html?embed=open-investigation" title="Design a nitrogen policy for your own field" style="height:1500px;"></iframe>
 </div>
 
 <footer>Prototype &mdash; tab sequence and content still being reviewed, not yet linked from the splash page.</footer>
