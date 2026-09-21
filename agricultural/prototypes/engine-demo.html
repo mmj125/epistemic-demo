@@ -224,6 +224,52 @@
   </div>
 </div>
 
+<div class="panel" id="panel-n-balance">
+  <div class="panel-header"><h2>Nitrogen balance</h2></div>
+  <div class="panel-body">
+    <p>
+      Fertilizer nitrogen applied to a field enters a pool in the soil. The growing
+      crop draws from that pool as it needs nitrogen. Whatever's left in the pool
+      when water drains down past the root zone washes out with that water &mdash;
+      that's the pathway this engine tracks as "leached." Anything still in the
+      pool at the end of the season hasn't gone anywhere yet, but it hasn't been
+      used either.
+    </p>
+    <p>
+      How much of the applied nitrogen ends up in each of those three places
+      depends on how much rain fell and how well the soil drains. Adjust the rate
+      below and compare a dry year against a wet one, then a sandy soil against a
+      clay-rich one.
+    </p>
+    <div class="controls">
+      <div class="field nrate-field">
+        <label>Nitrogen applied: <span class="nrate-value" id="nBalanceRateLabel">150</span> kg N/ha</label>
+        <input type="range" id="nBalanceRateSlider" min="0" max="650" step="10" value="150">
+      </div>
+    </div>
+    <button id="nBalanceBtn" class="btn btn-secondary" disabled>Loading engine&hellip;</button>
+    <div id="nBalanceStatus" style="font-family:'DM Mono',monospace;font-size:11.5px;color:var(--muted);margin:10px 0 4px;min-height:16px;"></div>
+    <div class="result" id="nBalanceResult">
+      <div class="legend" style="margin-bottom:6px;">
+        <span><span class="swatch" style="background:#1e8449;"></span>Taken up by the crop</span>
+        <span><span class="swatch" style="background:#c0392b;"></span>Leached below the root zone</span>
+        <span><span class="swatch" style="background:#7f8c9a;"></span>Still in the soil pool</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin:10px 0 2px;">A dry year vs. a wet one (Rock Springs corn)</div>
+      <canvas class="chart" id="nBalanceChartRain" width="800" height="220"></canvas>
+      <div style="font-size:11px;color:var(--muted);margin:16px 0 2px;">A sandy soil vs. a clay-rich one (2012 corn)</div>
+      <canvas class="chart" id="nBalanceChartSoil" width="800" height="220"></canvas>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-top:14px;">
+      Real Cycles also has a slope-driven surface-runoff pathway &mdash; rain that
+      never soaks in at all, rather than draining through the soil after it does
+      &mdash; which would add topography as a third real factor here. This engine
+      doesn't implement that pathway yet (and this project has no real slope data
+      for any site it uses), so only the soil-drainage route is shown.
+    </div>
+  </div>
+</div>
+
 <div class="panel">
   <div class="panel-header"><h2>How much does nitrogen matter?</h2></div>
   <div class="panel-body">
@@ -451,6 +497,7 @@
     "soil-compare": "panel-soil-compare",
     "crop-compare": "panel-crop-compare",
     "tillage-compare": "panel-tillage-compare",
+    "n-balance": "panel-n-balance",
   };
   const embed = new URLSearchParams(location.search).get("embed");
   const targetId = EMBED_PANELS[embed];
@@ -567,6 +614,8 @@ async function init() {
     document.getElementById("tillageCompareGuessA").textContent = `I think ${TILLAGE_COMPARE_LOW_N} kg N/ha shows a bigger spread`;
     document.getElementById("tillageCompareGuessB").disabled = false;
     document.getElementById("tillageCompareGuessB").textContent = `I think ${TILLAGE_COMPARE_HIGH_N} kg N/ha shows a bigger spread`;
+    document.getElementById("nBalanceBtn").disabled = false;
+    document.getElementById("nBalanceBtn").textContent = "Run comparison";
   } catch (err) {
     status.textContent = "Failed to load: " + err.message + " (see browser console for details -- try a different browser, or check that cdn.jsdelivr.net isn't blocked on this network)";
     console.error(err);
@@ -884,6 +933,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     else:
         n_pool, total_n_input_kg_ha = None, None
     n_leached_total = 0.0 if n_pool is not None else None
+    n_uptake_total = 0.0 if n_pool is not None else None
     irrigation_total_mm = 0.0
     history = [] if record_history else None
     n_stress_fraction, daily_demand, day_i = 1.0, None, 0
@@ -951,6 +1001,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             target_uptake_kg_ha = n_stress_fraction * daily_demand[day_i]
             n_uptake_kg_ha = min(n_pool, target_uptake_kg_ha)
             n_pool -= n_uptake_kg_ha
+            n_uptake_total += n_uptake_kg_ha
             profile_water_mm = sum(l["theta"] * l["thick"] * 1000 for l in layers)
             if profile_water_mm > 0 and n_pool > 0 and drainage_mm > 0:
                 leached_kg_ha = drainage_mm * (n_pool / profile_water_mm)
@@ -976,6 +1027,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         result["irrigation_mm"] = irrigation_total_mm
     if record_history:
         result["history"] = history
+    if n_uptake_total is not None:
+        result["n_uptake_kg_ha"] = n_uptake_total
+        result["n_remaining_kg_ha"] = n_pool
     return result
 
 SOIL_LAYERS_RAW = [
@@ -1195,6 +1249,40 @@ function drawBarChart(canvas, labels, values, opts) {
     if (i % step === 0 || i === n - 1) {
       ctx.fillText(lab, pad.l + gap * i + gap / 2, H - 8);
     }
+  });
+  ctx.textAlign = "left";
+}
+
+// Nitrogen-fate stacked bars for the "Nitrogen Balance" panel: one bar per scenario,
+// each split into taken-up-by-crop / leached-below-root-zone / still-in-soil-pool
+// segments (kg N/ha), all three summing to that scenario's total N supply exactly
+// (applied + background mineralization) -- see simulate_season()'s own docstring
+// on the mass-balance guarantee this relies on.
+const N_BALANCE_COLORS = { uptake: "#1e8449", leached: "#c0392b", remaining: "#7f8c9a" };
+function drawNBalanceBars(canvas, scenarios) {
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  const pad = { l: 12, r: 12, t: 10, b: 34 };
+  const plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
+  const totals = scenarios.map(s => s.uptake + s.leached + s.remaining);
+  const maxTotal = Math.max(...totals) * 1.08 || 1;
+  const n = scenarios.length;
+  const gap = plotW / n, barW = gap * 0.5;
+  scenarios.forEach((s, i) => {
+    const bx = pad.l + gap * i + (gap - barW) / 2;
+    let y = pad.t + plotH;
+    [["uptake", s.uptake], ["leached", s.leached], ["remaining", s.remaining]].forEach(([key, v]) => {
+      const h = plotH * (v / maxTotal);
+      y -= h;
+      ctx.fillStyle = N_BALANCE_COLORS[key];
+      ctx.fillRect(bx, y, barW, h);
+    });
+    ctx.fillStyle = "#101820"; ctx.font = "11px 'DM Mono', monospace"; ctx.textAlign = "center";
+    ctx.fillText(Math.round(totals[i]) + " kg", bx + barW / 2, pad.t + plotH - (plotH * (totals[i] / maxTotal)) - 6);
+    ctx.fillStyle = "#5f7180"; ctx.font = "11px 'DM Sans', sans-serif";
+    ctx.fillText(s.label, bx + barW / 2, H - 18);
+    ctx.fillText(s.sublabel || "", bx + barW / 2, H - 5);
   });
   ctx.textAlign = "left";
 }
@@ -2594,6 +2682,55 @@ async function handleTillageCompareGuess(guessedLabel) {
 }
 document.getElementById("tillageCompareGuessA").addEventListener("click", () => handleTillageCompareGuess("low"));
 document.getElementById("tillageCompareGuessB").addEventListener("click", () => handleTillageCompareGuess("high"));
+
+// --- "Nitrogen balance": Tab 5's panel. Not predict-then-reveal (deliberately, per
+// direct feedback that the pattern doesn't need to apply everywhere) -- a live
+// exploration tool instead. A shared nitrogen-rate slider drives two fixed
+// comparisons (Rock Springs dry vs. wet year; Iowa vs. Kansas soil, reusing the
+// same real sites/years already validated for Tab 2's soil-compare panel) so a
+// student can watch how much of the applied nitrogen ends up taken up, leached,
+// or still sitting in the pool as they raise or lower the rate.
+const nBalanceRateSlider = document.getElementById("nBalanceRateSlider");
+nBalanceRateSlider.addEventListener("input", () => {
+  document.getElementById("nBalanceRateLabel").textContent = nBalanceRateSlider.value;
+});
+
+document.getElementById("nBalanceBtn").addEventListener("click", async () => {
+  const rate = parseInt(nBalanceRateSlider.value, 10);
+  const status = document.getElementById("nBalanceStatus");
+  const btn = document.getElementById("nBalanceBtn");
+  btn.disabled = true;
+  try {
+    status.textContent = "Running the rain comparison...";
+    const [dry, wet] = await Promise.all([
+      runNamedSeason("2016", rate),
+      runNamedSeason("1996", rate),
+    ]);
+    drawNBalanceBars(document.getElementById("nBalanceChartRain"), [
+      { label: "2016", sublabel: "dry year", uptake: dry.n_uptake_kg_ha, leached: dry.n_leached_kg_ha, remaining: dry.n_remaining_kg_ha },
+      { label: "1996", sublabel: "wet year", uptake: wet.n_uptake_kg_ha, leached: wet.n_leached_kg_ha, remaining: wet.n_remaining_kg_ha },
+    ]);
+    status.textContent = "Resolving real soil and weather for the soil comparison...";
+    const [resolvedIowa, resolvedKansas] = await Promise.all([
+      resolveSiteAt({ lat: SOIL_COMPARE_A.lat, lng: SOIL_COMPARE_A.lng }),
+      resolveSiteAt({ lat: SOIL_COMPARE_B.lat, lng: SOIL_COMPARE_B.lng }),
+    ]);
+    status.textContent = "Running the soil comparison...";
+    const [iowa, kansas] = await Promise.all([
+      runResolvedSiteSeason(resolvedIowa, SOIL_COMPARE_YEAR, rate),
+      runResolvedSiteSeason(resolvedKansas, SOIL_COMPARE_YEAR, rate),
+    ]);
+    drawNBalanceBars(document.getElementById("nBalanceChartSoil"), [
+      { label: SOIL_COMPARE_A.label, sublabel: resolvedIowa.soilCell.compname, uptake: iowa.n_uptake_kg_ha, leached: iowa.n_leached_kg_ha, remaining: iowa.n_remaining_kg_ha },
+      { label: SOIL_COMPARE_B.label, sublabel: resolvedKansas.soilCell.compname, uptake: kansas.n_uptake_kg_ha, leached: kansas.n_leached_kg_ha, remaining: kansas.n_remaining_kg_ha },
+    ]);
+    document.getElementById("nBalanceResult").style.display = "block";
+    status.textContent = "";
+  } catch (err) {
+    status.textContent = "Failed: " + err.message;
+  }
+  btn.disabled = false;
+});
 
 init();
 </script>

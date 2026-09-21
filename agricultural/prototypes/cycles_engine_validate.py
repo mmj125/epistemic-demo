@@ -678,7 +678,14 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     with drainage as before); it no longer drives growth stress directly.
     record_history: when True, also returns a day-by-day "history" list (doy, canopy cover,
     water stress, cumulative aboveground biomass) for charting a season's progression --
-    purely additive, no effect on any of the other returned values or existing callers."""
+    purely additive, no effect on any of the other returned values or existing callers.
+
+    When nitrogen tracking is active, the result also carries n_uptake_kg_ha (cumulative N
+    actually drawn into the crop over the season) and n_remaining_kg_ha (whatever is left in
+    the mineral-N pool at season end -- not yet taken up, not yet leached). Together with
+    n_leached_kg_ha these three account for the full nitrogen mass balance: total supply
+    (n_rate_kg_ha/n_applications + n_credit_kg_ha + manure contribution + background
+    mineralization) equals uptake + leached + remaining, to floating-point precision."""
     layers = crop["make_layers"]()
     tillage_depth_m, tillage_mixing_efficiency = None, None
     if tillage_doy is not None:
@@ -708,6 +715,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     else:
         n_pool, total_n_input_kg_ha = None, None
     n_leached_total = 0.0 if n_pool is not None else None
+    n_uptake_total = 0.0 if n_pool is not None else None
     irrigation_total_mm = 0.0
     history = [] if record_history else None
 
@@ -803,6 +811,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             target_uptake_kg_ha = n_stress_fraction * daily_demand[day_i]
             n_uptake_kg_ha = min(n_pool, target_uptake_kg_ha)
             n_pool -= n_uptake_kg_ha
+            n_uptake_total += n_uptake_kg_ha
             profile_water_mm = sum(l["theta"] * l["thick"] * 1000 for l in layers)
             if profile_water_mm > 0 and n_pool > 0 and drainage_mm > 0:
                 leached_kg_ha = drainage_mm * (n_pool / profile_water_mm)
@@ -832,4 +841,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         result["irrigation_mm"] = irrigation_total_mm
     if record_history:
         result["history"] = history
+    if n_uptake_total is not None:
+        result["n_uptake_kg_ha"] = n_uptake_total
+        result["n_remaining_kg_ha"] = n_pool
     return result
