@@ -116,81 +116,74 @@
   <div class="panel">
     <div class="panel-header"><h2>Tillage Practice</h2></div>
     <div class="panel-body">
-      <div class="stub-tag">Not built yet</div>
       <p>
-        Same site, same weather year, same nitrogen rate &mdash; only the tillage
-        practice changes, across the same five real implements already built into the
-        engine (no tillage, field cultivator, chisel plow, disk, moldboard plow,
-        spanning the real no-till-to-conventional intensity spectrum). Two real,
-        already-verified mechanisms drive what you'll see: tillage genuinely mixes soil
-        moisture within the implement's own real depth, and it temporarily boosts
-        background soil nitrogen, sized by the implement's own real mixing-efficiency
-        number, not a guess.
-      </p>
-      <p>
-        The catch, and the actual point of this tab: this only shows up when nitrogen
-        is the limiting factor. Run the comparison at a low nitrogen rate and tillage
-        measurably raises yield; run the exact same comparison at a high, non-limiting
-        rate and tillage does almost nothing &mdash; a real result already confirmed in
-        this engine, not asserted. Whether tillage "matters" depends on what else is
-        already limiting the crop, not on tillage alone.
+        Same site, same weather year, same crop &mdash; only the tillage practice
+        changes, across the same five real implements already built into the engine
+        (no tillage, chisel plow, field cultivator, disk, moldboard plow, ordered by
+        their real soil-disturbance intensity, not by name). Two real, already-verified
+        mechanisms drive what you'll see: tillage genuinely mixes soil moisture within
+        the implement's own real depth, and it temporarily boosts background soil
+        nitrogen, sized by the implement's own real mixing-efficiency number, not a
+        guess. Predict where the five practices actually spread apart: at a low
+        nitrogen rate, or a high one.
       </p>
     </div>
   </div>
+  <iframe class="embed-frame" src="prototypes/engine-demo.html?embed=tillage-compare" title="Compare tillage practices" style="height:640px;"></iframe>
 </div>
 
 <div id="tab-nitrogen" class="tab-content">
   <div class="panel">
     <div class="panel-header"><h2>Nitrogen Rate</h2></div>
     <div class="panel-body">
-      <div class="stub-tag">Not built yet</div>
       <p>
-        The richest piece already built, largely as-is: a fourteen-point nitrogen sweep,
-        an economic overlay (grain price vs. fertilizer cost), and the profit-vs-leaching
-        frontier chart with three marked positions &mdash; a farmer maximizing profit, a
-        water-quality advocate minimizing runoff without demanding zero fertilizer, and
-        a policymaker balancing both. The point of this tab: every one of those three is
-        standing on the same curve, and there is no rate that's simply "best" independent
-        of which of them you are.
+        Fertilizer nitrogen a crop doesn't use has to end up somewhere. This tab
+        follows it: applied nitrogen sits in a soil pool, the crop draws from
+        that pool as it grows, and whatever's left when water drains past the
+        root zone washes out with it. Raise the rate and watch how much larger
+        the unused share gets; switch between a dry year and a wet one, or a
+        sandy soil and a clay-rich one, to see that the split isn't fixed by
+        the nitrogen rate alone.
       </p>
     </div>
   </div>
+  <iframe class="embed-frame" src="prototypes/engine-demo.html?embed=n-balance" title="Nitrogen balance" style="height:760px;"></iframe>
 </div>
 
 <div id="tab-rotation" class="tab-content">
   <div class="panel">
     <div class="panel-header"><h2>Rotations and Cover Crops</h2></div>
     <div class="panel-body">
-      <div class="stub-tag">Not built yet</div>
       <p>
         A corn &rarr; winter cover crop &rarr; soybean sequence, evaluated on nitrogen
         leaching rather than just yield &mdash; the direct tie to the Chesapeake Bay
-        nutrient-runoff framing this unit keeps coming back to. Combines everything
-        from the earlier tabs (crop choice, nitrogen, tillage) into one realistic
-        scenario, and shows a cover crop measurably cutting how much nitrogen reaches
-        the watershed compared to the same field left bare over the same window.
+        nutrient-runoff framing this unit keeps coming back to. Brings the nitrogen
+        and tillage controls from earlier tabs into one realistic multi-phase
+        scenario, and shows a cover crop measurably cutting how much nitrogen
+        reaches the watershed compared to the same field left bare over the same
+        window.
       </p>
     </div>
   </div>
+  <iframe class="embed-frame" src="prototypes/engine-demo.html?embed=rotation" title="Simulate a rotation" style="height:900px;"></iframe>
 </div>
 
 <div id="tab-open" class="tab-content">
   <div class="panel">
     <div class="panel-header"><h2>Open Investigation</h2></div>
     <div class="panel-body">
-      <div class="stub-tag">Not built yet</div>
       <p>
-        The open, multipurpose version of this same model &mdash; every condition
-        (site, weather year, crop, nitrogen rate and timing, tillage, rotation)
-        becomes a live choice, with a run-by-run log to record what you tried and what
-        it produced. You design a comparison that isolates one variable, then write a
-        claim about what you found and from which perspective (farmer, water-quality
-        advocate, policymaker) it actually matters &mdash; checked for whether your
-        argument isolated a variable and named an objective, not just for a plausible-
-        sounding number.
+        You're assigned a real field, chosen at random from real soil and weather
+        data &mdash; not one you pick yourself, and not guaranteed to be an easy one.
+        A farmer maximizing profit, a water-quality advocate minimizing runoff, and a
+        policymaker balancing both are all computed for your field before you decide
+        anything. Your job is to set your own nitrogen policy for this specific field
+        and argue for it, citing your own numbers, naming which perspective you're
+        prioritizing, and being honest about what it costs the other two.
       </p>
     </div>
   </div>
+  <iframe class="embed-frame" src="prototypes/engine-demo.html?embed=open-investigation" title="Set a nitrogen policy for your assigned field" style="height:1500px;"></iframe>
 </div>
 
 <footer>Prototype &mdash; tab sequence and content still being reviewed, not yet linked from the splash page.</footer>
