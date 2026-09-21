@@ -68,7 +68,7 @@
   </div>
 </header>
 
-<div class="panel">
+<div class="panel" id="panel-select-site">
   <div class="panel-header"><h2>Select your site</h2></div>
   <div class="panel-body">
     <p>
@@ -86,7 +86,7 @@
   </div>
 </div>
 
-<div class="panel">
+<div class="panel" id="panel-run-season">
   <div class="panel-header"><h2>Run a season</h2></div>
   <div class="panel-body">
     <div class="controls">
@@ -338,6 +338,26 @@
 <footer>
   Prototype, not yet the finished classroom tool.
 </footer>
+
+<script>
+// Embed mode for nesting a single panel inside agricultural/investigation.html's guided
+// tabs, the same pattern meteorology/energy-balance-sandbox.html already uses (?embed=1
+// there) rather than duplicating this ~600KB engine+weather blob into a second file.
+// ?embed=run-season hides the page's own header/footer and every panel except "Run a
+// season" (which needs no site picker shown -- currentSite already defaults to Rock
+// Springs on load with no click required). Silently does nothing for any other value,
+// same "ignore what isn't recognized" convention the meteorology deep-link params use.
+(function () {
+  const embed = new URLSearchParams(location.search).get("embed");
+  if (embed !== "run-season") return;
+  document.querySelector("header").style.display = "none";
+  document.querySelector("#panel-select-site").style.display = "none";
+  document.querySelectorAll(".wrap > .panel").forEach((p) => {
+    if (p.id !== "panel-run-season") p.style.display = "none";
+  });
+  document.querySelector("footer").style.display = "none";
+})();
+</script>
 
 </div>
 

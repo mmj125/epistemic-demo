@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modeling a Field's Crops and Nitrogen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky:#eef3f7;--sky-dark:#c8d8e4;--ink:#101820;--ink-soft:#3c4a56;
+    --field:#f4f8fb;--panel:#ffffff;--border:#c9d8e2;--muted:#5f7180;
+    --solar:#e08a2e;--accent:#c0392b;--data:#2471a3;--trend:#154360;--log:#1e8449;--ai:#6c3483;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:"DM Sans",sans-serif;background:var(--field);color:var(--ink);min-height:100vh;margin:0;}
+  .wrap{max-width:960px;margin:0 auto;padding:28px 20px 60px;}
+  .eyebrow{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+  header{padding:0 0 20px;border-bottom:2px solid var(--ink);margin-bottom:24px;}
+  h1{font-family:"DM Serif Display",serif;font-size:clamp(24px,4.5vw,34px);line-height:1.15;margin:0;font-weight:400;}
+  .header-sub{margin-top:10px;color:var(--ink-soft);font-weight:300;max-width:760px;line-height:1.65;font-size:14px;}
+  .tabnav{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:22px;}
+  .tabnav button{font-family:"DM Mono",monospace;font-size:11.5px;letter-spacing:.03em;padding:9px 14px;border-radius:3px;border:1.5px solid var(--border);background:var(--panel);color:var(--ink-soft);cursor:pointer;text-align:left;}
+  .tabnav button.active{background:var(--ink);color:var(--sky);border-color:var(--ink);}
+  .tabnav button:hover:not(.active){background:var(--sky);}
+  .panel{background:var(--panel);border:1.5px solid var(--border);border-radius:5px;overflow:hidden;margin-bottom:22px;}
+  .panel-header{padding:11px 18px;background:var(--ink);}
+  .panel-header h2{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--sky);font-weight:500;margin:0;}
+  .panel-body{padding:22px;}
+  .panel-body p{font-size:14px;line-height:1.75;color:var(--ink-soft);margin:0 0 14px;}
+  .panel-body p:last-child{margin-bottom:0;}
+  .note{background:var(--sky);border-left:3px solid var(--data);border-radius:0 4px 4px 0;padding:14px 18px;font-size:13.5px;line-height:1.7;color:var(--ink-soft);margin-bottom:16px;}
+  .stub-tag{display:inline-block;font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:var(--sky);border:1px solid var(--border);border-radius:3px;padding:3px 8px;margin-bottom:14px;}
+  .tab-content{display:none;}
+  .tab-content.active{display:block;}
+  iframe.embed-frame{width:100%;height:900px;border:1.5px solid var(--border);border-radius:5px;display:block;}
+  footer{margin-top:10px;font-size:12px;color:var(--muted);text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Agricultural Unit &middot; Guided Investigation</div>
+  <h1>Modeling a Field's Crops and Nitrogen</h1>
+  <div class="header-sub">
+    Real weather, real soil, and a real field model, computed in your browser. Each step
+    below changes one thing at a time so you can tell what's actually driving what you
+    see &mdash; the last step opens the whole model up for you to investigate on your own.
+  </div>
+</header>
+
+<div class="tabnav" id="tabnav"></div>
+
+<div id="tab-1" class="tab-content">
+  <div class="panel">
+    <div class="panel-header"><h2>Watch a Season Grow</h2></div>
+    <div class="panel-body">
+      <p>
+        Before comparing anything, get familiar with what the model actually tracks
+        day by day. Pick a crop and a weather year below and run it &mdash; watch canopy
+        cover rise as the plant grows, water stress rise and fall with the weather, and
+        biomass accumulate underneath both. Every later tab in this investigation
+        compares outcomes like these; this tab is where you find out what those words mean.
+      </p>
+      <p>
+        <b>Canopy cover</b> is the fraction of ground shaded by the crop, from bare soil
+        (0%) to full cover. <b>Water stress</b> runs from 0 (no stress) to 1 (severely
+        stressed) &mdash; low soil moisture on a hot day pushes it up, and it holds the
+        plant's growth back on days it's high. <b>Biomass</b> is the plant material
+        accumulated so far, the running total that canopy cover and water stress
+        together determine day by day.
+      </p>
+      <p>
+        Try a dry year against a wet one (2012 was a real drought at this site; 1993
+        was wet) and watch how the water-stress line changes shape, not just its
+        average.
+      </p>
+    </div>
+  </div>
+  <iframe class="embed-frame" src="prototypes/engine-demo.html?embed=run-season" title="Run a season"></iframe>
+</div>
+
+<div id="tab-2" class="tab-content">
+  <div class="panel">
+    <div class="panel-header"><h2>What Changes the Outcome?</h2></div>
+    <div class="panel-body">
+      <div class="stub-tag">Not built yet</div>
+      <p>
+        Two predict-then-check comparisons, each isolating one variable while holding
+        everything else fixed &mdash; the same "Predict &amp; Compare" pattern already
+        proven in the meteorology unit, rather than three separate near-identical tabs.
+      </p>
+      <p>
+        <b>Does weather matter?</b> Same site, same crop, different years &mdash; a real
+        year-range sweep of Rock Springs weather, comparing a dry year against a wet one
+        and asking you to predict the yield gap before running it.
+      </p>
+      <p>
+        <b>Does soil matter?</b> Same weather, different real locations &mdash; two
+        fields run side by side with real STATSGO2 soil profiles, tillage held at "no
+        tillage" so soil is the only thing that's actually varying.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div id="tab-3" class="tab-content">
+  <div class="panel">
+    <div class="panel-header"><h2>Does Crop Choice Matter?</h2></div>
+    <div class="panel-body">
+      <div class="stub-tag">Not built yet</div>
+      <p>
+        Corn vs. soybean at the same site and year. The real, already-verified result
+        this tab builds around: soybean's yield is completely flat across the entire
+        nitrogen range, because it fixes its own nitrogen (a legume, per the real crop
+        file), while corn's yield rises and plateaus with more fertilizer. Two crops,
+        same conditions, genuinely different response &mdash; a real reason crop choice
+        is itself a management decision, not just a preference.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div id="tab-4" class="tab-content">
+  <div class="panel">
+    <div class="panel-header"><h2>Nitrogen and Tillage: No Single Best Rate</h2></div>
+    <div class="panel-body">
+      <div class="stub-tag">Not built yet</div>
+      <p>
+        The richest piece already built, largely as-is: a fourteen-point nitrogen sweep,
+        an economic overlay (grain price vs. fertilizer cost), a tillage-practice
+        choice, and the profit-vs-leaching frontier chart with three marked positions
+        &mdash; a farmer maximizing profit, a water-quality advocate minimizing runoff
+        without demanding zero fertilizer, and a policymaker balancing both. The point
+        of this tab: every one of those three is standing on the same curve, and there
+        is no rate that's simply "best" independent of which of them you are.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div id="tab-5" class="tab-content">
+  <div class="panel">
+    <div class="panel-header"><h2>Rotations and Cover Crops</h2></div>
+    <div class="panel-body">
+      <div class="stub-tag">Not built yet</div>
+      <p>
+        A corn &rarr; winter cover crop &rarr; soybean sequence, evaluated on nitrogen
+        leaching rather than just yield &mdash; the direct tie to the Chesapeake Bay
+        nutrient-runoff framing this unit keeps coming back to. Combines everything
+        from the earlier tabs (crop choice, nitrogen, tillage) into one realistic
+        scenario, and shows a cover crop measurably cutting how much nitrogen reaches
+        the watershed compared to the same field left bare over the same window.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div id="tab-6" class="tab-content">
+  <div class="panel">
+    <div class="panel-header"><h2>Design Your Own Investigation</h2></div>
+    <div class="panel-body">
+      <div class="stub-tag">Not built yet</div>
+      <p>
+        The open, multipurpose version of this same model &mdash; every condition
+        (site, weather year, crop, nitrogen rate and timing, tillage, rotation)
+        becomes a live choice, with a run-by-run log to record what you tried and what
+        it produced. You design a comparison that isolates one variable, then write a
+        claim about what you found and from which perspective (farmer, water-quality
+        advocate, policymaker) it actually matters &mdash; checked for whether your
+        argument isolated a variable and named an objective, not just for a plausible-
+        sounding number.
+      </p>
+    </div>
+  </div>
+</div>
+
+<footer>Prototype &mdash; tab sequence and content still being reviewed, not yet linked from the splash page.</footer>
+
+</div>
+
+<script>
+const TABS = [
+  { id: "tab-1", label: "1. Watch a Season Grow" },
+  { id: "tab-2", label: "2. What Changes the Outcome?" },
+  { id: "tab-3", label: "3. Does Crop Choice Matter?" },
+  { id: "tab-4", label: "4. Nitrogen & Tillage" },
+  { id: "tab-5", label: "5. Rotations & Cover Crops" },
+  { id: "tab-6", label: "6. Design Your Own" },
+];
+
+const nav = document.getElementById("tabnav");
+TABS.forEach((t, i) => {
+  const btn = document.createElement("button");
+  btn.textContent = t.label;
+  btn.dataset.target = t.id;
+  if (i === 0) btn.classList.add("active");
+  btn.addEventListener("click", () => showTab(t.id));
+  nav.appendChild(btn);
+});
+
+function showTab(id) {
+  document.querySelectorAll(".tab-content").forEach((el) => el.classList.toggle("active", el.id === id));
+  document.querySelectorAll("#tabnav button").forEach((b) => b.classList.toggle("active", b.dataset.target === id));
+}
+
+showTab("tab-1");
+</script>
+
+</body>
+</html>
