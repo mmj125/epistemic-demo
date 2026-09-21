@@ -367,7 +367,7 @@
   </div>
 </div>
 
-<div class="panel">
+<div class="panel" id="panel-rotation">
   <div class="panel-header"><h2>Simulate a rotation: corn &rarr; winter cover crop &rarr; soybean</h2></div>
   <div class="panel-body">
     <p>
@@ -498,6 +498,7 @@
     "crop-compare": "panel-crop-compare",
     "tillage-compare": "panel-tillage-compare",
     "n-balance": "panel-n-balance",
+    "rotation": "panel-rotation",
   };
   const embed = new URLSearchParams(location.search).get("embed");
   const targetId = EMBED_PANELS[embed];
