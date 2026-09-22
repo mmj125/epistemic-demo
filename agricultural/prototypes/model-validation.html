@@ -178,15 +178,46 @@
     shown here because it's the threshold we've been using to decide what to expose to students, and it's
     fair to hold the same numbers to it when talking to the people who built the reference model.</p>
 
+    <div class="note" style="margin-bottom:14px;">
+      <strong>Correlation and percent error measure two different things, and this model is not uniformly
+      "off by" either one.</strong> Correlation asks: across 37 years, does our model call the same years
+      good and bad as real Cycles does? Percent error asks: in any single year, how far off is our number?
+      A model can be close on average magnitude every year while still scoring a weak correlation, if it
+      gets the individual highs and lows in the wrong places &mdash; that is exactly what happens with corn
+      grain yield below (8.5% mean error, but only 0.540 correlation, not "46% off").
+    </div>
+
     <table>
-      <tr><th>Crop / rotation</th><th>Real mean</th><th>Model mean</th><th>MAE</th><th>Correlation</th><th>Status</th></tr>
-      <tr><td>Soybean</td><td>4.72 Mg/ha</td><td>4.72 Mg/ha</td><td>0.23</td><td>0.846</td><td><span class="tag tag-pass">passes bar</span></td></tr>
-      <tr><td>Corn (continuous)</td><td>10.56 Mg/ha</td><td>10.96 Mg/ha</td><td>0.80</td><td>0.540</td><td><span class="tag tag-fail">below bar</span></td></tr>
-      <tr><td>Silage corn</td><td>14.81 Mg/ha</td><td>14.80 Mg/ha</td><td>1.37</td><td>0.501</td><td><span class="tag tag-fail">below bar</span></td></tr>
-      <tr><td>Winter wheat</td><td>4.33 Mg/ha</td><td>4.33 Mg/ha</td><td>0.50</td><td>0.253</td><td><span class="tag tag-fail">below bar</span></td></tr>
-      <tr><td>Pasture perennials (orchardgrass, etc.)</td><td colspan="3">real annual yield 5.25&ndash;7.94 Mg/ha, not tracked</td><td>&minus;0.28 to 0.16<br>(across 4 tested fixes)</td><td><span class="tag tag-unresolved">unresolved</span></td></tr>
+      <tr><th>Crop / rotation</th><th>Real mean</th><th>Model mean</th><th>Mean % error</th><th>Correlation</th><th>Status</th></tr>
+      <tr><td>Soybean grain</td><td>4.72 Mg/ha</td><td>4.72 Mg/ha</td><td>5.0%</td><td>0.846</td><td><span class="tag tag-pass">passes bar</span></td></tr>
+      <tr><td>Corn grain (continuous)</td><td>10.56 Mg/ha</td><td>10.96 Mg/ha</td><td>8.5%</td><td>0.540</td><td><span class="tag tag-fail">below bar</span></td></tr>
+      <tr><td>Silage corn forage</td><td>14.81 Mg/ha</td><td>14.80 Mg/ha</td><td>9.2%</td><td>0.501</td><td><span class="tag tag-fail">below bar</span></td></tr>
+      <tr><td>Winter wheat grain</td><td>4.33 Mg/ha</td><td>4.33 Mg/ha</td><td>12.1%</td><td>0.253</td><td><span class="tag tag-fail">below bar</span></td></tr>
+      <tr><td>Pasture perennials (orchardgrass, etc.)</td><td colspan="2">real annual yield 5.25&ndash;7.94 Mg/ha, not tracked</td><td>&mdash;</td><td>&minus;0.28 to 0.16<br>(across 4 tested fixes)</td><td><span class="tag tag-unresolved">unresolved</span></td></tr>
       <tr><td>Winter rye / hairy vetch (cover)</td><td colspan="4">no real Cycles reference data available to correlate against &mdash; RUE/WUE are real (SI Table SI.2), everything else borrowed</td><td><span class="tag tag-unresolved">unvalidated</span></td></tr>
     </table>
+
+    <p style="margin-top:16px;"><strong>Beyond final yield: how the model's other outputs compare</strong>
+    (corn, continuous rotation, 37 years, same site) &mdash; because yield is a downstream number that a
+    per-crop calibration factor is fitted to match, and a good yield match can hide a worse upstream one.</p>
+    <table>
+      <tr><th>Variable</th><th>Real mean</th><th>Model mean</th><th>Mean % error</th><th>Correlation</th><th>What this shows</th></tr>
+      <tr><td>Grain yield</td><td>10.56 Mg/ha</td><td>10.96 Mg/ha</td><td>8.5%</td><td>0.540</td><td>the calibrated, reported number</td></tr>
+      <tr><td>Total biomass</td><td>24.30 Mg/ha</td><td>31.20 Mg/ha</td><td>29.1%</td><td>0.603</td><td>uncalibrated &mdash; the real upstream miss the grain calibration factor is masking</td></tr>
+      <tr><td>Aboveground biomass</td><td>21.02 Mg/ha</td><td>23.23 Mg/ha</td><td>11.3%</td><td>0.585</td><td>closer than total biomass since root partitioning (Eq. SI.8-11) corrects some of it</td></tr>
+      <tr><td>Harvest index (grain &divide; AG biomass)</td><td>0.501</td><td>0.472</td><td>6.1%</td><td>0.099</td><td>average level is close, but which years have a higher/lower ratio barely tracks at all</td></tr>
+      <tr><td>Planting date (day of year)</td><td>121.7</td><td>119.2</td><td>2.1%</td><td>0.824</td><td>the soil-temperature-trigger proxy, the strongest correlation in this table</td></tr>
+      <tr><td>Reference ET (day-by-day, 2012)</td><td>2.81 mm/day</td><td>2.82 mm/day</td><td>0.4%</td><td>1.000</td><td>a standard external formula (FAO-56), expected to be nearly exact</td></tr>
+    </table>
+    <p style="margin-top:10px;">Read plainly: this model gets a standard external physics formula (reference
+    ET) essentially exactly right, gets planting timing quite good, and gets final grain yield reasonably
+    close in magnitude (~8-9% mean error across corn/soybean/silage corn) while tracking year-to-year rank
+    only moderately (0.5-0.85 correlation, weakest for wheat). The real weak point isn't the final yield
+    number itself, it's total biomass upstream of it (29% mean error, worse than grain) &mdash; grain looks
+    better than the model underneath it actually is, because the per-crop calibration factor is fitted at
+    the grain stage specifically, not verified against the biomass or harvest-index stages independently.
+    Harvest index is the clearest illustration of correlation and percent error diverging: the average ratio
+    is only 6% off, but which particular years get a higher or lower ratio is close to uncorrelated (0.099).</p>
 
     <div class="note" style="margin-top:14px;">
       <strong>Correction made while building this page (2026-09-22):</strong> corn's own figure has been
