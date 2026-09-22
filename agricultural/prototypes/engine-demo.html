@@ -62,9 +62,11 @@
   <div class="header-sub">
     A field simulation, computed entirely on your device the moment you press Run &mdash;
     no Colab notebook, no login, no server round-trip. Built from CYCLES' own published
-    equations (Kemanian et al. 2024). Corn and soybean are shown here because both
-    already track real CYCLES output well; a few other rotations are still being
-    refined. Weather is real NLDAS-2 data for Rock Springs, PA, 1980&ndash;2016.
+    equations (Kemanian et al. 2024). Corn and soybean are shown here because both are
+    validated against real Cycles output (soybean tracks it well, r=0.846; corn is
+    directionally consistent but weaker, r=0.540 &mdash; see the validation page for the
+    honest numbers); other rotations are still being refined. Weather is real NLDAS-2
+    data for Rock Springs, PA, 1980&ndash;2016.
   </div>
 </header>
 
@@ -2288,8 +2290,8 @@ wireFieldSlot("B");
 const SPECIES_REGISTRY = {
   corn: {
     label: "Corn (grain)", pyKey: "corn", legume: false, roles: ["cash"],
-    dataStatus: "validated", correlation: 0.771, workableAsCash: true, implementedInDemo: true,
-    notes: "Validated against real Cycles output, 0.771 correlation -- clears the classroom-workable bar (~0.6-0.7). Matches the real GenericCrops.crop CornRM.90 (short-season) hybrid exactly.",
+    dataStatus: "validated", correlation: 0.540, workableAsCash: true, implementedInDemo: true,
+    notes: "Corrected 2026-09-22: real correlation is 0.540 (mean 10.56 Mg/ha), not the 0.771/10.93 figure this file claimed since 2026-09-10 -- that number was computed against a since-corrupted reference file. Confirmed via 4 independent real Cycles runs, all byte-identical. Does NOT clear the classroom-workable bar (~0.6-0.7) on this corrected number. Still kept as a cash-crop choice (the reasoning that motivated exposing it hasn't changed, and no crop currently clears the bar on corrected data except soybean) but no longer claimed to pass. Matches the real GenericCrops.crop CornRM.90 (short-season) hybrid exactly.",
   },
   corn_long_season: {
     label: "Corn (long-season hybrid)", pyKey: "corn_long_season", legume: false, roles: ["cash"],
