@@ -260,35 +260,36 @@ def soil_evaporation(layers, eto_mm, canopy_cover_frac):
     return actual_mm
 
 
-def water_stress_response(avail_frac):
+def water_stress_response(avail_frac, depletion_fraction=0.5):
     """Maps root-zone available-water fraction (0=at wilting point, 1=at field capacity) to
-    a 0-1 multiplier on potential transpiration (1=no stress). Plain linear ramp, full stress
-    below avail_frac=0, none above 0.5 -- kept here as ONE named function (previously the same
-    formula was duplicated inline in two places, simulate_season's main loop and
-    _reference_n_demand) so the two can't drift apart, not because this shape is verified.
+    a 0-1 multiplier on potential transpiration (1=no stress). This IS the real, standard
+    FAO-56 water-stress coefficient Ks (Allen et al. 1998, Ch. 8, Eq. 84), not an invented
+    shape -- confirmed 2026-09-22 by extracting the real chapter text (Matt-provided, this
+    sandbox's network egress blocks fao.org directly) and checking the exact formula against
+    the source's own worked numeric example (Example 37): Ks=(TAW-Dr)/(TAW-RAW), which in
+    this engine's own avail_frac/depletion_fraction terms reduces exactly to
+    avail_frac/(1-depletion_fraction), clipped to [0,1] -- reproduced the source's own 0.97
+    and 0.62 at the example's Day 3 and Day 10 to the given precision, not just a plausible
+    match. depletion_fraction (FAO-56's "p", real Table 22 values, not a literature guess):
+    Maize/wheat 0.55, soybean 0.50 -- the crop dict's own depletion_fraction field, defaulting
+    to 0.50 (FAO-56's own "commonly used for many crops" value) when a crop doesn't set one.
 
-    A real, more rigorous alternative was tried and reverted (2026-09-22, see CLAUDE.md for
-    the full account) -- worth recording here so it isn't re-attempted blind: real Cycles
-    publishes its own daily WATER STRESS output column AND its own daily per-layer soil
-    moisture (water.txt SMC), so the response curve can be derived directly by pairing them,
-    rather than back-solved through aggregate yield comparisons across scenarios (which would
-    confound this one function with RUE/WUE/canopy/root-depth/N-stress all at once). Did
-    exactly that across the full real 37-year Rock Springs record (4928 real active-growth
-    days) and the best fit was clean and physically plausible: stress=(avail_frac/0.45)^0.51,
-    essentially sqrt(avail_frac/0.45), a 60% reduction in squared error against Cycles' own
-    reported values compared to this plain linear ramp. But plugged into the actual engine,
-    year-to-year correlation got WORSE for every one of the four validated crops (corn 0.540
-    -> 0.533, soybean 0.846 -> 0.823, wheat 0.253 -> 0.210, silage corn 0.501 -> 0.495) --
-    reverted rather than shipped. Most likely reason: the fit was built from Cycles' OWN
-    simulated soil-moisture trajectory (its real sub-daily capacitance-weighted
-    redistribution, Eq. 1-2), but this engine's avail_frac comes from a same-day cascading-
-    bucket approximation of that same physics (an already-disclosed, unresolved gap) -- the
-    two trajectories don't move through a season the same way, so a curve tuned to map real
-    Cycles' avail_frac to real Cycles' stress doesn't necessarily work well fed this engine's
-    different avail_frac. Take-away: the response curve's shape probably isn't the dominant
-    lever holding corn/wheat's correlation back; the water-redistribution physics upstream of
-    it is the more likely place to look next."""
-    return max(0.0, min(1.0, avail_frac / 0.5))
+    A DIFFERENT alternative was tried and reverted earlier the same day (2026-09-22, see
+    CLAUDE.md for the full account) -- worth recording why it's not this: paired real Cycles'
+    own daily WATER STRESS output against its own daily soil moisture across the full 37-year
+    Rock Springs record and fit a power-law shape, stress=(avail_frac/0.45)^0.51 --
+    essentially sqrt(avail_frac/0.45). Plugged in, correlation got WORSE for every crop.
+    Notice the threshold that fit found, 0.45, exactly equals 1-0.55 -- the real FAO-56
+    threshold for corn/wheat found independently just now. The earlier attempt had the right
+    THRESHOLD and the wrong SHAPE (a concave power curve where the real, standard relationship
+    is plain linear) -- it was found by grid-searching threshold and power together, and a
+    worse-fitting linear+0.45 combination lost to a better-fitting sqrt+0.45 one in that search,
+    even though linear+0.45 is the physically correct answer. This version tests that specific,
+    corrected hypothesis instead: keep the linear shape, use the real per-crop threshold."""
+    threshold = 1.0 - depletion_fraction
+    if threshold <= 0:
+        return 1.0
+    return max(0.0, min(1.0, avail_frac / threshold))
 
 
 def root_zone_availability(layers, root_depth_m):
@@ -669,7 +670,7 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf, curve_numbe
         TRp *= transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
 
         avail_frac = root_zone_availability(layers, root_depth)
-        water_stress = water_stress_response(avail_frac)
+        water_stress = water_stress_response(avail_frac, crop.get("depletion_fraction", 0.5))
         TR_actual = TRp * water_stress
         extract_transpiration(layers, root_depth, TR_actual)
 
@@ -907,7 +908,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         TRp *= transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
 
         avail_frac = root_zone_availability(layers, root_depth)
-        water_stress = water_stress_response(avail_frac)
+        water_stress = water_stress_response(avail_frac, crop.get("depletion_fraction", 0.5))
         TR_actual = TRp * water_stress
         extract_transpiration(layers, root_depth, TR_actual)
 
