@@ -197,6 +197,19 @@
       <tr><td>Winter rye / hairy vetch (cover)</td><td colspan="4">no real Cycles reference data available to correlate against &mdash; RUE/WUE are real (SI Table SI.2), everything else borrowed</td><td><span class="tag tag-unresolved">unvalidated</span></td></tr>
     </table>
 
+    <div class="note" style="margin-top:12px;">
+      <strong>Numbers above are current for the canonical validation scripts (`cycles_engine_validate.py`,
+      `run_validation.py`, `run_validation_rotation2.py`), NOT yet for this page's own live "Full
+      simulation controls" panel below.</strong> A real fix (see gap-list item 12) moved the canonical
+      scripts' correlation to corn 0.544, silage corn 0.511, wheat 0.226, soybean unchanged at 0.846 --
+      the per-crop water-stress depletion fraction was corrected to real FAO-56 Table 22 values (corn/
+      wheat 0.55, soybean 0.50) instead of a flat 0.50 default. This page's own embedded engine copy
+      has not yet been updated to match (a deliberate scope decision -- porting touches a dozen panels'
+      worth of previously-documented numbers across `engine-demo.html` and this page), so running a
+      simulation live below will currently reproduce the OLDER numbers in this table, not the corrected
+      ones just described. Flagging this explicitly rather than letting the two silently disagree.
+    </div>
+
     <p style="margin-top:16px;"><strong>Beyond final yield: how the model's other outputs compare</strong>
     (corn, continuous rotation, 37 years, same site) &mdash; because yield is a downstream number that a
     per-crop calibration factor is fitted to match, and a good yield match can hide a worse upstream one.</p>
@@ -376,6 +389,28 @@
       avail_frac doesn't transfer cleanly to this engine's different one. Useful negative result: the
       stress-response shape probably isn't the dominant lever behind corn/wheat's weak correlation;
       the water-redistribution physics upstream of it is the more likely place to look next.</p>
+      <p><strong>Follow-up, same day:</strong> Matt asked what real modelers would do when their own
+      approach is challenged, and separately supplied real source PDFs (Kemanian &amp; St&ouml;ckle
+      2010, the C-Farm papers) and the real text of a page this sandbox's network policy blocks
+      (FAO-56 Ch. 8). The C-Farm papers turned out to cover only the carbon submodel, not water
+      balance. But FAO-56 Ch. 8 gave something real and checkable: our plain linear water-stress ramp
+      IS the actual standard FAO-56 Ks formula (Eq. 84), not a guess &mdash; verified by reproducing
+      the chapter's own worked numeric example (Day 3 and Day 10 of Example 37) to the given
+      precision. What was wrong was the THRESHOLD, not the shape: FAO-56's real Table 22 gives
+      maize/wheat a depletion fraction p=0.55 (threshold 0.45), not the flat 0.50 (threshold 0.50)
+      this engine defaulted to for every crop; soybean's real p=0.50 exactly matches the old default.
+      Notably, 0.45 is exactly the threshold the earlier reverted power-law fit found empirically --
+      that attempt had the right threshold and the wrong shape (a concave curve where the real
+      relationship is linear), because a grid search over threshold and power together let a
+      better-fitting wrong-shape combination beat a correct-shape, real-threshold one. Implemented as
+      a per-crop `depletion_fraction` field (real Table 22 values) rather than a shared constant.
+      Result, honestly mixed: corn 0.540&rarr;0.544 and silage corn 0.501&rarr;0.511 both improved
+      (small, real, not a regression); soybean is byte-identical as expected (its real p already
+      matched the old default); wheat got WORSE, 0.253&rarr;0.226. Kept the real, sourced value for
+      wheat anyway rather than quietly picking a better-performing but unsourced threshold just for
+      that crop -- consistent with wheat's already-documented, separately-diagnosed anomaly (its real
+      reported stress is far larger than its real soil moisture depletion would explain by any
+      standard function, item 4 above), not evidence this specific fix was wrong to make.</p>
     </details>
 
     <p style="margin-top:14px;">This list is deliberately not flattering. It's the same list we'd want
