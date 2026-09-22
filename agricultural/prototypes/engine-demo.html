@@ -131,6 +131,73 @@
   </div>
 </div>
 
+<div class="panel" id="panel-season-risk">
+  <div class="panel-header"><h2>Weather risk and crop choice</h2></div>
+  <div class="panel-body">
+    <p>
+      Pick a site and a corn hybrid, then run that exact choice across all 37
+      years of real weather at once. You don't get to pick which year actually
+      shows up &mdash; this is the real range of outcomes that choice faces.
+      Then compare it against a second choice (a different hybrid, or a
+      different place) to see which of your decisions actually change how
+      exposed you are to that risk, and which don't.
+    </p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:10px;">
+      <div>
+        <h3 style="margin:0 0 6px;font-size:13px;color:var(--muted);">Choice A</h3>
+        <div class="controls">
+          <div class="field">
+            <label>Site</label>
+            <select id="srSiteA"></select>
+          </div>
+          <div class="field">
+            <label>Hybrid</label>
+            <select id="srCropA">
+              <option value="corn">Short-season hybrid</option>
+              <option value="corn_long_season">Long-season hybrid</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h3 style="margin:0 0 6px;font-size:13px;color:var(--muted);">Choice B</h3>
+        <div class="controls">
+          <div class="field">
+            <label>Site</label>
+            <select id="srSiteB"></select>
+          </div>
+          <div class="field">
+            <label>Hybrid</label>
+            <select id="srCropB">
+              <option value="corn">Short-season hybrid</option>
+              <option value="corn_long_season" selected>Long-season hybrid</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button id="srRunBtn" class="btn" disabled>Loading engine&hellip;</button>
+    <div id="srStatus" style="font-family:'DM Mono',monospace;font-size:11.5px;color:var(--muted);margin:10px 0 4px;min-height:16px;"></div>
+    <div class="result" id="srResult" style="display:none;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <div class="sweep-note" id="srNoteA" style="margin-bottom:6px;"></div>
+          <canvas class="chart" id="srChartA" width="380" height="200"></canvas>
+        </div>
+        <div>
+          <div class="sweep-note" id="srNoteB" style="margin-bottom:6px;"></div>
+          <canvas class="chart" id="srChartB" width="380" height="200"></canvas>
+        </div>
+      </div>
+      <div class="sweep-note" id="srCompareNote" style="margin-top:12px;"></div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:10px;">
+      Fixed at 150 kg N/ha for both choices, so any difference you see reflects site and
+      hybrid, not a different fertilizer decision. Nitrogen gets its own tab later.
+    </div>
+  </div>
+</div>
+
 <div class="panel" id="panel-year-compare">
   <div class="panel-header"><h2>Compare two years</h2></div>
   <div class="panel-body">
@@ -581,6 +648,7 @@
   const EMBED_PANELS = {
     "select-site": "panel-select-site",
     "run-season": "panel-run-season",
+    "season-risk": "panel-season-risk",
     "year-compare": "panel-year-compare",
     "soil-compare": "panel-soil-compare",
     "crop-compare": "panel-crop-compare",
@@ -689,6 +757,8 @@ async function init() {
     status.textContent = "Ready.";
     runBtn.disabled = false;
     runBtn.textContent = "Run simulation";
+    document.getElementById("srRunBtn").disabled = false;
+    document.getElementById("srRunBtn").textContent = "Run both across all 37 years";
     nSweepBtn.disabled = false;
     yearSweepBtn.disabled = false;
     rotationBtn.disabled = false;
@@ -1147,6 +1217,24 @@ CORN = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
     calibration_factor=0.841, canopy_shape=CORN_CANOPY_SHAPE,
     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=40.6875, make_layers=make_layers,
     n_max_conc=0.055, n_dilution_slope=0.4, legume=False)
+# Matches the real GenericCrops.crop CornRM.90 entry exactly (same tt_maturity/flowering_tt) --
+# CORN above already IS the short-season hybrid, not a separate crop.
+
+# A longer-season corn hybrid, real GenericCrops.crop CornRM.110 values -- differs from CORN
+# ONLY in thermal-time-to-maturity/flowering (2300/1300 vs 1800/1000), same rue/wue/temperature
+# response/calibration, to isolate season-length as the one variable at play. Built and tested
+# 2026-09-22 for Tab 1's climate-adaptation comparison: at Iowa the long-season hybrid yields
+# more on average (more time to cash in the higher maturity requirement), but at a genuinely
+# short-season site (North Dakota) it often doesn't finish in time and the short-season hybrid
+# wins some years outright (e.g. 1993: 7.65 vs 4.23 Mg/ha) -- this is real current agricultural
+# practice (farmers further north plant lower relative-maturity hybrids), not an invented lesson.
+# A from-scratch wheat-vs-corn version of this same idea was tried first and abandoned: wheat's
+# real fall-to-summer growing window is so much longer than corn's that a colder/drier site's
+# cumulative water deficit swamped any cold-tolerance signal, producing wheat's relative penalty
+# moving to a colder site coming out LARGER than corn's, the opposite of the intended lesson.
+CORN_LONG_SEASON = dict(CORN)
+CORN_LONG_SEASON["tt_maturity"] = 2300
+CORN_LONG_SEASON["flowering_tt"] = 1300
 
 SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43,
     rue=1.3, wue=4.5, hi_x=0.4, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
@@ -1206,7 +1294,7 @@ HAIRY_VETCH = dict(tt_maturity=SOYBEAN["tt_maturity"], flowering_tt=SOYBEAN["flo
 # JS for the matching student-facing metadata (which of these are actually
 # offered as a choice, correlation against real Cycles output, whether the
 # parameters are real or a disclosed placeholder).
-CROPS = {"corn": CORN, "soybean": SOYBEAN, "wheat": WHEAT, "winter_rye": WINTER_RYE, "hairy_vetch": HAIRY_VETCH}
+CROPS = {"corn": CORN, "corn_long_season": CORN_LONG_SEASON, "soybean": SOYBEAN, "wheat": WHEAT, "winter_rye": WINTER_RYE, "hairy_vetch": HAIRY_VETCH}
 `;
 
 const DEMO_GLUE_SOURCE = String.raw`
@@ -1317,9 +1405,18 @@ function drawBarChart(canvas, labels, values, opts) {
   const ctx = canvas.getContext("2d");
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0, 0, W, H);
-  const pad = { l: 38, r: 12, t: 14, b: 24 };
+  // Extra top margin reserved unconditionally (harmless when opts.yLabel is omitted)
+  // so every existing call site's layout doesn't shift depending on whether it opts in --
+  // real bug caught by direct feedback: the numeric tick marks never said what they measured.
+  const pad = { l: 38, r: 12, t: opts.yLabel ? 24 : 14, b: 24 };
   const plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
   const maxV = Math.max(...values) * 1.15;
+  if (opts.yLabel) {
+    ctx.font = "10px 'DM Mono', monospace";
+    ctx.fillStyle = "#5f7180";
+    ctx.textAlign = "left";
+    ctx.fillText(opts.yLabel, pad.l, 12);
+  }
   ctx.strokeStyle = "#c9d8e2"; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t + plotH); ctx.lineTo(pad.l + plotW, pad.t + plotH); ctx.stroke();
   ctx.font = "10px 'DM Mono', monospace";
@@ -1836,7 +1933,7 @@ json.dumps(sweep_out)
     const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
     const data = JSON.parse(out);
     canvas.style.display = "block";
-    drawBarChart(canvas, data.map(d => d.year), data.map(d => d.grain), { color: "#1e8449" });
+    drawBarChart(canvas, data.map(d => d.year), data.map(d => d.grain), { color: "#1e8449", yLabel: "Grain yield (Mg/ha)" });
     const values = data.map(d => d.grain);
     const mean = values.reduce((a, b) => a + b, 0) / values.length;
     const min = Math.min(...values), max = Math.max(...values);
@@ -1909,7 +2006,7 @@ json.dumps({
     `;
     drawBarChart(document.getElementById("rotationChart"),
       ["With cover crop", "Bare fallow"], [data.cover.n_leached, data.cover.fallow_leached],
-      { color: "#1e8449" });
+      { color: "#1e8449", yLabel: "Nitrogen leached (kg N/ha)" });
     const totalBiomass = data.corn.ag + data.cover.ag + data.soy.ag;
     const avoided = data.cover.fallow_leached - data.cover.n_leached;
     document.getElementById("rotationNote").textContent =
@@ -2192,7 +2289,12 @@ const SPECIES_REGISTRY = {
   corn: {
     label: "Corn (grain)", pyKey: "corn", legume: false, roles: ["cash"],
     dataStatus: "validated", correlation: 0.771, workableAsCash: true, implementedInDemo: true,
-    notes: "Validated against real Cycles output, 0.771 correlation -- clears the classroom-workable bar (~0.6-0.7).",
+    notes: "Validated against real Cycles output, 0.771 correlation -- clears the classroom-workable bar (~0.6-0.7). Matches the real GenericCrops.crop CornRM.90 (short-season) hybrid exactly.",
+  },
+  corn_long_season: {
+    label: "Corn (long-season hybrid)", pyKey: "corn_long_season", legume: false, roles: ["cash"],
+    dataStatus: "unvalidated", correlation: null, workableAsCash: true, implementedInDemo: true,
+    notes: "Real GenericCrops.crop CornRM.110 values (differs from the standard corn entry only in thermal-time-to-maturity/flowering, 2300/1300 vs 1800/1000) -- not calibrated against real Cycles output for this specific hybrid (no reference data exists to calibrate against), but real parameters, built specifically for the site/season-length adaptation comparison in Tab 1.",
   },
   soybean: {
     label: "Soybean", pyKey: "soybean", legume: true, roles: ["cash"],
@@ -2269,7 +2371,7 @@ function buildTillageFieldHTML(id) {
   </div>`;
 }
 
-// Four preset sites, chosen to span genuinely different real soil/weather
+// Five preset sites, chosen to span genuinely different real soil/weather
 // regimes and already confirmed (via a direct Node check against the
 // committed weather-tiles manifest and statsgo2_soil_grid.json.gz before
 // this UI was built) to resolve to real, in-coverage cells -- not picked
@@ -2284,6 +2386,8 @@ const PRESET_SITES = [
     blurb: "Semi-arid High Plains, sandy soil" },
   { label: "MD Eastern Shore", lat: 38.5, lng: -75.8,
     blurb: "Chesapeake Bay coastal plain" },
+  { label: "North-Central North Dakota", lat: 48.23, lng: -101.30,
+    blurb: "Northern Plains, short growing season -- added 2026-09-22 specifically to give Tab 1's climate/hybrid comparison a genuinely short-season site none of the other four provide" },
 ];
 
 // Fixed pair for "Compare two years" -- chosen from the real 37-year record,
@@ -2424,6 +2528,111 @@ function wireCurrentSitePresetRow() {
 }
 wireCurrentSitePresetRow();
 
+// --- "Weather risk and crop choice": Tab 1's panel. Two independent (site, hybrid)
+// choices, each run across the full 37-year weather record so the chart shows a real
+// distribution of outcomes, not one number -- then a plain-language comparison of both
+// the average and the year-to-year spread. Reuses resolveSiteAt()/PRESET_SITES/CROPS,
+// no new engine mechanism; the only new crop is CORN_LONG_SEASON (see ENGINE_SOURCE),
+// real GenericCrops.crop CornRM.110 values differing from the standard corn entry only
+// in thermal-time-to-maturity, chosen after testing corn-vs-wheat first and finding
+// wheat's much longer real growing window let a colder/drier site's water deficit
+// swamp any cold-tolerance signal -- this short/long-hybid comparison isolates season
+// length cleanly instead.
+function populateSeasonRiskSiteSelect(id, defaultIdx) {
+  const sel = document.getElementById(id);
+  PRESET_SITES.forEach((site, i) => {
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = site.label;
+    if (i === defaultIdx) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+populateSeasonRiskSiteSelect("srSiteA", 1); // Central Iowa
+populateSeasonRiskSiteSelect("srSiteB", 4); // North-Central North Dakota
+
+async function runSeasonRiskSweep(resolved, cropKey) {
+  pyodide.globals.set("sr_wx_json", JSON.stringify(resolved.weather));
+  pyodide.globals.set("sr_soil_json", JSON.stringify(resolved.layers));
+  pyodide.globals.set("sr_crop_key", cropKey);
+  const out = await pyodide.runPythonAsync(`
+import json as _json
+_sr_wx = _json.loads(sr_wx_json)
+_sr_soil_raw = _json.loads(sr_soil_json)
+def _sr_make_layers():
+    out = []
+    for L in _sr_soil_raw:
+        hyd = saxton_rawls(L["sand"], L["clay"], L["soc"] * OM_FROM_SOC)
+        out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"]))
+    return out
+_sr_crop = dict(CROPS[sr_crop_key])
+_sr_crop["make_layers"] = _sr_make_layers
+_sr_out = []
+for _y in sorted(_sr_wx.keys(), key=int):
+    _wx_year = _sr_wx[_y]
+    _plant_doy, _rows = build_season_rows(_wx_year, _sr_crop)
+    _res = simulate_season(_rows, _sr_crop, n_rate_kg_ha=150.0)
+    _sr_out.append({"year": int(_y), "grain": _res["grain"]})
+json.dumps(_sr_out)
+`);
+  return JSON.parse(out);
+}
+
+document.getElementById("srRunBtn").addEventListener("click", async () => {
+  const btn = document.getElementById("srRunBtn");
+  const status = document.getElementById("srStatus");
+  btn.disabled = true;
+  try {
+    const siteA = PRESET_SITES[parseInt(document.getElementById("srSiteA").value, 10)];
+    const siteB = PRESET_SITES[parseInt(document.getElementById("srSiteB").value, 10)];
+    const cropKeyA = document.getElementById("srCropA").value;
+    const cropKeyB = document.getElementById("srCropB").value;
+
+    status.textContent = `Running 37 years for Choice A (${siteA.label})...`;
+    const resolvedA = await resolveSiteAt({ lat: siteA.lat, lng: siteA.lng });
+    const dataA = await runSeasonRiskSweep(resolvedA, cropKeyA);
+
+    // Sequential, not Promise.all -- two Pyodide calls sharing the global namespace
+    // (see the tillage-compare panel's own real bug, fixed 2026-09-21) is unsafe
+    // regardless of how independent the calls look in JS.
+    status.textContent = `Running 37 years for Choice B (${siteB.label})...`;
+    const resolvedB = await resolveSiteAt({ lat: siteB.lat, lng: siteB.lng });
+    const dataB = await runSeasonRiskSweep(resolvedB, cropKeyB);
+
+    const labelA = `${SPECIES_REGISTRY[cropKeyA].label} @ ${siteA.label}`;
+    const labelB = `${SPECIES_REGISTRY[cropKeyB].label} @ ${siteB.label}`;
+
+    function renderOne(data, canvasId, noteId, label) {
+      drawBarChart(document.getElementById(canvasId), data.map((d) => d.year), data.map((d) => d.grain),
+        { color: "#2471a3", yLabel: "Grain yield (Mg/ha)" });
+      const values = data.map((d) => d.grain);
+      const mean = values.reduce((a, b) => a + b, 0) / values.length;
+      const min = Math.min(...values), max = Math.max(...values);
+      document.getElementById(noteId).innerHTML =
+        `<b>${label}</b><br>Mean ${mean.toFixed(2)} Mg/ha across 37 real years, range ${min.toFixed(2)}–${max.toFixed(2)} Mg/ha.`;
+      return { mean, min, max };
+    }
+    const statsA = renderOne(dataA, "srChartA", "srNoteA", labelA);
+    const statsB = renderOne(dataB, "srChartB", "srNoteB", labelB);
+
+    const meanWinner = statsA.mean >= statsB.mean ? labelA : labelB;
+    const rangeA = statsA.max - statsA.min, rangeB = statsB.max - statsB.min;
+    const moreReliable = rangeA <= rangeB ? labelA : labelB;
+    document.getElementById("srCompareNote").innerHTML =
+      `<b>${meanWinner}</b> has the higher average across all 37 years. ` +
+      `<b>${moreReliable}</b> swings less from year to year (a more reliable choice, ` +
+      `even in years it isn't the highest-yielding one). Neither choice controls which ` +
+      `year actually shows up &mdash; only which hybrid and which place you started from.`;
+
+    document.getElementById("srResult").style.display = "block";
+    status.textContent = "";
+  } catch (err) {
+    status.textContent = "Failed: " + err.message;
+  }
+  btn.disabled = false;
+  btn.textContent = "Run both across all 37 years";
+});
+
 document.getElementById("nSweepTillageField").innerHTML = buildTillageFieldHTML("nSweepTillage");
 document.getElementById("fieldTillageField").innerHTML = buildTillageFieldHTML("fieldTillage");
 document.getElementById("rotTillageField").innerHTML = buildTillageFieldHTML("rotTillage");
@@ -2526,9 +2735,9 @@ document.getElementById("fieldRunBtn").addEventListener("click", async () => {
       <tr><td>Aboveground biomass (Mg/ha)</td>${slots.map((s) => `<td>${(results[s].ag ?? 0).toFixed(2)}</td>`).join("")}</tr>
       <tr><td>Nitrogen leached (kg N/ha)</td>${slots.map((s) => `<td>${(results[s].n_leached_kg_ha ?? 0).toFixed(1)}</td>`).join("")}</tr>
     `;
-    drawBarChart(document.getElementById("fieldYieldChart"), labels, grain, { colors });
-    drawBarChart(document.getElementById("fieldAgChart"), labels, ag, { colors });
-    drawBarChart(document.getElementById("fieldLeachChart"), labels, leached, { colors });
+    drawBarChart(document.getElementById("fieldYieldChart"), labels, grain, { colors, yLabel: "Grain yield (Mg/ha)" });
+    drawBarChart(document.getElementById("fieldAgChart"), labels, ag, { colors, yLabel: "AG biomass (Mg/ha)" });
+    drawBarChart(document.getElementById("fieldLeachChart"), labels, leached, { colors, yLabel: "N leached (kg/ha)" });
     const tillageLabel = TILLAGE_OPTIONS.find((o) => o.value === tillageVal)?.label ?? "No tillage (direct seed)";
     document.getElementById("fieldRunNote").textContent = slots.length === 2
       ? `Both fields run against the same ${year} weather year, ${tillageLabel.toLowerCase()}, and a fixed 150 kg N/ha, so any difference is real soil and location, not a different input.`
@@ -2572,7 +2781,7 @@ async function handleYearCompareGuess(guessedLabel) {
     verdict.innerHTML = `<b>${correct ? "Correct" : "Not quite"}</b> &mdash; ${winner} yields more ` +
       `(${resA.grain.toFixed(2)} vs ${resB.grain.toFixed(2)} Mg/ha, a ${Math.abs(resA.grain - resB.grain).toFixed(2)} Mg/ha gap). ` +
       `You guessed ${guessedLabel}.`;
-    drawBarChart(document.getElementById("yearCompareChart"), [YEAR_COMPARE_A, YEAR_COMPARE_B], [resA.grain, resB.grain], { colors: ["#2471a3", "#c0392b"] });
+    drawBarChart(document.getElementById("yearCompareChart"), [YEAR_COMPARE_A, YEAR_COMPARE_B], [resA.grain, resB.grain], { colors: ["#2471a3", "#c0392b"], yLabel: "Grain yield (Mg/ha)" });
     document.getElementById("yearCompareResult").style.display = "block";
     status.textContent = "";
   } catch (err) {
@@ -2633,7 +2842,7 @@ async function handleSoilCompareGuess(guessedLabel) {
       `(${resA.grain.toFixed(2)} vs ${resB.grain.toFixed(2)} Mg/ha). ` +
       `${SOIL_COMPARE_A.label}: ${resolvedA.soilCell.compname} series. ` +
       `${SOIL_COMPARE_B.label}: ${resolvedB.soilCell.compname} series. You guessed ${guessedLabel}.`;
-    drawBarChart(document.getElementById("soilCompareChart"), [SOIL_COMPARE_A.label, SOIL_COMPARE_B.label], [resA.grain, resB.grain], { colors: ["#2471a3", "#c0392b"] });
+    drawBarChart(document.getElementById("soilCompareChart"), [SOIL_COMPARE_A.label, SOIL_COMPARE_B.label], [resA.grain, resB.grain], { colors: ["#2471a3", "#c0392b"], yLabel: "Grain yield (Mg/ha)" });
     document.getElementById("soilCompareResult").style.display = "block";
     status.textContent = "";
   } catch (err) {

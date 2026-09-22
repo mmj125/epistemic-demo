@@ -54,31 +54,32 @@
 
 <div id="tab-watch-season" class="tab-content">
   <div class="panel">
-    <div class="panel-header"><h2>Season Progress</h2></div>
+    <div class="panel-header"><h2>Climate Risk</h2></div>
     <div class="panel-body">
       <p>
-        Before comparing anything, get familiar with what the model actually tracks
-        day by day. Pick a crop and a weather year below and run it &mdash; watch canopy
-        cover rise as the plant grows, water stress rise and fall with the weather, and
-        biomass accumulate underneath both. Every later tab in this investigation
-        compares outcomes like these; this tab is where you find out what those words mean.
+        A farmer never gets to pick which year's weather shows up. Below, run the
+        same choice, a corn hybrid at a real place, across all 37 years of real
+        weather at once, and see the actual range of outcomes that choice faces.
+        That range is real risk you cannot eliminate.
       </p>
       <p>
-        <b>Canopy cover</b> is the fraction of ground shaded by the crop, from bare soil
-        (0%) to full cover. <b>Water stress</b> runs from 0 (no stress) to 1 (severely
-        stressed) &mdash; low soil moisture on a hot day pushes it up, and it holds the
-        plant's growth back on days it's high. <b>Biomass</b> is the plant material
-        accumulated so far, the running total that canopy cover and water stress
-        together determine day by day.
+        What you can control is which hybrid and which place you're starting from.
+        Compare a short-season hybrid against a long-season one at the same place,
+        then try the same pair at a genuinely different climate. A longer-season
+        hybrid usually yields more where the season is long enough to finish it,
+        but that same hybrid can lose its advantage, or lose outright, somewhere
+        the season is too short &mdash; which is exactly why farmers further north
+        plant different hybrids than farmers further south, not because one hybrid
+        is simply better.
       </p>
       <p>
-        Try a dry year against a wet one (2012 was a real drought at this site; 1993
-        was wet) and watch how the water-stress line changes shape, not just its
-        average.
+        The rest of this investigation covers the other decisions you control:
+        soil, tillage, nitrogen, and rotation. This tab is just the baseline,
+        the risk that's there no matter what else you decide.
       </p>
     </div>
   </div>
-  <iframe class="embed-frame" src="prototypes/engine-demo.html?embed=run-season" title="Run a season"></iframe>
+  <iframe class="embed-frame" src="prototypes/engine-demo.html?embed=season-risk" title="Weather risk and crop choice" style="height:900px;"></iframe>
 </div>
 
 <div id="tab-outcome-compare" class="tab-content">
@@ -228,7 +229,7 @@
 
 <script>
 const TABS = [
-  { id: "tab-watch-season", label: "1. Season Progress" },
+  { id: "tab-watch-season", label: "1. Climate Risk" },
   { id: "tab-outcome-compare", label: "2. Weather and Soil" },
   { id: "tab-crop-choice", label: "3. Crop Choice" },
   { id: "tab-tillage", label: "4. Tillage Practice" },
