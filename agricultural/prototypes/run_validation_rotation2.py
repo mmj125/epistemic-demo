@@ -103,7 +103,13 @@ def validate(rotation, crop_name, crop_params, label, metric="grain", harvest_tt
         if start is None:
             continue
         rows = [r for (_, _, r) in weather_flat[start:start + 400]]
-        result = simulate_season(rows, crop_params, harvest_ttf=harvest_ttf)
+        # Real antecedent soil moisture -- that same plant_year's own Jan-1-through-day-
+        # before-planting weather, already in weather_flat, as bare fallow (see
+        # run_validation.py's identical treatment / simulate_season()'s spinup_rows
+        # docstring / CLAUDE.md 2026-09-22).
+        jan1_idx = flat_index.get((info["plant_year"], 1))
+        spinup_rows = [r for (_, _, r) in weather_flat[jan1_idx:start]] if jan1_idx is not None else None
+        result = simulate_season(rows, crop_params, harvest_ttf=harvest_ttf, spinup_rows=spinup_rows)
         my_yield[hyear] = result[metric]
 
     years = sorted(my_yield)

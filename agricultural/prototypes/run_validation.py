@@ -87,7 +87,12 @@ def main():
         tsoil_by_doy = dict(zip(doys_sorted, tsoils))
         plant_doy = find_planting_doy(tsoil_by_doy, (110, 131), 12.0)
         rows = [daily[year][d] for d in range(plant_doy, 300) if d in daily[year]]
-        result = simulate_season(rows, CORN)
+        # Real antecedent soil moisture instead of an arbitrary field-capacity reset -- the
+        # same calendar year's own Jan-1-through-day-before-planting weather (already loaded,
+        # no new data needed), run as bare fallow. See simulate_season()'s spinup_rows
+        # docstring / CLAUDE.md 2026-09-22 for why this replaced always starting full.
+        spinup_rows = [daily[year][d] for d in range(1, plant_doy) if d in daily[year]]
+        result = simulate_season(rows, CORN, spinup_rows=spinup_rows)
         results[year] = result["grain"]
 
     years = sorted(results)
