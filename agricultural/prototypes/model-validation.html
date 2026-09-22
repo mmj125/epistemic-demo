@@ -358,6 +358,25 @@
       with the corrected sign in both cases (flagged in code) &mdash; worth confirming directly with the
       authors, since we could be wrong about which reading is the typo.</p>
     </details>
+    <details class="gap">
+      <summary>12. Tried deriving the water-stress response curve directly from real Cycles output &mdash; made things worse, reverted</summary>
+      <p>Real Cycles publishes both ingredients needed to derive this curve directly as its own daily
+      output: a WATER STRESS column, and per-layer soil moisture. Paired them across the full real
+      37-year Rock Springs record (4928 real active-growth days) instead of guessing a shape or
+      back-solving through aggregate yield comparisons (which would confound this one function with
+      RUE, WUE, canopy timing, and root depth all at once). The best fit was clean and physically
+      plausible &mdash; essentially a square root, stress=(avail_frac/0.45)^0.5, a 60% reduction in
+      squared error against Cycles' own reported values compared to our plain linear ramp. Plugged
+      into the actual engine, it made year-to-year correlation WORSE for every one of the four
+      validated crops (corn 0.540&rarr;0.533, soybean 0.846&rarr;0.823, wheat 0.253&rarr;0.210,
+      silage corn 0.501&rarr;0.495) &mdash; reverted rather than shipped. Most likely reason: the fit
+      was built from Cycles' own real sub-daily water-redistribution trajectory (Eq. 1-2), but this
+      engine approximates that with a same-day cascading bucket (item 5's gap) &mdash; the two
+      trajectories don't move through a season the same way, so a curve tuned to Cycles' real
+      avail_frac doesn't transfer cleanly to this engine's different one. Useful negative result: the
+      stress-response shape probably isn't the dominant lever behind corn/wheat's weak correlation;
+      the water-redistribution physics upstream of it is the more likely place to look next.</p>
+    </details>
 
     <p style="margin-top:14px;">This list is deliberately not flattering. It's the same list we'd want
     handed to us if someone else built a reimplementation of our own model and asked us to check it.</p>
