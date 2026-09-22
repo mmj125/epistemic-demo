@@ -288,12 +288,26 @@
     </details>
 
     <details class="gap">
-      <summary>6. Every soil layer starts at field capacity, every run, with no spin-up</summary>
-      <p>Not disclosed as wrong anywhere &mdash; just never discussed. Every simulation in this engine
-      initializes every soil layer's water content to field capacity on day one, with no warm-up
-      period and no carryover between years or between rotation phases. Real field soil moisture at
-      planting varies with the prior season; we don't know how much this costs us, only that it's an
-      optimistic default we've never had reason to pick over any other.</p>
+      <summary>6. Every soil layer starts at field capacity, every run &mdash; attempted a fix, found it's insufficient</summary>
+      <p><strong>Update, 2026-09-22:</strong> added an optional bare-soil spin-up (real prior-period
+      weather run as uncropped fallow before the tracked season starts) to replace the always-full
+      reset. Tested at a real semi-arid site (western Kansas) against real native Cycles output run
+      the same day: it barely moved the result (2.451 &rarr; 2.450 Mg/ha, real Cycles gives 0.137).
+      Root cause, confirmed by instrumenting the water balance directly: bare-soil evaporation only
+      ever dries the top layer &mdash; there are no roots during spin-up to reach deeper &mdash; so
+      even a full extra year of spin-up left layers 2 and 3 sitting exactly at field capacity,
+      untouched. Once a real crop's roots deepen past layer 1 (within the first few weeks), it draws
+      on that still-full reservoir underneath regardless of how dry the surface got. Real Kansas's
+      actual deficit almost certainly lives at depth, built up over multiple real growing seasons of
+      an actual crop's roots pulling water down there &mdash; something no amount of bare-fallow
+      spin-up can reproduce. At our one real-ground-truth site (Rock Springs, humid Pennsylvania) the
+      fix changes nothing at all: correlation for corn/soybean/wheat/silage corn is unchanged to three
+      decimal places, since a ~100-day humid winter/spring naturally recharges the profile close to
+      field capacity regardless of where it started. Kept in the engine (`spinup_rows` parameter,
+      opt-in, `None` reproduces the exact old behavior) since it's a real, disclosed improvement over
+      nothing &mdash; but closing the Kansas-scale gap for real would need genuine multi-year,
+      crop-inclusive state carryover (an actual prior crop, actual root extraction, across several
+      real seasons), which is a real subsystem to build, not a patch.</p>
     </details>
     <details class="gap">
       <summary>7. Tillage's real mechanism isn't implemented &mdash; only a disclosed stand-in for its effect</summary>
@@ -323,13 +337,19 @@
       system would show.</p>
     </details>
     <details class="gap">
-      <summary>10. Curve-number runoff exists in code but was never wired into the water balance</summary>
-      <p>A real, disclosed runoff formula (with a genuine sign-error correction against the SI's
-      typeset equation) is implemented as a function in this engine &mdash; but it is never called
-      anywhere in the actual season simulation. All precipitation currently goes straight to
-      infiltration with zero runoff subtracted. Concretely: topography and slope have zero effect on
-      anything in this model today, which we only noticed while scoping a classroom tab that assumed
-      otherwise.</p>
+      <summary>10. Curve-number runoff &mdash; now wired in, real effect turned out to be negligible here</summary>
+      <p><strong>Update, 2026-09-22:</strong> wired the existing runoff formula into the water balance
+      (added `compute_fwc()`, the moisture-adjustment factor the formula needed but never had; a base
+      curve number of 75, a flat default with no real per-site source, same simplification everywhere
+      else in this project defaults to a stand-in for missing data). Re-ran the full validation suite:
+      correlation for all four validated crops is unchanged to three decimal places. Traced why, not
+      just accepted it: the curve-number method only triggers meaningfully above roughly 18-20mm of
+      rain in a single day at this soil's typical moisture level, and Rock Springs' 2012 record's two
+      genuinely heavy storms both landed after the modeled harvest date that year &mdash; real,
+      physically correct behavior for this specific weather record, not a bug, just not load-bearing
+      at our one real-ground-truth site. Topography/slope still has zero effect on anything (no real
+      slope data exists anywhere in this project), but precipitation is no longer sent to infiltration
+      unconditionally.</p>
     </details>
     <details class="gap">
       <summary>11. Two likely sign errors found and corrected in the SI's own typeset equations</summary>

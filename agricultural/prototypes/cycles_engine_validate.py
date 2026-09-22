@@ -184,6 +184,29 @@ def moisture_adjusted_cn(cnb, fwc, slope_pct):
     return cnd + (cnw - cnd) * fwc
 
 
+def compute_fwc(layers, depth_m=0.6):
+    """The curve-number moisture-adjustment factor moisture_adjusted_cn() needs, computed
+    from actual soil state -- described only in words in the SI ("1 for soil saturated to
+    0.6m depth, decreasing to zero if air-dry, depth-weighted toward the surface"), no exact
+    formula given (QUESTIONS_FOR_DEVS.md item 1). This is a defensible reading of that
+    description, not a verified match: for each layer within the top 0.6m, a 0-1 saturation
+    fraction (theta-pwp)/(sat-pwp), weighted by that layer's remaining distance to 0.6m (so
+    a shallower layer's moisture counts more -- "depth-weighted toward the surface") and by
+    how much of the 0.6m window the layer actually occupies."""
+    depth, weighted_sum, weight_total = 0.0, 0.0, 0.0
+    for l in layers:
+        if depth >= depth_m:
+            break
+        d = min(l["thick"], depth_m - depth)
+        sat_frac = (l["theta"] - l["pwp"]) / (l["sat"] - l["pwp"]) if l["sat"] > l["pwp"] else 0.0
+        sat_frac = max(0.0, min(1.0, sat_frac))
+        weight = (depth_m - depth) * d  # more weight on shallower, and on thicker-within-window, layers
+        weighted_sum += sat_frac * weight
+        weight_total += weight
+        depth += l["thick"]
+    return weighted_sum / weight_total if weight_total > 0 else 0.0
+
+
 def runoff_mm(win, cn, slope_pct):
     S = 254 * slope_factor(slope_pct) * (100 / cn - 1)
     if win <= 0.2 * S:
@@ -209,6 +232,23 @@ def redistribute(layers, water_in_mm):
         l["theta"] -= excess_mm / (l["thick"] * 1000)
         remaining += excess_mm
     return remaining
+
+
+def infiltrate(layers, water_in_mm, curve_number, slope_pct):
+    """One day's curve-number runoff (Eq. SI.1-7, sign-corrected) followed by infiltration
+    (redistribute()) -- shared by simulate_season()'s main loop and its optional spin-up
+    window, so the two can't drift apart. Previously runoff_mm()/moisture_adjusted_cn()
+    existed but were never actually called anywhere in the water balance (all precipitation
+    went straight to infiltration) -- see CLAUDE.md, 2026-09-22, for why this was flagged as
+    a real gap rather than a deliberate simplification: it means every drop of rain currently
+    enters the soil, which retains more water than reality especially in a drier climate."""
+    if water_in_mm <= 0:
+        return 0.0, 0.0
+    fwc = compute_fwc(layers)
+    cn = moisture_adjusted_cn(curve_number, fwc, slope_pct)
+    runoff = runoff_mm(water_in_mm, cn, slope_pct)
+    drainage_mm = redistribute(layers, water_in_mm - runoff)
+    return drainage_mm, runoff
 
 
 def soil_evaporation(layers, eto_mm, canopy_cover_frac):
@@ -604,7 +644,8 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf):
 def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False,
                      n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
                      irrigation_trigger_frac=None, irrigation_amount_mm=25.0,
-                     tillage_doy=None, tillage_implement=None, tillage_boost_days=30):
+                     tillage_doy=None, tillage_implement=None, tillage_boost_days=30,
+                     spinup_rows=None, curve_number=75.0, slope_pct=0.0):
     """weather_rows: dicts with doy, tx, tn, solar, rhx, rhn, wind, pp, in planting-day order.
     harvest_ttf: fraction of thermal time to maturity that triggers harvest -- 1.0 for grain
     crops (HARVEST_TIMING=-999 in the real crop file), lower for forage/silage crops harvested
@@ -685,8 +726,41 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     the mineral-N pool at season end -- not yet taken up, not yet leached). Together with
     n_leached_kg_ha these three account for the full nitrogen mass balance: total supply
     (n_rate_kg_ha/n_applications + n_credit_kg_ha + manure contribution + background
-    mineralization) equals uptake + leached + remaining, to floating-point precision."""
+    mineralization) equals uptake + leached + remaining, to floating-point precision.
+
+    curve_number, slope_pct: real curve-number runoff (Eq. SI.1-7) is now wired into the water
+    balance via infiltrate() (previously implemented but never called -- see CLAUDE.md,
+    2026-09-22). curve_number=75.0 is a flat default carried over from Cycles' own bundled
+    Rock Springs sample soil file, NOT a real per-site value -- this project's STATSGO2 data
+    has no curve-number field to draw from, so every site currently gets the same one, a real,
+    disclosed simplification. slope_pct=0.0 for the same reason this project has always used
+    flat terrain: no real slope data exists in any dataset here. Result now always carries
+    runoff_mm (cumulative, mm) alongside the existing water-balance outputs.
+
+    spinup_rows: optional list of real weather rows (same shape as weather_rows) simulated as
+    bare, uncropped soil (canopy_cover=0, no transpiration, no N) immediately before the main
+    loop starts, instead of every run beginning at field capacity regardless of season. Real
+    Cycles carries continuous soil state across years; this engine previously had zero
+    carryover of any kind. None (default) reproduces the exact old field-capacity-start
+    behavior. Callers typically pass that season's own Jan-1-through-day-before-planting
+    weather (already loaded, no new data needed) as a defensible antecedent-moisture proxy --
+    not a true multi-year equilibrium spin-up, but a real, non-arbitrary improvement over
+    always starting full, especially in drier climates where that assumption is least
+    defensible (see the Iowa/Kansas head-to-head comparison, CLAUDE.md 2026-09-22)."""
     layers = crop["make_layers"]()
+    runoff_total = 0.0
+    if spinup_rows:
+        # A bare-soil (no canopy, no transpiration) water balance over real weather from
+        # before the tracked season starts, replacing an always-reset-to-field-capacity
+        # start -- see CLAUDE.md, 2026-09-22: a real Cycles vs. this-engine head-to-head at
+        # a semi-arid site (western Kansas) showed an ~18x yield gap traced directly to this
+        # assumption having no basis in a dry climate. Uses the SAME infiltrate() (now
+        # runoff-aware) and soil_evaporation() the main loop uses, just with canopy_cover=0.
+        for w in spinup_rows:
+            _, spin_runoff = infiltrate(layers, w["pp"], curve_number, slope_pct)
+            runoff_total += spin_runoff
+            eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
+            soil_evaporation(layers, eto, 0.0)
     tillage_depth_m, tillage_mixing_efficiency = None, None
     if tillage_doy is not None:
         if tillage_implement not in TILLAGE_IMPLEMENTS:
@@ -778,7 +852,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 irrigation_mm = irrigation_amount_mm
                 irrigation_total_mm += irrigation_mm
 
-        drainage_mm = redistribute(layers, w["pp"] + irrigation_mm)
+        drainage_mm, runoff = infiltrate(layers, w["pp"] + irrigation_mm, curve_number, slope_pct)
+        runoff_total += runoff
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
         soil_evaporation(layers, eto, eie)
 
@@ -834,7 +909,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     ag_biomass_mg_ha = ag_biomass * 10
     grain_mg_ha = ag_biomass * HI * 10 * crop.get("calibration_factor", 1.0)
     forage_mg_ha = ag_biomass_mg_ha * crop.get("forage_fraction", 0.95) * crop.get("calibration_factor", 1.0)
-    result = dict(total=biomass_mg_ha, ag=ag_biomass_mg_ha, grain=grain_mg_ha, forage=forage_mg_ha)
+    result = dict(total=biomass_mg_ha, ag=ag_biomass_mg_ha, grain=grain_mg_ha, forage=forage_mg_ha,
+                  runoff_mm=runoff_total)
     if n_leached_total is not None:
         result["n_leached_kg_ha"] = n_leached_total
     if irrigation_trigger_frac is not None:
