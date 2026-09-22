@@ -1,0 +1,1434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cycles Model: Full Capabilities &amp; Validation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky:#eef3f7;--sky-dark:#c8d8e4;--ink:#101820;--ink-soft:#3c4a56;
+    --field:#f4f8fb;--panel:#ffffff;--border:#c9d8e2;--muted:#5f7180;
+    --solar:#e08a2e;--accent:#c0392b;--data:#2471a3;--trend:#154360;--log:#1e8449;--ai:#6c3483;
+    --warn:#b7791f;--fail:#c0392b;--pass:#1e8449;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:"DM Sans",sans-serif;background:var(--field);color:var(--ink);min-height:100vh;margin:0;}
+  .wrap{max-width:960px;margin:0 auto;padding:28px 20px 60px;}
+  .eyebrow{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+  header{padding:0 0 20px;border-bottom:2px solid var(--ink);margin-bottom:24px;}
+  h1{font-family:"DM Serif Display",serif;font-size:clamp(24px,4.5vw,34px);line-height:1.15;margin:0;font-weight:400;}
+  .header-sub{margin-top:10px;color:var(--ink-soft);font-weight:300;max-width:760px;line-height:1.65;font-size:14px;}
+  .panel{background:var(--panel);border:1.5px solid var(--border);border-radius:5px;overflow:hidden;margin-bottom:22px;}
+  .panel-header{padding:11px 18px;background:var(--ink);}
+  .panel-header h2{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--sky);font-weight:500;margin:0;}
+  .panel-body{padding:18px;}
+  .panel-body p{font-size:13.5px;line-height:1.7;color:var(--ink-soft);margin:0 0 12px;}
+  .panel-body p:last-child{margin-bottom:0;}
+  .note{background:var(--sky);border-left:3px solid var(--data);border-radius:0 4px 4px 0;padding:12px 16px;font-size:13px;line-height:1.65;color:var(--ink-soft);}
+  .controls{display:flex;gap:20px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;}
+  .field label{display:block;font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+  select,input[type=number]{font-family:"DM Sans",sans-serif;font-size:14px;padding:8px 10px;border:1.5px solid var(--border);border-radius:3px;background:#fff;color:var(--ink);}
+  input[type=number]{width:110px;}
+  .btn{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:10px 18px;border-radius:3px;border:1.5px solid var(--data);background:var(--data);color:#fff;cursor:pointer;}
+  .btn:hover:not(:disabled){background:var(--trend);border-color:var(--trend);}
+  .btn:disabled{opacity:.5;cursor:default;}
+  .btn-secondary{background:var(--panel);color:var(--data);font-size:11px;font-family:"DM Mono",monospace;padding:6px 10px;border:1.5px solid var(--data);border-radius:3px;cursor:pointer;}
+  .btn-secondary:hover:not(:disabled){background:var(--sky);}
+  #status{font-family:"DM Mono",monospace;font-size:11.5px;color:var(--muted);margin:10px 0 4px;min-height:16px;}
+  .result{display:none;margin-top:14px;}
+  .headline{font-size:15px;color:var(--ink-soft);margin-bottom:14px;}
+  .headline b{font-size:28px;color:var(--trend);font-family:"DM Sans",sans-serif;font-weight:600;}
+  canvas.chart{width:100%;height:220px;display:block;border-radius:3px;background:#fff;border:1.5px solid var(--border);}
+  table{border-collapse:collapse;margin-top:14px;font-size:13px;width:100%;}
+  td,th{border:1px solid var(--border);padding:6px 10px;text-align:right;}
+  th{background:var(--sky);text-align:left;color:var(--ink-soft);font-weight:500;}
+  td:first-child{text-align:left;color:var(--ink-soft);}
+  .sweep-note{font-size:12.5px;color:var(--muted);margin-top:8px;font-style:italic;}
+  footer{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.6;}
+  .subfield{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:6px 0;}
+  .subfield label{font-size:12.5px;color:var(--ink-soft);font-family:"DM Sans",sans-serif;text-transform:none;letter-spacing:0;}
+  .tag{display:inline-block;font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:9px;margin-left:6px;}
+  .tag-pass{background:#e3f2e8;color:var(--pass);}
+  .tag-fail{background:#fbe9e7;color:var(--fail);}
+  .tag-unresolved{background:#fdf3dc;color:var(--warn);}
+  details.gap summary{cursor:pointer;font-weight:500;color:var(--ink);padding:8px 0;font-size:13.5px;}
+  details.gap{border-bottom:1px solid var(--border);padding:2px 0;}
+  details.gap:last-child{border-bottom:none;}
+  details.gap p{margin:4px 0 12px;}
+  pre.rawjson{background:var(--sky);border-radius:3px;padding:10px;font-size:11px;overflow-x:auto;max-height:220px;}
+  fieldset{border:1.5px solid var(--border);border-radius:4px;padding:12px 14px;margin:0 0 14px;}
+  fieldset legend{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:0 6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Agricultural Unit &middot; Model Validation</div>
+  <h1>Full model capabilities, and where it falls short</h1>
+  <div class="header-sub">
+    This page exists for one audience: the real CYCLES developers, and anyone else who wants
+    to check our work rather than take it on faith. It exposes every mechanism our from-scratch
+    reimplementation actually has &mdash; not just the two crops shown in the classroom prototype
+    &mdash; and states plainly, with real numbers, where it tracks native Cycles output and where
+    it doesn't. Nothing here is smoothed over for a student audience. See
+    <a href="https://github.com/mmj125/epistemic-demo/blob/main/CLAUDE.md" target="_blank" rel="noopener">CLAUDE.md</a>
+    for the full build history behind every number on this page.
+  </div>
+</header>
+
+<div class="panel" id="panel-select-site">
+  <div class="panel-header"><h2>1. Site</h2></div>
+  <div class="panel-body">
+    <p>Real STATSGO2 soil and real NLDAS-2 weather, resolved to the nearest ~55km cell. Pick a preset or upload a KML/pin from Google Earth for any point in the CONUS.</p>
+    <div class="preset-row" id="fcPresetRow" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">...or upload your own field (KML):</div>
+    <input type="file" id="fcKmlInput" accept=".kml">
+    <div class="sweep-note" id="fcSiteNote" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<div class="panel" id="panel-full-sim">
+  <div class="panel-header"><h2>2. Full simulation controls</h2></div>
+  <div class="panel-body">
+    <p>Every parameter <code>simulate_season()</code> actually accepts, in one place &mdash; including six mechanisms
+    (nitrogen timing, previous-crop credit, manure, irrigation, tillage, planting-date override) that exist in the
+    engine but have never had UI anywhere else in this project until now. Defaults reproduce the plain single-lump-
+    nitrogen baseline used throughout the rest of this project.</p>
+
+    <fieldset>
+      <legend>Crop &amp; year</legend>
+      <div class="controls">
+        <div class="field"><label>Species</label><select id="fcCropSelect"></select></div>
+        <div class="field"><label>Weather year</label><select id="fcYearSelect" disabled><option>Select a site first</option></select></div>
+      </div>
+      <div class="sweep-note" id="fcCropNote"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Nitrogen</legend>
+      <div class="subfield">
+        <label><input type="checkbox" id="fcNSplit"> Split into two dated applications (fall + spring) instead of one lump</label>
+      </div>
+      <div class="controls" id="fcNLumpRow">
+        <div class="field"><label>Rate (kg N/ha)</label><input type="number" id="fcNRate" value="150" min="0" step="10"></div>
+      </div>
+      <div class="controls" id="fcNSplitRow" style="display:none;">
+        <div class="field"><label>App 1 day-of-year</label><input type="number" id="fcNApp1Doy" value="130" min="1" max="366"></div>
+        <div class="field"><label>App 1 amount (kg/ha)</label><input type="number" id="fcNApp1Amt" value="80" min="0" step="10"></div>
+        <div class="field"><label>App 2 day-of-year</label><input type="number" id="fcNApp2Doy" value="180" min="1" max="366"></div>
+        <div class="field"><label>App 2 amount (kg/ha)</label><input type="number" id="fcNApp2Amt" value="60" min="0" step="10"></div>
+      </div>
+      <div class="controls">
+        <div class="field"><label>Previous-crop N credit (kg/ha)</label><input type="number" id="fcNCredit" value="0" min="0" step="10"></div>
+        <div class="field"><label>Manure N applied (kg/ha)</label><input type="number" id="fcManure" value="0" min="0" step="10"></div>
+      </div>
+      <div class="sweep-note">Manure counts at 50% availability vs. mineral fertilizer (Kemanian et al. 2024 SI Sec. IX, a real disclosed number, not invented) &mdash; 100 kg/ha of manure N supplies the same 50 kg/ha a mineral source would. Nitrogen has no effect on legumes (soybean, hairy vetch): real rhizobia N fixation, not a modeled gap.</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Irrigation</legend>
+      <div class="subfield"><label><input type="checkbox" id="fcIrrigOn"> Enable irrigation</label></div>
+      <div class="controls" id="fcIrrigRow" style="display:none;">
+        <div class="field"><label>Trigger (root-zone available fraction)</label><input type="number" id="fcIrrigTrigger" value="0.5" min="0" max="1" step="0.05"></div>
+        <div class="field"><label>Amount per event (mm)</label><input type="number" id="fcIrrigAmt" value="25" min="0" step="5"></div>
+      </div>
+      <div class="sweep-note">Real Cycles supports irrigation as operation-file-configured (Kemanian et al. 2024 Sec. 2.8: "conditional to soil moisture") but discloses no universal trigger formula &mdash; this is real scenario configuration, same as native Cycles requires, not a computed rule either model derives on its own.</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Tillage</legend>
+      <div id="fcTillageFieldHolder"></div>
+      <div class="controls">
+        <div class="field"><label>Boost window (days after tillage)</label><input type="number" id="fcTillageBoostDays" value="30" min="1" max="120"></div>
+      </div>
+      <div class="sweep-note">Applied at planting. Real per-implement depth/mixing-efficiency from Cycles v1.4.4's own <code>till.txt</code> (86 real implements, 5 exposed here spanning the real intensity range). Soil moisture is genuinely mixed by the real coefficient; the background-nitrogen boost is a disclosed stand-in for tillage's real six-pool decomposition effect, which this engine doesn't implement (see the gaps section below).</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Planting date</legend>
+      <div class="subfield"><label><input type="checkbox" id="fcPlantOverride"> Override the computed planting date</label></div>
+      <div class="controls" id="fcPlantRow" style="display:none;">
+        <div class="field"><label>Planting day-of-year</label><input type="number" id="fcPlantDoy" value="130" min="1" max="200"></div>
+      </div>
+      <div class="sweep-note">Default: a soil-temperature trigger validated to 2.65 days mean absolute error against real Cycles planting dates.</div>
+    </fieldset>
+
+    <button class="btn" id="fcRunBtn" disabled>Loading engine...</button>
+    <div id="fcStatus"></div>
+
+    <div class="result" id="fcResult">
+      <div class="headline" id="fcHeadline"></div>
+      <canvas class="chart" id="fcChart" width="880" height="220"></canvas>
+      <div class="sweep-note" id="fcMassBalance" style="margin-top:8px;"></div>
+      <button class="btn-secondary" id="fcRawToggle" style="margin-top:10px;">Show raw JSON output</button>
+      <pre class="rawjson" id="fcRawJson" style="display:none;margin-top:8px;"></pre>
+    </div>
+  </div>
+</div>
+
+<div class="panel" id="panel-validation">
+  <div class="panel-header"><h2>3. Validation against real Cycles output</h2></div>
+  <div class="panel-body">
+    <p>Real Cycles v1.4.4, run on the same Kemanian et al. sample scenarios (Rock Springs, PA,
+    1980&ndash;2016), compared year-by-year against this engine's output for the same weather and soil.
+    "Classroom-workable" is our own internal bar (correlation &ge; ~0.6&ndash;0.7), not a Cycles standard &mdash;
+    shown here because it's the threshold we've been using to decide what to expose to students, and it's
+    fair to hold the same numbers to it when talking to the people who built the reference model.</p>
+
+    <table>
+      <tr><th>Crop / rotation</th><th>Real mean</th><th>Model mean</th><th>MAE</th><th>Correlation</th><th>Status</th></tr>
+      <tr><td>Soybean</td><td>4.72 Mg/ha</td><td>4.72 Mg/ha</td><td>0.23</td><td>0.846</td><td><span class="tag tag-pass">passes bar</span></td></tr>
+      <tr><td>Corn (continuous)</td><td>10.56 Mg/ha</td><td>10.96 Mg/ha</td><td>0.80</td><td>0.540</td><td><span class="tag tag-fail">below bar</span></td></tr>
+      <tr><td>Silage corn</td><td>14.81 Mg/ha</td><td>14.80 Mg/ha</td><td>1.37</td><td>0.501</td><td><span class="tag tag-fail">below bar</span></td></tr>
+      <tr><td>Winter wheat</td><td>4.33 Mg/ha</td><td>4.33 Mg/ha</td><td>0.50</td><td>0.253</td><td><span class="tag tag-fail">below bar</span></td></tr>
+      <tr><td>Pasture perennials (orchardgrass, etc.)</td><td colspan="3">real annual yield 5.25&ndash;7.94 Mg/ha, not tracked</td><td>&minus;0.28 to 0.16<br>(across 4 tested fixes)</td><td><span class="tag tag-unresolved">unresolved</span></td></tr>
+      <tr><td>Winter rye / hairy vetch (cover)</td><td colspan="4">no real Cycles reference data available to correlate against &mdash; RUE/WUE are real (SI Table SI.2), everything else borrowed</td><td><span class="tag tag-unresolved">unvalidated</span></td></tr>
+    </table>
+
+    <div class="note" style="margin-top:14px;">
+      <strong>Correction made while building this page (2026-09-22):</strong> corn's own figure has been
+      quoted internally as 0.771 (passing) since 2026-09-10. That number was computed against a local
+      reference file that a later interrupted test run corrupted. Re-running the real binary from
+      scratch against the same committed inputs, three independent times, all agree byte-for-byte on
+      a different result: mean 10.56 Mg/ha, correlation 0.540 &mdash; below the bar. We are correcting our
+      own internal documentation accordingly rather than continuing to cite the old number. Soybean,
+      wheat, and silage corn's reference files were unaffected and their numbers above are unchanged
+      from what we've quoted before.
+    </div>
+
+    <p style="margin-top:14px;"><strong>Plainly: one of five crops we've attempted currently clears our
+    own accuracy bar.</strong> Corn (our most-used demo crop) does not. We think the model is still
+    directionally useful &mdash; it gets the right sign on major effects (drought years score worse,
+    sandy soils leach less, nitrogen has diminishing returns) &mdash; but it does not yet reproduce
+    Cycles' actual year-to-year variation closely enough to stand in for it quantitatively.</p>
+  </div>
+</div>
+
+<div class="panel" id="panel-gaps">
+  <div class="panel-header"><h2>4. Open questions we asked, and what we found ourselves</h2></div>
+  <div class="panel-body">
+    <p>Five specific items were raised directly with the Cycles development team; they were not
+    shared. They remain open, alongside additional gaps found independently while building this
+    engine. Each is disclosed here rather than smoothed over, in the same spirit as the numbers above.</p>
+
+    <details class="gap" open>
+      <summary>1. The <code>fwc</code> runoff moisture-adjustment factor (declined by devs)</summary>
+      <p>Curve-number runoff's soil-moisture adjustment is described only in words in the SI
+      ("1 for soil saturated to 0.6m depth... depth-weighted toward the surface"), with no exact
+      formula given. Our implementation is a defensible interpretation of that description, not a
+      verified match &mdash; right order of magnitude, not confirmed exact.</p>
+    </details>
+    <details class="gap">
+      <summary>2. Bare-soil / residue evaporation formula (declined by devs)</summary>
+      <p>Neither the paper nor its SI discloses this equation (the SI's own process flowchart marks
+      it as covered; the actual formula isn't there). Implemented as a standard external proxy
+      (reference ET scaled by non-intercepted radiation, limited by surface-layer water), not a
+      verified Cycles formula.</p>
+    </details>
+    <details class="gap">
+      <summary>3. The perennial-pasture cutting/regrowth trigger (declined by devs)</summary>
+      <p>Four separate mechanical hypotheses were tested directly against real Cycles daily output
+      and ruled out with evidence (a fixed biomass threshold, a fixed thermal-time-since-cut
+      threshold, a growth-rate plateau, and the crop file's own stated 50% standing-residue figure
+      read literally). None fit the real per-cut data. Correlation across attempted fixes ranged
+      &minus;0.276 to 0.156 &mdash; no version has come close to workable. No Python implementation
+      of any pasture species exists in this engine as a result.</p>
+    </details>
+    <details class="gap">
+      <summary>4. Winter wheat's water-stress anomaly (declined by devs)</summary>
+      <p>Real wheat yield correlates &minus;0.89 with real Cycles' own reported water stress, confirming
+      stress genuinely drives wheat yield in the reference data. But real Cycles reports up to 60%
+      stress in years where its own soil-moisture output shows only mild depletion (~83% of field
+      capacity) &mdash; more stress than any standard depletion-fraction function would produce from that
+      little drying. Something in wheat's real stress response isn't a plain soil-moisture function,
+      and we don't know what.</p>
+    </details>
+    <details class="gap">
+      <summary>5. Saxton-Rawls secondary hydraulic parameters (declined by devs)</summary>
+      <p>The real sub-daily, capacitance-weighted water redistribution physics (Eq. 1&ndash;2 in the
+      paper) needs pore-size distribution exponent, air-entry potential, and saturated hydraulic
+      conductivity &mdash; reportedly also from Saxton-Rawls (2006), but every public mirror we tried to
+      verify the secondary formulas against was blocked by our own sandbox's network policy, not
+      confirmed paywalled. This engine substitutes a same-day cascading-bucket approximation instead
+      of the real physics.</p>
+    </details>
+
+    <details class="gap">
+      <summary>6. Every soil layer starts at field capacity, every run, with no spin-up</summary>
+      <p>Not disclosed as wrong anywhere &mdash; just never discussed. Every simulation in this engine
+      initializes every soil layer's water content to field capacity on day one, with no warm-up
+      period and no carryover between years or between rotation phases. Real field soil moisture at
+      planting varies with the prior season; we don't know how much this costs us, only that it's an
+      optimistic default we've never had reason to pick over any other.</p>
+    </details>
+    <details class="gap">
+      <summary>7. Tillage's real mechanism isn't implemented &mdash; only a disclosed stand-in for its effect</summary>
+      <p>Real Cycles ties tillage to two things: mixing soil layers by a real implement-specific
+      coefficient, and temporarily accelerating organic-matter decomposition via a factor in the full
+      six-pool soil carbon/nitrogen system (Sec. 2.6). We implement the real soil-moisture mixing
+      directly. The decomposition effect is out of reach without that six-pool system (explicitly out
+      of this engine's scope), so we approximate its practical effect with a background-nitrogen
+      multiplier sized by the same real per-implement coefficient &mdash; a stand-in for the effect, not
+      a port of the mechanism.</p>
+    </details>
+    <details class="gap">
+      <summary>8. No ammonia volatilization pathway exists &mdash; only leaching</summary>
+      <p>Confirmed directly: neither the paper nor its SI discloses nitrification, denitrification, or
+      ammonia volatilization equations (only the mineralization/organic-matter side is given, SI Sec.
+      V Eq. SI.10&ndash;14). This means fertilizer placement (injected vs. broadcast, which real growers
+      use specifically to cut volatilization loss) has no loss pathway in this engine to modulate at
+      all &mdash; not a missing UI control, a missing mechanism.</p>
+    </details>
+    <details class="gap">
+      <summary>9. Nitrogen is one mineral-N balance, not the real six-pool carbon/nitrogen system</summary>
+      <p>Full soil carbon/nitrogen cycling &mdash; the paper's own stated core contribution &mdash; is out
+      of scope for this v1 engine by design. We track a single pool: fertilizer plus previous-crop
+      credit plus manure (at 50% availability) plus a flat background mineralization rate, minus crop
+      uptake and drainage-proportional leaching. It reproduces real disclosed multipliers where they
+      exist (the 50% manure discount, e.g.) but cannot reproduce saturation dynamics the real six-pool
+      system would show.</p>
+    </details>
+    <details class="gap">
+      <summary>10. Curve-number runoff exists in code but was never wired into the water balance</summary>
+      <p>A real, disclosed runoff formula (with a genuine sign-error correction against the SI's
+      typeset equation) is implemented as a function in this engine &mdash; but it is never called
+      anywhere in the actual season simulation. All precipitation currently goes straight to
+      infiltration with zero runoff subtracted. Concretely: topography and slope have zero effect on
+      anything in this model today, which we only noticed while scoping a classroom tab that assumed
+      otherwise.</p>
+    </details>
+    <details class="gap">
+      <summary>11. Two likely sign errors found and corrected in the SI's own typeset equations</summary>
+      <p>The runoff denominator and the wet-curve-number formula both show a minus sign where the
+      external standard methods they cite, and basic algebraic derivation, require a plus. Implemented
+      with the corrected sign in both cases (flagged in code) &mdash; worth confirming directly with the
+      authors, since we could be wrong about which reading is the typo.</p>
+    </details>
+
+    <p style="margin-top:14px;">This list is deliberately not flattering. It's the same list we'd want
+    handed to us if someone else built a reimplementation of our own model and asked us to check it.</p>
+  </div>
+</div>
+
+<footer>
+  Built from CYCLES' own published equations (Kemanian et al. 2024, <em>Computers and Electronics in
+  Agriculture</em> 227) and Cycles v1.4.4's real bundled crop/tillage parameter files &mdash; not from
+  Cycles' source code, which is not public. Licensed under CC BY-NC-ND 4.0; permission for classroom
+  use is still pending as of this page's publication. See CLAUDE.md's Agricultural unit section for the
+  complete build and validation history.
+</footer>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+<script>
+let pyodide = null;
+let currentSite = null; // { centroid, soilCell, soilDist, layers, topsoil, weather, wxDist, wxCell, soilOut, wxOut }
+
+// A small, purpose-built glue layer (not the full DEMO_GLUE_SOURCE from
+// engine-demo.html, which depends on an embedded Rock-Springs-only weather
+// blob this page doesn't need -- every run here goes through resolveSiteAt()
+// instead, real STATSGO2/NLDAS-2 data for whatever site is picked).
+const GLUE_SOURCE = String.raw`
+import json
+
+def to_row(wx_year, d):
+    v = wx_year[str(d)]
+    return dict(doy=d, pp=v[0], tx=v[1], tn=v[2], solar=v[3], rhx=v[4], rhn=v[5], wind=v[6])
+
+def build_season_rows(wx_year, crop, plant_doy_override=None):
+    tmeans = {int(doy): (row[1] + row[2]) / 2 for doy, row in wx_year.items()}
+    doys_sorted = sorted(tmeans)
+    if plant_doy_override is not None:
+        plant_doy = plant_doy_override
+    else:
+        tsoils = simulate_soil_temp([tmeans[d] for d in doys_sorted], k=0.15)
+        tsoil_by_doy = dict(zip(doys_sorted, tsoils))
+        plant_doy = find_planting_doy(tsoil_by_doy, (110, 131), 12.0)
+    doys = sorted(d for d in doys_sorted if d >= plant_doy)
+    rows = [to_row(wx_year, d) for d in doys]
+    return plant_doy, rows
+`;
+
+const ENGINE_SOURCE = String.raw`
+import math
+
+def eto_fao56(doy, tmax, tmin, rs, rhmax, rhmin, wind_z, lat_deg, alt_m=0.0, wind_height_m=10.0):
+    tmean = (tmax + tmin) / 2
+    delta = 4098 * (0.6108 * math.exp(17.27 * tmean / (tmean + 237.3))) / (tmean + 237.3) ** 2
+    P = 101.3 * ((293 - 0.0065 * alt_m) / 293) ** 5.26
+    gamma = 0.000665 * P
+    def e0(t):
+        return 0.6108 * math.exp(17.27 * t / (t + 237.3))
+    es = (e0(tmax) + e0(tmin)) / 2
+    ea = (e0(tmin) * rhmax / 100 + e0(tmax) * rhmin / 100) / 2
+    phi = math.radians(lat_deg)
+    dr = 1 + 0.033 * math.cos(2 * math.pi / 365 * doy)
+    decl = 0.409 * math.sin(2 * math.pi / 365 * doy - 1.39)
+    ws = math.acos(max(-1.0, min(1.0, -math.tan(phi) * math.tan(decl))))
+    Gsc = 0.0820
+    Ra = (24 * 60 / math.pi) * Gsc * dr * (ws * math.sin(phi) * math.sin(decl) + math.cos(phi) * math.cos(decl) * math.sin(ws))
+    Rso = (0.75 + 2e-5 * alt_m) * Ra
+    Rns = (1 - 0.23) * rs
+    sigma = 4.903e-9
+    tmax_k, tmin_k = tmax + 273.16, tmin + 273.16
+    rs_rso = min(1.0, rs / Rso) if Rso > 0 else 0
+    Rnl = sigma * ((tmax_k ** 4 + tmin_k ** 4) / 2) * (0.34 - 0.14 * math.sqrt(max(0, ea))) * (1.35 * rs_rso - 0.35)
+    Rn = Rns - Rnl
+    u2 = wind_z * 4.87 / math.log(67.8 * wind_height_m - 5.42)
+    num = 0.408 * delta * Rn + gamma * (900 / (tmean + 273)) * u2 * (es - ea)
+    den = delta + gamma * (1 + 0.34 * u2)
+    return num / den
+
+def saxton_rawls(sand_pct, clay_pct, om_pct):
+    S, C, OM = sand_pct / 100, clay_pct / 100, om_pct
+    theta_1500t = (-0.024*S + 0.487*C + 0.006*OM + 0.005*(S*OM) - 0.013*(C*OM) + 0.068*(S*C) + 0.031)
+    theta_1500 = theta_1500t + (0.14*theta_1500t - 0.02)
+    theta_33t = (-0.251*S + 0.195*C + 0.011*OM + 0.006*(S*OM) - 0.027*(C*OM) + 0.452*(S*C) + 0.299)
+    theta_33 = theta_33t + (1.283*theta_33t**2 - 0.374*theta_33t - 0.015)
+    theta_s33t = (0.278*S + 0.034*C + 0.022*OM - 0.018*(S*OM) - 0.027*(C*OM) - 0.584*(S*C) + 0.078)
+    theta_s33 = theta_s33t + (0.636*theta_s33t - 0.107)
+    theta_sat = theta_33 + theta_s33 - 0.097*S + 0.043
+    return dict(pwp=max(0.01, theta_1500), fc=max(0.02, theta_33), sat=max(0.05, theta_sat))
+
+OM_FROM_SOC = 1.72
+
+def redistribute(layers, water_in_mm):
+    remaining = water_in_mm
+    for l in layers:
+        cap_mm = max(0.0, (l["fc"] - l["theta"]) * l["thick"] * 1000)
+        add = min(remaining, cap_mm + max(0.0, (l["sat"] - l["fc"]) * l["thick"] * 1000))
+        l["theta"] += add / (l["thick"] * 1000)
+        remaining -= add
+        excess_mm = max(0.0, (l["theta"] - l["fc"]) * l["thick"] * 1000)
+        l["theta"] -= excess_mm / (l["thick"] * 1000)
+        remaining += excess_mm
+    return remaining
+
+def soil_evaporation(layers, eto_mm, canopy_cover_frac):
+    l0 = layers[0]
+    demand_mm = eto_mm * (1 - canopy_cover_frac)
+    available_mm = max(0.0, (l0["theta"] - l0["pwp"]) * l0["thick"] * 1000)
+    actual_mm = min(demand_mm, available_mm)
+    l0["theta"] -= actual_mm / (l0["thick"] * 1000)
+    return actual_mm
+
+def root_zone_availability(layers, root_depth_m):
+    depth, avail, capacity = 0.0, 0.0, 0.0
+    for l in layers:
+        if depth >= root_depth_m:
+            break
+        d = min(l["thick"], root_depth_m - depth)
+        avail += max(0.0, l["theta"] - l["pwp"]) * d * 1000
+        capacity += (l["fc"] - l["pwp"]) * d * 1000
+        depth += l["thick"]
+    return avail / capacity if capacity > 0 else 1.0
+
+def extract_transpiration(layers, root_depth_m, tr_mm):
+    remaining, depth = tr_mm, 0.0
+    for l in layers:
+        if depth >= root_depth_m or remaining <= 0:
+            break
+        d = min(l["thick"], root_depth_m - depth)
+        avail_mm = max(0.0, l["theta"] - l["pwp"]) * d * 1000
+        take = min(remaining, avail_mm)
+        l["theta"] -= take / (l["thick"] * 1000)
+        remaining -= take
+        depth += l["thick"]
+    return tr_mm - remaining
+
+# Real per-implement tillage data, parsed directly from Cycles v1.4.4's own till.txt (Matt's
+# local sample files, same category as RockSprings.weather) -- (depth_m, mixing_efficiency)
+# for all 86 real named implements Cycles ships. mixing_efficiency is the real, disclosed
+# "implement-specific coefficient" Kemanian et al. 2024 Sec. 2.6 references only in words.
+TILLAGE_IMPLEMENTS = {
+    "Bale_straw_or_residue": (0.01, 0.0), "Bed_shaper": (0.05, 0.071554),
+    "Bedder_hipper_disk_hiller": (0.15, 0.8), "Bulldozer_clearing": (0.3, 0.8),
+    "Burn_residue_high_intensity": (0.01, 0.01), "Burn_residue_low_intensity": (0.01, 0.01),
+    "Chisel_st_pt": (0.25, 0.265919), "Chisel_sweep_shovel": (0.2, 0.265919),
+    "Chisel_twisted_shovel": (0.2, 0.447042), "Cultipacker_roller": (0.05, 0.265919),
+    "Cultivator_field_6-12_in_sweeps": (0.12, 0.202386), "Cultivator_field_w_spike_points": (0.12, 0.371806),
+    "Cultivator_hipper_disk_hiller_on_beds": (0.12, 0.572433), "Cultivator_off_bar_w_disk_hillers_on_beds": (0.12, 0.308274),
+    "Disk_offset_heavy": (0.15, 0.657771), "Disk_offset_heavy_>12_in_depth": (0.3, 0.8),
+    "Disk_tandem_heavy_primary_op": (0.2, 0.657771), "Disk_tandem_secondary_op": (0.1, 0.265919),
+    "Drill_air_seeder_sweep_or_band_opener": (0.08, 0.497198), "Drill_deep/semi-deep_furrow_12_to_18_in_spacing": (0.12, 0.497198),
+    "Drill_heavy_direct_seed_dbl_disk_opnr": (0.1, 0.639427), "Drill_or_air_seeder_double_disk_openers_7-10_in_spac": (0.08, 0.071554),
+    "Drill_or_air_seeder_hoe/chisel_openers_6-12_in_spac": (0.08, 0.639427), "Drill_or_air_seeder_hoe_opener_in_hvy_residue": (0.08, 0.497198),
+    "Drill_or_airseeder_double_disk": (0.08, 0.497198), "Drill_or_airseeder_double_disk_opener_w_fert_openers": (0.08, 0.639427),
+    "Drill_or_airseeder_double_disk_w_fluted_coulters": (0.09, 0.639427), "Drill_or_airseeder_offset_double_disk_openers": (0.08, 0.259212),
+    "Fert_applic_anhyd_knife_12_in": (0.12, 0.265919), "Fert_applic_anhyd_knife_30_in": (0.12, 0.120616),
+    "Fert_applic_deep_plcmt_hvy_shnk": (0.15, 0.371806), "Fert_applic_strip-till_30_in": (0.12, 0.265919),
+    "Fert_applic_surface_broadcast": (0.005, 0.0), "Furrow_diker": (0.15, 0.265919),
+    "Furrow_shaper_torpedo": (0.1, 0.0), "Graze_continuous": (0.02, 0.026833),
+    "Graze_rotational": (0.02, 0.026833), "Graze_stubble_or_residue": (0.03, 0.026833),
+    "Harrow_coiled_tine": (0.08, 0.120616), "Harrow_heavy_or_rotary": (0.08, 0.265919),
+    "Harrow_spike_tooth": (0.08, 0.075895), "Harrow_tine_on_beds": (0.08, 0.120616),
+    "Harvest_corn_silage_or_forage_sorghum": (0.02, 0.0), "Harvest_cotton": (0.02, 0.0),
+    "Harvest_grain": (0.01, 0.0), "Harvest_grass_or_legume_seed": (0.01, 0.0),
+    "Harvest_hay": (0.01, 0.0), "Harvest_peanut_digger": (0.1, 0.8),
+    "Harvest_root_crops_digger": (0.2, 0.8), "Harvest_rootcrops_manually": (0.15, 0.202386),
+    "Harvest_sugarcane": (0.02, 0.0), "Harvest_tobacco": (0.18, 0.0),
+    "Kill_Crop": (0.0, 0.0), "Manure_injector": (0.1, 0.447042),
+    "Manure_spreader": (0.01, 0.0), "Mower_swather_windrower": (0.01, 0.0),
+    "Mulch_treader": (0.04, 0.371806), "Permeable_weed_barrier_applicator": (0.04, 0.202386),
+    "Planter_double_disk_opnr": (0.08, 0.071554), "Planter_double_disk_opnr_18_in_rows": (0.08, 0.120616),
+    "Planter_double_disk_opnr_w_fluted_coulter": (0.08, 0.071554), "Planter_in-row_subsoiler": (0.1, 0.120616),
+    "Planter_ridge_till": (0.15, 0.447042), "Planter_small_veg_seed": (0.02, 0.0),
+    "Planter_strip_till": (0.08, 0.120616), "Planter_sugarcane": (0.05, 0.026833),
+    "Planter_transplanter_vegetable": (0.1, 0.026833), "Planting_broadcast_seeder": (0.01, 0.0),
+    "Plastic_mulch_apply": (0.05, 0.202386), "Plastic_mulch_remove": (0.05, 0.202386),
+    "Plow_disk": (0.18, 0.657771), "Plow_moldboard": (0.18, 0.8),
+    "Plow_moldboard_conservation": (0.18, 0.657771), "Residue_row_cleaner": (0.02, 0.265919),
+    "Rodweeder": (0.05, 0.265919), "Roller_corrugated_packer": (0.02, 0.153324),
+    "Roller_smooth": (0.02, 0.026833), "Rotary_hoe": (0.05, 0.071554),
+    "Rototiller": (0.05, 0.8), "Sprayer": (0.005, 0.0),
+    "Stalk_puller": (0.18, 0.153324), "Striptiller_w_middlebuster_on_beds": (0.15, 0.572433),
+    "Subsoiler": (0.25, 0.120616), "Subsoiler_bedder(ripper/hipper)": (0.25, 0.12),
+    "Subsoiler_ripper_24_to_40_in_deep": (0.25, 0.120616), "Sweep_plow": (0.15, 0.0),
+}
+
+def mix_tilled_layers(layers, depth_m, mixing_efficiency):
+    # Homogenizes soil moisture within the tilled depth, weighted by the real implement's
+    # mixing_efficiency. Real Cycles applies this exact coefficient to mixing organic C/N pools
+    # in its six-pool soil system (Sec. 2.6) -- this engine has no per-layer C/N pools (nitrogen
+    # here is one whole-profile pool, not per layer), so there's nothing of that kind to mix.
+    # Applying the real coefficient to soil moisture instead is a disclosed reinterpretation of
+    # a real number for a different, but also real, physical effect of the same tillage pass
+    # (a tillage pass does homogenize moisture in the disturbed zone) -- not a reproduction of
+    # Cycles' own documented use of this coefficient. fc/pwp/sat are left untouched.
+    # Same fractional-layer-overlap handling as root_zone_availability/extract_transpiration
+    # above (a tillage depth ending partway through a layer only mixes that fraction of it).
+    if mixing_efficiency <= 0 or depth_m <= 0:
+        return
+    depth, water_mm, zone_mm = 0.0, 0.0, 0.0
+    affected = []
+    for l in layers:
+        if depth >= depth_m:
+            break
+        d = min(l["thick"], depth_m - depth)
+        affected.append((l, d / l["thick"]))
+        water_mm += l["theta"] * d * 1000
+        zone_mm += d * 1000
+        depth += l["thick"]
+    if not affected or zone_mm <= 0:
+        return
+    mean_theta = water_mm / zone_mm
+    for l, frac in affected:
+        blend = frac * mixing_efficiency
+        l["theta"] = l["theta"] * (1 - blend) + mean_theta * blend
+
+def simulate_soil_temp(daily_tmean, k=0.15, t0=None):
+    tsoil = t0 if t0 is not None else daily_tmean[0]
+    out = []
+    for t in daily_tmean:
+        tsoil = tsoil + k * (t - tsoil)
+        out.append(tsoil)
+    return out
+
+def find_planting_doy(tsoil_by_doy, window, min_soil_temp):
+    for doy in range(window[0], window[1] + 1):
+        if doy in tsoil_by_doy and tsoil_by_doy[doy] > min_soil_temp:
+            return doy
+    return window[1]
+
+DEFAULT_CANOPY_SHAPE = (6, -20, -15, 16)
+CORN_CANOPY_SHAPE = (6, -20, -12, 12)
+
+def thermal_time_increment(tx, tn, base_t, opt_t, max_t):
+    tmean = (tx + tn) / 2
+    if tmean <= base_t or tmean >= max_t:
+        return 0.0
+    if tmean <= opt_t:
+        return tmean - base_t
+    return (opt_t - base_t) * (max_t - tmean) / (max_t - opt_t)
+
+def canopy_cover(ttf_norm, eix=1.0, shape=DEFAULT_CANOPY_SHAPE):
+    a, b, c, d = shape
+    ttf_norm = max(0.0, ttf_norm)
+    return eix / (1 + math.exp(a + b*ttf_norm) + math.exp(c + d*ttf_norm))
+
+def transpiration_temp_factor(tmean, min_t, threshold_t):
+    if tmean <= min_t:
+        return 0.0
+    if tmean >= threshold_t:
+        return 1.0
+    return (tmean - min_t) / (threshold_t - min_t)
+
+TTF50_SHOOT_PARTITION = 0.5
+
+def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
+    ttf = max(1e-6, ttf)
+    return fsti + (fstf - fsti) / (1 + (ttf50/ttf)**4)
+
+NCRIT_FLOOR_MGHA = 1.0
+
+# Real unfertilized corn draws roughly 60-120 kg N/ha of soil-supplied N over a season
+# from organic-matter mineralization (a gap this simplified balance otherwise omits);
+# spread over a ~150-day season, 0.5 kg N/ha/day sits in the middle of that range.
+BACKGROUND_N_KG_HA_DAY = 0.5
+
+def n_marginal_demand_pct(biomass_mgha, crop):
+    biomass_mgha = max(biomass_mgha, 0.01)
+    if biomass_mgha < NCRIT_FLOOR_MGHA:
+        return crop["n_max_conc"] * 100
+    return crop["n_max_conc"] * 100 * (1 - crop["n_dilution_slope"]) * biomass_mgha ** (-crop["n_dilution_slope"])
+
+def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf):
+    # Unconstrained (no-nitrogen-feedback) water/canopy trajectory, used to precompute the
+    # season's total N demand up front. Canopy cover depends only on thermal time and
+    # transpiration-limited growth only on soil moisture, never on biomass or N status, so
+    # this trajectory is identical regardless of N rate -- see cycles_engine_validate.py's
+    # docstring for why a day-by-day pool that can hit a hard, uncorrectable zero mid-season
+    # was replaced with this whole-season approach.
+    layers = crop["make_layers"]()
+    tt_cum, ref_biomass = 0.0, 0.0
+    demand = []
+    for w in weather_rows:
+        dtt = thermal_time_increment(w["tx"], w["tn"], crop["base_t"], crop["opt_t"], crop["max_t"])
+        tt_cum += dtt
+        ttf = tt_cum / crop["tt_maturity"]
+        if ttf >= harvest_ttf:
+            break
+        eie = canopy_cover(ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE))
+        root_depth = root_max_m * min(1.0, ttf/0.5)
+        redistribute(layers, w["pp"])
+        eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
+        soil_evaporation(layers, eto, eie)
+        GR = crop["rue"] * eie * w["solar"]
+        tmean = (w["tx"] + w["tn"]) / 2
+        es = 0.6108 * math.exp(17.27*tmean/(tmean+237.3))
+        ea = es * (w["rhx"] + w["rhn"]) / 200
+        Da = max(0.05, es - ea)
+        TRp = (1 + (crop["kc"]-1)*eie) * eie * eto
+        TRp *= transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
+        avail_frac = root_zone_availability(layers, root_depth)
+        water_stress = max(0.0, min(1.0, avail_frac/0.5))
+        TR_actual = TRp * water_stress
+        extract_transpiration(layers, root_depth, TR_actual)
+        GT = crop["wue"]/math.sqrt(Da) * TR_actual
+        dGB_water_limited = max(0.0, min(GR, GT)) / 1000
+        demand.append(dGB_water_limited * 10 * n_marginal_demand_pct(ref_biomass * 10, crop) * 10)
+        ref_biomass += dGB_water_limited
+    return demand
+
+def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False,
+                     n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
+                     irrigation_trigger_frac=None, irrigation_amount_mm=25.0,
+                     tillage_doy=None, tillage_implement=None, tillage_boost_days=30):
+    # n_applications: [(doy, amount_kg_ha), ...] real/disclosed Cycles usage (dated events,
+    # not one lump) -- Kemanian et al. 2024 Fig. 6 (wheat 80/60 fall/spring split), SI Sec. IX
+    # (Iowa maize, manured fields split 50/50 fall/spring). Replaces the day-0 lump if given.
+    # n_credit_kg_ha: previous-crop N credit, real/disclosed (SI Sec. IX: "60 kg/ha credit if
+    # maize followed soy"). manure_n_kg_ha/manure_availability: organic N amendment; 0.5 is the
+    # real disclosed availability discount vs. mineral N (SI Sec. IX), not invented.
+    # irrigation_trigger_frac/irrigation_amount_mm: irrigation is real in Cycles (operations
+    # "can be... conditional to soil moisture," Sec. 2.8) but no exact threshold/depth is
+    # disclosed -- both are real scenario configuration in Cycles itself, set here, not derived.
+    # tillage_doy/tillage_implement/tillage_boost_days: tillage's real mechanism (soil mixing by
+    # an implement-specific coefficient + faster organic-matter decomposition, Sec. 2.6) needs the
+    # full six-pool soil C/N system this engine doesn't implement (out of v1 scope). tillage_implement
+    # selects a real named implement from TILLAGE_IMPLEMENTS (Cycles v1.4.4's own till.txt, 86 real
+    # tools with real depth_m/mixing_efficiency -- raises ValueError if unrecognized). Two effects:
+    # (1) soil moisture genuinely mixed within the real depth, weighted by the real mixing_efficiency,
+    # on tillage_doy itself (mix_tilled_layers above); (2) BACKGROUND_N_KG_HA_DAY multiplied by
+    # (1 + mixing_efficiency) for tillage_boost_days days -- still a disclosed placeholder for the
+    # real fT decomposition-boost factor (undisclosed formula), now sized by a real per-implement
+    # number instead of an arbitrary caller-supplied multiplier.
+    layers = crop["make_layers"]()
+    tillage_depth_m, tillage_mixing_efficiency = None, None
+    if tillage_doy is not None:
+        if tillage_implement not in TILLAGE_IMPLEMENTS:
+            raise ValueError(f"Unknown tillage implement {tillage_implement!r} -- see TILLAGE_IMPLEMENTS for the real Cycles v1.4.4 implement catalog.")
+        tillage_depth_m, tillage_mixing_efficiency = TILLAGE_IMPLEMENTS[tillage_implement]
+    tillage_n_boost_factor = 1.0 + (tillage_mixing_efficiency or 0.0)
+    tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
+    n_tracking_active = (not crop.get("legume", False)) and (
+        n_rate_kg_ha is not None or n_applications or n_credit_kg_ha or manure_n_kg_ha)
+    applications_by_doy = {}
+    if n_tracking_active:
+        if n_applications:
+            total_n_input_kg_ha = sum(amount for _, amount in n_applications)
+            n_pool = 0.0
+            for doy, amount in n_applications:
+                applications_by_doy[doy] = applications_by_doy.get(doy, 0.0) + amount
+        else:
+            total_n_input_kg_ha = n_rate_kg_ha or 0.0
+            n_pool = total_n_input_kg_ha
+        credit_and_manure = n_credit_kg_ha + manure_n_kg_ha * manure_availability
+        total_n_input_kg_ha += credit_and_manure
+        n_pool += credit_and_manure
+    else:
+        n_pool, total_n_input_kg_ha = None, None
+    n_leached_total = 0.0 if n_pool is not None else None
+    n_uptake_total = 0.0 if n_pool is not None else None
+    irrigation_total_mm = 0.0
+    history = [] if record_history else None
+    n_stress_fraction, daily_demand, day_i = 1.0, None, 0
+    if n_pool is not None:
+        daily_demand = _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf)
+        total_demand_kg_ha = sum(daily_demand)
+        # Season-total background, accounting for a tillage boost window if any -- must match
+        # the boosted rate exactly (not a flat estimate), since n_stress_fraction (and thus
+        # yield) is fixed from this total before the day loop runs; boosting only the day-by-day
+        # pool below would just leach out as unused surplus without ever reaching yield.
+        total_background_kg_ha = 0.0
+        for i, d in enumerate(daily_demand):
+            if d <= 0:
+                continue
+            rate = BACKGROUND_N_KG_HA_DAY
+            doy_i_ = weather_rows[i]["doy"]
+            if tillage_doy is not None and tillage_doy <= doy_i_ < tillage_doy + tillage_boost_days:
+                rate *= tillage_n_boost_factor
+            total_background_kg_ha += rate
+        total_supply_kg_ha = total_n_input_kg_ha + total_background_kg_ha
+        supply_ratio = min(1.0, total_supply_kg_ha / total_demand_kg_ha) if total_demand_kg_ha > 0 else 1.0
+        n_stress_fraction = 2 * supply_ratio - supply_ratio ** 2  # quadratic-plateau, smooth diminishing returns
+    for w in weather_rows:
+        dtt = thermal_time_increment(w["tx"], w["tn"], crop["base_t"], crop["opt_t"], crop["max_t"])
+        tt_cum += dtt
+        ttf = tt_cum / crop["tt_maturity"]
+        if ttf >= harvest_ttf:
+            break
+        eie = canopy_cover(ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE))
+        root_depth = root_max_m * min(1.0, ttf/0.5)
+        if tillage_doy is not None and w["doy"] == tillage_doy:
+            mix_tilled_layers(layers, tillage_depth_m, tillage_mixing_efficiency)
+        irrigation_mm = 0.0
+        if irrigation_trigger_frac is not None:
+            pre_avail_frac = root_zone_availability(layers, root_depth)
+            if pre_avail_frac < irrigation_trigger_frac:
+                irrigation_mm = irrigation_amount_mm
+                irrigation_total_mm += irrigation_mm
+        drainage_mm = redistribute(layers, w["pp"] + irrigation_mm)
+        eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
+        soil_evaporation(layers, eto, eie)
+        GR = crop["rue"] * eie * w["solar"]
+        tmean = (w["tx"] + w["tn"]) / 2
+        es = 0.6108 * math.exp(17.27*tmean/(tmean+237.3))
+        ea = es * (w["rhx"] + w["rhn"]) / 200
+        Da = max(0.05, es - ea)
+        TRp = (1 + (crop["kc"]-1)*eie) * eie * eto
+        TRp *= transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
+        avail_frac = root_zone_availability(layers, root_depth)
+        water_stress = max(0.0, min(1.0, avail_frac/0.5))
+        TR_actual = TRp * water_stress
+        extract_transpiration(layers, root_depth, TR_actual)
+        GT = crop["wue"]/math.sqrt(Da) * TR_actual
+        dGB_water_limited = max(0.0, min(GR, GT)) / 1000
+        n_stress = 1.0
+        if n_pool is not None:
+            if w["doy"] in applications_by_doy:
+                n_pool += applications_by_doy[w["doy"]]
+            if dGB_water_limited > 0:
+                background_rate = BACKGROUND_N_KG_HA_DAY
+                if tillage_doy is not None and tillage_doy <= w["doy"] < tillage_doy + tillage_boost_days:
+                    background_rate *= tillage_n_boost_factor
+                n_pool += background_rate
+            n_stress = n_stress_fraction
+            target_uptake_kg_ha = n_stress_fraction * daily_demand[day_i]
+            n_uptake_kg_ha = min(n_pool, target_uptake_kg_ha)
+            n_pool -= n_uptake_kg_ha
+            n_uptake_total += n_uptake_kg_ha
+            profile_water_mm = sum(l["theta"] * l["thick"] * 1000 for l in layers)
+            if profile_water_mm > 0 and n_pool > 0 and drainage_mm > 0:
+                leached_kg_ha = drainage_mm * (n_pool / profile_water_mm)
+                n_pool = max(0.0, n_pool - leached_kg_ha)
+                n_leached_total += leached_kg_ha
+            day_i += 1
+        dGB = dGB_water_limited * n_stress
+        biomass += dGB
+        ag_biomass += dGB * shoot_fraction(ttf, crop["fsti"], crop["fstf"])
+        if record_history:
+            history.append(dict(doy=w["doy"], ttf=round(ttf, 4), canopy=round(eie, 4),
+                                 water_stress=round(water_stress, 4), ag_mg_ha=round(ag_biomass * 10, 4)))
+    flowering_frac = crop["flowering_tt"] / crop["tt_maturity"]
+    fpf = max(0.0, min(1.0, (tt_cum - crop["tt_maturity"]*flowering_frac) / (crop["tt_maturity"]*(1-flowering_frac))))
+    HI = crop["hi_x"] - (crop["hi_x"] - crop["hi_o"]) * math.exp(-crop["hi_slope"]*fpf)
+    biomass_mg_ha = biomass * 10
+    ag_biomass_mg_ha = ag_biomass * 10
+    grain_mg_ha = ag_biomass * HI * 10 * crop.get("calibration_factor", 1.0)
+    result = dict(total=biomass_mg_ha, ag=ag_biomass_mg_ha, grain=grain_mg_ha)
+    if n_leached_total is not None:
+        result["n_leached_kg_ha"] = n_leached_total
+    if irrigation_trigger_frac is not None:
+        result["irrigation_mm"] = irrigation_total_mm
+    if record_history:
+        result["history"] = history
+    if n_uptake_total is not None:
+        result["n_uptake_kg_ha"] = n_uptake_total
+        result["n_remaining_kg_ha"] = n_pool
+    return result
+
+SOIL_LAYERS_RAW = [
+    dict(thick=0.05, clay=21, sand=15, soc=1.74), dict(thick=0.05, clay=21, sand=15, soc=1.74),
+    dict(thick=0.10, clay=21, sand=15, soc=1.74), dict(thick=0.20, clay=37, sand=17, soc=0.27),
+    dict(thick=0.20, clay=37, sand=17, soc=0.27), dict(thick=0.20, clay=55, sand=4, soc=0.17),
+    dict(thick=0.20, clay=55, sand=4, soc=0.17), dict(thick=0.20, clay=55, sand=4, soc=0.17),
+    dict(thick=0.20, clay=55, sand=4, soc=0.17),
+]
+def make_layers():
+    layers = []
+    for L in SOIL_LAYERS_RAW:
+        hyd = saxton_rawls(L["sand"], L["clay"], L["soc"]*OM_FROM_SOC)
+        layers.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"]))
+    return layers
+
+CORN = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
+    rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
+    calibration_factor=0.841, canopy_shape=CORN_CANOPY_SHAPE,
+    kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=40.6875, make_layers=make_layers,
+    n_max_conc=0.055, n_dilution_slope=0.4, legume=False)
+# Matches the real GenericCrops.crop CornRM.90 entry exactly (same tt_maturity/flowering_tt) --
+# CORN above already IS the short-season hybrid, not a separate crop.
+
+# A longer-season corn hybrid, real GenericCrops.crop CornRM.110 values -- differs from CORN
+# ONLY in thermal-time-to-maturity/flowering (2300/1300 vs 1800/1000), same rue/wue/temperature
+# response/calibration, to isolate season-length as the one variable at play. Built and tested
+# 2026-09-22 for Tab 1's climate-adaptation comparison: at Iowa the long-season hybrid yields
+# more on average (more time to cash in the higher maturity requirement), but at a genuinely
+# short-season site (North Dakota) it often doesn't finish in time and the short-season hybrid
+# wins some years outright (e.g. 1993: 7.65 vs 4.23 Mg/ha) -- this is real current agricultural
+# practice (farmers further north plant lower relative-maturity hybrids), not an invented lesson.
+# A from-scratch wheat-vs-corn version of this same idea was tried first and abandoned: wheat's
+# real fall-to-summer growing window is so much longer than corn's that a colder/drier site's
+# cumulative water deficit swamped any cold-tolerance signal, producing wheat's relative penalty
+# moving to a colder site coming out LARGER than corn's, the opposite of the intended lesson.
+CORN_LONG_SEASON = dict(CORN)
+CORN_LONG_SEASON["tt_maturity"] = 2300
+CORN_LONG_SEASON["flowering_tt"] = 1300
+
+SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43,
+    rue=1.3, wue=4.5, hi_x=0.4, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
+    calibration_factor=1.116, kc=1.0, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0,
+    n_max_conc=0.07, n_dilution_slope=0.4, legume=True,
+    lat_deg=40.6875, make_layers=make_layers)
+
+# Real GenericCrops.crop values for WinterWheat, same crop this engine already validates
+# elsewhere (correlation 0.253 against real Cycles output -- does NOT clear the classroom-
+# workable bar; used here only as a proxy for "some fall-planted, winter-surviving crop"
+# since it's the only one this engine has real parameters for, not because it's accurate).
+WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
+    rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
+    calibration_factor=0.716, canopy_shape=(5, -14, -15, 16),
+    kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=40.6875, make_layers=make_layers,
+    n_max_conc=0.07, n_dilution_slope=0.45, legume=False)
+
+# Two more cover-crop options, added per Matt's direct request (2026-09-17) to get closer to
+# real Cycles coverage without outkicking it. Radiation- and transpiration-use efficiency
+# (rue, wue) below are REAL, disclosed, citable numbers straight from Kemanian et al. 2024's
+# own SI Table SI.2 ("Sample crop parameters... from Kremer et al 2009 and Stockle and
+# Kemanian 2008"): C3 Grasses (barley/oats/ryegrass/wheat/winter rye) rue=1.7, wue=6.5; C3
+# Legumes (lentils/soybean/red clover/white clover/hairy vetch) rue=1.1, wue=4.5. Every OTHER
+# parameter (thermal time, temperature bounds, canopy shape, N-dilution) is NOT disclosed per-
+# species in either source and is borrowed here from the closest already-validated crop of the
+# same functional type (WHEAT for the grass, SOYBEAN for the legume) as a stated placeholder,
+# not a verified per-species value -- correct these once GenericCrops.crop's real per-species
+# numbers are available (Matt has reached out to a Cycles author for it directly).
+WINTER_RYE = dict(tt_maturity=WHEAT["tt_maturity"], flowering_tt=WHEAT["flowering_tt"],
+    base_t=WHEAT["base_t"], opt_t=WHEAT["opt_t"], max_t=WHEAT["max_t"],
+    rue=1.7, wue=6.5, hi_x=WHEAT["hi_x"], hi_o=WHEAT["hi_o"], hi_slope=WHEAT["hi_slope"],
+    fsti=WHEAT["fsti"], fstf=WHEAT["fstf"], calibration_factor=WHEAT["calibration_factor"],
+    canopy_shape=WHEAT["canopy_shape"], kc=WHEAT["kc"], eix=WHEAT["eix"],
+    tr_min_t=WHEAT["tr_min_t"], tr_threshold_t=WHEAT["tr_threshold_t"], lat_deg=40.6875,
+    make_layers=make_layers, n_max_conc=WHEAT["n_max_conc"], n_dilution_slope=WHEAT["n_dilution_slope"],
+    legume=False)
+
+HAIRY_VETCH = dict(tt_maturity=SOYBEAN["tt_maturity"], flowering_tt=SOYBEAN["flowering_tt"],
+    # Temperature response borrowed from WHEAT, not SOYBEAN, despite hairy vetch being a legume
+    # like soybean -- caught by testing: with soybean's base_t=5 (a warm-season crop), a winter
+    # cover crop planted in the fall barely grew at all (0.02 Mg/ha aboveground over a real
+    # fall-to-spring window), since soybean's thermal-time function returns ~zero through most
+    # of that cold window. Real hairy vetch is winter-hardy, cold-tolerant vegetative growth
+    # much closer to wheat's temperature response than soybean's -- using wheat's base/opt/max
+    # temperatures fixes this while keeping the real legume RUE/WUE and legume=True (soybean's
+    # own nitrogen-related legume behavior) for everything nitrogen-specific.
+    base_t=WHEAT["base_t"], opt_t=WHEAT["opt_t"], max_t=WHEAT["max_t"],
+    rue=1.1, wue=4.5, hi_x=SOYBEAN["hi_x"], hi_o=SOYBEAN["hi_o"], hi_slope=SOYBEAN["hi_slope"],
+    fsti=SOYBEAN["fsti"], fstf=SOYBEAN["fstf"], calibration_factor=SOYBEAN["calibration_factor"],
+    kc=SOYBEAN["kc"], eix=SOYBEAN["eix"], tr_min_t=WHEAT["tr_min_t"],
+    tr_threshold_t=WHEAT["tr_threshold_t"], lat_deg=40.6875, make_layers=make_layers,
+    n_max_conc=SOYBEAN["n_max_conc"], n_dilution_slope=SOYBEAN["n_dilution_slope"], legume=True)
+
+# Lookup by id string so a caller (JS) can pass a crop's registry key straight
+# through as run_crop, instead of an if/elif chain that has to be extended by
+# hand every time a species is added -- see SPECIES_REGISTRY in the page's own
+# JS for the matching student-facing metadata (which of these are actually
+# offered as a choice, correlation against real Cycles output, whether the
+# parameters are real or a disclosed placeholder).
+CROPS = {"corn": CORN, "corn_long_season": CORN_LONG_SEASON, "soybean": SOYBEAN, "wheat": WHEAT, "winter_rye": WINTER_RYE, "hairy_vetch": HAIRY_VETCH}
+`;
+function drawSeasonChart(canvas, history) {
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  const pad = { l: 30, r: 12, t: 12, b: 22 };
+  const plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
+  ctx.strokeStyle = "#c9d8e2"; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t + plotH); ctx.lineTo(pad.l + plotW, pad.t + plotH);
+  ctx.stroke();
+  ctx.font = "10px 'DM Mono', monospace";
+  [0, 0.5, 1].forEach(v => {
+    const y = pad.t + plotH * (1 - v);
+    ctx.strokeStyle = "#eef3f7";
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + plotW, y); ctx.stroke();
+    ctx.fillStyle = "#5f7180";
+    ctx.fillText(v.toFixed(1), 3, y + 3);
+  });
+  const n = history.length;
+  const x = i => pad.l + plotW * (i / Math.max(1, n - 1));
+  function line(getValue, color) {
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+    history.forEach((h, i) => {
+      const y = pad.t + plotH * (1 - Math.max(0, Math.min(1, getValue(h))));
+      if (i === 0) ctx.moveTo(x(i), y); else ctx.lineTo(x(i), y);
+    });
+    ctx.stroke();
+  }
+  line(h => h.canopy, "#1e8449");
+  // water_stress is stored as a multiplier (1.0 = no stress, 0 = fully stressed,
+  // same convention as n_stress elsewhere in the engine) -- inverted here only
+  // for display, so the plotted line reads intuitively (up = more stress).
+  line(h => 1 - h.water_stress, "#c0392b");
+  ctx.fillStyle = "#5f7180"; ctx.textAlign = "left";
+  ctx.fillText("Day " + history[0].doy, pad.l, H - 6);
+  ctx.textAlign = "right";
+  ctx.fillText("Day " + history[n - 1].doy, pad.l + plotW, H - 6);
+  ctx.textAlign = "left";
+}
+// --- KML field-selector preview (agricultural/prototypes/field_selector.js,
+// inlined here the same way this file inlines everything else). No real
+// weather data behind this yet -- see CLAUDE.md's Agricultural unit section
+// ("Multiple ag fields, Option 2") for the tiling plan this is proving out.
+const FIELD_TILE_DEG = 5;
+
+function parseFieldKML(kmlText) {
+  // A KMZ file (Google Earth's zipped export format) starts with the ZIP magic
+  // bytes "PK" -- those two bytes survive UTF-8 decoding intact even though the
+  // rest of a binary zip won't, so this check is reliable without needing to
+  // actually unzip anything. Called out with its own message since exporting a
+  // .kmz instead of a plain .kml is the single most likely real trip-up (Google
+  // Earth Web's own "Export as KML file" option can still produce a .kmz).
+  if (kmlText.slice(0, 2) === "PK") {
+    throw new Error('This looks like a zipped KMZ file, not a plain KML file. Re-export/save it as "KML" (not "KMZ") -- see the tutorial for exact steps -- and try again.');
+  }
+  const doc = new DOMParser().parseFromString(kmlText, "text/xml");
+  if (doc.querySelector("parsererror")) throw new Error("That file isn't valid KML/XML.");
+  const placemarks = Array.from(doc.getElementsByTagName("Placemark"));
+  if (placemarks.length === 0) throw new Error("No Placemark found in this KML file.");
+  const pm = placemarks[0];
+
+  const point = pm.getElementsByTagName("Point")[0];
+  if (point) {
+    const coordText = point.getElementsByTagName("coordinates")[0]?.textContent?.trim();
+    if (!coordText) throw new Error("Point placemark has no coordinates.");
+    const [lng, lat] = coordText.split(",").map(Number);
+    return { kind: "point", lat, lng };
+  }
+
+  const ring = pm.getElementsByTagName("LinearRing")[0];
+  const coordEl = ring ? ring.getElementsByTagName("coordinates")[0] : pm.getElementsByTagName("coordinates")[0];
+  if (!coordEl) throw new Error("No Point or Polygon coordinates found in this KML file.");
+  const vertices = coordEl.textContent.trim().split(/\s+/).map((triplet) => {
+    const [lng, lat] = triplet.split(",").map(Number);
+    return { lat, lng };
+  }).filter((v) => Number.isFinite(v.lat) && Number.isFinite(v.lng));
+  if (vertices.length < 3) throw new Error("Polygon needs at least 3 valid vertices.");
+  return { kind: "polygon", vertices };
+}
+
+function fieldPolygonCentroid(vertices) {
+  let signedArea = 0, cx = 0, cy = 0;
+  const n = vertices.length;
+  for (let i = 0; i < n; i++) {
+    const p0 = vertices[i], p1 = vertices[(i + 1) % n];
+    const cross = p0.lng * p1.lat - p1.lng * p0.lat;
+    signedArea += cross;
+    cx += (p0.lng + p1.lng) * cross;
+    cy += (p0.lat + p1.lat) * cross;
+  }
+  signedArea *= 0.5;
+  if (Math.abs(signedArea) < 1e-12) {
+    return { lat: vertices.reduce((s, v) => s + v.lat, 0) / n, lng: vertices.reduce((s, v) => s + v.lng, 0) / n };
+  }
+  return { lat: cy / (6 * signedArea), lng: cx / (6 * signedArea) };
+}
+
+function fieldTileForPoint(lat, lng, tileDeg = FIELD_TILE_DEG) {
+  const lat0 = Math.floor(lat / tileDeg) * tileDeg;
+  const lon0 = Math.floor(lng / tileDeg) * tileDeg;
+  return { lat0, lon0, key: `${lat0}_${lon0}` };
+}
+
+// --- Soil lookup (real STATSGO2 data, agricultural/prototypes/field_selector.js
+// has the fuller comments -- inlined here the same way this whole file inlines
+// everything else). Unlike the weather tile above, this data is real and
+// already committed alongside this HTML file.
+const DEFAULT_SUBSOIL_SOC_PCT = 0.2;
+let soilGridCache = null;
+
+async function loadFieldSoilGrid() {
+  if (soilGridCache) return soilGridCache;
+  const res = await fetch("statsgo2_soil_grid.json.gz");
+  if (!res.ok) throw new Error(`Couldn't load soil grid (HTTP ${res.status}).`);
+  const buf = await res.arrayBuffer();
+  const ds = new DecompressionStream("gzip");
+  const text = await new Response(new Response(buf).body.pipeThrough(ds)).text();
+  soilGridCache = JSON.parse(text);
+  return soilGridCache;
+}
+
+function nearestFieldSoilCell(lat, lng, grid) {
+  let best = null, bestDist = Infinity;
+  for (const cell of grid) {
+    const dLat = cell.lat - lat, dLon = cell.lon - lng;
+    const dist = Math.sqrt(dLat * dLat + dLon * dLon);
+    if (dist < bestDist) { bestDist = dist; best = cell; }
+  }
+  return { cell: best, distanceDeg: bestDist };
+}
+
+function fieldSoilLayersForCell(cell) {
+  return cell.layers.map((l) => ({
+    thick: l.thick, clay: l.clay, sand: l.sand,
+    soc: l.soc == null ? DEFAULT_SUBSOIL_SOC_PCT : l.soc,
+  }));
+}
+
+// --- Weather tile lookup (real committed tiles, agricultural/prototypes/weather-tiles/,
+// same-origin -- see CLAUDE.md on why this replaced a GitHub Release: Release
+// assets don't send Access-Control-Allow-Origin, so a browser fetch from this
+// deployed page was blocked by CORS regardless of correct packaging).
+const WEATHER_BASE = "weather-tiles";
+let weatherManifestCache = null;
+const weatherTileCache = {};
+
+function fieldIsLeapYear(y) {
+  return y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0);
+}
+function fieldAllYearDoys(y0, y1) {
+  const out = [];
+  for (let y = y0; y <= y1; y++) {
+    const n = fieldIsLeapYear(y) ? 366 : 365;
+    for (let d = 1; d <= n; d++) out.push([y, d]);
+  }
+  return out;
+}
+// Decodes one cell out of a tile's decompressed bytes into {year: {doy: [field...]}},
+// the exact shape this page's own embedded ALL_WX already uses -- see
+// field_selector.js's decodeCellWeather() for the fuller comments on this layout.
+function fieldDecodeCellWeather(bytes, cellIndex, manifest, tileEntry) {
+  const days = fieldAllYearDoys(manifest.years[0], manifest.years[1]);
+  const nFields = manifest.fields.length;
+  const view = new Int16Array(bytes);
+  const recordsPerCell = days.length * nFields;
+  const offset = cellIndex * recordsPerCell;
+  const wx = {};
+  for (let i = 0; i < days.length; i++) {
+    const [year, doy] = days[i];
+    const values = new Array(nFields);
+    for (let f = 0; f < nFields; f++) {
+      values[f] = view[offset + i * nFields + f] * manifest.scale[manifest.fields[f]];
+    }
+    if (!wx[year]) wx[year] = {};
+    wx[year][doy] = values;
+  }
+  return wx;
+}
+async function loadFieldWeatherManifest() {
+  if (weatherManifestCache) return weatherManifestCache;
+  const res = await fetch(`${WEATHER_BASE}/manifest.json`);
+  if (!res.ok) throw new Error(`Couldn't load weather manifest (HTTP ${res.status}).`);
+  weatherManifestCache = await res.json();
+  return weatherManifestCache;
+}
+async function fieldNearestWeather(lat, lng) {
+  const manifest = await loadFieldWeatherManifest();
+  const tile = fieldTileForPoint(lat, lng);
+  const tileEntry = manifest.tiles[tile.key];
+  if (!tileEntry) return { weather: null, distanceDeg: Infinity, cell: null };
+  let bytes = weatherTileCache[tile.key];
+  if (!bytes) {
+    const res = await fetch(`${WEATHER_BASE}/${tileEntry.file}`);
+    if (!res.ok) throw new Error(`Couldn't load weather tile ${tile.key} (HTTP ${res.status}).`);
+    const buf = await res.arrayBuffer();
+    const ds = new DecompressionStream("gzip");
+    bytes = await new Response(new Response(buf).body.pipeThrough(ds)).arrayBuffer();
+    weatherTileCache[tile.key] = bytes;
+  }
+  let bestIdx = 0, bestDist = Infinity;
+  tileEntry.cells.forEach(([clat, clon], idx) => {
+    const d = Math.hypot(clat - lat, clon - lng);
+    if (d < bestDist) { bestDist = d; bestIdx = idx; }
+  });
+  const weather = fieldDecodeCellWeather(bytes, bestIdx, manifest, tileEntry);
+  return { weather, distanceDeg: bestDist, cell: tileEntry.cells[bestIdx] };
+}
+
+// --- Two-field slot state, upload handlers, and the comparison run ---
+const fieldState = { A: null, B: null };
+
+// Shared by both input paths (KML upload and the four preset buttons below) --
+// resolves real soil + weather for a given point, renders the result table,
+// and sets fieldState. placemarkDesc is just the "Placemark type" row's text,
+// since a preset has no real KML placemark to describe.
+// Pure resolver, no DOM/state side effects -- shared by the field-comparison
+// panel's applyResolvedSite() below and the nitrogen-sweep/frontier panel's
+// own site picker, so there's exactly one place that knows how to turn a
+// lat/lng into real soil + weather.
+async function resolveSiteAt(centroid) {
+  const grid = await loadFieldSoilGrid();
+  const { cell: soilCell, distanceDeg: soilDist } = nearestFieldSoilCell(centroid.lat, centroid.lng, grid);
+  const layers = fieldSoilLayersForCell(soilCell);
+  const { weather, distanceDeg: wxDist, cell: wxCell } = await fieldNearestWeather(centroid.lat, centroid.lng);
+  const soilOut = soilDist > 0.75;
+  const wxOut = !weather || wxDist > 0.75;
+  return { centroid, soilCell, soilDist, layers, topsoil: layers[0], weather, wxDist, wxCell, soilOut, wxOut };
+}
+const SPECIES_REGISTRY = {
+  corn: {
+    label: "Corn (grain)", pyKey: "corn", legume: false, roles: ["cash"],
+    dataStatus: "validated", correlation: 0.540, workableAsCash: true, implementedInDemo: true,
+    notes: "Corrected 2026-09-22: real correlation is 0.540 (mean 10.56 Mg/ha), not the 0.771/10.93 figure this file claimed since 2026-09-10 -- that number was computed against a since-corrupted reference file. Confirmed via 4 independent real Cycles runs, all byte-identical. Does NOT clear the classroom-workable bar (~0.6-0.7) on this corrected number. Still kept as a cash-crop choice (the reasoning that motivated exposing it hasn't changed, and no crop currently clears the bar on corrected data except soybean) but no longer claimed to pass. Matches the real GenericCrops.crop CornRM.90 (short-season) hybrid exactly.",
+  },
+  corn_long_season: {
+    label: "Corn (long-season hybrid)", pyKey: "corn_long_season", legume: false, roles: ["cash"],
+    dataStatus: "unvalidated", correlation: null, workableAsCash: true, implementedInDemo: true,
+    notes: "Real GenericCrops.crop CornRM.110 values (differs from the standard corn entry only in thermal-time-to-maturity/flowering, 2300/1300 vs 1800/1000) -- not calibrated against real Cycles output for this specific hybrid (no reference data exists to calibrate against), but real parameters, built specifically for the site/season-length adaptation comparison in Tab 1.",
+  },
+  soybean: {
+    label: "Soybean", pyKey: "soybean", legume: true, roles: ["cash"],
+    dataStatus: "validated", correlation: 0.846, workableAsCash: true, implementedInDemo: true,
+    notes: "Validated, 0.846 correlation. Legume -- nitrogen rate has no effect on yield, by design (real rhizobia N fixation, not a modeled nodulation submodel).",
+  },
+  wheat: {
+    label: "Winter wheat", pyKey: "wheat", legume: false, roles: ["cover"],
+    dataStatus: "validated", correlation: 0.253, workableAsCash: false, implementedInDemo: true,
+    notes: "Real GenericCrops.crop parameters, not a placeholder, but only 0.253 correlation as a grain crop -- below the classroom-workable bar, so not offered as a cash-crop choice. Used as-is for the fall-planted cover-crop role, where grain-yield correlation isn't the relevant measure. The real driver of its weak year-to-year tracking is still an open, evidence-backed question (QUESTIONS_FOR_DEVS.md item 7).",
+  },
+  winter_rye: {
+    label: "Winter rye (cover crop)", pyKey: "winter_rye", legume: false, roles: ["cover"],
+    dataStatus: "partial", correlation: null, workableAsCash: false, implementedInDemo: true,
+    notes: "Real radiation- and transpiration-use efficiency from Kemanian et al. 2024 SI Table SI.2. Thermal time, temperature response, and canopy shape are borrowed from wheat as a disclosed placeholder pending the real GenericCrops.crop file (Matt's contact at CYCLES hasn't replied yet).",
+  },
+  hairy_vetch: {
+    label: "Hairy vetch (cover crop)", pyKey: "hairy_vetch", legume: true, roles: ["cover"],
+    dataStatus: "partial", correlation: null, workableAsCash: false, implementedInDemo: true,
+    notes: "Real legume RUE/WUE from the SI table, nitrogen behavior borrowed from soybean's crop file. Temperature response borrowed from wheat, not soybean (soybean's own warm-season thresholds produced almost no winter growth -- a real bug caught and fixed this session). Pending the real GenericCrops.crop file for its own parameters.",
+  },
+  corn_silage: {
+    label: "Corn (silage)", pyKey: null, legume: false, roles: ["cash"],
+    dataStatus: "validated-not-workable", correlation: 0.501, workableAsCash: false, implementedInDemo: false,
+    notes: "Validated only in the standalone run_validation_rotation2.py harness, never ported into this interactive engine. 0.501 correlation, below the classroom-workable bar -- the underlying water-stress-timing gap (about an 11-day onset mismatch against real Cycles output) is unresolved, see QUESTIONS_FOR_DEVS.md item 6.",
+  },
+  orchardgrass: {
+    label: "Orchardgrass (pasture)", pyKey: null, legume: false, roles: ["cash"],
+    dataStatus: "unresolved", correlation: null, workableAsCash: false, implementedInDemo: false,
+    notes: "The real cutting/regrowth trigger is unresolved -- four separate mechanical hypotheses ruled out with direct evidence against real Cycles daily output, correlation still ranged from 0.109 down to -0.276 across attempted fixes. Needs CYCLES developer input (QUESTIONS_FOR_DEVS.md item 4). No Python dict exists for this species at all; deliberately not committed in its current state.",
+  },
+  white_clover: {
+    label: "White clover (pasture)", pyKey: null, legume: true, roles: ["cash"],
+    dataStatus: "unresolved", correlation: null, workableAsCash: false, implementedInDemo: false,
+    notes: "Same unresolved cutting-trigger issue as orchardgrass. No Python dict exists for this species.",
+  },
+  lotus_corniculatus: {
+    label: "Lotus corniculatus (birdsfoot trefoil, pasture)", pyKey: null, legume: true, roles: ["cash"],
+    dataStatus: "unresolved", correlation: null, workableAsCash: false, implementedInDemo: false,
+    notes: "Same unresolved cutting-trigger issue as orchardgrass. No Python dict exists for this species.",
+  },
+};
+
+// A curated subset of the real 86-implement TILLAGE_IMPLEMENTS table embedded in
+// ENGINE_SOURCE, chosen to span the actual real-world tillage-intensity spectrum
+// (no-till / reduced-till / conventional) farmers actually discuss, rather than
+// exposing all 86 named tools (most of which are harvesters/planters, not tillage
+// passes) -- keeping this to one dropdown, not a second Frankenstein control.
+// value must exactly match a key in TILLAGE_IMPLEMENTS or be "" for no tillage.
+// Applied at planting (tillage_doy = plant_doy): the engine's weather rows for a
+// season start at planting, so an earlier real-world pre-plant pass has no day to
+// land on here -- a disclosed simplification, not a claim that real tillage always
+// happens on planting day itself.
+// Ordered by real mixing_efficiency (soil-disturbance intensity), not by
+// name or guess: 0 / 0.265919 / 0.371806 / 0.657771 / 0.8 -- an earlier
+// version of this list had the cultivator and chisel plow in the wrong
+// order (and mislabeled the cultivator "light"), which was backwards from
+// the real TILLAGE_IMPLEMENTS data and the actual yield effect each one
+// produces. Fixed 2026-09-21.
+const TILLAGE_OPTIONS = [
+  { value: "", label: "No tillage (direct seed)" },
+  { value: "Chisel_sweep_shovel", label: "Chisel plow (reduced-till)" },
+  { value: "Cultivator_field_w_spike_points", label: "Field cultivator (moderate, reduced-till)" },
+  { value: "Disk_tandem_heavy_primary_op", label: "Disk, tandem (moderate-heavy)" },
+  { value: "Plow_moldboard", label: "Moldboard plow (conventional, most aggressive)" },
+];
+
+function buildTillageFieldHTML(id) {
+  return `<div class="field">
+    <label>Tillage practice</label>
+    <select id="${id}">
+      ${TILLAGE_OPTIONS.map((o) => `<option value="${o.value}">${o.label}</option>`).join("")}
+    </select>
+  </div>`;
+}
+
+// Five preset sites, chosen to span genuinely different real soil/weather
+// regimes and already confirmed (via a direct Node check against the
+// committed weather-tiles manifest and statsgo2_soil_grid.json.gz before
+// this UI was built) to resolve to real, in-coverage cells -- not picked
+// blind. Coordinates are real places, not tile/grid centers, same as any
+// KML-uploaded field would be.
+const PRESET_SITES = [
+  { label: "Rock Springs, PA", lat: 40.7093, lng: -77.9478,
+    blurb: "Ridge-and-Valley Appalachians, humid continental" },
+  { label: "Central Iowa", lat: 42.0, lng: -93.6,
+    blurb: "Corn Belt, deep prairie soil" },
+  { label: "Western Kansas", lat: 37.97, lng: -100.87,
+    blurb: "Semi-arid High Plains, sandy soil" },
+  { label: "MD Eastern Shore", lat: 38.5, lng: -75.8,
+    blurb: "Chesapeake Bay coastal plain" },
+  { label: "North-Central North Dakota", lat: 48.23, lng: -101.30,
+    blurb: "Northern Plains, short growing season -- added 2026-09-22 specifically to give Tab 1's climate/hybrid comparison a genuinely short-season site none of the other four provide" },
+];
+
+// --- Crop select, populated from every species this engine can actually run
+// (pyKey !== null in SPECIES_REGISTRY), not just corn/soybean -- this is the
+// concrete "expose all the functionality" payoff of that registry existing.
+const cropSelect = document.getElementById("fcCropSelect");
+Object.entries(SPECIES_REGISTRY).forEach(([key, spec]) => {
+  if (!spec.pyKey) return; // no Python dict exists for this species yet
+  const opt = document.createElement("option");
+  opt.value = spec.pyKey;
+  const corrTxt = spec.correlation === null ? spec.dataStatus : `r=${spec.correlation}`;
+  opt.textContent = `${spec.label} (${corrTxt})`;
+  cropSelect.appendChild(opt);
+});
+cropSelect.addEventListener("change", () => {
+  const spec = Object.values(SPECIES_REGISTRY).find((s) => s.pyKey === cropSelect.value);
+  document.getElementById("fcCropNote").textContent = spec ? spec.notes : "";
+});
+
+// --- Tillage field, reusing the exact same TILLAGE_OPTIONS/buildTillageFieldHTML
+// already used by three panels in engine-demo.html.
+document.getElementById("fcTillageFieldHolder").innerHTML = buildTillageFieldHTML("fcTillage");
+
+// --- Show/hide toggles for the optional mechanisms.
+document.getElementById("fcNSplit").addEventListener("change", (e) => {
+  document.getElementById("fcNLumpRow").style.display = e.target.checked ? "none" : "flex";
+  document.getElementById("fcNSplitRow").style.display = e.target.checked ? "flex" : "none";
+});
+document.getElementById("fcIrrigOn").addEventListener("change", (e) => {
+  document.getElementById("fcIrrigRow").style.display = e.target.checked ? "flex" : "none";
+});
+document.getElementById("fcPlantOverride").addEventListener("change", (e) => {
+  document.getElementById("fcPlantRow").style.display = e.target.checked ? "flex" : "none";
+});
+
+// --- Site selection: preset buttons (reusing PRESET_SITES) + KML upload
+// (reusing parseFieldKML/fieldPolygonCentroid/resolveSiteAt verbatim from
+// engine-demo.html). A single slot -- this page validates one field at a
+// time, unlike engine-demo.html's A/B comparison panel.
+async function applyFcSite(centroid, label) {
+  const note = document.getElementById("fcSiteNote");
+  note.textContent = "Resolving real soil and weather for this location...";
+  currentSite = null;
+  updateFcRunButton();
+  try {
+    const r = await resolveSiteAt(centroid);
+    if (r.soilOut || r.wxOut) {
+      note.textContent = `${label}: falls outside real CONUS coverage (soil ${r.soilDist.toFixed(2)}° away, weather ${r.wxOut ? "no tile" : r.wxDist.toFixed(2) + "°"} away). Try a point further inland.`;
+      currentSite = null;
+    } else {
+      currentSite = r;
+      note.textContent = `${label}: ${r.soilCell.compname} series soil, weather cell ${r.wxCell[0].toFixed(2)}, ${r.wxCell[1].toFixed(2)} (${r.wxDist.toFixed(2)}° away). Ready.`;
+      populateFcYearSelect(r.weather);
+    }
+  } catch (err) {
+    note.textContent = "Couldn't resolve that location: " + err.message;
+    currentSite = null;
+  }
+  updateFcRunButton();
+}
+
+function populateFcYearSelect(weather) {
+  const sel = document.getElementById("fcYearSelect");
+  sel.innerHTML = "";
+  sel.disabled = false;
+  const years = Object.keys(weather).sort();
+  years.forEach((y) => {
+    const opt = document.createElement("option");
+    opt.value = y; opt.textContent = y;
+    sel.appendChild(opt);
+  });
+  // Prefer 2012 if this site's weather tile happens to include it (a real, well-
+  // documented drought year elsewhere in this project) -- otherwise the middle
+  // of whatever range is actually available.
+  if (years.includes("2012")) sel.value = "2012";
+  else sel.value = years[Math.floor(years.length / 2)];
+}
+
+const fcPresetRow = document.getElementById("fcPresetRow");
+PRESET_SITES.forEach((site) => {
+  const btn = document.createElement("button");
+  btn.className = "btn-secondary";
+  btn.textContent = site.label;
+  btn.title = site.blurb;
+  btn.addEventListener("click", () => applyFcSite({ lat: site.lat, lng: site.lng }, site.label));
+  fcPresetRow.appendChild(btn);
+});
+document.getElementById("fcKmlInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const parsed = parseFieldKML(text);
+    const centroid = parsed.kind === "point" ? { lat: parsed.lat, lng: parsed.lng } : fieldPolygonCentroid(parsed.vertices);
+    await applyFcSite(centroid, "Uploaded field");
+  } catch (err) {
+    document.getElementById("fcSiteNote").textContent = "Couldn't read that file: " + err.message;
+    currentSite = null;
+    updateFcRunButton();
+  }
+});
+
+let engineReady = false;
+function updateFcRunButton() {
+  const btn = document.getElementById("fcRunBtn");
+  if (!engineReady) { btn.disabled = true; btn.textContent = "Loading engine..."; return; }
+  if (!currentSite) { btn.disabled = true; btn.textContent = "Pick a site first"; return; }
+  btn.disabled = false;
+  btn.textContent = "Run simulation";
+}
+
+// --- The actual full-parameter run, generalizing runFieldSlot()'s call-scoped
+// dict(crop) pattern (engine-demo.html) to every simulate_season() parameter,
+// not just nitrogen rate + tillage.
+async function runFullSimulation(p) {
+  pyodide.globals.set("fc_wx_json", JSON.stringify(p.wxYear));
+  pyodide.globals.set("fc_soil_json", JSON.stringify(p.soilLayers));
+  pyodide.globals.set("fc_crop_key", p.cropKey);
+  pyodide.globals.set("fc_n_rate", p.nRate === null ? "" : String(p.nRate));
+  pyodide.globals.set("fc_n_apps_json", JSON.stringify(p.nApplications || null));
+  pyodide.globals.set("fc_n_credit", String(p.nCredit || 0));
+  pyodide.globals.set("fc_manure", String(p.manure || 0));
+  pyodide.globals.set("fc_irrig_trigger", p.irrigTrigger === null ? "" : String(p.irrigTrigger));
+  pyodide.globals.set("fc_irrig_amount", String(p.irrigAmount || 25));
+  pyodide.globals.set("fc_tillage", p.tillage || "");
+  pyodide.globals.set("fc_tillage_boost_days", String(p.tillageBoostDays || 30));
+  pyodide.globals.set("fc_plant_override", p.plantOverride === null ? "" : String(p.plantOverride));
+
+  const out = await pyodide.runPythonAsync(`
+import json as _json
+_fc_wx_year = _json.loads(fc_wx_json)
+_fc_soil_raw = _json.loads(fc_soil_json)
+def _fc_make_layers():
+    out = []
+    for L in _fc_soil_raw:
+        hyd = saxton_rawls(L["sand"], L["clay"], L["soc"] * OM_FROM_SOC)
+        out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"]))
+    return out
+_fc_crop = dict(CROPS[fc_crop_key])
+_fc_crop["make_layers"] = _fc_make_layers
+_fc_n_rate = float(fc_n_rate) if fc_n_rate else None
+_fc_n_apps_raw = _json.loads(fc_n_apps_json)
+_fc_n_apps = [tuple(x) for x in _fc_n_apps_raw] if _fc_n_apps_raw else None
+_fc_irrig_trigger = float(fc_irrig_trigger) if fc_irrig_trigger else None
+_fc_tillage_val = fc_tillage or None
+_fc_plant_override = int(fc_plant_override) if fc_plant_override else None
+_fc_plant_doy, _fc_rows = build_season_rows(_fc_wx_year, _fc_crop, plant_doy_override=_fc_plant_override)
+_fc_res = simulate_season(
+    _fc_rows, _fc_crop,
+    n_rate_kg_ha=_fc_n_rate, n_applications=_fc_n_apps,
+    n_credit_kg_ha=float(fc_n_credit), manure_n_kg_ha=float(fc_manure), manure_availability=0.5,
+    irrigation_trigger_frac=_fc_irrig_trigger, irrigation_amount_mm=float(fc_irrig_amount),
+    tillage_doy=(_fc_plant_doy if _fc_tillage_val else None), tillage_implement=_fc_tillage_val,
+    tillage_boost_days=int(fc_tillage_boost_days),
+    record_history=True,
+)
+_fc_out = {"plant_doy": _fc_plant_doy, **_fc_res}
+json.dumps(_fc_out)
+`);
+  return JSON.parse(out);
+}
+
+document.getElementById("fcRunBtn").addEventListener("click", async () => {
+  const status = document.getElementById("fcStatus");
+  const resultBox = document.getElementById("fcResult");
+  status.textContent = "Running...";
+  resultBox.style.display = "none";
+  try {
+    const year = document.getElementById("fcYearSelect").value;
+    const wxYear = currentSite.weather[year];
+    const nSplit = document.getElementById("fcNSplit").checked;
+    const nApplications = nSplit ? [
+      [parseInt(document.getElementById("fcNApp1Doy").value, 10), parseFloat(document.getElementById("fcNApp1Amt").value)],
+      [parseInt(document.getElementById("fcNApp2Doy").value, 10), parseFloat(document.getElementById("fcNApp2Amt").value)],
+    ] : null;
+    const nRate = nSplit ? null : parseFloat(document.getElementById("fcNRate").value);
+    const irrigOn = document.getElementById("fcIrrigOn").checked;
+    const plantOn = document.getElementById("fcPlantOverride").checked;
+
+    const params = {
+      wxYear, soilLayers: currentSite.layers, cropKey: cropSelect.value,
+      nRate, nApplications,
+      nCredit: parseFloat(document.getElementById("fcNCredit").value),
+      manure: parseFloat(document.getElementById("fcManure").value),
+      irrigTrigger: irrigOn ? parseFloat(document.getElementById("fcIrrigTrigger").value) : null,
+      irrigAmount: parseFloat(document.getElementById("fcIrrigAmt").value),
+      tillage: document.getElementById("fcTillage").value,
+      tillageBoostDays: parseInt(document.getElementById("fcTillageBoostDays").value, 10),
+      plantOverride: plantOn ? parseInt(document.getElementById("fcPlantDoy").value, 10) : null,
+    };
+    const res = await runFullSimulation(params);
+
+    const headline = document.getElementById("fcHeadline");
+    let html = `Planted DOY ${res.plant_doy} &middot; Grain <b>${res.grain.toFixed(2)}</b> Mg/ha &middot; AG biomass ${res.ag.toFixed(2)} Mg/ha &middot; Total biomass ${res.total.toFixed(2)} Mg/ha`;
+    if ("irrigation_mm" in res) html += ` &middot; Irrigation applied ${res.irrigation_mm.toFixed(0)} mm`;
+    headline.innerHTML = html;
+
+    const massBalance = document.getElementById("fcMassBalance");
+    if ("n_uptake_kg_ha" in res) {
+      massBalance.innerHTML = `Nitrogen: uptake ${res.n_uptake_kg_ha.toFixed(1)} kg/ha &middot; leached ${res.n_leached_kg_ha.toFixed(1)} kg/ha &middot; remaining in soil ${res.n_remaining_kg_ha.toFixed(1)} kg/ha (should sum to total supply: applied + credit + manure*0.5 + background mineralization).`;
+    } else {
+      massBalance.textContent = "No nitrogen tracked for this run (legume, or no rate/credit/manure set).";
+    }
+
+    drawSeasonChart(document.getElementById("fcChart"), res.history || []);
+    document.getElementById("fcRawJson").textContent = JSON.stringify(res, null, 2);
+    resultBox.style.display = "block";
+    status.textContent = "Done.";
+  } catch (err) {
+    status.textContent = "Failed: " + err.message + " (see browser console for details)";
+    console.error(err);
+  }
+});
+
+document.getElementById("fcRawToggle").addEventListener("click", () => {
+  const pre = document.getElementById("fcRawJson");
+  const showing = pre.style.display === "block";
+  pre.style.display = showing ? "none" : "block";
+  document.getElementById("fcRawToggle").textContent = showing ? "Show raw JSON output" : "Hide raw JSON output";
+});
+
+async function init() {
+  const status = document.getElementById("fcStatus");
+  try {
+    status.textContent = "Loading Pyodide (may take 10-20s on first load)...";
+    pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.2/full/" });
+    status.textContent = "Loading engine...";
+    await pyodide.runPythonAsync(ENGINE_SOURCE);
+    await pyodide.runPythonAsync(GLUE_SOURCE);
+    engineReady = true;
+    status.textContent = "Ready.";
+    updateFcRunButton();
+  } catch (err) {
+    status.textContent = "Failed to load: " + err.message;
+    console.error(err);
+  }
+}
+init();
+</script>
+</body>
+</html>
