@@ -840,12 +840,24 @@ def saxton_rawls(sand_pct, clay_pct, om_pct):
     ksat_mm_h = 1930 * (sat - fc) ** (3 - lam)
     return dict(pwp=pwp, fc=fc, sat=sat, psi_e_kpa=psi_e, B=B, lam=lam, ksat_mm_day=ksat_mm_h*24)
 
+def campbell_khe(theta_s, theta_sfc, theta_sat, ksat, psi_e, b):
+    # Real Eq. 1 (Kemanian et al. 2024), closed form -- see cycles_engine_validate.py's
+    # campbell_khe() docstring for the full derivation and the exponent correction (the
+    # paper's own "(2+3b)" almost certainly lost a division slash; "2+3/b" recovers
+    # Campbell's textbook K(theta)=Ksat*(theta/theta_sat)^(2b+3) exactly and is the only
+    # reading that gives physically sensible, non-collapsing conductivity).
+    if theta_s <= theta_sfc:
+        return 0.0
+    n = 2*b + 3
+    numer = ksat/theta_sat**n * (theta_s**(n+1) - theta_sfc**(n+1)) / (n+1)
+    return numer / (theta_s - theta_sfc)
+
 OM_FROM_SOC = 1.72
 
 def redistribute(layers, water_in_mm):
-    # Rate-limited by each layer's own ksat_mm_day (Saxton-Rawls Eq. 16) when present --
-    # falls back to the old unlimited-rate behavior for a layer dict with no ksat_mm_day
-    # key. See cycles_engine_validate.py's redistribute() docstring for the full account.
+    # Rate-limited by campbell_khe() (real Eq. 1) when a layer carries the full
+    # Saxton-Rawls parameter set, falling back to a flat ksat_mm_day cap, then to the old
+    # unlimited-rate behavior -- see cycles_engine_validate.py's redistribute() docstring.
     remaining = water_in_mm
     for l in layers:
         thick_mm = l["thick"] * 1000
@@ -853,7 +865,11 @@ def redistribute(layers, water_in_mm):
         l["theta"] += add / thick_mm
         remaining -= add
         excess_mm = max(0.0, (l["theta"] - l["fc"]) * thick_mm)
-        drain = min(excess_mm, l.get("ksat_mm_day", float("inf")))
+        if "psi_e_kpa" in l and "B" in l:
+            rate_cap = campbell_khe(l["theta"], l["fc"], l["sat"], l["ksat_mm_day"], l["psi_e_kpa"], l["B"])
+        else:
+            rate_cap = l.get("ksat_mm_day", float("inf"))
+        drain = min(excess_mm, rate_cap)
         l["theta"] -= drain / thick_mm
         remaining += drain
     return remaining
@@ -1388,7 +1404,7 @@ def make_layers():
     layers = []
     for L in SOIL_LAYERS_RAW:
         hyd = saxton_rawls(L["sand"], L["clay"], L["soc"]*OM_FROM_SOC)
-        layers.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"], ksat_mm_day=hyd["ksat_mm_day"]))
+        layers.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"], ksat_mm_day=hyd["ksat_mm_day"], psi_e_kpa=hyd["psi_e_kpa"], B=hyd["B"]))
     return layers
 
 CORN = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
@@ -1699,7 +1715,7 @@ if use_resolved_site:
         out = []
         for L in _site_soil:
             hyd = saxton_rawls(L["sand"], L["clay"], L["soc"] * OM_FROM_SOC)
-            out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"], ksat_mm_day=hyd["ksat_mm_day"]))
+            out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"], ksat_mm_day=hyd["ksat_mm_day"], psi_e_kpa=hyd["psi_e_kpa"], B=hyd["B"]))
         return out
     crop_obj = dict(crop_obj)
     crop_obj["make_layers"] = _site_make_layers
@@ -2027,7 +2043,7 @@ if use_resolved_site:
         out = []
         for L in _site_soil:
             hyd = saxton_rawls(L["sand"], L["clay"], L["soc"] * OM_FROM_SOC)
-            out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"], ksat_mm_day=hyd["ksat_mm_day"]))
+            out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"], ksat_mm_day=hyd["ksat_mm_day"], psi_e_kpa=hyd["psi_e_kpa"], B=hyd["B"]))
         return out
     crop_obj = dict(crop_obj)
     crop_obj["make_layers"] = _site_make_layers
@@ -2748,7 +2764,7 @@ def _sr_make_layers():
     out = []
     for L in _sr_soil_raw:
         hyd = saxton_rawls(L["sand"], L["clay"], L["soc"] * OM_FROM_SOC)
-        out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"], ksat_mm_day=hyd["ksat_mm_day"]))
+        out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"], ksat_mm_day=hyd["ksat_mm_day"], psi_e_kpa=hyd["psi_e_kpa"], B=hyd["B"]))
     return out
 _sr_crop = dict(CROPS[sr_crop_key])
 _sr_crop["make_layers"] = _sr_make_layers
@@ -2875,7 +2891,7 @@ def _field_make_layers():
     out = []
     for L in _field_soil_raw:
         hyd = saxton_rawls(L["sand"], L["clay"], L["soc"] * OM_FROM_SOC)
-        out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"], ksat_mm_day=hyd["ksat_mm_day"]))
+        out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"], ksat_mm_day=hyd["ksat_mm_day"], psi_e_kpa=hyd["psi_e_kpa"], B=hyd["B"]))
     return out
 _field_crop = dict(CORN)
 _field_crop["make_layers"] = _field_make_layers
@@ -2995,7 +3011,7 @@ def _cmp2_make_layers():
     out = []
     for L in _cmp2_soil_raw:
         hyd = saxton_rawls(L["sand"], L["clay"], L["soc"] * OM_FROM_SOC)
-        out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"], ksat_mm_day=hyd["ksat_mm_day"]))
+        out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"], ksat_mm_day=hyd["ksat_mm_day"], psi_e_kpa=hyd["psi_e_kpa"], B=hyd["B"]))
     return out
 _cmp2_crop = dict(CORN)
 _cmp2_crop["make_layers"] = _cmp2_make_layers
@@ -3319,7 +3335,7 @@ def _oi_make_layers():
     out = []
     for L in _oi_soil_raw:
         hyd = saxton_rawls(L["sand"], L["clay"], L["soc"] * OM_FROM_SOC)
-        out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"], ksat_mm_day=hyd["ksat_mm_day"]))
+        out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"], ksat_mm_day=hyd["ksat_mm_day"], psi_e_kpa=hyd["psi_e_kpa"], B=hyd["B"]))
     return out
 _oi_crop = dict(CROPS[oi_crop_key])
 _oi_crop["make_layers"] = _oi_make_layers
@@ -3411,7 +3427,7 @@ def _oi_make_layers():
     out = []
     for L in _oi_soil_raw:
         hyd = saxton_rawls(L["sand"], L["clay"], L["soc"] * OM_FROM_SOC)
-        out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"], ksat_mm_day=hyd["ksat_mm_day"]))
+        out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"], ksat_mm_day=hyd["ksat_mm_day"], psi_e_kpa=hyd["psi_e_kpa"], B=hyd["B"]))
     return out
 _oi_crop = dict(CROPS[oi_crop_key])
 _oi_crop["make_layers"] = _oi_make_layers

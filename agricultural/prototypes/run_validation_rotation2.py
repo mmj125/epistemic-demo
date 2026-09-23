@@ -32,7 +32,7 @@ def make_layers():
     for L in SOIL_LAYERS_RAW:
         hyd = saxton_rawls(L["sand"], L["clay"], L["soc"] * OM_FROM_SOC)
         layers.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"],
-                            ksat_mm_day=hyd["ksat_mm_day"]))
+                            ksat_mm_day=hyd["ksat_mm_day"], psi_e_kpa=hyd["psi_e_kpa"], B=hyd["B"]))
     return layers
 
 

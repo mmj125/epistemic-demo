@@ -301,30 +301,43 @@
       and we don't know what.</p>
     </details>
     <details class="gap">
-      <summary>5. Saxton-Rawls secondary hydraulic parameters (partially resolved, 2026-09-23)</summary>
+      <summary>5. Saxton-Rawls secondary hydraulic parameters and real Eq. 1 redistribution (mostly resolved, 2026-09-23)</summary>
       <p>Update: Matt obtained and supplied the real Saxton &amp; Rawls (2006) paper directly after our
       sandbox's network policy blocked every attempt to fetch it (including web search, which had
       worked for other sources). All three secondary parameters &mdash; air-entry tension (Eq. 4), the
-      pore-size distribution exponent &lambda; (Eq. 14&ndash;15/18), and saturated hydraulic conductivity
+      pore-size distribution exponent B (Eq. 14&ndash;15/18), and saturated hydraulic conductivity
       Ksat (Eq. 16) &mdash; are now computed in <code>saxton_rawls()</code>, verified against the paper's own
       worked examples (Table 3: Sand texture reproduces 108.15 mm/h against the table's 108.1;
       Loam reproduces 15.48 mm/h against 15.5, and matches the table's 14/28/46 %v wilt-point/
       field-capacity/saturation exactly).</p>
-      <p>Ksat is now wired into <code>redistribute()</code>: a layer can only pass water downward at up to
-      its own real saturated conductivity per day, rather than the old unlimited-rate cascading
-      bucket. This is still a same-day approximation, not the paper's real sub-daily Eq. 1&ndash;2
-      integral &mdash; a layer's excess above field capacity is checked once per day, not continuously
-      &mdash; but it is a genuine, disclosed step closer, not just an exposed-but-unused parameter.
-      Honest result: this made <strong>zero</strong> measurable difference to any of the four validated
-      crops' correlation or mean-absolute-error figures above, to three decimal places. Rock Springs'
-      real per-layer Ksat values (43&ndash;315 mm/day) are high enough, and its real daily rainfall low
-      enough, that the rate cap essentially never binds &mdash; the same pattern already found for
-      curve-number runoff and antecedent-moisture spin-up (item 10): none of these three mechanisms
-      turn out to be load-bearing at this specific site's climate. Air-entry tension and &lambda; are
-      computed and available but not yet consumed by anything &mdash; a real prerequisite for a fuller
-      unsaturated-flow redistribution scheme, not itself that scheme; building the real Eq. 1&ndash;2
-      integral would still need its exact mathematical form from the paper, not just these soil
-      parameters, and hasn't been attempted.</p>
+      <p><strong>Update, same day:</strong> the real Eq. 1&ndash;2 redistribution physics itself is now
+      partially implemented, not just its input parameters. Re-reading Kemanian et al. 2024's own
+      Section 2.4 found that Eq. 1's capacitance-weighted effective conductivity (khe), which looks
+      like it needs numerical integration, actually collapses to closed form once Campbell's (1974)
+      own power-law moisture curve is substituted in &mdash; verified against brute-force numerical
+      integration to ~1e-15 relative error. One real correction was needed: the paper's own printed
+      exponent "(2+3b)" gives physically absurd near-zero conductivity almost everywhere when read
+      literally (checked numerically); reading it as "2+3/b" (a division slash very plausibly lost in
+      PDF text extraction) exactly recovers Campbell's own textbook K(theta)=Ksat(theta/theta_sat)^(2b+3)
+      form, and was used on that basis.</p>
+      <p><code>redistribute()</code> now uses this real capacitance-weighted rate (via a new
+      <code>campbell_khe()</code> function) in place of the flat Ksat cap described above, when a layer
+      carries the needed parameters &mdash; a genuinely different behavior, not just a relabeling: a layer
+      just above field capacity now drains almost nothing per day, and even a nearly-saturated layer
+      doesn't fully drain back to field capacity in one day, matching the paper's own stated intent
+      ("weighting by capacitance slows down water flow as the soil approaches field capacity"). This
+      is still a same-day approximation, not the paper's literal dynamically-timestepped sub-daily
+      iteration (Eq. 2) &mdash; a further, larger undertaking if these results motivate pursuing it.</p>
+      <p>Honest, genuinely mixed result &mdash; the first real movement from any of this week's water-balance
+      additions (curve-number runoff, antecedent-moisture spin-up, and the flat Ksat cap all measured
+      exactly zero effect at Rock Springs): corn 0.544&rarr;0.546, soybean 0.846&rarr;0.851, silage corn
+      0.511&rarr;0.526, winter wheat 0.226&rarr;0.222. Three of four crops improved modestly; wheat moved
+      slightly the other way. Not a breakthrough, but structurally coherent: silage corn, the one crop
+      whose weak correlation was specifically diagnosed as a water-balance <em>timing</em> problem (item 6
+      below), got the largest gain. Wheat's slight regression is consistent with its own separately-diagnosed
+      anomaly (real reported stress far exceeds what soil-moisture depletion alone would explain) &mdash; a
+      water-balance refinement was never expected to fix a problem already shown not to be a water-balance
+      problem.</p>
     </details>
 
     <details class="gap">
@@ -542,12 +555,24 @@ def saxton_rawls(sand_pct, clay_pct, om_pct):
     ksat_mm_h = 1930 * (sat - fc) ** (3 - lam)
     return dict(pwp=pwp, fc=fc, sat=sat, psi_e_kpa=psi_e, B=B, lam=lam, ksat_mm_day=ksat_mm_h*24)
 
+def campbell_khe(theta_s, theta_sfc, theta_sat, ksat, psi_e, b):
+    # Real Eq. 1 (Kemanian et al. 2024), closed form -- see cycles_engine_validate.py's
+    # campbell_khe() docstring for the full derivation and the exponent correction (the
+    # paper's own "(2+3b)" almost certainly lost a division slash; "2+3/b" recovers
+    # Campbell's textbook K(theta)=Ksat*(theta/theta_sat)^(2b+3) exactly and is the only
+    # reading that gives physically sensible, non-collapsing conductivity).
+    if theta_s <= theta_sfc:
+        return 0.0
+    n = 2*b + 3
+    numer = ksat/theta_sat**n * (theta_s**(n+1) - theta_sfc**(n+1)) / (n+1)
+    return numer / (theta_s - theta_sfc)
+
 OM_FROM_SOC = 1.72
 
 def redistribute(layers, water_in_mm):
-    # Rate-limited by each layer's own ksat_mm_day (Saxton-Rawls Eq. 16) when present --
-    # falls back to the old unlimited-rate behavior for a layer dict with no ksat_mm_day
-    # key. See cycles_engine_validate.py's redistribute() docstring for the full account.
+    # Rate-limited by campbell_khe() (real Eq. 1) when a layer carries the full
+    # Saxton-Rawls parameter set, falling back to a flat ksat_mm_day cap, then to the old
+    # unlimited-rate behavior -- see cycles_engine_validate.py's redistribute() docstring.
     remaining = water_in_mm
     for l in layers:
         thick_mm = l["thick"] * 1000
@@ -555,7 +580,11 @@ def redistribute(layers, water_in_mm):
         l["theta"] += add / thick_mm
         remaining -= add
         excess_mm = max(0.0, (l["theta"] - l["fc"]) * thick_mm)
-        drain = min(excess_mm, l.get("ksat_mm_day", float("inf")))
+        if "psi_e_kpa" in l and "B" in l:
+            rate_cap = campbell_khe(l["theta"], l["fc"], l["sat"], l["ksat_mm_day"], l["psi_e_kpa"], l["B"])
+        else:
+            rate_cap = l.get("ksat_mm_day", float("inf"))
+        drain = min(excess_mm, rate_cap)
         l["theta"] -= drain / thick_mm
         remaining += drain
     return remaining
@@ -1090,7 +1119,7 @@ def make_layers():
     layers = []
     for L in SOIL_LAYERS_RAW:
         hyd = saxton_rawls(L["sand"], L["clay"], L["soc"]*OM_FROM_SOC)
-        layers.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"], ksat_mm_day=hyd["ksat_mm_day"]))
+        layers.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"], ksat_mm_day=hyd["ksat_mm_day"], psi_e_kpa=hyd["psi_e_kpa"], B=hyd["B"]))
     return layers
 
 CORN = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
@@ -1646,7 +1675,7 @@ def _fc_make_layers():
     out = []
     for L in _fc_soil_raw:
         hyd = saxton_rawls(L["sand"], L["clay"], L["soc"] * OM_FROM_SOC)
-        out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"], ksat_mm_day=hyd["ksat_mm_day"]))
+        out.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"], ksat_mm_day=hyd["ksat_mm_day"], psi_e_kpa=hyd["psi_e_kpa"], B=hyd["B"]))
     return out
 _fc_crop = dict(CROPS[fc_crop_key])
 _fc_crop["make_layers"] = _fc_make_layers
