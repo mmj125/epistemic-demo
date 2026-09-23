@@ -704,9 +704,48 @@ CORN_CANOPY_SHAPE = (6, -20, -12, 12)      # refit from real corn FRAC INTERCEP 
 # error dropped to near-exact for corn/soybean/wheat/silage corn, no calibration_factor change
 # needed to get there) AND meaningfully improved correlation for wheat (a real, not marginal,
 # jump) while leaving corn/soybean/silage corn's own correlations roughly unchanged or slightly
-# better. The flat warm-season "maximum eR" gap remains real and measured but is NOT implemented
-# here -- a genuine, disclosed, still-open item (see QUESTIONS_FOR_DEVS.md), since whatever
-# actually causes it clearly isn't a simple constant multiplier the way the cold-season piece is.
+# better. The flat warm-season "maximum eR" gap itself (see NET_GROWTH_FRACTION below for how it
+# was eventually implemented, and QUESTIONS_FOR_DEVS.md item 9 for what's still genuinely open
+# about it) was NOT applied here, as a multiplier on GR before the min(GR, GT) choice -- that's
+# structurally unsafe regardless of the exact fraction used (confirmed directly, not assumed):
+# discounting GR alone made radiation the binding constraint on 81-85% of days in a synthetic
+# test (corn, three separate years), up from a real 38-46% baseline, because a smaller GR is more
+# often the smaller of the two terms. Since real year-to-year yield variation is overwhelmingly
+# water-driven (precipitation varies far more than solar radiation does), making radiation almost
+# always the limiting factor instead destroys the model's sensitivity to the actual real signal --
+# exactly why that version made every crop's correlation worse despite fixing the mean.
+
+# Warm-day radiation-use-efficiency gap, resolved as a post-limitation growth-conversion loss
+# (2026-09-23, continuing directly from the cold-temperature fix above): re-diagnosed the ~25%
+# warm-day gap and found it was itself partly a measurement artifact of the diagnostic method,
+# not the true size of the effect. The original implied-RUE calculation assumed every sampled day
+# was purely radiation-limited (dividing that day's real biomass gain by RUE*eie*solar), but many
+# of those days were actually water-limited or ambiguous in this engine's own water-balance
+# simulation -- binning the same implied-RUE-ratio data by this engine's own GT/GR ratio (using
+# nominal, uncorrected RUE) shows the ratio rising smoothly and monotonically from 0.62 (GT/GR
+# 0.6-0.9, water-limited-leaning) to 0.80 (GT/GR > 1.33, unambiguously radiation-limited) -- most,
+# but not all, of the apparent ~25% gap was really just water-limited days being misattributed to
+# the radiation formula. Restricting to the cleanest, most unambiguous days (GT/GR > 1.5, n=23,
+# stdev 0.039 -- a tight, reproducible sample despite the small n) gives a real, residual gap of
+# 0.785, not the original ~0.74.
+#
+# The key insight that makes this safely implementable: since real biomass accumulation in this
+# engine depends on nothing downstream of the daily growth increment itself (canopy cover and
+# root depth are both pure functions of thermal time, not of accumulated biomass; soil-moisture
+# extraction depends only on realized transpiration, not on how much biomass that transpiration
+# produced), multiplying dGB by a flat fraction AFTER the min(GR, GT) choice is mathematically
+# equivalent to a uniform rescaling of the whole season's biomass trajectory -- it cannot change
+# which of GR or GT wins on any given day, unlike scaling GR beforehand. Verified directly, not
+# just reasoned: applying this exact fraction after min(GR, GT) reproduces every validated crop's
+# correlation to three decimals, unchanged (corn 0.547, soybean 0.858, wheat 0.397, silage corn
+# 0.512, all identical to the pre-fix values) -- only the mean moved, absorbed by re-deriving each
+# crop's calibration_factor, the same way this project has always handled a pure level correction.
+# This targets a real, previously-disclosed-but-unfixed gap directly: the "Beyond final yield"
+# multi-variable comparison in model-validation.html has repeatedly flagged that this engine's
+# UNCALIBRATED total/aboveground biomass runs 26-32% higher than real Cycles even when the
+# CALIBRATED grain number matches well -- this is a real, verified fix to that specific, honestly-
+# disclosed problem, not a cosmetic change to a number nobody was checking.
+NET_GROWTH_FRACTION = 0.785
 
 
 def thermal_time_increment(tx, tn, base_t, opt_t, max_t):
@@ -963,7 +1002,7 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf, curve_numbe
         extract_transpiration(layers, root_depth, TR_actual)
 
         GT = crop["wue"] / math.sqrt(Da) * TR_actual
-        dGB_water_limited = max(0.0, min(GR, GT)) / 1000
+        dGB_water_limited = max(0.0, min(GR, GT)) * NET_GROWTH_FRACTION / 1000
 
         demand.append(dGB_water_limited * 10 * n_marginal_demand_pct(ref_biomass * 10, crop) * 10)
         bg_multiplier.append(1.0 + tillage_ft(dr, ftx))
@@ -1328,7 +1367,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         extract_transpiration(layers, root_depth, TR_actual)
 
         GT = crop["wue"] / math.sqrt(Da) * TR_actual
-        dGB_water_limited = max(0.0, min(GR, GT)) / 1000
+        dGB_water_limited = max(0.0, min(GR, GT)) * NET_GROWTH_FRACTION / 1000
 
         n_stress = 1.0
         if n_pool is not None:

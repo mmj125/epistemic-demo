@@ -200,20 +200,29 @@ against real Cycles output before concluding the gap is real.
    SI.2's own heading) to a day's actual value?** A real, consistent gap exists even
    under warm, zero-stress conditions -- backed out directly from real Cycles'
    own daily BIOMASS output (dB[Mg/ha]*100 / (FRAC_INTERCEP*solar_MJ) = implied
-   g/MJ) across four crops' full real records: corn's warm-day implied RUE
-   averages 0.744 of nominal, silage corn 0.754, wheat 0.736, soybean 0.640 (three
-   non-legumes clustering tightly around ~0.74-0.75, soybean a real, consistent
-   ~15-point step below). A separate, larger, genuinely temperature-driven
-   reduction on top of this (see the "Resolved" entry below) is now implemented
-   and helped substantially, especially for wheat -- but this warm-day baseline
-   gap itself was tested as a flat per-crop multiplicative correction and made
-   every crop's correlation WORSE despite fixing the mean, so it was deliberately
-   NOT implemented and remains a real, open, measured discrepancy. A CO2-reference
-   scaling (the paper notes "εR... should be given for a reference atmospheric CO2
-   concentration and scaled accordingly as CO2 changes") is one candidate, but
-   doesn't obviously explain why the effect would be roughly constant rather than
-   varying by simulation year. What is the real conversion (or additional factor)
-   that turns "Maximum eR" into the value actually used day to day?
+   g/MJ). The original estimate (corn 0.744, silage corn 0.754, wheat 0.736,
+   soybean 0.640) turned out to be partly a measurement artifact -- many sampled
+   days were actually water-limited or ambiguous in this engine's own water
+   balance, not purely radiation-limited the way the method assumed. Restricting
+   to the cleanest, most unambiguous days (this engine's own GT/GR ratio > 1.5)
+   gives a smaller but still real residual gap of 0.785 (n=23, stdev 0.039).
+   **The workaround is now implemented** (`NET_GROWTH_FRACTION` in
+   `cycles_engine_validate.py`, see the "Resolved" entry below) as a discount
+   applied AFTER the min(GR, GT) choice rather than to GR beforehand -- this
+   fixes the resulting biomass-level bias with zero effect on grain correlation
+   (verified, not assumed), sidestepping the correlation-breaking problem a flat
+   discount on GR alone caused (it makes radiation the binding constraint far
+   more often, moving a synthetic corn test from 38-46% radiation-limited days to
+   81-85%, which washes out the model's sensitivity to real, water-driven
+   year-to-year yield variation). This closes the practical problem but NOT the
+   underlying question: a CO2-reference scaling (the paper notes "εR... should be
+   given for a reference atmospheric CO2 concentration and scaled accordingly as
+   CO2 changes") is one candidate, but doesn't obviously explain why the effect
+   would be roughly constant rather than varying by simulation year. **What is
+   the real conversion (or additional factor) that turns "Maximum eR" into the
+   value actually used day to day, and does real Cycles apply it before or after
+   the radiation/water co-limitation choice** (the distinction that made this
+   workaround succeed where a naive one failed)?
 
 ## Resolved without asking (kept here for the record, not blocking)
 
@@ -340,3 +349,33 @@ against real Cycles output before concluding the gap is real.
   else?) -- real, measured, and consistently non-trivial to fit as a flat
   constant, so left as a disclosed, still-open item rather than guessed at
   further.
+- **The warm-day radiation-use-efficiency gap itself, item 9's leftover --
+  resolved as a post-limitation growth-conversion loss, not a discount on `GR`.**
+  Re-diagnosed the ~25% warm-day gap and found the original measurement partly
+  conflated water-limited days with radiation-limited ones (this engine's own
+  GT/GR ratio, computed with nominal RUE, correlates smoothly with the implied-
+  RUE ratio: 0.62 at GT/GR 0.6-0.9 up to 0.80 at GT/GR > 1.33). The cleanest,
+  most unambiguous subset (GT/GR > 1.5, n=23, stdev 0.039) gives a real residual
+  gap of 0.785, not the original ~0.74. Confirmed directly why item 9 was right
+  to decline a flat discount on `GR`: doing so makes radiation the binding
+  constraint far more often (a synthetic corn test moved from a real 38-46%
+  radiation-limited baseline to 81-85%), which destroys the model's sensitivity
+  to real, water-driven year-to-year yield variation -- the actual mechanism
+  behind the correlation damage, not just an observed side effect. The fix:
+  apply the 0.785 fraction to `min(GR, GT)` (`NET_GROWTH_FRACTION` in
+  `cycles_engine_validate.py`) AFTER the limiting choice is made, not to `GR`
+  before it. Since nothing else in this engine's day loop depends on cumulative
+  biomass (canopy cover and root depth are pure functions of thermal time; soil-
+  moisture extraction depends only on realized transpiration, not on how much
+  biomass it produced), this is mathematically a uniform rescaling of the
+  season's growth trajectory -- verified directly, not just reasoned, that it
+  reproduces every validated crop's grain correlation to three decimals,
+  completely unchanged. Re-derived each crop's `calibration_factor` to absorb
+  the mean shift. Directly closes the gap `model-validation.html`'s own
+  "Beyond final yield" table has repeatedly flagged: corn's uncalibrated total
+  biomass error dropped from 32.2% to 7.0%, aboveground biomass from 32.7% to
+  7.6%, both with zero change to grain's own correlation. Item 9's actual
+  question -- what real mechanism produces this gap, and whether Cycles itself
+  applies it before or after the radiation/water co-limitation choice -- remains
+  open; this is a verified fix to the model's output, not an identification of
+  the real cause.
