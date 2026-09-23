@@ -894,6 +894,7 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf, curve_numbe
     day, of the (1+ft) multiplier that day's BACKGROUND_N_KG_HA_DAY should be scaled by;
     all 1.0 when tillage_doy is None."""
     layers = crop["make_layers"]()
+    root_max_m = crop.get("root_max_m", root_max_m)
     de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
     if spinup_rows:
         for w in spinup_rows:
@@ -1120,8 +1121,17 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     weather (already loaded, no new data needed) as a defensible antecedent-moisture proxy --
     not a true multi-year equilibrium spin-up, but a real, non-arbitrary improvement over
     always starting full, especially in drier climates where that assumption is least
-    defensible (see the Iowa/Kansas head-to-head comparison, CLAUDE.md 2026-09-22)."""
+    defensible (see the Iowa/Kansas head-to-head comparison, CLAUDE.md 2026-09-22).
+
+    root_max_m: real, disclosed per-crop GenericCrops.crop MAXIMUM_ROOTING_DEPTH values
+    (corn 2.0m, silage corn 1.55m, soybean 1.5m, wheat 2.0m) OVERRIDE this parameter's own
+    default when the crop dict sets its own "root_max_m" key -- previously every crop shared
+    this same hardcoded 1.4m default regardless of species, a real, disclosed difference this
+    engine was simply ignoring. crop.get("root_max_m", root_max_m) keeps exact prior behavior
+    for any crop dict that doesn't set the field (backward compatible, no call site changes
+    needed anywhere in this project)."""
     layers = crop["make_layers"]()
+    root_max_m = crop.get("root_max_m", root_max_m)
     de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
     runoff_total = 0.0
     if spinup_rows:

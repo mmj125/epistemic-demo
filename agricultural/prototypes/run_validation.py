@@ -28,6 +28,8 @@ CORN = dict(
     depletion_fraction=0.55,  # real FAO-56 Table 22 value for maize, field (grain)
     tr_max_mm_day=10,  # real GenericCrops.crop TRANSPIRATION_MAX (CornRM.90); never triggers at
     # Rock Springs (TRp maxes out ~7.4mm/day across the full record) but real and disclosed
+    root_max_m=2.0,  # real GenericCrops.crop MAXIMUM_ROOTING_DEPTH (CornRM.90); previously every
+    # crop shared a hardcoded 1.4m default regardless of species -- a real, ignored difference
 )
 
 SOIL_LAYERS_RAW = [

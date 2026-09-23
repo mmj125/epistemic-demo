@@ -600,6 +600,23 @@
       &mdash; a real, disclosed reset mechanism whose exact reset size isn't recoverable from any
       source tried. Not implemented rather than guessed at.</p>
     </details>
+    <details class="gap">
+      <summary>15. Real per-crop root depth wired in &mdash; confirmed correct, a null result at every
+      real site checked so far</summary>
+      <p>Root depth (how deep a crop can reach for soil moisture) had been a single hardcoded 1.4m
+      shared by every crop, when the real, disclosed values differ substantially: corn/wheat 2.0m,
+      soybean 1.5m, silage corn 1.55m. Wired in as a per-crop override. The full validation suite came
+      back byte-for-byte unchanged &mdash; traced this to a real, satisfying cause rather than assumed
+      the fix did nothing: this project's own hand-curated Rock Springs soil profile is exactly 1.4m
+      deep (apparently why 1.4m was the old shared default in the first place), and every other real
+      soil profile checked &mdash; the STATSGO2 cell nearest Rock Springs (1.42m), even Iowa's own deep
+      prairie soil (1.52m) &mdash; caps out well short of 2.0m too. No site this project has real soil
+      data for lets a crop's real root system matter yet. Confirmed the mechanism itself works with a
+      synthetic test (Iowa's real 1.52m profile, Rock Springs' 2012 drought weather): a 2.0m root depth
+      measurably outyields 1.4m (+0.14 Mg/ha) once the profile is deep enough to expose the difference.
+      Kept the real values regardless &mdash; the same standard already applied to <code>TRANSPIRATION_MAX</code>
+      earlier the same day.</p>
+    </details>
 
     <p style="margin-top:14px;">This list is deliberately not flattering. It's the same list we'd want
     handed to us if someone else built a reimplementation of our own model and asked us to check it.</p>
@@ -1057,6 +1074,7 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
     # curve_number/slope_pct/spinup_rows must also match simulate_season's own values, for
     # the same reason -- see infiltrate()/simulate_season's own docstring.
     layers = crop["make_layers"]()
+    root_max_m = crop.get("root_max_m", root_max_m)
     de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
     if spinup_rows:
         for w in spinup_rows:
@@ -1151,6 +1169,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     # of a flat multiplier held for an arbitrary fixed window. tillage_clay_frac (0-1) feeds ftx's
     # real texture scaling; defaults to 0.21, Rock Springs' own real topsoil clay fraction.
     layers = crop["make_layers"]()
+    root_max_m = crop.get("root_max_m", root_max_m)
     de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
     runoff_total = 0.0
     if spinup_rows:
@@ -1340,8 +1359,12 @@ CORN = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=40.6875, make_layers=make_layers,
     n_max_conc=0.055, n_dilution_slope=0.4, legume=False,
     depletion_fraction=0.55,  # real FAO-56 Table 22 value for maize, field (grain)
-    tr_max_mm_day=10)  # real GenericCrops.crop TRANSPIRATION_MAX (CornRM.90); a no-op at Rock
-# Springs (TRp never exceeds ~7.4mm/day there) but real and kept for other sites.
+    tr_max_mm_day=10,  # real GenericCrops.crop TRANSPIRATION_MAX (CornRM.90); a no-op at Rock
+    # Springs (TRp never exceeds ~7.4mm/day there) but real and kept for other sites.
+    root_max_m=2.0)  # real GenericCrops.crop MAXIMUM_ROOTING_DEPTH (CornRM.90); also a no-op at
+# Rock Springs and every STATSGO2 site checked so far (real soil profiles there cap around
+# 1.4-1.52m, shallower than any validated crop's real root depth) but real and kept for a site
+# with a genuinely deeper profile.
 # Matches the real GenericCrops.crop CornRM.90 entry exactly (same tt_maturity/flowering_tt) --
 # CORN above already IS the short-season hybrid, not a separate crop.
 
@@ -1367,6 +1390,7 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
     n_max_conc=0.07, n_dilution_slope=0.4, legume=True,
     depletion_fraction=0.50,  # real FAO-56 Table 22 value for soybeans -- same as the old default
     tr_max_mm_day=8,  # real GenericCrops.crop TRANSPIRATION_MAX (SoybeanMG.5)
+    root_max_m=1.5,  # real GenericCrops.crop MAXIMUM_ROOTING_DEPTH (SoybeanMG.5)
     lat_deg=40.6875, make_layers=make_layers)
 
 # Real GenericCrops.crop values for WinterWheat, same crop this engine already validates
@@ -1378,8 +1402,9 @@ WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
     calibration_factor=0.6241, canopy_shape=(5, -14, -15, 16),
     kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=40.6875, make_layers=make_layers,
     n_max_conc=0.07, n_dilution_slope=0.45, legume=False,
-    depletion_fraction=0.55, tr_max_mm_day=8)  # real FAO-56 Table 22 (winter/spring wheat);
+    depletion_fraction=0.55, tr_max_mm_day=8,  # real FAO-56 Table 22 (winter/spring wheat);
     # tr_max_mm_day is real GenericCrops.crop TRANSPIRATION_MAX (WinterWheat)
+    root_max_m=2.0)  # real GenericCrops.crop MAXIMUM_ROOTING_DEPTH (WinterWheat)
 
 # Two more cover-crop options, added per Matt's direct request (2026-09-17) to get closer to
 # real Cycles coverage without outkicking it. Radiation- and transpiration-use efficiency
