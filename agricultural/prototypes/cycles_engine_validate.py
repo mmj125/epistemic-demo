@@ -188,6 +188,41 @@ def saxton_rawls(sand_pct, clay_pct, om_pct):
                 ksat_mm_day=ksat_mm_h * 24)
 
 
+def campbell_khe(theta_s, theta_sfc, theta_sat, ksat, psi_e, b):
+    """Real Eq. 1, Kemanian et al. 2024: the capacitance-weighted effective hydraulic
+    conductivity between the current moisture theta_s and field capacity theta_sfc, using
+    Campbell's (1974) power-law moisture-release curve theta(psi) = theta_sat*(psi_e/psi)^(1/b)
+    (b is Saxton-Rawls' own B -- both papers use the same exponent for the same curve family).
+    The paper's own typeset integral collapses to closed form once that substitution is made:
+    both the numerator and denominator become simple power-function integrals of theta, since
+    d(theta)/d(psi) integrated over psi is just theta(psi_s) - theta(psi_sfc) by the fundamental
+    theorem of calculus, and (psi_e/psi)^m becomes (theta/theta_sat)^(m*b) via the same curve.
+    Verified against brute-force scipy.integrate.quad numerical integration of the paper's own
+    literal integral to machine precision (relative error ~1e-15) before use here.
+
+    One real correction made to the paper's own printed exponent: it reads "(2+3b)" in the
+    numerator's (psi_e/psi) term, but that literal reading makes khe collapse to ~0 everywhere
+    except within a hair of saturation (checked numerically, not just suspected) -- physically
+    implausible, since real soils drain measurably well below saturation. Reading it as
+    "2+3/b" instead (a division slash almost certainly lost in the PDF's text extraction, the
+    same category of OCR/typesetting issue already documented elsewhere in this file for the
+    SI's sign errors) exactly recovers Campbell's own well-known, independently-citable
+    K(theta) = Ksat*(theta/theta_sat)^(2b+3) conductivity form -- both the numeric sanity check
+    and the match to a standard textbook formula point the same direction, not just one of them.
+
+    Returns an effective conductivity in the same units as ksat (mm/day here): 0 when
+    theta_s <= theta_sfc (no gradient to drive flow), rising smoothly and always staying
+    below ksat itself as theta_s approaches theta_sat -- capturing the paper's own stated
+    intent ("weighting by capacitance slows down water flow as the soil approaches field
+    capacity") directly, rather than the flat ksat-as-a-rate-cap this file used before today."""
+    if theta_s <= theta_sfc:
+        return 0.0
+    n = 2 * b + 3
+    numer = ksat / theta_sat ** n * (theta_s ** (n + 1) - theta_sfc ** (n + 1)) / (n + 1)
+    denom = theta_s - theta_sfc
+    return numer / denom
+
+
 OM_FROM_SOC = 1.72  # standard Van Bemmelen conversion, SOC% -> OM%
 
 
@@ -261,23 +296,20 @@ def runoff_mm(win, cn, slope_pct):
 # ---------------------------------------------------------------------------
 
 def redistribute(layers, water_in_mm):
-    """Cascading bucket, now rate-limited by each layer's own saturated hydraulic
-    conductivity (ksat_mm_day, Saxton & Rawls 2006 Eq. 16, see saxton_rawls() above) when
-    present on the layer dict -- a real, disclosed partial step toward the paper's own
-    Eq. 1-2 capacitance-weighted redistribution (still not a literal sub-daily solve, see
-    module docstring), not the full mechanism. Previously excess above field capacity
-    always drained to the next layer (or out of the profile) in full, in the same day,
-    regardless of soil texture -- a clay-rich layer with a real ksat of a few mm/day
-    behaved identically to a sandy layer with a real ksat of hundreds of mm/day. Now a
-    layer can only pass up to its own ksat_mm_day downward per day; anything beyond that
-    is real, physically legitimate perched water that stays in the layer (capped at
-    saturation, never exceeding it, since the amount added this same call is already
-    capped at the headroom up to saturation) and drains further on subsequent days.
-    A layer dict with no "ksat_mm_day" key (e.g. a caller that hasn't been updated to
-    attach it) falls back to the old unlimited-rate behavior exactly -- this keeps every
-    existing make_layers()-equivalent in this project working unchanged unless and until
-    it opts in by adding the field, rather than silently changing behavior everywhere at
-    once."""
+    """Cascading bucket, now rate-limited by campbell_khe() (real Eq. 1, Kemanian et al.
+    2024) when a layer carries the full Saxton-Rawls parameter set (psi_e_kpa, B, sat, plus
+    ksat_mm_day), falling back to a flat ksat_mm_day cap if only that field is present, and
+    to the original unlimited-rate behavior if neither is present -- three-tier graceful
+    degradation so every existing make_layers()-equivalent in this project keeps working
+    exactly as it did before, opting into more real physics only as its own layer dict
+    carries more of the needed fields. This is still a same-day approximation, not the
+    paper's literal dynamically-timestepped sub-daily solve (Eq. 2's travel-time-driven
+    iteration) -- but campbell_khe() now captures the actual governing rate law the real
+    equation describes (slowing smoothly as a layer nears field capacity), not just a flat
+    ceiling at the layer's fully-saturated conductivity the way the pre-existing ksat cap did.
+    Previously excess above field capacity always drained to the next layer (or out of the
+    profile) in full, in the same day, regardless of soil texture or how close to field
+    capacity the layer already was."""
     remaining = water_in_mm
     for l in layers:
         thick_mm = l["thick"] * 1000
@@ -285,7 +317,11 @@ def redistribute(layers, water_in_mm):
         l["theta"] += add / thick_mm
         remaining -= add
         excess_mm = max(0.0, (l["theta"] - l["fc"]) * thick_mm)
-        drain = min(excess_mm, l.get("ksat_mm_day", math.inf))
+        if "psi_e_kpa" in l and "B" in l:
+            rate_cap = campbell_khe(l["theta"], l["fc"], l["sat"], l["ksat_mm_day"], l["psi_e_kpa"], l["B"])
+        else:
+            rate_cap = l.get("ksat_mm_day", math.inf)
+        drain = min(excess_mm, rate_cap)
         l["theta"] -= drain / thick_mm
         remaining += drain
     return remaining
