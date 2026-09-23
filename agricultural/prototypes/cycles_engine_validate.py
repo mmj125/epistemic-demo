@@ -253,36 +253,59 @@ def cn_wet(cnb):
     return cnb * math.exp(0.00673 * (100 - cnb))
 
 
-def moisture_adjusted_cn(cnb, fwc, slope_pct):
-    cnd, cnw = cn_dry(cnb), cn_wet(cnb)
-    return cnd + (cnw - cnd) * fwc
+def retention_param_mm(layers, curve_number):
+    """Real SWAT soil-moisture-based retention parameter S(SW), replacing this file's earlier
+    from-Cycles'-own-words guess at fwc (QUESTIONS_FOR_DEVS.md item 1: "1 for soil saturated
+    to 0.6m depth... decreasing to zero if air-dry, depth-weighted toward the surface", no
+    exact formula ever given by either Cycles source). Sourced from SWAT+ theoretical
+    documentation (Neitsch et al.), Eq. 2:1.1.11-2:1.1.13 -- this sandbox's network policy
+    blocks swat.tamu.edu/swatplus.gitbook.io directly (the same class of block already
+    documented for fao.org and modeling.bsyse.wsu.edu elsewhere in this file), so the equation
+    came from two independent web-search summaries rather than a direct primary-source read;
+    trusted only after the numeric verification below reproduced its own three defining anchor
+    points exactly. Unlike the original event-based AMC I/II/III classification, SWAT
+    continuously varies the retention parameter with the WHOLE SOIL PROFILE's actual water
+    content (not the ad hoc top-0.6m-depth-weighted guess this replaces):
+
+        S = Smax * (1 - SW/(SW + exp(w1 - w2*SW)))                             (Eq. 2:1.1.11)
+        w1 = ln(FC/(1-S3/Smax) - FC) + w2*FC                                   (Eq. 2:1.1.12)
+        w2 = [ln(FC/(1-S3/Smax) - FC) - ln(SAT/(1-Ssat/Smax) - SAT)]/(SAT-FC)  (Eq. 2:1.1.13)
+
+    SW = current profile water content EXCLUDING water held at wilting point (mm); FC, SAT =
+    that same profile's water content at field capacity / saturation, also excluding wilting-
+    point water (so SW=0 at wilting point by construction, SW=FC at field capacity, SW=SAT at
+    saturation). Smax is the retention parameter at CN1 (dry AMC, this file's own real cn_dry()
+    above) -- the curve's asymptote as SW->0. S3 is the retention parameter at CN3 (wet AMC,
+    cn_wet() above), anchoring S at SW=FC -- SWAT's own real convention that field-capacity
+    moisture represents the "wet" runoff condition, not saturation. Ssat anchors the opposite
+    end: S at CN=99 (near-total runoff), forced at SW=SAT (a fully saturated profile can't
+    sustain much infiltration regardless of the base curve_number).
+
+    Verified before use: reproduces all three anchor points to full float precision at Rock
+    Springs' own soil profile and curve_number=75 (S(SW->0)=Smax=192.69mm, S(SW=FC)=S3=32.22mm
+    exactly, S(SW=SAT)=Ssat=2.57mm exactly), and is smoothly, monotonically decreasing as SW
+    rises across the full 0-SAT range -- matching the real, disclosed direction ("curve number
+    ...increasing to near 100 as the soil approaches saturation")."""
+    fc_mm = sum((l["fc"] - l["pwp"]) * l["thick"] * 1000 for l in layers)
+    sat_mm = sum((l["sat"] - l["pwp"]) * l["thick"] * 1000 for l in layers)
+    sw_mm = sum(max(0.0, l["theta"] - l["pwp"]) * l["thick"] * 1000 for l in layers)
+    cn1, cn3 = cn_dry(curve_number), cn_wet(curve_number)
+    s_max = 25400.0 / cn1 - 254.0
+    s3 = 25400.0 / cn3 - 254.0
+    s_sat = 25400.0 / 99.0 - 254.0
+    num_fc = fc_mm / (1 - s3 / s_max) - fc_mm
+    num_sat = sat_mm / (1 - s_sat / s_max) - sat_mm
+    w2 = (math.log(num_fc) - math.log(num_sat)) / (sat_mm - fc_mm)
+    w1 = math.log(num_fc) + w2 * fc_mm
+    return s_max * (1 - sw_mm / (sw_mm + math.exp(w1 - w2 * sw_mm)))
 
 
-def compute_fwc(layers, depth_m=0.6):
-    """The curve-number moisture-adjustment factor moisture_adjusted_cn() needs, computed
-    from actual soil state -- described only in words in the SI ("1 for soil saturated to
-    0.6m depth, decreasing to zero if air-dry, depth-weighted toward the surface"), no exact
-    formula given (QUESTIONS_FOR_DEVS.md item 1). This is a defensible reading of that
-    description, not a verified match: for each layer within the top 0.6m, a 0-1 saturation
-    fraction (theta-pwp)/(sat-pwp), weighted by that layer's remaining distance to 0.6m (so
-    a shallower layer's moisture counts more -- "depth-weighted toward the surface") and by
-    how much of the 0.6m window the layer actually occupies."""
-    depth, weighted_sum, weight_total = 0.0, 0.0, 0.0
-    for l in layers:
-        if depth >= depth_m:
-            break
-        d = min(l["thick"], depth_m - depth)
-        sat_frac = (l["theta"] - l["pwp"]) / (l["sat"] - l["pwp"]) if l["sat"] > l["pwp"] else 0.0
-        sat_frac = max(0.0, min(1.0, sat_frac))
-        weight = (depth_m - depth) * d  # more weight on shallower, and on thicker-within-window, layers
-        weighted_sum += sat_frac * weight
-        weight_total += weight
-        depth += l["thick"]
-    return weighted_sum / weight_total if weight_total > 0 else 0.0
-
-
-def runoff_mm(win, cn, slope_pct):
-    S = 254 * slope_factor(slope_pct) * (100 / cn - 1)
+def runoff_mm(win, s_mm, slope_pct):
+    """Daily SCS/NRCS curve-number runoff (Eq. SI.1-7, sign-corrected -- see module docstring),
+    now taking the retention parameter S directly (mm, from retention_param_mm()'s real
+    soil-moisture-based formula) rather than computing S from a curve number itself -- the
+    slope adjustment (already real/disclosed, unchanged) still multiplies S here."""
+    S = s_mm * slope_factor(slope_pct)
     if win <= 0.2 * S:
         return 0.0
     return (win - 0.2 * S) ** 2 / (win + 0.8 * S)  # supplement showed "Win-0.8S"; SCS derivation forces +0.8S
@@ -353,12 +376,14 @@ def infiltrate(layers, water_in_mm, curve_number, slope_pct):
     existed but were never actually called anywhere in the water balance (all precipitation
     went straight to infiltration) -- see CLAUDE.md, 2026-09-22, for why this was flagged as
     a real gap rather than a deliberate simplification: it means every drop of rain currently
-    enters the soil, which retains more water than reality especially in a drier climate."""
+    enters the soil, which retains more water than reality especially in a drier climate.
+    Moisture adjustment now goes through retention_param_mm()'s real SWAT formula directly
+    (2026-09-23) rather than the earlier compute_fwc()/moisture_adjusted_cn() ad hoc pair --
+    see retention_param_mm()'s own docstring for the source and verification."""
     if water_in_mm <= 0:
         return 0.0, 0.0
-    fwc = compute_fwc(layers)
-    cn = moisture_adjusted_cn(curve_number, fwc, slope_pct)
-    runoff = runoff_mm(water_in_mm, cn, slope_pct)
+    s_mm = retention_param_mm(layers, curve_number)
+    runoff = runoff_mm(water_in_mm, s_mm, slope_pct)
     drainage_mm = redistribute(layers, water_in_mm - runoff)
     return drainage_mm, runoff
 

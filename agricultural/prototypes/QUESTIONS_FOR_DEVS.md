@@ -11,11 +11,6 @@ against real Cycles output before concluding the gap is real.
 
 ## Open
 
-1. **Curve-number moisture adjustment (`fwc`).** SI Section III describes it only in
-   words ("1 for a soil saturated to a depth of 0.6 m... decreases to zero if the
-   soil is air dry... depth-weighted... surface having the most importance") with no
-   actual formula. What's the exact functional form and depth-weighting?
-
 2. **Bare-soil and residue evaporation.** The SI's own process flowchart (Figure
    SI.2) marks "Soil Evaporation" and "Residue Evaporation" with the same "detailed
    in this SI" marker used for vegetation transpiration, but no evaporation equation
@@ -174,6 +169,25 @@ against real Cycles output before concluding the gap is real.
 
 ## Resolved without asking (kept here for the record, not blocking)
 
+- **Curve-number moisture adjustment (`fwc`), formerly item 1.** SI Section III
+  describes it only in words ("1 for a soil saturated to a depth of 0.6 m...
+  decreases to zero if the soil is air dry... depth-weighted... surface having the
+  most importance"), no exact formula. Rather than keep waiting on this, replaced it
+  entirely with a real, independently sourced formula: SWAT's own soil-moisture-based
+  retention-parameter equation (Neitsch et al., SWAT theoretical documentation, Eq.
+  2:1.1.11-2:1.1.13) -- a continuous function of the whole soil profile's actual
+  water content, anchored at three real points (dry/CN1 as an asymptote, field
+  capacity/CN3, and CN=99 at full saturation), not the 0.6m-depth-weighted guess this
+  replaces. Verified by reproducing all three anchor points to full float precision
+  before trusting it (`retention_param_mm()` in `cycles_engine_validate.py`). Effect
+  on the four validated crops' correlations was small and mixed (corn -0.003, soybean
+  +0.003, wheat +0.007, silage corn -0.007) -- kept anyway since it's a real,
+  disclosed, better-sourced mechanism, the same standard already applied to the
+  runoff/spin-up/Ksat-rate-cap fixes that also moved little or nothing. This sandbox's
+  network policy still blocks the primary SWAT source directly (swat.tamu.edu,
+  swatplus.gitbook.io) -- the equation came from web-search summaries, not a direct
+  read, so worth a final cross-check against the primary document if it's ever
+  reachable.
 - Cycles' `HARVEST_INDEX` is grain ÷ *aboveground* biomass, not total -- worked out
   by checking real output arithmetic directly (11.61 / (26.17 - 3.48) = 0.5117,
   matching the real reported value).

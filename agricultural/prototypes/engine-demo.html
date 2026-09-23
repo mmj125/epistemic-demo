@@ -913,29 +913,26 @@ def cn_dry(cnb):
 def cn_wet(cnb):
     return cnb * math.exp(0.00673 * (100 - cnb))
 
-def moisture_adjusted_cn(cnb, fwc, slope_pct):
-    cnd, cnw = cn_dry(cnb), cn_wet(cnb)
-    return cnd + (cnw - cnd) * fwc
+def retention_param_mm(layers, curve_number):
+    # Real SWAT soil-moisture-based retention parameter S(SW) (Neitsch et al., SWAT
+    # theoretical documentation, Eq. 2:1.1.11-2:1.1.13) -- replaces the earlier
+    # compute_fwc()/moisture_adjusted_cn() ad hoc pair. See cycles_engine_validate.py's
+    # retention_param_mm() for the full derivation and verification.
+    fc_mm = sum((l["fc"] - l["pwp"]) * l["thick"] * 1000 for l in layers)
+    sat_mm = sum((l["sat"] - l["pwp"]) * l["thick"] * 1000 for l in layers)
+    sw_mm = sum(max(0.0, l["theta"] - l["pwp"]) * l["thick"] * 1000 for l in layers)
+    cn1, cn3 = cn_dry(curve_number), cn_wet(curve_number)
+    s_max = 25400.0 / cn1 - 254.0
+    s3 = 25400.0 / cn3 - 254.0
+    s_sat = 25400.0 / 99.0 - 254.0
+    num_fc = fc_mm / (1 - s3 / s_max) - fc_mm
+    num_sat = sat_mm / (1 - s_sat / s_max) - sat_mm
+    w2 = (math.log(num_fc) - math.log(num_sat)) / (sat_mm - fc_mm)
+    w1 = math.log(num_fc) + w2 * fc_mm
+    return s_max * (1 - sw_mm / (sw_mm + math.exp(w1 - w2 * sw_mm)))
 
-def compute_fwc(layers, depth_m=0.6):
-    # The curve-number moisture-adjustment factor -- described only in words in the SI
-    # ("1 for soil saturated to 0.6m depth, decreasing to zero if air-dry, depth-weighted
-    # toward the surface"), no exact formula given. A defensible reading, not verified exact.
-    depth, weighted_sum, weight_total = 0.0, 0.0, 0.0
-    for l in layers:
-        if depth >= depth_m:
-            break
-        d = min(l["thick"], depth_m - depth)
-        sat_frac = (l["theta"] - l["pwp"]) / (l["sat"] - l["pwp"]) if l["sat"] > l["pwp"] else 0.0
-        sat_frac = max(0.0, min(1.0, sat_frac))
-        weight = (depth_m - depth) * d
-        weighted_sum += sat_frac * weight
-        weight_total += weight
-        depth += l["thick"]
-    return weighted_sum / weight_total if weight_total > 0 else 0.0
-
-def runoff_mm(win, cn, slope_pct):
-    S = 254 * slope_factor(slope_pct) * (100 / cn - 1)
+def runoff_mm(win, s_mm, slope_pct):
+    S = s_mm * slope_factor(slope_pct)
     if win <= 0.2 * S:
         return 0.0
     return (win - 0.2 * S) ** 2 / (win + 0.8 * S)
@@ -945,9 +942,8 @@ def infiltrate(layers, water_in_mm, curve_number, slope_pct):
     # simulate_season()'s main loop and its optional spin-up window.
     if water_in_mm <= 0:
         return 0.0, 0.0
-    fwc = compute_fwc(layers)
-    cn = moisture_adjusted_cn(curve_number, fwc, slope_pct)
-    runoff = runoff_mm(water_in_mm, cn, slope_pct)
+    s_mm = retention_param_mm(layers, curve_number)
+    runoff = runoff_mm(water_in_mm, s_mm, slope_pct)
     drainage_mm = redistribute(layers, water_in_mm - runoff)
     return drainage_mm, runoff
 
