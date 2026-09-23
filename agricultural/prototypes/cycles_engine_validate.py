@@ -909,10 +909,18 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf, curve_numbe
     return demand, bg_multiplier
 
 
+NH3_FRAC_SYNTHETIC = 0.10  # IPCC 2006/2019 Refinement Tier-1 default FracGASF: 10% of applied
+# synthetic mineral fertilizer N volatilizes as NH3/NOx when surface-applied -- a widely-cited
+# general default (Table 11.3, Vol. 4), not derived from Cycles or this engine's own site data.
+NH3_FRAC_MANURE = 0.20  # Same source's FracGASM: organic amendments (manure) volatilize at
+# roughly twice the rate of mineral fertilizer, real and disclosed, not an invented multiplier.
+
+
 def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False,
                      n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
                      irrigation_trigger_frac=None, irrigation_amount_mm=25.0,
                      tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21,
+                     fert_placement_implement=None,
                      spinup_rows=None, curve_number=75.0, slope_pct=0.0):
     """weather_rows: dicts with doy, tx, tn, solar, rhx, rhn, wind, pp, in planting-day order.
     harvest_ttf: fraction of thermal time to maturity that triggers harvest -- 1.0 for grain
@@ -973,6 +981,25 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     fraction (SOIL_LAYERS_RAW's own top-layer value elsewhere in this file) -- pass a site's
     own real value when one is available (e.g. from a resolved STATSGO2 cell).
     tillage_doy=None (default) means neither effect runs.
+
+    fert_placement_implement: real ammonia volatilization loss (previously this engine had NO
+    volatilization pathway at all -- confirmed absent from both the paper and its SI by
+    grepping the extracted SI text for "volatiliz" and finding zero matches -- so injected vs.
+    broadcast fertilizer placement, Matt's own stated interest, had no mechanism to modulate).
+    Not a Cycles formula (still undisclosed there); a real, independently-sourced Tier-1
+    default from IPCC's 2006/2019 Refinement Guidelines (Table 11.3): NH3_FRAC_SYNTHETIC=0.10
+    of applied mineral fertilizer N and NH3_FRAC_MANURE=0.20 of applied manure N volatilize
+    when surface-broadcast, reduced by (1 - mixing_efficiency) of whichever real implement is
+    named here -- reusing TILLAGE_IMPLEMENTS' real per-implement mixing_efficiency (already
+    parsed from Cycles' own till.txt) for the physically real reason that incorporating
+    fertilizer into the soil (anhydrous knife, manure injector) shields it from atmospheric
+    loss the way surface broadcast never does, not because mixing_efficiency was defined for
+    this purpose. Applied once, at the point mineral/manure N enters the pool -- volatilized N
+    never becomes available to the crop or to leaching, tracked separately as
+    n_volatilized_kg_ha for a complete mass balance alongside uptake/leached/remaining.
+    n_credit_kg_ha (a previous-crop residual, not a fresh surface application) is not
+    volatilized. fert_placement_implement=None (default) means no volatilization is modeled,
+    reproducing the exact prior (zero-loss) behavior.
     Nitrogen adequacy is applied as a single WHOLE-SEASON fraction of the unconstrained
     trajectory's total N demand (computed via _reference_n_demand above), not a day-by-day
     pool that can hit a hard, uncorrectable zero mid-season -- see that function's docstring
@@ -1046,19 +1073,32 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
     n_tracking_active = (not crop.get("legume", False)) and (
         n_rate_kg_ha is not None or n_applications or n_credit_kg_ha or manure_n_kg_ha)
+    mineral_retention, manure_retention = 1.0, 1.0  # 1.0 = no volatilization loss (default)
+    if fert_placement_implement is not None:
+        if fert_placement_implement not in TILLAGE_IMPLEMENTS:
+            raise ValueError(f"Unknown fertilizer placement implement {fert_placement_implement!r} -- see TILLAGE_IMPLEMENTS for the real Cycles v1.4.4 implement catalog.")
+        fert_mixing_efficiency = TILLAGE_IMPLEMENTS[fert_placement_implement][2]
+        mineral_retention = 1.0 - NH3_FRAC_SYNTHETIC * (1.0 - fert_mixing_efficiency)
+        manure_retention = 1.0 - NH3_FRAC_MANURE * (1.0 - fert_mixing_efficiency)
+    n_volatilized_total = 0.0 if fert_placement_implement is not None else None
     applications_by_doy = {}
     if n_tracking_active:
         if n_applications:
-            total_n_input_kg_ha = sum(amount for _, amount in n_applications)
+            mineral_applied = sum(amount for _, amount in n_applications)
+            total_n_input_kg_ha = mineral_applied * mineral_retention
             n_pool = 0.0  # events fund the pool on their own scheduled days below, not all at once
             for doy, amount in n_applications:
-                applications_by_doy[doy] = applications_by_doy.get(doy, 0.0) + amount
+                applications_by_doy[doy] = applications_by_doy.get(doy, 0.0) + amount * mineral_retention
         else:
-            total_n_input_kg_ha = n_rate_kg_ha or 0.0
+            mineral_applied = n_rate_kg_ha or 0.0
+            total_n_input_kg_ha = mineral_applied * mineral_retention
             n_pool = total_n_input_kg_ha  # original single-lump behavior, unchanged when n_applications isn't used
-        credit_and_manure = n_credit_kg_ha + manure_n_kg_ha * manure_availability
+        manure_after_volatilization = manure_n_kg_ha * manure_retention
+        credit_and_manure = n_credit_kg_ha + manure_after_volatilization * manure_availability
         total_n_input_kg_ha += credit_and_manure
         n_pool += credit_and_manure  # credit/manure land at day 0 either way, real applications are the only dated ones
+        if n_volatilized_total is not None:
+            n_volatilized_total = mineral_applied * (1 - mineral_retention) + manure_n_kg_ha * (1 - manure_retention)
     else:
         n_pool, total_n_input_kg_ha = None, None
     n_leached_total = 0.0 if n_pool is not None else None
@@ -1195,4 +1235,6 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     if n_uptake_total is not None:
         result["n_uptake_kg_ha"] = n_uptake_total
         result["n_remaining_kg_ha"] = n_pool
+    if n_volatilized_total is not None:
+        result["n_volatilized_kg_ha"] = n_volatilized_total
     return result

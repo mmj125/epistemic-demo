@@ -403,12 +403,29 @@
       a port of the mechanism.</p>
     </details>
     <details class="gap">
-      <summary>8. No ammonia volatilization pathway exists &mdash; only leaching</summary>
+      <summary>8. Ammonia volatilization pathway (partially resolved, 2026-09-23)</summary>
       <p>Confirmed directly: neither the paper nor its SI discloses nitrification, denitrification, or
       ammonia volatilization equations (only the mineralization/organic-matter side is given, SI Sec.
-      V Eq. SI.10&ndash;14). This means fertilizer placement (injected vs. broadcast, which real growers
-      use specifically to cut volatilization loss) has no loss pathway in this engine to modulate at
-      all &mdash; not a missing UI control, a missing mechanism.</p>
+      V Eq. SI.10&ndash;14). Cycles' own real formula for this remains undisclosed.</p>
+      <p><strong>Update:</strong> rather than wait on Cycles' own equation, added a real, independently
+      sourced loss pathway from the general soil-science literature &mdash; IPCC's own 2006/2019
+      Refinement Tier-1 default emission factors (Table 11.3): 10% of applied synthetic fertilizer N
+      and 20% of applied manure N volatilize as ammonia when surface-broadcast. This is reduced by
+      whichever real fertilizer-placement implement is selected, reusing the same real per-implement
+      mixing efficiency already parsed from Cycles' own till.txt for tillage (injected/knifed
+      placements are physically shielded from atmospheric loss the way surface broadcast never is).
+      Previously this engine had no volatilization pathway at all, so injected-vs-broadcast placement
+      (which real growers use specifically to cut this loss) had nothing to modulate. Volatilized N
+      is tracked separately (n_volatilized_kg_ha) for a complete mass balance alongside uptake/
+      leached/remaining, and never reaches the crop or the leaching pathway.</p>
+      <p>Verified: a broadcast application of 150 kg N/ha volatilizes exactly 15.0 kg (10% at zero
+      mixing efficiency); the same rate through a real anhydrous-knife implement (26.6% mixing
+      efficiency) volatilizes 11.0 kg instead, and yield is measurably higher under injection at a
+      nitrogen-limiting rate &mdash; the real, physically expected direction. Zero effect on any of the
+      four validated crops' correlation figures (the harnesses don't pass fert_placement_implement,
+      so this is purely additive and off by default). No UI wiring yet in any panel &mdash; this is the
+      engine mechanism only, matching this project's own "engine first, UI later" pattern already used
+      for the six mechanisms added 2026-09-17.</p>
     </details>
     <details class="gap">
       <summary>9. Nitrogen is one mineral-N balance, not the real six-pool carbon/nitrogen system</summary>
@@ -994,10 +1011,14 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
         ref_biomass += dGB_water_limited
     return demand, bg_multiplier
 
+NH3_FRAC_SYNTHETIC = 0.10  # real IPCC Tier-1 default (FracGASF); see cycles_engine_validate.py
+NH3_FRAC_MANURE = 0.20  # real IPCC Tier-1 default (FracGASM); see cycles_engine_validate.py
+
 def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False,
                      n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
                      irrigation_trigger_frac=None, irrigation_amount_mm=25.0,
                      tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21,
+                     fert_placement_implement=None,
                      spinup_rows=None, curve_number=75.0, slope_pct=0.0):
     # curve_number/slope_pct: real curve-number runoff (Eq. SI.1-7) via infiltrate() --
     # curve_number=75.0 is Cycles' own bundled Rock Springs sample default (no real per-site
@@ -1047,21 +1068,34 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     tillage_ftx_val = tillage_ftx(tillage_clay_frac)
     tillage_dr = 0.0
     tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
+    mineral_retention, manure_retention = 1.0, 1.0
+    if fert_placement_implement is not None:
+        if fert_placement_implement not in TILLAGE_IMPLEMENTS:
+            raise ValueError(f"Unknown fertilizer placement implement {fert_placement_implement!r} -- see TILLAGE_IMPLEMENTS for the real Cycles v1.4.4 implement catalog.")
+        fert_mixing_efficiency = TILLAGE_IMPLEMENTS[fert_placement_implement][2]
+        mineral_retention = 1.0 - NH3_FRAC_SYNTHETIC * (1.0 - fert_mixing_efficiency)
+        manure_retention = 1.0 - NH3_FRAC_MANURE * (1.0 - fert_mixing_efficiency)
+    n_volatilized_total = 0.0 if fert_placement_implement is not None else None
     n_tracking_active = (not crop.get("legume", False)) and (
         n_rate_kg_ha is not None or n_applications or n_credit_kg_ha or manure_n_kg_ha)
     applications_by_doy = {}
     if n_tracking_active:
         if n_applications:
-            total_n_input_kg_ha = sum(amount for _, amount in n_applications)
+            mineral_applied = sum(amount for _, amount in n_applications)
+            total_n_input_kg_ha = mineral_applied * mineral_retention
             n_pool = 0.0
             for doy, amount in n_applications:
-                applications_by_doy[doy] = applications_by_doy.get(doy, 0.0) + amount
+                applications_by_doy[doy] = applications_by_doy.get(doy, 0.0) + amount * mineral_retention
         else:
-            total_n_input_kg_ha = n_rate_kg_ha or 0.0
+            mineral_applied = n_rate_kg_ha or 0.0
+            total_n_input_kg_ha = mineral_applied * mineral_retention
             n_pool = total_n_input_kg_ha
-        credit_and_manure = n_credit_kg_ha + manure_n_kg_ha * manure_availability
+        manure_after_volatilization = manure_n_kg_ha * manure_retention
+        credit_and_manure = n_credit_kg_ha + manure_after_volatilization * manure_availability
         total_n_input_kg_ha += credit_and_manure
         n_pool += credit_and_manure
+        if n_volatilized_total is not None:
+            n_volatilized_total = mineral_applied * (1 - mineral_retention) + manure_n_kg_ha * (1 - manure_retention)
     else:
         n_pool, total_n_input_kg_ha = None, None
     n_leached_total = 0.0 if n_pool is not None else None
@@ -1162,6 +1196,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     if n_uptake_total is not None:
         result["n_uptake_kg_ha"] = n_uptake_total
         result["n_remaining_kg_ha"] = n_pool
+    if n_volatilized_total is not None:
+        result["n_volatilized_kg_ha"] = n_volatilized_total
     return result
 
 SOIL_LAYERS_RAW = [
