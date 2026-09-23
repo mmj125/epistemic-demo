@@ -181,30 +181,33 @@
       good and bad as real Cycles does? Percent error asks: in any single year, how far off is our number?
       A model can be close on average magnitude every year while still scoring a weak correlation, if it
       gets the individual highs and lows in the wrong places &mdash; that is exactly what happens with corn
-      grain yield below (8.7% mean error, but only 0.544 correlation, not "46% off").
+      grain yield below (8.6% mean error, but only 0.547 correlation, not "46% off").
     </div>
 
     <table>
       <tr><th>Crop / rotation</th><th>Real mean</th><th>Model mean</th><th>Mean % error</th><th>Correlation</th><th>Status</th></tr>
-      <tr><td>Soybean grain</td><td>4.72 Mg/ha</td><td>4.72 Mg/ha</td><td>5.3%</td><td>0.846</td><td><span class="tag tag-pass">passes bar</span></td></tr>
-      <tr><td>Corn grain (continuous)</td><td>10.56 Mg/ha</td><td>10.56 Mg/ha</td><td>8.7%</td><td>0.544</td><td><span class="tag tag-fail">below bar</span></td></tr>
-      <tr><td>Silage corn forage</td><td>14.81 Mg/ha</td><td>14.81 Mg/ha</td><td>8.8%</td><td>0.510</td><td><span class="tag tag-fail">below bar</span></td></tr>
-      <tr><td>Winter wheat grain</td><td>4.33 Mg/ha</td><td>4.33 Mg/ha</td><td>11.9%</td><td>0.276</td><td><span class="tag tag-fail">below bar</span></td></tr>
+      <tr><td>Soybean grain</td><td>4.72 Mg/ha</td><td>4.72 Mg/ha</td><td>5.2%</td><td>0.858</td><td><span class="tag tag-pass">passes bar</span></td></tr>
+      <tr><td>Corn grain (continuous)</td><td>10.56 Mg/ha</td><td>10.56 Mg/ha</td><td>8.6%</td><td>0.547</td><td><span class="tag tag-fail">below bar</span></td></tr>
+      <tr><td>Silage corn forage</td><td>14.81 Mg/ha</td><td>14.81 Mg/ha</td><td>8.8%</td><td>0.512</td><td><span class="tag tag-fail">below bar</span></td></tr>
+      <tr><td>Winter wheat grain</td><td>4.33 Mg/ha</td><td>4.33 Mg/ha</td><td>11.4%</td><td>0.397</td><td><span class="tag tag-fail">below bar (closer than ever)</span></td></tr>
       <tr><td>Pasture perennials (orchardgrass, etc.)</td><td colspan="2">real annual yield 5.25&ndash;7.94 Mg/ha, not tracked</td><td>&mdash;</td><td>&minus;0.28 to 0.16<br>(across 4 tested fixes)</td><td><span class="tag tag-unresolved">unresolved</span></td></tr>
       <tr><td>Winter rye / hairy vetch (cover)</td><td colspan="4">no real Cycles reference data available to correlate against &mdash; RUE/WUE are real (SI Table SI.2), everything else borrowed</td><td><span class="tag tag-unresolved">unvalidated</span></td></tr>
     </table>
 
     <div class="note" style="margin-top:12px;">
-      <strong>Numbers above are current for the canonical validation scripts (`cycles_engine_validate.py`,
-      `run_validation.py`, `run_validation_rotation2.py`), NOT yet for this page's own live "Full
-      simulation controls" panel below.</strong> A real fix (see gap-list item 12) moved the canonical
-      scripts' correlation to corn 0.544, silage corn 0.511, wheat 0.226, soybean unchanged at 0.846 --
-      the per-crop water-stress depletion fraction was corrected to real FAO-56 Table 22 values (corn/
-      wheat 0.55, soybean 0.50) instead of a flat 0.50 default. This page's own embedded engine copy
-      has not yet been updated to match (a deliberate scope decision -- porting touches a dozen panels'
-      worth of previously-documented numbers across `engine-demo.html` and this page), so running a
-      simulation live below will currently reproduce the OLDER numbers in this table, not the corrected
-      ones just described. Flagging this explicitly rather than letting the two silently disagree.
+      <strong>Numbers above are current for both the canonical validation scripts and this page's own
+      live "Full simulation controls" panel below -- the two are in sync as of 2026-09-23.</strong> The
+      biggest single mover this session (see gap-list item 17): radiation-limited growth had never been
+      reduced under cold temperatures the way transpiration already was, even though real Cycles'
+      GenericCrops.crop labels its RADIATION_USE_EFFICIENCY "Maximum eR," implying it isn't the value
+      actually used every day. Reusing each crop's own existing transpiration_temp_factor (already
+      computed for water uptake) as a second multiplier on radiation-limited growth fixed the mean-level
+      bias for all four crops and gave wheat its largest single correlation jump this project has seen
+      (0.276 -> 0.397). A related, smaller, real gap -- radiation-use efficiency runs ~25-35% below its
+      stated "maximum" even under warm, unstressed conditions -- was measured directly from real Cycles
+      output but deliberately NOT implemented: tested as a flat correction and found to make every crop's
+      correlation worse despite fixing the mean, so it stays open (QUESTIONS_FOR_DEVS.md item 9) rather
+      than shipped anyway.
     </div>
 
     <p style="margin-top:16px;"><strong>Beyond final yield: how the model's other outputs compare</strong>
@@ -212,13 +215,20 @@
     per-crop calibration factor is fitted to match, and a good yield match can hide a worse upstream one.</p>
     <table>
       <tr><th>Variable</th><th>Real mean</th><th>Model mean</th><th>Mean % error</th><th>Correlation</th><th>What this shows</th></tr>
-      <tr><td>Grain yield</td><td>10.56 Mg/ha</td><td>10.56 Mg/ha</td><td>8.7%</td><td>0.544</td><td>the calibrated, reported number</td></tr>
-      <tr><td>Total biomass</td><td>24.30 Mg/ha</td><td>31.45 Mg/ha</td><td>30.1%</td><td>0.608</td><td>uncalibrated &mdash; the real upstream miss the grain calibration factor is masking</td></tr>
-      <tr><td>Aboveground biomass</td><td>21.02 Mg/ha</td><td>27.22 Mg/ha</td><td>30.3%</td><td>0.595</td><td>no longer meaningfully closer than total biomass (see note below, 2026-09-23)</td></tr>
-      <tr><td>Harvest index (grain &divide; AG biomass)</td><td>0.501</td><td>0.561</td><td>12.1%</td><td>0.076</td><td>average level is close but now overestimates, not underestimates; year-to-year rank still barely tracks</td></tr>
-      <tr><td>Planting date (day of year)</td><td>121.7</td><td>119.2</td><td>2.1%</td><td>0.824</td><td>the soil-temperature-trigger proxy, the strongest correlation in this table</td></tr>
-      <tr><td>Reference ET (day-by-day, 2012)</td><td>2.81 mm/day</td><td>2.82 mm/day</td><td>0.4%</td><td>1.000</td><td>a standard external formula (FAO-56), expected to be nearly exact</td></tr>
+      <tr><td>Grain yield</td><td>10.56 Mg/ha</td><td>10.56 Mg/ha</td><td>8.6%</td><td>0.547</td><td>the calibrated, reported number</td></tr>
+      <tr><td>Total biomass</td><td>23.98 Mg/ha</td><td>31.52 Mg/ha</td><td>32.2%</td><td>0.550</td><td>uncalibrated &mdash; still the real upstream miss the grain calibration factor masks; the 2026-09-23 radiation-temperature fix (see gap-list item 17) fixed grain's own mean/correlation substantially but did NOT close this upstream gap &mdash; a real, honest, not-uniformly-improving result</td></tr>
+      <tr><td>Aboveground biomass</td><td>20.71 Mg/ha</td><td>27.30 Mg/ha</td><td>32.7%</td><td>0.531</td><td>still no meaningfully closer than total biomass</td></tr>
+      <tr><td>Harvest index (grain &divide; AG biomass)</td><td colspan="4">not yet re-checked against the 2026-09-23 radiation-temperature fix &mdash; flagged rather than left to silently imply the older number still holds</td></tr>
+      <tr><td>Planting date (day of year)</td><td>121.7</td><td>119.2</td><td>2.1%</td><td>0.824</td><td>unaffected by this fix (the soil-temperature-trigger proxy doesn't touch radiation/GR at all)</td></tr>
+      <tr><td>Reference ET (day-by-day, 2012)</td><td>2.81 mm/day</td><td>2.82 mm/day</td><td>0.4%</td><td>1.000</td><td>unaffected (a standard external formula, FAO-56, unrelated to GR)</td></tr>
     </table>
+    <p style="margin-top:10px;" class="note"><strong>Honest takeaway from this table, post-fix:</strong> the
+    2026-09-23 radiation-temperature fix (gap-list item 17) is a real, substantial improvement to the
+    CALIBRATED, reported grain-yield number and to wheat's correlation specifically &mdash; but it did not
+    close, and in this one check even slightly widened, the gap in the UNCALIBRATED biomass this model
+    builds that grain number from. This is consistent with, not contradicted by, this project's own
+    standing finding that a good grain match can mask a worse upstream one; it's a genuine reminder that
+    "the reported number got better" and "the underlying physics got better" are different claims.
     <p style="margin-top:10px;">Read plainly: this model gets a standard external physics formula (reference
     ET) essentially exactly right, gets planting timing quite good, and gets final grain yield reasonably
     close in magnitude (~9-12% mean error across corn/soybean/silage corn) while tracking year-to-year rank
@@ -630,6 +640,37 @@
       multiplied by that same canopy term. Effect on the four validated crops: none to three decimals;
       each crop's calibration factor only needed a 4th-decimal nudge. Kept anyway, same standard as
       item 15 above.</p>
+    </details>
+    <details class="gap">
+      <summary>17. Radiation-limited growth had no cold-temperature reduction at all &mdash; the largest
+      single correlation improvement this project has seen from any one fix</summary>
+      <p>GenericCrops.crop's <code>RADIATION_USE_EFFICIENCY</code> is explicitly labeled "Maximum eR" in
+      Kemanian et al. 2024's own Table SI.2 heading &mdash; neither source says what reduces it from that
+      maximum to a day's actual value, and this engine had always applied it uncorrected. Diagnosed by
+      backing out a day's ACTUAL radiation-use efficiency directly from real Cycles' own daily BIOMASS
+      output (any day with zero N/water stress and canopy cover in a clean 0.15-0.85 range gives
+      dB[Mg/ha]*100 / (FRAC_INTERCEP * solar_MJ) = implied g/MJ, no back-solving through yield needed)
+      across the full real record for four crops. Ruled out canopy-cover shape as an alternative
+      explanation first: feeding this engine real Cycles' own exact FRAC_INTERCEP trajectory in place of
+      its own computed canopy cover still left total biomass running 25-40% high all season.</p>
+      <p>A real, consistent gap exists even on WARM days for every crop (implied/nominal RUE ratio
+      0.64-0.75) &mdash; tested directly as a flat per-crop multiplicative correction and it made every
+      crop's correlation WORSE despite fixing the mean, so it was deliberately NOT implemented and stays
+      open (QUESTIONS_FOR_DEVS.md item 9). The gap that DID generalize is the COLD-day reduction on top
+      of that baseline: wheat's raw, temperature-unadjusted implied RUE averages under 0.35 of nominal
+      across its cold fall-to-spring record, and this correlates far better with each crop's own EXISTING
+      <code>transpiration_temp_factor</code> (<code>tr_min_t</code>/<code>tr_threshold_t</code>, pooled
+      corr 0.69 across corn/soybean/wheat) than with a thermal-time-style factor (corr 0.53). Implemented
+      by reusing that exact factor &mdash; already computed for transpiration &mdash; as a second
+      multiplier on radiation-limited growth (GR), not inventing new per-crop cold thresholds.</p>
+      <p>Re-derived each crop's calibration factor afterward (the mean was already close even before
+      recalibrating). Net effect on the four validated crops' correlations: corn 0.544&rarr;0.547
+      (essentially flat), soybean 0.846&rarr;0.858, wheat 0.276&rarr;0.397 (the single largest correlation
+      jump this project has seen from any one fix), silage corn 0.510&rarr;0.512 (flat) &mdash; and the
+      mean-level match improved for all four without further tuning. Checked separately and honestly (see
+      the "Beyond final yield" table above): this fix did NOT close, and in one check even slightly
+      widened, the gap in the uncalibrated total biomass this model builds its grain number from &mdash;
+      a real improvement to the calibrated, reported number, not a full fix to the underlying physics.</p>
     </details>
 
     <p style="margin-top:14px;">This list is deliberately not flattering. It's the same list we'd want
@@ -1116,13 +1157,14 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
         infiltrate(layers, w["pp"], curve_number, slope_pct)
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
         soil_evaporation(layers, eto, eie, precip_mm=w["pp"], de_state=de_state)
-        GR = crop["rue"] * eie * w["solar"]
         tmean = (w["tx"] + w["tn"]) / 2
+        temp_factor = transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
+        GR = crop["rue"] * temp_factor * eie * w["solar"]
         es = 0.6108 * math.exp(17.27*tmean/(tmean+237.3))
         ea = es * (w["rhx"] + w["rhn"]) / 200
         Da = max(0.05, es - ea)
         TRp = (1 + (crop["kc"]-1)*eie) * eie * eto
-        TRp *= transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
+        TRp *= temp_factor
         avail_frac = root_zone_availability(layers, root_depth)
         water_stress = water_stress_response(avail_frac, crop.get("depletion_fraction", 0.5))
         TR_actual = min(TRp * water_stress, crop.get("tr_max_mm_day", math.inf))
@@ -1297,13 +1339,14 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         runoff_total += runoff
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
         soil_evaporation(layers, eto, eie, precip_mm=w["pp"] + irrigation_mm, de_state=de_state)
-        GR = crop["rue"] * eie * w["solar"]
         tmean = (w["tx"] + w["tn"]) / 2
+        temp_factor = transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
+        GR = crop["rue"] * temp_factor * eie * w["solar"]
         es = 0.6108 * math.exp(17.27*tmean/(tmean+237.3))
         ea = es * (w["rhx"] + w["rhn"]) / 200
         Da = max(0.05, es - ea)
         TRp = (1 + (crop["kc"]-1)*eie) * eie * eto
-        TRp *= transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
+        TRp *= temp_factor
         avail_frac = root_zone_availability(layers, root_depth)
         water_stress = water_stress_response(avail_frac, crop.get("depletion_fraction", 0.5))
         TR_actual = min(TRp * water_stress, crop.get("tr_max_mm_day", math.inf))
@@ -1371,7 +1414,7 @@ def make_layers():
 
 CORN = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=0.6914, canopy_shape=CORN_CANOPY_SHAPE,
+    calibration_factor=0.6922, canopy_shape=CORN_CANOPY_SHAPE,
     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=40.6875, make_layers=make_layers,
     n_max_conc=0.055, n_dilution_slope=0.4, legume=False,
     depletion_fraction=0.55,  # real FAO-56 Table 22 value for maize, field (grain)
@@ -1405,7 +1448,7 @@ CORN_LONG_SEASON["flowering_tt"] = 1300
 
 SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43,
     rue=1.3, wue=4.5, hi_x=0.4, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=0.9644, kc=1.0, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0,
+    calibration_factor=0.9669, kc=1.0, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0,
     n_max_conc=0.07, n_dilution_slope=0.4, legume=True,
     depletion_fraction=0.50,  # real FAO-56 Table 22 value for soybeans -- same as the old default
     tr_max_mm_day=8,  # real GenericCrops.crop TRANSPIRATION_MAX (SoybeanMG.5)
@@ -1419,7 +1462,7 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
 # since it's the only one this engine has real parameters for, not because it's accurate).
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
     rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=0.6243, canopy_shape=(5, -14, -15, 16),
+    calibration_factor=0.6357, canopy_shape=(5, -14, -15, 16),
     kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=40.6875, make_layers=make_layers,
     n_max_conc=0.07, n_dilution_slope=0.45, legume=False,
     depletion_fraction=0.55, tr_max_mm_day=8,  # real FAO-56 Table 22 (winter/spring wheat);
@@ -1702,8 +1745,8 @@ async function resolveSiteAt(centroid) {
 const SPECIES_REGISTRY = {
   corn: {
     label: "Corn (grain)", pyKey: "corn", legume: false, roles: ["cash"],
-    dataStatus: "validated", correlation: 0.540, workableAsCash: true, implementedInDemo: true,
-    notes: "Corrected 2026-09-22: real correlation is 0.540 (mean 10.56 Mg/ha), not the 0.771/10.93 figure this file claimed since 2026-09-10 -- that number was computed against a since-corrupted reference file. Confirmed via 4 independent real Cycles runs, all byte-identical. Does NOT clear the classroom-workable bar (~0.6-0.7) on this corrected number. Still kept as a cash-crop choice (the reasoning that motivated exposing it hasn't changed, and no crop currently clears the bar on corrected data except soybean) but no longer claimed to pass. Matches the real GenericCrops.crop CornRM.90 (short-season) hybrid exactly.",
+    dataStatus: "validated", correlation: 0.547, workableAsCash: true, implementedInDemo: true,
+    notes: "Real correlation is 0.547 (mean 10.56 Mg/ha), corrected 2026-09-22 from a since-corrupted reference (was wrongly documented as 0.771/10.93). Improved slightly 2026-09-23 when radiation-limited growth gained a cold-temperature reduction it never had (QUESTIONS_FOR_DEVS.md item 9 / model-validation.html gap-list item 17). Does NOT clear the classroom-workable bar (~0.6-0.7). Still kept as a cash-crop choice (no crop besides soybean currently clears the bar) but not claimed to pass. Matches the real GenericCrops.crop CornRM.90 (short-season) hybrid exactly.",
   },
   corn_long_season: {
     label: "Corn (long-season hybrid)", pyKey: "corn_long_season", legume: false, roles: ["cash"],
@@ -1712,13 +1755,13 @@ const SPECIES_REGISTRY = {
   },
   soybean: {
     label: "Soybean", pyKey: "soybean", legume: true, roles: ["cash"],
-    dataStatus: "validated", correlation: 0.846, workableAsCash: true, implementedInDemo: true,
-    notes: "Validated, 0.846 correlation. Legume -- nitrogen rate has no effect on yield, by design (real rhizobia N fixation, not a modeled nodulation submodel).",
+    dataStatus: "validated", correlation: 0.858, workableAsCash: true, implementedInDemo: true,
+    notes: "Validated, 0.858 correlation (up from 0.846 on 2026-09-23, when radiation-limited growth gained a cold-temperature reduction -- see gap-list item 17). Legume -- nitrogen rate has no effect on yield, by design (real rhizobia N fixation, not a modeled nodulation submodel).",
   },
   wheat: {
     label: "Winter wheat", pyKey: "wheat", legume: false, roles: ["cover"],
-    dataStatus: "validated", correlation: 0.253, workableAsCash: false, implementedInDemo: true,
-    notes: "Real GenericCrops.crop parameters, not a placeholder, but only 0.253 correlation as a grain crop -- below the classroom-workable bar, so not offered as a cash-crop choice. Used as-is for the fall-planted cover-crop role, where grain-yield correlation isn't the relevant measure. The real driver of its weak year-to-year tracking is still an open, evidence-backed question (QUESTIONS_FOR_DEVS.md item 7).",
+    dataStatus: "validated", correlation: 0.397, workableAsCash: false, implementedInDemo: true,
+    notes: "Real GenericCrops.crop parameters, not a placeholder. Correlation improved substantially, 0.253 -> 0.397, on 2026-09-23 (the largest single jump this project has seen from any one fix) when radiation-limited growth gained a cold-temperature reduction it never had -- wheat's long, cold-season-heavy growing window made it the biggest beneficiary (QUESTIONS_FOR_DEVS.md item 9 / gap-list item 17). Still below the classroom-workable bar, so not offered as a cash-crop choice; used as-is for the fall-planted cover-crop role. The remaining driver of its weak year-to-year tracking is still open (QUESTIONS_FOR_DEVS.md item 7).",
   },
   winter_rye: {
     label: "Winter rye (cover crop)", pyKey: "winter_rye", legume: false, roles: ["cover"],
@@ -1732,8 +1775,8 @@ const SPECIES_REGISTRY = {
   },
   corn_silage: {
     label: "Corn (silage)", pyKey: null, legume: false, roles: ["cash"],
-    dataStatus: "validated-not-workable", correlation: 0.501, workableAsCash: false, implementedInDemo: false,
-    notes: "Validated only in the standalone run_validation_rotation2.py harness, never ported into this interactive engine. 0.501 correlation, below the classroom-workable bar -- the underlying water-stress-timing gap (about an 11-day onset mismatch against real Cycles output) is unresolved, see QUESTIONS_FOR_DEVS.md item 6.",
+    dataStatus: "validated-not-workable", correlation: 0.512, workableAsCash: false, implementedInDemo: false,
+    notes: "Validated only in the standalone run_validation_rotation2.py harness, never ported into this interactive engine. 0.512 correlation (up slightly from 0.501 on 2026-09-23's radiation-temperature fix), still below the classroom-workable bar -- the underlying water-stress-timing gap (about an 11-day onset mismatch against real Cycles output) is unresolved, see QUESTIONS_FOR_DEVS.md item 6.",
   },
   orchardgrass: {
     label: "Orchardgrass (pasture)", pyKey: null, legume: false, roles: ["cash"],
