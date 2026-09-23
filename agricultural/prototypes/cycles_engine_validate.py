@@ -685,6 +685,29 @@ CORN_CANOPY_SHAPE = (6, -20, -12, 12)      # refit from real corn FRAC INTERCEP 
                                             # of maturity, mid-peak-growth) -- see module
                                             # docstring and QUESTIONS_FOR_DEVS.md.
 
+# Cold-temperature reduction of radiation-limited growth (2026-09-23): GenericCrops.crop's
+# RADIATION_USE_EFFICIENCY is explicitly labeled "Maximum eR" in Kemanian et al. 2024 (Table
+# SI.2's own heading) -- neither source discloses what reduces it from that maximum to a day's
+# actual value. Diagnosed by backing out a day's ACTUAL radiation-use efficiency directly from
+# real Cycles' own daily BIOMASS output (on any day with zero N/water stress and canopy cover in
+# a clean 0.15-0.85 range: dB[Mg/ha]*100 / (FRAC_INTERCEP * solar_MJ) = implied g/MJ, no back-
+# solving through yield needed) across the full real record for four crops. The clean warm-season
+# subset of this data (transpiration_temp_factor already at 1.0) showed a real, consistent ~25%
+# gap below the nominal RUE value for every crop -- but implementing that as a flat multiplicative
+# correction (tested directly, not assumed) made every crop's correlation WORSE, not better,
+# despite fixing the mean. The gap that DOES help, isolated by testing each piece separately: the
+# COLD-season portion of the same data (wheat's raw fall-to-spring implied RUE averages under 0.35
+# of nominal) correlates far better with each crop's own EXISTING transpiration_temp_factor
+# (tr_min_t/tr_threshold_t, pooled corr 0.69) than with a thermal-time-style factor (corr 0.53),
+# and applying ONLY that -- reusing the exact same temp_factor already computed for transpiration,
+# not inventing new per-crop thresholds -- fixed the mean-level bias for all four crops (mean
+# error dropped to near-exact for corn/soybean/wheat/silage corn, no calibration_factor change
+# needed to get there) AND meaningfully improved correlation for wheat (a real, not marginal,
+# jump) while leaving corn/soybean/silage corn's own correlations roughly unchanged or slightly
+# better. The flat warm-season "maximum eR" gap remains real and measured but is NOT implemented
+# here -- a genuine, disclosed, still-open item (see QUESTIONS_FOR_DEVS.md), since whatever
+# actually causes it clearly isn't a simple constant multiplier the way the cold-season piece is.
+
 
 def thermal_time_increment(tx, tn, base_t, opt_t, max_t):
     tmean = (tx + tn) / 2
@@ -925,13 +948,14 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf, curve_numbe
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
         soil_evaporation(layers, eto, eie, precip_mm=w["pp"], de_state=de_state)
 
-        GR = crop["rue"] * eie * w["solar"]
         tmean = (w["tx"] + w["tn"]) / 2
+        temp_factor = transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
+        GR = crop["rue"] * temp_factor * eie * w["solar"]
         es = 0.6108 * math.exp(17.27 * tmean / (tmean + 237.3))
         ea = es * (w["rhx"] + w["rhn"]) / 200
         Da = max(0.05, es - ea)
         TRp = (1 + (crop["kc"] - 1) * eie) * eie * eto
-        TRp *= transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
+        TRp *= temp_factor
 
         avail_frac = root_zone_availability(layers, root_depth)
         water_stress = water_stress_response(avail_frac, crop.get("depletion_fraction", 0.5))
@@ -1280,13 +1304,14 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
         soil_evaporation(layers, eto, eie, precip_mm=w["pp"] + irrigation_mm, de_state=de_state)
 
-        GR = crop["rue"] * eie * w["solar"]
         tmean = (w["tx"] + w["tn"]) / 2
+        temp_factor = transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
+        GR = crop["rue"] * temp_factor * eie * w["solar"]
         es = 0.6108 * math.exp(17.27 * tmean / (tmean + 237.3))
         ea = es * (w["rhx"] + w["rhn"]) / 200
         Da = max(0.05, es - ea)
         TRp = (1 + (crop["kc"] - 1) * eie) * eie * eto
-        TRp *= transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
+        TRp *= temp_factor
 
         avail_frac = root_zone_availability(layers, root_depth)
         water_stress = water_stress_response(avail_frac, crop.get("depletion_fraction", 0.5))

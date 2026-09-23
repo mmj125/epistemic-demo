@@ -196,6 +196,25 @@ against real Cycles output before concluding the gap is real.
    2016 citable source, if one exists) for how much cold damage reduces interception
    and thermal-time fraction?
 
+9. **What reduces `RADIATION_USE_EFFICIENCY` from its stated "Maximum eR" (Table
+   SI.2's own heading) to a day's actual value?** A real, consistent gap exists even
+   under warm, zero-stress conditions -- backed out directly from real Cycles'
+   own daily BIOMASS output (dB[Mg/ha]*100 / (FRAC_INTERCEP*solar_MJ) = implied
+   g/MJ) across four crops' full real records: corn's warm-day implied RUE
+   averages 0.744 of nominal, silage corn 0.754, wheat 0.736, soybean 0.640 (three
+   non-legumes clustering tightly around ~0.74-0.75, soybean a real, consistent
+   ~15-point step below). A separate, larger, genuinely temperature-driven
+   reduction on top of this (see the "Resolved" entry below) is now implemented
+   and helped substantially, especially for wheat -- but this warm-day baseline
+   gap itself was tested as a flat per-crop multiplicative correction and made
+   every crop's correlation WORSE despite fixing the mean, so it was deliberately
+   NOT implemented and remains a real, open, measured discrepancy. A CO2-reference
+   scaling (the paper notes "εR... should be given for a reference atmospheric CO2
+   concentration and scaled accordingly as CO2 changes") is one candidate, but
+   doesn't obviously explain why the effect would be roughly constant rather than
+   varying by simulation year. What is the real conversion (or additional factor)
+   that turns "Maximum eR" into the value actually used day to day?
+
 ## Resolved without asking (kept here for the record, not blocking)
 
 - **Real per-crop `THERMAL_TIME_TO_EMERGENCE` wired in -- confirmed correct, a tiny effect.**
@@ -286,3 +305,38 @@ against real Cycles output before concluding the gap is real.
   denominator; the wet-curve-number formula) were resolved by deriving from the
   external standard methods the SI itself cites (USDA-SCS 1972; Williams et al.
   2012), not by asking -- flagged in code, not on this list.
+- **Radiation-limited growth under cold temperatures.** GenericCrops.crop's
+  `RADIATION_USE_EFFICIENCY` is explicitly labeled "Maximum eR" in the paper's own
+  Table SI.2 heading -- neither source says what reduces it from that maximum to a
+  day's actual value, and until now this engine applied it uncorrected. Diagnosed
+  by backing out a day's ACTUAL radiation-use efficiency directly from real Cycles'
+  own daily BIOMASS output (any day with zero N/water stress and canopy cover in a
+  clean 0.15-0.85 range gives `dB[Mg/ha]*100 / (FRAC_INTERCEP * solar_MJ)` = implied
+  g/MJ, no back-solving through yield needed) across the full real record for four
+  crops. A real, if smaller, gap exists even on warm days for every crop
+  (implied/nominal ratio ~0.64-0.75) -- tested as a flat multiplicative correction
+  and found to make every crop's correlation WORSE despite fixing the mean, so it
+  was NOT implemented and remains open (below). The gap that DOES generalize is on
+  cold days specifically: wheat's raw, temperature-unadjusted implied RUE averages
+  under 0.35 of nominal across its cold fall-to-spring record, and this correlates
+  far better with each crop's own EXISTING `transpiration_temp_factor`
+  (`tr_min_t`/`tr_threshold_t`, pooled corr 0.69 across corn/soybean/wheat) than
+  with a thermal-time-style factor (corr 0.53). Implemented by reusing that exact
+  factor -- already computed for transpiration -- as a second multiplier on
+  radiation-limited growth (`GR`), not inventing new per-crop cold thresholds.
+  Verified: also feeding this engine real Cycles' own exact FRAC_INTERCEP
+  trajectory in place of its own computed canopy cover (a direct substitution
+  test) still showed total biomass running ~25-40% high all season before this
+  fix, ruling out canopy shape as an alternative explanation. Re-derived each
+  crop's `calibration_factor` afterward (mean already landed almost exactly on
+  real output even before recalibrating). Net effect on the four validated
+  crops' correlations: corn 0.544->0.547 (essentially flat), soybean
+  0.846->0.858, wheat 0.276->0.397 (the single largest correlation jump this
+  project has seen from any one fix), silage corn 0.510->0.512 (flat) -- and the
+  mean-level match improved substantially for all four without any further
+  tuning. A genuinely open question remains: **what actually causes the
+  remaining ~25-35% warm-day gap between "Maximum eR" and a day's real, used
+  value** (a CO2-reference scaling? a further, undisclosed conversion? something
+  else?) -- real, measured, and consistently non-trivial to fit as a flat
+  constant, so left as a disclosed, still-open item rather than guessed at
+  further.
