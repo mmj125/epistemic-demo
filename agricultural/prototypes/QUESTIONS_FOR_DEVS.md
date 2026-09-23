@@ -198,6 +198,28 @@ against real Cycles output before concluding the gap is real.
 
 ## Resolved without asking (kept here for the record, not blocking)
 
+- **Real per-crop `MAXIMUM_ROOTING_DEPTH` wired in -- confirmed correct, currently a null
+  result everywhere we've tested it.** `root_max_m` (the parameter controlling how deep a
+  crop's roots can reach for soil moisture) had been a single hardcoded 1.4m shared by every
+  crop, when the real, disclosed per-crop values differ substantially: corn/wheat 2.0m,
+  soybean 1.5m, silage corn 1.55m. Wired in via `crop.get("root_max_m", root_max_m)`,
+  overriding the shared default when a crop dict sets its own value. Ran the full validation
+  suite and got byte-for-byte the same correlations and means as before (to 3 decimals) --
+  traced this to a real, satisfying explanation rather than assuming the fix did nothing: the
+  hand-curated Rock Springs soil profile this project's own validation harnesses use is
+  exactly 1.4m deep (9 layers summing to 1.4m precisely, apparently why 1.4m was chosen as
+  the old shared default in the first place), so no crop's real 1.5-2.0m root system can ever
+  reach soil this engine doesn't model in the first place. Checked independently: the real
+  STATSGO2-resolved soil cell nearest Rock Springs (Hazleton series) is 1.42m, and even Iowa's
+  own real Canisteo cell (a deep prairie soil, used elsewhere in this project) only reaches
+  1.52m -- every real soil profile this project has access to for any site caps out well
+  short of 2.0m, so this isn't a Rock-Springs-specific coincidence. Confirmed the mechanism
+  itself works correctly with a synthetic test (Iowa's own real 1.52m soil profile, Rock
+  Springs' real 2012 drought-year weather): root_max_m=2.0 measurably outyields root_max_m=1.4
+  (+0.14 Mg/ha) once the profile is deep enough to expose the difference. Kept the real values
+  regardless of the current null result, same standard as `TRANSPIRATION_MAX` earlier the same
+  day -- this would matter immediately if a genuinely deep-soil site or a more complete soil
+  profile (below ~1.5m) is ever added.
 - **Shoot/root partitioning's `TTf50` parameter, formerly item 3.** The equation and
   its shape parameters (`fsti`, `fstf`) are given (Eq. SI.8-11) but `TTf50` (the
   thermal-time fraction at half-max allocation) had no stated numeric value -- we'd

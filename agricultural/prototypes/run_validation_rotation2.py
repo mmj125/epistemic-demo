@@ -45,7 +45,8 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
                # soybean fixes its own N (LEGUME=1) so the nitrogen knob correctly has no effect on it
                depletion_fraction=0.50,  # real FAO-56 Table 22 value for soybeans -- same as this
                # engine's own prior default, so this crop's numbers are unaffected by adding it
-               tr_max_mm_day=8)  # real GenericCrops.crop TRANSPIRATION_MAX (SoybeanMG.5)
+               tr_max_mm_day=8,  # real GenericCrops.crop TRANSPIRATION_MAX (SoybeanMG.5)
+               root_max_m=1.5)  # real GenericCrops.crop MAXIMUM_ROOTING_DEPTH (SoybeanMG.5)
 
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
              rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
@@ -56,7 +57,8 @@ WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
              depletion_fraction=0.55,  # real FAO-56 Table 22 (winter/spring wheat)
              canopy_shape=(5, -14, -15, 16),  # refit from real data -- see QUESTIONS_FOR_DEVS.md item 5;
                                                # fixes level bias, does NOT fix wheat's weak correlation
-             tr_max_mm_day=8)  # real GenericCrops.crop TRANSPIRATION_MAX (WinterWheat)
+             tr_max_mm_day=8,  # real GenericCrops.crop TRANSPIRATION_MAX (WinterWheat)
+             root_max_m=2.0)  # real GenericCrops.crop MAXIMUM_ROOTING_DEPTH (WinterWheat)
 
 CORN_SILAGE = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
                     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
@@ -67,7 +69,9 @@ CORN_SILAGE = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_
                     canopy_shape=CORN_CANOPY_SHAPE,  # real fix (thermal time, canopy shape, harvest
                     # date, forage ratio all individually verified accurate) does NOT move correlation
                     # (0.503 -> 0.501) -- see QUESTIONS_FOR_DEVS.md, this is a distinct, still-open item
-                    tr_max_mm_day=10)  # real GenericCrops.crop TRANSPIRATION_MAX (CornSilageRM.90)
+                    tr_max_mm_day=10,  # real GenericCrops.crop TRANSPIRATION_MAX (CornSilageRM.90)
+                    root_max_m=1.55)  # real GenericCrops.crop MAXIMUM_ROOTING_DEPTH (CornSilageRM.90)
+                    # -- notably shallower than grain corn's 2.0m, a real distinguishing trait
 
 
 def load_weather():
