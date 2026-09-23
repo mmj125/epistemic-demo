@@ -276,11 +276,30 @@
       scripts &mdash; see item 10's own update below.</p>
     </details>
     <details class="gap">
-      <summary>2. Bare-soil / residue evaporation formula (declined by devs)</summary>
+      <summary>2. Bare-soil / residue evaporation formula (partially resolved, 2026-09-23)</summary>
       <p>Neither the paper nor its SI discloses this equation (the SI's own process flowchart marks
-      it as covered; the actual formula isn't there). Implemented as a standard external proxy
-      (reference ET scaled by non-intercepted radiation, limited by surface-layer water), not a
-      verified Cycles formula.</p>
+      it as covered; the actual formula isn't there). The potential-demand term (reference ET scaled
+      by non-intercepted radiation) is still this engine's own proxy, not a verified Cycles formula
+      &mdash; Cycles' real mechanism remains undisclosed.</p>
+      <p><strong>Update:</strong> the demand term is now modulated by a real, external, standard
+      formula for how evaporation slows as the surface dries &mdash; FAO-56's own two-stage
+      evaporation-reduction coefficient Kr (Eq. 74, obtained via web search since no full Chapter 7
+      document has been supplied the way Chapter 8 was) and total/readily evaporable water
+      (TEW/REW, Eq. 73, confirmed via search against the paper's own formula). Previously this
+      engine's only limit on daily evaporation was the top layer's water content down to wilting
+      point, with no memory of how long the surface had been drying &mdash; evaporation could proceed
+      at the full potential rate indefinitely. Now a persistent depletion state (De) tracks days
+      since the surface was last wetted, and evaporation decelerates smoothly once De exceeds REW,
+      the real physical behavior FAO-56 describes. REW itself is a single disclosed default (9mm,
+      near the middle of the real 5-12mm range Table 19 covers by soil texture) rather than the
+      exact per-texture table, which wasn't recoverable from search.</p>
+      <p>Honest result: <strong>zero</strong> measurable effect on any of the four validated crops.
+      Checked why directly: at Rock Springs, real rainfall resets the depletion state before it ever
+      exceeds REW, even across the driest 60-day stretch checked -- the same pattern already found
+      for curve-number runoff, antecedent-moisture spin-up, and the flat/capacitance-weighted Ksat
+      rate limits (items 5 and 10): this site's humid climate doesn't stress the mechanism. Kept
+      anyway since the formula is real and could matter at a drier site where the surface actually
+      dries out between rain events.</p>
     </details>
     <details class="gap">
       <summary>3. The perennial-pasture cutting/regrowth trigger (declined by devs)</summary>
@@ -661,12 +680,26 @@ def infiltrate(layers, water_in_mm, curve_number, slope_pct):
     drainage_mm = redistribute(layers, water_in_mm - runoff)
     return drainage_mm, runoff
 
-def soil_evaporation(layers, eto_mm, canopy_cover_frac):
+REW_DEFAULT_MM = 9.0  # FAO-56 Table 19's real range is 5-12mm; see cycles_engine_validate.py
+
+def compute_tew(theta_fc, theta_wp, ze_m=0.15):
+    # Real FAO-56 Eq. 73 -- see cycles_engine_validate.py's compute_tew() docstring.
+    return 1000 * (theta_fc - 0.5 * theta_wp) * ze_m
+
+def soil_evaporation(layers, eto_mm, canopy_cover_frac, precip_mm=0.0, de_state=None):
+    # Real FAO-56 two-stage Kr (Eq. 74) when de_state is given -- see
+    # cycles_engine_validate.py's soil_evaporation() docstring for the full account.
     l0 = layers[0]
     demand_mm = eto_mm * (1 - canopy_cover_frac)
+    if de_state is not None:
+        de, tew, rew = de_state["de"], de_state["tew"], de_state["rew"]
+        kr = 1.0 if de <= rew else (max(0.0, (tew - de) / (tew - rew)) if tew > rew else 0.0)
+        demand_mm *= kr
     available_mm = max(0.0, (l0["theta"] - l0["pwp"]) * l0["thick"] * 1000)
     actual_mm = min(demand_mm, available_mm)
     l0["theta"] -= actual_mm / (l0["thick"] * 1000)
+    if de_state is not None:
+        de_state["de"] = max(0.0, min(de_state["tew"], de_state["de"] + actual_mm - precip_mm))
     return actual_mm
 
 def root_zone_availability(layers, root_depth_m):
@@ -915,11 +948,12 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
     # curve_number/slope_pct/spinup_rows must also match simulate_season's own values, for
     # the same reason -- see infiltrate()/simulate_season's own docstring.
     layers = crop["make_layers"]()
+    de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
     if spinup_rows:
         for w in spinup_rows:
             infiltrate(layers, w["pp"], curve_number, slope_pct)
             eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
-            soil_evaporation(layers, eto, 0.0)
+            soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state)
     tillage_depth_m, tillage_disturb_rating, tillage_mixing_efficiency = TILLAGE_IMPLEMENTS[tillage_implement] \
         if tillage_doy is not None else (None, None, None)
     ftx = tillage_ftx(tillage_clay_frac)
@@ -939,7 +973,7 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
             dr += tillage_disturb_rating
         infiltrate(layers, w["pp"], curve_number, slope_pct)
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
-        soil_evaporation(layers, eto, eie)
+        soil_evaporation(layers, eto, eie, precip_mm=w["pp"], de_state=de_state)
         GR = crop["rue"] * eie * w["solar"]
         tmean = (w["tx"] + w["tn"]) / 2
         es = 0.6108 * math.exp(17.27*tmean/(tmean+237.3))
@@ -997,13 +1031,14 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     # of a flat multiplier held for an arbitrary fixed window. tillage_clay_frac (0-1) feeds ftx's
     # real texture scaling; defaults to 0.21, Rock Springs' own real topsoil clay fraction.
     layers = crop["make_layers"]()
+    de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
     runoff_total = 0.0
     if spinup_rows:
         for w in spinup_rows:
             _, spin_runoff = infiltrate(layers, w["pp"], curve_number, slope_pct)
             runoff_total += spin_runoff
             eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
-            soil_evaporation(layers, eto, 0.0)
+            soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state)
     tillage_depth_m, tillage_disturb_rating, tillage_mixing_efficiency = None, None, None
     if tillage_doy is not None:
         if tillage_implement not in TILLAGE_IMPLEMENTS:
@@ -1072,7 +1107,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         drainage_mm, runoff = infiltrate(layers, w["pp"] + irrigation_mm, curve_number, slope_pct)
         runoff_total += runoff
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
-        soil_evaporation(layers, eto, eie)
+        soil_evaporation(layers, eto, eie, precip_mm=w["pp"] + irrigation_mm, de_state=de_state)
         GR = crop["rue"] * eie * w["solar"]
         tmean = (w["tx"] + w["tn"]) / 2
         es = 0.6108 * math.exp(17.27*tmean/(tmean+237.3))

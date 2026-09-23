@@ -938,12 +938,26 @@ def infiltrate(layers, water_in_mm, curve_number, slope_pct):
     drainage_mm = redistribute(layers, water_in_mm - runoff)
     return drainage_mm, runoff
 
-def soil_evaporation(layers, eto_mm, canopy_cover_frac):
+REW_DEFAULT_MM = 9.0  # FAO-56 Table 19's real range is 5-12mm; see cycles_engine_validate.py
+
+def compute_tew(theta_fc, theta_wp, ze_m=0.15):
+    # Real FAO-56 Eq. 73 -- see cycles_engine_validate.py's compute_tew() docstring.
+    return 1000 * (theta_fc - 0.5 * theta_wp) * ze_m
+
+def soil_evaporation(layers, eto_mm, canopy_cover_frac, precip_mm=0.0, de_state=None):
+    # Real FAO-56 two-stage Kr (Eq. 74) when de_state is given -- see
+    # cycles_engine_validate.py's soil_evaporation() docstring for the full account.
     l0 = layers[0]
     demand_mm = eto_mm * (1 - canopy_cover_frac)
+    if de_state is not None:
+        de, tew, rew = de_state["de"], de_state["tew"], de_state["rew"]
+        kr = 1.0 if de <= rew else (max(0.0, (tew - de) / (tew - rew)) if tew > rew else 0.0)
+        demand_mm *= kr
     available_mm = max(0.0, (l0["theta"] - l0["pwp"]) * l0["thick"] * 1000)
     actual_mm = min(demand_mm, available_mm)
     l0["theta"] -= actual_mm / (l0["thick"] * 1000)
+    if de_state is not None:
+        de_state["de"] = max(0.0, min(de_state["tew"], de_state["de"] + actual_mm - precip_mm))
     return actual_mm
 
 def root_zone_availability(layers, root_depth_m):
@@ -1192,11 +1206,12 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
     # curve_number/slope_pct/spinup_rows must also match simulate_season's own values, for
     # the same reason -- see infiltrate()/simulate_season's own docstring.
     layers = crop["make_layers"]()
+    de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
     if spinup_rows:
         for w in spinup_rows:
             infiltrate(layers, w["pp"], curve_number, slope_pct)
             eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
-            soil_evaporation(layers, eto, 0.0)
+            soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state)
     tillage_depth_m, tillage_disturb_rating, tillage_mixing_efficiency = TILLAGE_IMPLEMENTS[tillage_implement] \
         if tillage_doy is not None else (None, None, None)
     ftx = tillage_ftx(tillage_clay_frac)
@@ -1216,7 +1231,7 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
             dr += tillage_disturb_rating
         infiltrate(layers, w["pp"], curve_number, slope_pct)
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
-        soil_evaporation(layers, eto, eie)
+        soil_evaporation(layers, eto, eie, precip_mm=w["pp"], de_state=de_state)
         GR = crop["rue"] * eie * w["solar"]
         tmean = (w["tx"] + w["tn"]) / 2
         es = 0.6108 * math.exp(17.27*tmean/(tmean+237.3))
@@ -1274,13 +1289,14 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     # of a flat multiplier held for an arbitrary fixed window. tillage_clay_frac (0-1) feeds ftx's
     # real texture scaling; defaults to 0.21, Rock Springs' own real topsoil clay fraction.
     layers = crop["make_layers"]()
+    de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
     runoff_total = 0.0
     if spinup_rows:
         for w in spinup_rows:
             _, spin_runoff = infiltrate(layers, w["pp"], curve_number, slope_pct)
             runoff_total += spin_runoff
             eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
-            soil_evaporation(layers, eto, 0.0)
+            soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state)
     tillage_depth_m, tillage_disturb_rating, tillage_mixing_efficiency = None, None, None
     if tillage_doy is not None:
         if tillage_implement not in TILLAGE_IMPLEMENTS:
@@ -1349,7 +1365,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         drainage_mm, runoff = infiltrate(layers, w["pp"] + irrigation_mm, curve_number, slope_pct)
         runoff_total += runoff
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
-        soil_evaporation(layers, eto, eie)
+        soil_evaporation(layers, eto, eie, precip_mm=w["pp"] + irrigation_mm, de_state=de_state)
         GR = crop["rue"] * eie * w["solar"]
         tmean = (w["tx"] + w["tn"]) / 2
         es = 0.6108 * math.exp(17.27*tmean/(tmean+237.3))
@@ -1555,8 +1571,14 @@ def bare_fallow_leaching(weather_rows, n_pool_initial, lat_deg=40.6875, curve_nu
     days only, as a simple proxy for biological activity) -- fallow soil keeps
     mineralizing whether or not a crop is using the result, and leaving this out here
     would have made the cover-crop-vs-bare-fallow comparison count background N for one
-    side but not the other."""
+    side but not the other. Also tracks de_state (real FAO-56 two-stage evaporation
+    depletion, added 2026-09-23 alongside the same runoff fix above and for the same
+    reason -- every actual crop phase now reduces its evaporation demand once the
+    surface has been drying a while; leaving this counterfactual on the old no-memory
+    behavior would make it evaporate faster than a real crop phase's own bare-soil
+    days do, understating fallow leaching relative to the cover crop's own."""
     layers = make_layers()
+    de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
     n_pool = n_pool_initial
     n_leached_total = 0.0
     for w in weather_rows:
@@ -1565,7 +1587,7 @@ def bare_fallow_leaching(weather_rows, n_pool_initial, lat_deg=40.6875, curve_nu
             n_pool += BACKGROUND_N_KG_HA_DAY
         drainage_mm, _ = infiltrate(layers, w["pp"], curve_number, slope_pct)
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], lat_deg)
-        soil_evaporation(layers, eto, 0.0)  # eie=0: no canopy, bare soil evaporates at full potential rate
+        soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state)  # eie=0: no canopy, bare soil evaporates at full potential rate
         profile_water_mm = sum(l["theta"] * l["thick"] * 1000 for l in layers)
         if profile_water_mm > 0 and n_pool > 0 and drainage_mm > 0:
             leached = drainage_mm * (n_pool / profile_water_mm)
