@@ -24,6 +24,8 @@ CORN = dict(
     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=40.6875,
     n_max_conc=0.055, n_dilution_slope=0.4, legume=False,  # real GenericCrops.crop values, corn is not a legume
     depletion_fraction=0.55,  # real FAO-56 Table 22 value for maize, field (grain)
+    tr_max_mm_day=10,  # real GenericCrops.crop TRANSPIRATION_MAX (CornRM.90); never triggers at
+    # Rock Springs (TRp maxes out ~7.4mm/day across the full record) but real and disclosed
 )
 
 SOIL_LAYERS_RAW = [
