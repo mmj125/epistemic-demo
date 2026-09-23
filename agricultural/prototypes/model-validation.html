@@ -426,6 +426,32 @@
       so this is purely additive and off by default). No UI wiring yet in any panel &mdash; this is the
       engine mechanism only, matching this project's own "engine first, UI later" pattern already used
       for the six mechanisms added 2026-09-17.</p>
+      <p><strong>Second update, 2026-09-23:</strong> the exact paper behind the IPCC-default
+      alternative flagged above turned out to already be sitting in this repo (Macnack, Chim &amp;
+      Raun 2013, <em>Applied Model for Estimating Potential Ammonia Loss from Surface Applied
+      Urea</em>, Communications in Soil Science and Plant Analysis 44:2055&ndash;2063) &mdash; a
+      composite of 159 records / 43 site-years from 25 published articles (1960&ndash;2010), fit as
+      three separate linear regressions (ammonia loss vs. soil pH, wind speed, air temperature) then
+      combined additively: AL(%) = &minus;40.7 + 8.43&middot;pH + 3.85&middot;WS(m/s) +
+      0.33&middot;AT(&deg;C). Added as an opt-in <code>soil_ph</code> parameter that, when given,
+      replaces the flat 10% default with this real, per-application, weather-driven estimate (using
+      that application day's own real air temperature and wind &mdash; data this engine already
+      carries), still reduced by the same implement mixing-efficiency for incorporated placements.
+      Manure keeps the flat IPCC default regardless, since Macnack's data is urea-specific.</p>
+      <p><strong>Honest limitations, not smoothed over:</strong> each individual regression's own
+      r&sup2; is low (0.04&ndash;0.27, real values from the paper's Table 1) &mdash; a composite
+      built across studies with different, undisclosed measurement windows, not a precise per-day
+      flux model. It needs a soil pH input this engine has no real source for at all (STATSGO2
+      carries no pH field) &mdash; <code>soil_ph</code> is caller-supplied, not derived internally; a
+      typical cropland default (~6.5) is reasonable but not site-specific. The linear form is
+      unbounded outside the real data's range, so it's clamped to a [0,100]% fraction rather than
+      trusted raw. At Rock Springs 2012 (warm, breezy spring planting day, pH 6.5) it estimates a
+      real but high 37% loss on a broadcast application &mdash; plausible for this model's own
+      inputs, not independently checked against a real field measurement for this exact site/day.
+      Verified purely additive (soil_ph=None, the default, reproduces the IPCC-only path exactly;
+      none of the four validated crops' correlations moved, since neither harness passes it) and
+      mass-balance-exact (supply = uptake + leached + remaining + volatilized, checked to 4
+      decimals). Still no UI wiring in any panel.</p>
     </details>
     <details class="gap">
       <summary>9. Nitrogen is one mineral-N balance, not the real six-pool carbon/nitrogen system</summary>
@@ -1014,11 +1040,18 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
 NH3_FRAC_SYNTHETIC = 0.10  # real IPCC Tier-1 default (FracGASF); see cycles_engine_validate.py
 NH3_FRAC_MANURE = 0.20  # real IPCC Tier-1 default (FracGASM); see cycles_engine_validate.py
 
+def macnack_ammonia_loss_pct(soil_ph, air_temp_c, wind_speed_ms):
+    # Macnack, Chim & Raun (2013), real weather/pH-driven alternative to the flat IPCC default,
+    # specific to surface-broadcast urea; see cycles_engine_validate.py for the full citation
+    # and derivation. AL = -40.7 + 8.43*pH + 3.85*WS(m/s) + 0.33*AT(C), clamped to [0,1] fraction.
+    al_pct = -40.7 + 8.43 * soil_ph + 3.85 * wind_speed_ms + 0.33 * air_temp_c
+    return max(0.0, min(1.0, al_pct / 100.0))
+
 def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False,
                      n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
                      irrigation_trigger_frac=None, irrigation_amount_mm=25.0,
                      tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21,
-                     fert_placement_implement=None,
+                     fert_placement_implement=None, soil_ph=None,
                      spinup_rows=None, curve_number=75.0, slope_pct=0.0):
     # curve_number/slope_pct: real curve-number runoff (Eq. SI.1-7) via infiltrate() --
     # curve_number=75.0 is Cycles' own bundled Rock Springs sample default (no real per-site
@@ -1068,34 +1101,55 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     tillage_ftx_val = tillage_ftx(tillage_clay_frac)
     tillage_dr = 0.0
     tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
-    mineral_retention, manure_retention = 1.0, 1.0
+    volatilization_active = fert_placement_implement is not None or soil_ph is not None
+    fert_mixing_efficiency = 0.0
     if fert_placement_implement is not None:
         if fert_placement_implement not in TILLAGE_IMPLEMENTS:
             raise ValueError(f"Unknown fertilizer placement implement {fert_placement_implement!r} -- see TILLAGE_IMPLEMENTS for the real Cycles v1.4.4 implement catalog.")
         fert_mixing_efficiency = TILLAGE_IMPLEMENTS[fert_placement_implement][2]
-        mineral_retention = 1.0 - NH3_FRAC_SYNTHETIC * (1.0 - fert_mixing_efficiency)
-        manure_retention = 1.0 - NH3_FRAC_MANURE * (1.0 - fert_mixing_efficiency)
-    n_volatilized_total = 0.0 if fert_placement_implement is not None else None
+    wx_by_doy = {w["doy"]: w for w in weather_rows} if soil_ph is not None else None
+
+    def mineral_retention_for_doy(doy):
+        if not volatilization_active:
+            return 1.0
+        if soil_ph is None:
+            base_frac = NH3_FRAC_SYNTHETIC
+        else:
+            w = wx_by_doy.get(doy)
+            base_frac = NH3_FRAC_SYNTHETIC if w is None else macnack_ammonia_loss_pct(
+                soil_ph, (w["tx"] + w["tn"]) / 2.0, w["wind"])
+        return 1.0 - base_frac * (1.0 - fert_mixing_efficiency)
+
+    manure_retention = 1.0 - NH3_FRAC_MANURE * (1.0 - fert_mixing_efficiency) if volatilization_active else 1.0
+    n_volatilized_total = 0.0 if volatilization_active else None
     n_tracking_active = (not crop.get("legume", False)) and (
         n_rate_kg_ha is not None or n_applications or n_credit_kg_ha or manure_n_kg_ha)
     applications_by_doy = {}
     if n_tracking_active:
+        n_volatilized_mineral = 0.0
         if n_applications:
             mineral_applied = sum(amount for _, amount in n_applications)
-            total_n_input_kg_ha = mineral_applied * mineral_retention
+            total_n_input_kg_ha = 0.0
             n_pool = 0.0
             for doy, amount in n_applications:
-                applications_by_doy[doy] = applications_by_doy.get(doy, 0.0) + amount * mineral_retention
+                r = mineral_retention_for_doy(doy)
+                retained = amount * r
+                applications_by_doy[doy] = applications_by_doy.get(doy, 0.0) + retained
+                total_n_input_kg_ha += retained
+                n_volatilized_mineral += amount * (1.0 - r)
         else:
             mineral_applied = n_rate_kg_ha or 0.0
-            total_n_input_kg_ha = mineral_applied * mineral_retention
+            planting_doy = weather_rows[0]["doy"] if weather_rows else None
+            r = mineral_retention_for_doy(planting_doy)
+            total_n_input_kg_ha = mineral_applied * r
             n_pool = total_n_input_kg_ha
+            n_volatilized_mineral = mineral_applied * (1.0 - r)
         manure_after_volatilization = manure_n_kg_ha * manure_retention
         credit_and_manure = n_credit_kg_ha + manure_after_volatilization * manure_availability
         total_n_input_kg_ha += credit_and_manure
         n_pool += credit_and_manure
         if n_volatilized_total is not None:
-            n_volatilized_total = mineral_applied * (1 - mineral_retention) + manure_n_kg_ha * (1 - manure_retention)
+            n_volatilized_total = n_volatilized_mineral + manure_n_kg_ha * (1.0 - manure_retention)
     else:
         n_pool, total_n_input_kg_ha = None, None
     n_leached_total = 0.0 if n_pool is not None else None
