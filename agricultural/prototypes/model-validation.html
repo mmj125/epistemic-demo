@@ -542,6 +542,16 @@ def root_zone_availability(layers, root_depth_m):
         depth += l["thick"]
     return avail / capacity if capacity > 0 else 1.0
 
+def water_stress_response(avail_frac, depletion_fraction=0.5):
+    # Real FAO-56 water-stress coefficient Ks (Allen et al. 1998 Eq. 84), not an invented
+    # shape -- reduces to avail_frac/(1-depletion_fraction) in these terms. depletion_fraction
+    # (FAO-56 Table 22): maize/wheat 0.55, soybean 0.50. See cycles_engine_validate.py's
+    # water_stress_response() docstring for the full derivation and verification.
+    threshold = 1.0 - depletion_fraction
+    if threshold <= 0:
+        return 1.0
+    return max(0.0, min(1.0, avail_frac / threshold))
+
 def extract_transpiration(layers, root_depth_m, tr_mm):
     remaining, depth = tr_mm, 0.0
     for l in layers:
@@ -720,7 +730,7 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf):
         TRp = (1 + (crop["kc"]-1)*eie) * eie * eto
         TRp *= transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
         avail_frac = root_zone_availability(layers, root_depth)
-        water_stress = max(0.0, min(1.0, avail_frac/0.5))
+        water_stress = water_stress_response(avail_frac, crop.get("depletion_fraction", 0.5))
         TR_actual = TRp * water_stress
         extract_transpiration(layers, root_depth, TR_actual)
         GT = crop["wue"]/math.sqrt(Da) * TR_actual
@@ -828,7 +838,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         TRp = (1 + (crop["kc"]-1)*eie) * eie * eto
         TRp *= transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
         avail_frac = root_zone_availability(layers, root_depth)
-        water_stress = max(0.0, min(1.0, avail_frac/0.5))
+        water_stress = water_stress_response(avail_frac, crop.get("depletion_fraction", 0.5))
         TR_actual = TRp * water_stress
         extract_transpiration(layers, root_depth, TR_actual)
         GT = crop["wue"]/math.sqrt(Da) * TR_actual
@@ -895,7 +905,8 @@ CORN = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
     calibration_factor=0.841, canopy_shape=CORN_CANOPY_SHAPE,
     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=40.6875, make_layers=make_layers,
-    n_max_conc=0.055, n_dilution_slope=0.4, legume=False)
+    n_max_conc=0.055, n_dilution_slope=0.4, legume=False,
+    depletion_fraction=0.55)  # real FAO-56 Table 22 value for maize, field (grain)
 # Matches the real GenericCrops.crop CornRM.90 entry exactly (same tt_maturity/flowering_tt) --
 # CORN above already IS the short-season hybrid, not a separate crop.
 
@@ -919,6 +930,7 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
     rue=1.3, wue=4.5, hi_x=0.4, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
     calibration_factor=1.116, kc=1.0, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0,
     n_max_conc=0.07, n_dilution_slope=0.4, legume=True,
+    depletion_fraction=0.50,  # real FAO-56 Table 22 value for soybeans -- same as the old default
     lat_deg=40.6875, make_layers=make_layers)
 
 # Real GenericCrops.crop values for WinterWheat, same crop this engine already validates
@@ -929,7 +941,8 @@ WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
     rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
     calibration_factor=0.716, canopy_shape=(5, -14, -15, 16),
     kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=40.6875, make_layers=make_layers,
-    n_max_conc=0.07, n_dilution_slope=0.45, legume=False)
+    n_max_conc=0.07, n_dilution_slope=0.45, legume=False,
+    depletion_fraction=0.55)  # real FAO-56 Table 22 (winter/spring wheat)
 
 # Two more cover-crop options, added per Matt's direct request (2026-09-17) to get closer to
 # real Cycles coverage without outkicking it. Radiation- and transpiration-use efficiency
