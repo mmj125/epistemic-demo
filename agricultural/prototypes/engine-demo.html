@@ -357,11 +357,21 @@
       CLAUDE.md), sized by the implement's own real depth/mixing-efficiency numbers, not a
       guess. "No tillage" leaves every other number on this page unaffected.
     </div>
+    <div class="controls" id="nSweepPhField" style="margin-bottom:10px;"></div>
+    <div style="font-size:12px;color:var(--muted);margin:-6px 0 10px;">
+      Some of the nitrogen never even makes it into the soil pool &mdash; surface-applied urea
+      can lose nitrogen straight to the air as ammonia gas, a real loss pathway separate from
+      leaching, driven by soil pH, wind, and temperature on the day it's applied (Macnack, Chim
+      &amp; Raun 2013; see CLAUDE.md for the full model and its own real limitations). "Not
+      modeled" leaves every other number on this page unaffected.
+    </div>
     <button id="nSweepBtn" class="btn btn-secondary" disabled>Run nitrogen comparison</button>
     <canvas class="chart" id="nSweepChart" width="800" height="200" style="margin-top:14px;display:none;"></canvas>
     <div class="sweep-note" id="nSweepNote" style="display:none;"></div>
     <canvas class="chart" id="nLeachChart" width="800" height="160" style="margin-top:14px;display:none;"></canvas>
     <div class="sweep-note" id="nLeachNote" style="display:none;"></div>
+    <canvas class="chart" id="nVolatChart" width="800" height="160" style="margin-top:14px;display:none;"></canvas>
+    <div class="sweep-note" id="nVolatNote" style="display:none;"></div>
 
     <div class="controls" style="margin-top:16px;">
       <div class="field">
@@ -503,9 +513,10 @@
       Field A here won't exactly match the exact, hand-validated Rock Springs
       numbers used in the panels above, that's expected, not a bug, and keeps
       Field A and Field B on equal footing for a fair comparison. Tillage
-      practice is shared across both fields, not a per-field choice, so it
-      doesn't confound the location comparison the same way a per-field
-      nitrogen rate would.
+      practice and soil pH (used only for the ammonia-loss estimate, not the
+      soil's own real hydraulic properties) are both shared across both
+      fields, not a per-field choice, so neither confounds the location
+      comparison the same way a per-field nitrogen rate would.
     </p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:10px;">
       <div>
@@ -528,15 +539,17 @@
         <input type="range" id="fieldYearSlider" min="1980" max="2016" step="1" value="2012">
       </div>
       <div id="fieldTillageField"></div>
+      <div id="fieldPhField"></div>
     </div>
     <button id="fieldRunBtn" class="btn" disabled>Resolving your selected site...</button>
     <div id="fieldRunStatus" style="font-family:'DM Mono',monospace;font-size:11.5px;color:var(--muted);margin:10px 0 4px;min-height:16px;"></div>
     <div class="result" id="fieldRunResult" style="display:none;">
       <table id="fieldRunTable"></table>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px;">
-        <canvas class="chart" id="fieldYieldChart" width="240" height="150"></canvas>
-        <canvas class="chart" id="fieldAgChart" width="240" height="150"></canvas>
-        <canvas class="chart" id="fieldLeachChart" width="240" height="150"></canvas>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-top:10px;">
+        <canvas class="chart" id="fieldYieldChart" width="180" height="150"></canvas>
+        <canvas class="chart" id="fieldAgChart" width="180" height="150"></canvas>
+        <canvas class="chart" id="fieldLeachChart" width="180" height="150"></canvas>
+        <canvas class="chart" id="fieldVolatChart" width="180" height="150"></canvas>
       </div>
       <div class="sweep-note" id="fieldRunNote" style="margin-top:8px;"></div>
     </div>
@@ -2094,6 +2107,8 @@ nSweepBtn.addEventListener("click", async () => {
   const canvas = document.getElementById("nSweepChart");
   const leachCanvas = document.getElementById("nLeachChart");
   const leachNote = document.getElementById("nLeachNote");
+  const volatCanvas = document.getElementById("nVolatChart");
+  const volatNote = document.getElementById("nVolatNote");
   nSweepBtn.disabled = true;
   nSweepBtn.textContent = "Running...";
   try {
@@ -2109,6 +2124,9 @@ nSweepBtn.addEventListener("click", async () => {
     // keeps tillage_doy/tillage_implement both None -- byte-identical to the
     // pre-tillage-control code path, verified in CLAUDE.md's own account of this.
     pyodide.globals.set("run_tillage", document.getElementById("nSweepTillage").value);
+    // Same "" (Not modeled) -> falsy -> soil_ph=None pattern as tillage above --
+    // byte-identical to the pre-ammonia-loss code path when left at its default.
+    pyodide.globals.set("run_soil_ph", document.getElementById("nSweepPh").value);
     // When use_resolved_site is false (the default, Rock Springs), this reproduces
     // the exact pre-site-picker code path byte-for-byte -- ALL_WX/CORN/SOYBEAN
     // untouched, no call-scoped copy. Only the resolved-site branch builds a
@@ -2133,13 +2151,16 @@ if use_resolved_site:
 else:
     _wx_year = ALL_WX[run_year]
 _tillage_val = run_tillage or None
+_ph_val = float(run_soil_ph) if run_soil_ph else None
 plant_doy, rows = build_season_rows(_wx_year, crop_obj)
 rates = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650]
 sweep_out = []
 for r in rates:
     res = simulate_season(rows, crop_obj, n_rate_kg_ha=r,
-                           tillage_doy=(plant_doy if _tillage_val else None), tillage_implement=_tillage_val)
-    sweep_out.append({"n_rate": r, "grain": res["grain"], "leached": res.get("n_leached_kg_ha", 0.0)})
+                           tillage_doy=(plant_doy if _tillage_val else None), tillage_implement=_tillage_val,
+                           soil_ph=_ph_val)
+    sweep_out.append({"n_rate": r, "grain": res["grain"], "leached": res.get("n_leached_kg_ha", 0.0),
+                       "volatilized": res.get("n_volatilized_kg_ha", 0.0)})
 json.dumps(sweep_out)
 `);
     const data = JSON.parse(out);
@@ -2150,6 +2171,8 @@ json.dumps(sweep_out)
       note.textContent = "Soybean fixes its own nitrogen -- yield is identical at every rate, as expected.";
       leachCanvas.style.display = "none";
       leachNote.style.display = "none";
+      volatCanvas.style.display = "none";
+      volatNote.style.display = "none";
       document.getElementById("nProfitChart").style.display = "none";
       document.getElementById("nProfitNote").style.display = "none";
       document.getElementById("nFrontierHeading").style.display = "none";
@@ -2170,6 +2193,15 @@ json.dumps(sweep_out)
         `(${data[0].leached.toFixed(1)} to ${data[data.length - 1].leached.toFixed(1)} kg N/ha across the same range) -- ` +
         `once the crop can't use more, every added kg just leaches.`;
       leachNote.style.display = "block";
+      volatCanvas.style.display = "block";
+      drawBarChart(volatCanvas, data.map(d => d.n_rate + ""), data.map(d => d.volatilized), { color: "#8e5b3f" });
+      const anyVolat = data.some(d => d.volatilized > 0);
+      volatNote.textContent = anyVolat
+        ? `Ammonia lost to the air is a separate pathway from leaching -- it never reaches the water, but it also never ` +
+          `reaches the crop (${data[0].volatilized.toFixed(1)} to ${data[data.length - 1].volatilized.toFixed(1)} kg N/ha ` +
+          `across this range). It scales with the amount applied, not the crop's need, so it climbs steadily like leaching does.`
+        : `No ammonia loss modeled for this run -- pick a soil pH above to see how much nitrogen this pathway can account for.`;
+      volatNote.style.display = "block";
       renderProfitChart();
     }
     note.style.display = "block";
@@ -2654,6 +2686,28 @@ function buildTillageFieldHTML(id) {
   </div>`;
 }
 
+// Macnack, Chim & Raun (2013) needs a real soil pH to estimate ammonia loss, and this
+// engine has no real pH data source anywhere (STATSGO2 carries no pH field) -- so, like
+// tillage practice, this is a curated set of real, labeled values a student picks rather
+// than a raw numeric input with no context for what's plausible. "" (Not modeled) keeps
+// soil_ph=None, byte-identical to this page's pre-existing (no ammonia loss) behavior.
+const SOIL_PH_OPTIONS = [
+  { value: "", label: "Not modeled (no ammonia loss estimate)" },
+  { value: "5.5", label: "pH 5.5 (acidic)" },
+  { value: "6.5", label: "pH 6.5 (neutral, typical cropland)" },
+  { value: "7.5", label: "pH 7.5 (slightly alkaline)" },
+  { value: "8.5", label: "pH 8.5 (alkaline, higher loss risk)" },
+];
+
+function buildSoilPhFieldHTML(id) {
+  return `<div class="field">
+    <label>Soil pH (ammonia loss estimate)</label>
+    <select id="${id}">
+      ${SOIL_PH_OPTIONS.map((o) => `<option value="${o.value}">${o.label}</option>`).join("")}
+    </select>
+  </div>`;
+}
+
 // Five preset sites, chosen to span genuinely different real soil/weather
 // regimes and already confirmed (via a direct Node check against the
 // committed weather-tiles manifest and statsgo2_soil_grid.json.gz before
@@ -2919,6 +2973,8 @@ document.getElementById("srRunBtn").addEventListener("click", async () => {
 document.getElementById("nSweepTillageField").innerHTML = buildTillageFieldHTML("nSweepTillage");
 document.getElementById("fieldTillageField").innerHTML = buildTillageFieldHTML("fieldTillage");
 document.getElementById("rotTillageField").innerHTML = buildTillageFieldHTML("rotTillage");
+document.getElementById("nSweepPhField").innerHTML = buildSoilPhFieldHTML("nSweepPh");
+document.getElementById("fieldPhField").innerHTML = buildSoilPhFieldHTML("fieldPh");
 
 document.getElementById("currentSiteKmlInput").addEventListener("change", async (e) => {
   const file = e.target.files[0];
@@ -2951,7 +3007,7 @@ function updateFieldRunButton() {
   }
 }
 
-async function runFieldSlot(slot, year, tillageVal) {
+async function runFieldSlot(slot, year, tillageVal, phVal) {
   const state = fieldState[slot];
   pyodide.globals.set("field_wx_json", JSON.stringify(state.weather));
   pyodide.globals.set("field_soil_json", JSON.stringify(state.soilLayers));
@@ -2961,6 +3017,8 @@ async function runFieldSlot(slot, year, tillageVal) {
   // "" (No tillage, the default) reproduces this function's exact pre-tillage-
   // control behavior, same as the nitrogen-sweep panel's own tillage control.
   pyodide.globals.set("field_tillage", tillageVal || "");
+  // Same shared-not-per-field reasoning and "" -> None default as tillage above.
+  pyodide.globals.set("field_soil_ph", phVal || "");
   // Builds a fresh, call-scoped CORN variant with its own make_layers() closing
   // over this field's own soil -- deliberately does NOT touch the shared global
   // SOIL_LAYERS_RAW/CORN, so this never leaks into the Rock Springs panel above
@@ -2978,6 +3036,7 @@ def _field_make_layers():
 _field_crop = dict(CORN)
 _field_crop["make_layers"] = _field_make_layers
 _field_tillage_val = field_tillage or None
+_field_ph_val = float(field_soil_ph) if field_soil_ph else None
 _wx_year = _field_wx.get(field_year)
 if _wx_year is None:
     _result = {"error": f"No weather data for {field_year}"}
@@ -2985,7 +3044,7 @@ else:
     _plant_doy, _rows = build_season_rows(_wx_year, _field_crop)
     _res = simulate_season(_rows, _field_crop, n_rate_kg_ha=150.0, record_history=False,
                             tillage_doy=(_plant_doy if _field_tillage_val else None),
-                            tillage_implement=_field_tillage_val)
+                            tillage_implement=_field_tillage_val, soil_ph=_field_ph_val)
     _result = {"plant_doy": _plant_doy, **_res}
 json.dumps(_result)
 `);
@@ -3001,14 +3060,16 @@ document.getElementById("fieldRunBtn").addEventListener("click", async () => {
   try {
     const slots = fieldState.B ? ["A", "B"] : ["A"];
     const tillageVal = document.getElementById("fieldTillage").value;
+    const phVal = document.getElementById("fieldPh").value;
     const results = {};
     for (const slot of slots) {
-      results[slot] = await runFieldSlot(slot, year, tillageVal);
+      results[slot] = await runFieldSlot(slot, year, tillageVal, phVal);
     }
     const labels = slots.map((s) => `Field ${s}`);
     const grain = slots.map((s) => results[s].grain ?? 0);
     const ag = slots.map((s) => results[s].ag ?? 0);
     const leached = slots.map((s) => results[s].n_leached_kg_ha ?? 0);
+    const volatilized = slots.map((s) => results[s].n_volatilized_kg_ha ?? 0);
     const colors = ["#2471a3", "#c0392b"];
 
     document.getElementById("fieldRunTable").innerHTML = `
@@ -3017,14 +3078,17 @@ document.getElementById("fieldRunBtn").addEventListener("click", async () => {
       <tr><td>Grain yield (Mg/ha)</td>${slots.map((s) => `<td>${(results[s].grain ?? 0).toFixed(2)}</td>`).join("")}</tr>
       <tr><td>Aboveground biomass (Mg/ha)</td>${slots.map((s) => `<td>${(results[s].ag ?? 0).toFixed(2)}</td>`).join("")}</tr>
       <tr><td>Nitrogen leached (kg N/ha)</td>${slots.map((s) => `<td>${(results[s].n_leached_kg_ha ?? 0).toFixed(1)}</td>`).join("")}</tr>
+      <tr><td>Ammonia volatilized (kg N/ha)</td>${slots.map((s) => `<td>${(results[s].n_volatilized_kg_ha ?? 0).toFixed(1)}</td>`).join("")}</tr>
     `;
     drawBarChart(document.getElementById("fieldYieldChart"), labels, grain, { colors, yLabel: "Grain yield (Mg/ha)" });
     drawBarChart(document.getElementById("fieldAgChart"), labels, ag, { colors, yLabel: "AG biomass (Mg/ha)" });
     drawBarChart(document.getElementById("fieldLeachChart"), labels, leached, { colors, yLabel: "N leached (kg/ha)" });
+    drawBarChart(document.getElementById("fieldVolatChart"), labels, volatilized, { colors, yLabel: "N volatilized (kg/ha)" });
     const tillageLabel = TILLAGE_OPTIONS.find((o) => o.value === tillageVal)?.label ?? "No tillage (direct seed)";
+    const phLabel = SOIL_PH_OPTIONS.find((o) => o.value === phVal)?.label ?? "Not modeled (no ammonia loss estimate)";
     document.getElementById("fieldRunNote").textContent = slots.length === 2
-      ? `Both fields run against the same ${year} weather year, ${tillageLabel.toLowerCase()}, and a fixed 150 kg N/ha, so any difference is real soil and location, not a different input.`
-      : `Ran Field A for ${year} (${tillageLabel.toLowerCase()}). Upload a Field B KML and run again to compare two real locations side by side.`;
+      ? `Both fields run against the same ${year} weather year, ${tillageLabel.toLowerCase()}, ${phLabel.toLowerCase()}, and a fixed 150 kg N/ha, so any difference is real soil and location, not a different input.`
+      : `Ran Field A for ${year} (${tillageLabel.toLowerCase()}, ${phLabel.toLowerCase()}). Upload a Field B KML and run again to compare two real locations side by side.`;
     resultBox.style.display = "block";
     status.textContent = "";
   } catch (err) {
