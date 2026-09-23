@@ -39,7 +39,8 @@ def make_layers():
 SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43,
                rue=1.3, wue=4.5, hi_x=0.4, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
                kc=1.0, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=LAT,
-               make_layers=make_layers, calibration_factor=1.116,
+               make_layers=make_layers, calibration_factor=0.9643,  # re-derived 2026-09-23 for the
+               # real-data TTF50_SHOOT_PARTITION refit (0.5 -> 0.32) -- see cycles_engine_validate.py
                n_max_conc=0.07, n_dilution_slope=0.4, legume=True,  # real GenericCrops.crop values;
                # soybean fixes its own N (LEGUME=1) so the nitrogen knob correctly has no effect on it
                depletion_fraction=0.50,  # real FAO-56 Table 22 value for soybeans -- same as this
@@ -49,7 +50,10 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
              rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
              kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=LAT,
-             make_layers=make_layers, calibration_factor=0.716, depletion_fraction=0.55,  # real FAO-56 Table 22 (winter/spring wheat)
+             make_layers=make_layers, calibration_factor=0.6241,  # re-derived 2026-09-23 for the
+             # real-data TTF50_SHOOT_PARTITION refit -- this fix is also the one that improved
+             # wheat's own correlation (0.223 -> 0.276), see cycles_engine_validate.py
+             depletion_fraction=0.55,  # real FAO-56 Table 22 (winter/spring wheat)
              canopy_shape=(5, -14, -15, 16),  # refit from real data -- see QUESTIONS_FOR_DEVS.md item 5;
                                                # fixes level bias, does NOT fix wheat's weak correlation
              tr_max_mm_day=8)  # real GenericCrops.crop TRANSPIRATION_MAX (WinterWheat)
@@ -57,7 +61,8 @@ WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
 CORN_SILAGE = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
                     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
                     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=LAT,
-                    make_layers=make_layers, forage_fraction=0.95, calibration_factor=0.806,
+                    make_layers=make_layers, forage_fraction=0.95, calibration_factor=0.6735,  # re-derived
+                    # 2026-09-23 for the real-data TTF50_SHOOT_PARTITION refit -- see cycles_engine_validate.py
                     depletion_fraction=0.55,  # real FAO-56 Table 22 value, same crop biology as grain corn
                     canopy_shape=CORN_CANOPY_SHAPE,  # real fix (thermal time, canopy shape, harvest
                     # date, forage ratio all individually verified accurate) does NOT move correlation

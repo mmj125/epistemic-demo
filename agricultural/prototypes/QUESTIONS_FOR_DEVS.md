@@ -17,12 +17,6 @@ against real Cycles output before concluding the gap is real.
    is actually present anywhere in the document (SI Section II is transpiration
    only). What's the actual formula?
 
-3. **Shoot/root partitioning's `TTf50` parameter (Eq. SI.8-11).** The equation and
-   its shape parameters (`fsti`, `fstf`) are given, but `TTf50` (the thermal-time
-   fraction at half-max allocation) has no stated numeric value or way to derive it
-   per crop. We used 0.5 (the literal reading of the parameter's own name) --
-   confirm or correct.
-
 4. **Perennial forage cutting trigger (`CLIPPING_BIOMASS_THRESHOLD_UPPER` /
    `HARVEST_TIMING` interaction).** For orchardgrass at Rock Springs (real
    `GenericCrops.crop` values verified directly: `MATURITY_TT=1500`,
@@ -148,27 +142,87 @@ against real Cycles output before concluding the gap is real.
      What is wheat's actual root growth function, and does WATER STRESS for
      wheat reflect soil moisture alone or something else layered on top?
 
-7. **The soil water redistribution scheme (Eq. 1-2) is disclosed but requires
-   soil hydraulic parameters we don't have a verified source for.** The paper
-   gives the real capacitance-weighted flow equation (khe as a function of
-   saturated hydraulic conductivity ks, air-entry potential psi_e, and the
-   moisture-release-curve exponent b, integrated between current water
-   potential and field capacity) rather than our simplified same-day cascading
-   bucket. Saxton and Rawls (2006) -- the same paper we already use for field
-   capacity/wilting point/saturation -- reportedly also gives b, psi_e, and Ks
-   as functions of soil texture, but we could not verify the exact secondary
-   formulas from a reachable public source this session (every mirror we tried
-   was blocked by this sandbox's network policy, not a paywall we could
-   confirm). If the devs can point to Cycles' own effective/reduced form of Eq.
-   1-2 (e.g. what it collapses to at a daily timestep, if anything), or confirm
-   the exact Saxton-Rawls secondary formulas, that would let us implement the
-   real redistribution physics instead of the bucket approximation -- which we
-   now believe is the most likely single fix for silage corn's timing problem
-   (item 6) and possibly a contributor to wheat's, though wheat's anomaly above
-   looks like a separate, crop-specific issue on top of this.
+7. **The soil water redistribution scheme (Eq. 1-2) -- largely resolved, one piece
+   still open.** Originally: the paper gives the real capacitance-weighted flow
+   equation (khe as a function of saturated hydraulic conductivity ks, air-entry
+   potential psi_e, and the moisture-release-curve exponent b) but we lacked a
+   verified source for Saxton and Rawls (2006)'s own secondary formulas for those
+   three soil-texture-dependent quantities. **Update:** Matt independently obtained
+   the real Saxton & Rawls (2006) paper directly (a PDF, since this sandbox's own
+   network policy blocked every mirror tried), and we implemented and verified all
+   three secondary parameters against the paper's own Table 3 worked examples to
+   the displayed precision. Separately, derived a real closed-form solution to
+   Eq. 1's own literal integral (substituting Campbell's 1974 power-law moisture-
+   release curve collapses both the numerator and denominator to simple power
+   functions), verified against brute-force numerical integration to ~1e-15
+   relative error, and implemented with 24-substep-per-day numerical integration
+   (Eq. 2's own adaptive step-size scheme approximated by a fixed, sufficiently
+   fine count -- checked directly that 24 is already converged: 96 and 480
+   substeps move nothing beyond the third decimal). This IS now real redistribution
+   physics, not the bucket approximation described above. What's left open: this
+   is still a same-day (not truly sub-daily/multi-day) integration of the governing
+   rate law, and its effect on the four validated crops' correlations was small and
+   mixed (a genuine, if modest, net improvement for corn/soybean/silage-corn, no
+   improvement for wheat) -- consistent with our own finding that wheat's anomaly
+   (above) looks like a separate, crop-specific issue on top of this, not primarily
+   a redistribution-physics gap.
+
+8. **Cold damage's exact effect on canopy and thermal time is disclosed
+   qualitatively but never quantified anywhere we could find.** The main paper
+   states plainly that "haying, grazing, tillage, and cold damage reduce
+   [interception] and [thermal-time fraction], rejuvenating the canopy" (Sec. 2.4)
+   -- the same category of effect as a cutting/grazing event, not a simple growth-
+   rate penalty. Real, per-crop `MIN_TEMPERATURE_FOR_COLD_DAMAGE`/
+   `THRESHOLD_TEMPERATURE_FOR_COLD_DAMAGE` values exist in `GenericCrops.crop` and
+   are dramatically differentiated by crop (corn/soybean: threshold ~2-3 deg C, min
+   -5 deg C; winter wheat: threshold -10 deg C, min -25 deg C) -- real data,
+   currently unused entirely. Checked how often this would actually trigger before
+   investing further: corn's real threshold is crossed on 246 days across the full
+   37-year Rock Springs record (its own min is never reached), and wheat's is
+   crossed on 610 days across its real fall-to-summer seasons -- this is not a rare
+   edge case for either crop. Searched the general crop-modeling literature (not
+   just Cycles' own sources) for a portable cold-damage function: confirmed linear/
+   trapezoidal threshold-to-minimum response functions are the standard shape used
+   elsewhere (STICS, WOFOST), and a real "Frost Damage Index" concept exists
+   specifically for wheat canopy-cover loss with a base temperature of -9 deg C
+   (strikingly close to Cycles' own -10 deg C wheat threshold, a real corroborating
+   cross-check) -- but no source found gives an implementable formula for the
+   MAGNITUDE of the canopy/thermal-time "rejuvenation," only its qualitative shape
+   and plausible threshold range. This is the same open category of problem as
+   item 4 (the pasture cutting trigger) -- a real, disclosed "reset" mechanism
+   whose exact reset magnitude isn't recoverable from any source tried. Not
+   implemented rather than guessed at, per this project's own standing discipline.
+   What is the actual formula (or its Kemanian & Stockle 2010 / Camargo & Kemanian
+   2016 citable source, if one exists) for how much cold damage reduces interception
+   and thermal-time fraction?
 
 ## Resolved without asking (kept here for the record, not blocking)
 
+- **Shoot/root partitioning's `TTf50` parameter, formerly item 3.** The equation and
+  its shape parameters (`fsti`, `fstf`) are given (Eq. SI.8-11) but `TTf50` (the
+  thermal-time fraction at half-max allocation) had no stated numeric value -- we'd
+  used 0.5, the literal reading of the parameter's own name, as a placeholder.
+  Resolved with real data instead of a guess: the equation implies the
+  INSTANTANEOUS (marginal) shoot fraction of a day's new growth equals
+  `shoot_fraction(ttf)` exactly (since `dAG = dGB*shoot_fraction(ttf)` and
+  `dTotal = dGB`), so day-to-day differences in real Cycles' own daily AG BIOMASS/
+  BIOMASS output give real, direct (ttf, marginal-fraction) data points to fit
+  against. Pulled 5174 such points from four independent real daily-output files
+  (two separate corn seasons, soybean, wheat) and fit `TTf50` against each
+  independently: every one converged tightly to 0.315-0.335 (corn 0.320 and 0.317,
+  soybean 0.316, wheat 0.335), a ~11x reduction in sum-of-squared-error versus 0.5
+  (pooled fit: 0.3205, rounded to 0.32). Re-derived each validated crop's
+  `calibration_factor` afterward to keep mean yield matching real output (the same
+  residual-scale-correction step this project always takes after a shoot/root or
+  canopy fix) -- correlation is scale-invariant under that step, so it's not
+  double-counted. Net effect: wheat's correlation improved meaningfully (0.223 ->
+  0.276, the largest single movement from any water/canopy fix this session), while
+  corn/soybean/silage corn each moved slightly down (corn 0.546->0.544, soybean
+  0.857->0.846, silage corn 0.523->0.510) -- kept despite the small net-negative
+  spread on three of four crops, since this is a real, direct, strongly
+  cross-validated measurement of the actual underlying quantity (not an inferred or
+  guessed shape the way the reverted power-law water-stress fit was), and the
+  literal-name 0.5 it replaces was never anything but a placeholder.
 - **Curve-number moisture adjustment (`fwc`), formerly item 1.** SI Section III
   describes it only in words ("1 for a soil saturated to a depth of 0.6 m...
   decreases to zero if the soil is air dry... depth-weighted... surface having the

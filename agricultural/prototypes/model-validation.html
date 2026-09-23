@@ -181,15 +181,15 @@
       good and bad as real Cycles does? Percent error asks: in any single year, how far off is our number?
       A model can be close on average magnitude every year while still scoring a weak correlation, if it
       gets the individual highs and lows in the wrong places &mdash; that is exactly what happens with corn
-      grain yield below (8.5% mean error, but only 0.540 correlation, not "46% off").
+      grain yield below (8.7% mean error, but only 0.544 correlation, not "46% off").
     </div>
 
     <table>
       <tr><th>Crop / rotation</th><th>Real mean</th><th>Model mean</th><th>Mean % error</th><th>Correlation</th><th>Status</th></tr>
-      <tr><td>Soybean grain</td><td>4.72 Mg/ha</td><td>4.72 Mg/ha</td><td>5.0%</td><td>0.846</td><td><span class="tag tag-pass">passes bar</span></td></tr>
-      <tr><td>Corn grain (continuous)</td><td>10.56 Mg/ha</td><td>10.96 Mg/ha</td><td>8.5%</td><td>0.540</td><td><span class="tag tag-fail">below bar</span></td></tr>
-      <tr><td>Silage corn forage</td><td>14.81 Mg/ha</td><td>14.80 Mg/ha</td><td>9.2%</td><td>0.501</td><td><span class="tag tag-fail">below bar</span></td></tr>
-      <tr><td>Winter wheat grain</td><td>4.33 Mg/ha</td><td>4.33 Mg/ha</td><td>12.1%</td><td>0.253</td><td><span class="tag tag-fail">below bar</span></td></tr>
+      <tr><td>Soybean grain</td><td>4.72 Mg/ha</td><td>4.72 Mg/ha</td><td>5.3%</td><td>0.846</td><td><span class="tag tag-pass">passes bar</span></td></tr>
+      <tr><td>Corn grain (continuous)</td><td>10.56 Mg/ha</td><td>10.56 Mg/ha</td><td>8.7%</td><td>0.544</td><td><span class="tag tag-fail">below bar</span></td></tr>
+      <tr><td>Silage corn forage</td><td>14.81 Mg/ha</td><td>14.81 Mg/ha</td><td>8.8%</td><td>0.510</td><td><span class="tag tag-fail">below bar</span></td></tr>
+      <tr><td>Winter wheat grain</td><td>4.33 Mg/ha</td><td>4.33 Mg/ha</td><td>11.9%</td><td>0.276</td><td><span class="tag tag-fail">below bar</span></td></tr>
       <tr><td>Pasture perennials (orchardgrass, etc.)</td><td colspan="2">real annual yield 5.25&ndash;7.94 Mg/ha, not tracked</td><td>&mdash;</td><td>&minus;0.28 to 0.16<br>(across 4 tested fixes)</td><td><span class="tag tag-unresolved">unresolved</span></td></tr>
       <tr><td>Winter rye / hairy vetch (cover)</td><td colspan="4">no real Cycles reference data available to correlate against &mdash; RUE/WUE are real (SI Table SI.2), everything else borrowed</td><td><span class="tag tag-unresolved">unvalidated</span></td></tr>
     </table>
@@ -212,22 +212,35 @@
     per-crop calibration factor is fitted to match, and a good yield match can hide a worse upstream one.</p>
     <table>
       <tr><th>Variable</th><th>Real mean</th><th>Model mean</th><th>Mean % error</th><th>Correlation</th><th>What this shows</th></tr>
-      <tr><td>Grain yield</td><td>10.56 Mg/ha</td><td>10.96 Mg/ha</td><td>8.5%</td><td>0.540</td><td>the calibrated, reported number</td></tr>
-      <tr><td>Total biomass</td><td>24.30 Mg/ha</td><td>31.20 Mg/ha</td><td>29.1%</td><td>0.603</td><td>uncalibrated &mdash; the real upstream miss the grain calibration factor is masking</td></tr>
-      <tr><td>Aboveground biomass</td><td>21.02 Mg/ha</td><td>23.23 Mg/ha</td><td>11.3%</td><td>0.585</td><td>closer than total biomass since root partitioning (Eq. SI.8-11) corrects some of it</td></tr>
-      <tr><td>Harvest index (grain &divide; AG biomass)</td><td>0.501</td><td>0.472</td><td>6.1%</td><td>0.099</td><td>average level is close, but which years have a higher/lower ratio barely tracks at all</td></tr>
+      <tr><td>Grain yield</td><td>10.56 Mg/ha</td><td>10.56 Mg/ha</td><td>8.7%</td><td>0.544</td><td>the calibrated, reported number</td></tr>
+      <tr><td>Total biomass</td><td>24.30 Mg/ha</td><td>31.45 Mg/ha</td><td>30.1%</td><td>0.608</td><td>uncalibrated &mdash; the real upstream miss the grain calibration factor is masking</td></tr>
+      <tr><td>Aboveground biomass</td><td>21.02 Mg/ha</td><td>27.22 Mg/ha</td><td>30.3%</td><td>0.595</td><td>no longer meaningfully closer than total biomass (see note below, 2026-09-23)</td></tr>
+      <tr><td>Harvest index (grain &divide; AG biomass)</td><td>0.501</td><td>0.561</td><td>12.1%</td><td>0.076</td><td>average level is close but now overestimates, not underestimates; year-to-year rank still barely tracks</td></tr>
       <tr><td>Planting date (day of year)</td><td>121.7</td><td>119.2</td><td>2.1%</td><td>0.824</td><td>the soil-temperature-trigger proxy, the strongest correlation in this table</td></tr>
       <tr><td>Reference ET (day-by-day, 2012)</td><td>2.81 mm/day</td><td>2.82 mm/day</td><td>0.4%</td><td>1.000</td><td>a standard external formula (FAO-56), expected to be nearly exact</td></tr>
     </table>
     <p style="margin-top:10px;">Read plainly: this model gets a standard external physics formula (reference
     ET) essentially exactly right, gets planting timing quite good, and gets final grain yield reasonably
-    close in magnitude (~8-9% mean error across corn/soybean/silage corn) while tracking year-to-year rank
-    only moderately (0.5-0.85 correlation, weakest for wheat). The real weak point isn't the final yield
-    number itself, it's total biomass upstream of it (29% mean error, worse than grain) &mdash; grain looks
+    close in magnitude (~9-12% mean error across corn/soybean/silage corn) while tracking year-to-year rank
+    only moderately (0.54-0.85 correlation, weakest for wheat). The real weak point isn't the final yield
+    number itself, it's total biomass upstream of it (30% mean error, worse than grain) &mdash; grain looks
     better than the model underneath it actually is, because the per-crop calibration factor is fitted at
     the grain stage specifically, not verified against the biomass or harvest-index stages independently.
     Harvest index is the clearest illustration of correlation and percent error diverging: the average ratio
-    is only 6% off, but which particular years get a higher or lower ratio is close to uncorrelated (0.099).</p>
+    is only 12% off, but which particular years get a higher or lower ratio is close to uncorrelated (0.076).</p>
+    <div class="note" style="margin-top:10px;">
+      <strong>Note, 2026-09-23:</strong> aboveground biomass used to be noticeably closer to real output than
+      total biomass (11.3% vs. 29.1% mean error), attributed to the real shoot/root partitioning equation
+      (Eq. SI.8-11) correcting some of the gap. After refitting that equation's own <code>TTf50</code>
+      parameter against real Cycles data (see the gap list below, item 13) -- moving it from a literal-name
+      guess of 0.5 to a data-fit 0.32 -- aboveground and total biomass errors converged to nearly the same
+      value (30.3% vs. 30.1%). This makes sense: a much lower <code>TTf50</code> assigns new growth to shoot
+      much earlier in the season, so less of the season's total growth is ever attributed to root at all,
+      and the AG/total split matters less than it used to for explaining the gap. The gap itself didn't get
+      worse in an absolute sense (grain yield's own error and correlation both held steady or improved
+      slightly) -- root partitioning simply stopped being the story for why AG biomass looked better than
+      total biomass.
+    </div>
 
     <div class="note" style="margin-top:14px;">
       <strong>Correction made while building this page (2026-09-22):</strong> corn's own figure has been
@@ -540,6 +553,52 @@
       that crop -- consistent with wheat's already-documented, separately-diagnosed anomaly (its real
       reported stress is far larger than its real soil moisture depletion would explain by any
       standard function, item 4 above), not evidence this specific fix was wrong to make.</p>
+    </details>
+    <details class="gap">
+      <summary>13. Shoot/root partitioning's <code>TTf50</code> parameter &mdash; replaced a literal-name
+      guess with a real-data fit (resolved, 2026-09-23)</summary>
+      <p>Eq. SI.8-11 gives the shoot/root allocation curve and its shape parameters (<code>fsti</code>,
+      <code>fstf</code>) but never states <code>TTf50</code> (the thermal-time fraction at half-max
+      allocation) numerically. This engine had defaulted to 0.5, the literal reading of the
+      parameter's own name, since there was nothing else to go on.</p>
+      <p>Resolved with real data instead of another guess: the equation implies the day's
+      <em>instantaneous</em> shoot fraction of new growth equals <code>shoot_fraction(ttf)</code>
+      exactly, so day-to-day differences in real Cycles' own daily AG BIOMASS/BIOMASS output give
+      direct (ttf, marginal-fraction) measurements. Pulled 5174 such points from four independent real
+      daily-output files (two separate corn seasons, soybean, wheat) and fit <code>TTf50</code>
+      against each independently &mdash; every one converged tightly to 0.315-0.335, an ~11x reduction
+      in squared error versus 0.5. Pooled fit: 0.3205, rounded to 0.32.</p>
+      <p>Re-derived each crop's <code>calibration_factor</code> afterward to keep mean yield matching
+      real output (correlation is scale-invariant under that step, so this doesn't hide anything).
+      Honest result: wheat's correlation improved meaningfully (0.253&rarr;0.276 from where item 12
+      left it, the largest single movement from any water/canopy fix this session), while corn,
+      soybean, and silage corn each moved slightly down (corn 0.546&rarr;0.544, soybean
+      0.857&rarr;0.846, silage corn 0.523&rarr;0.510). Kept despite the small net-negative spread on
+      three of four crops: unlike item 12's reverted power-law fit, this is a direct, strongly
+      cross-validated measurement of the real underlying quantity from four independent real datasets,
+      not an inferred shape, and the value it replaces was never anything but a placeholder.</p>
+    </details>
+    <details class="gap">
+      <summary>14. Cold damage to canopy/thermal-time is disclosed qualitatively, not quantitatively
+      &mdash; investigated, not implemented</summary>
+      <p>The paper states plainly that "haying, grazing, tillage, and cold damage reduce [canopy
+      interception] and [thermal-time fraction], rejuvenating the canopy" (Sec. 2.4) &mdash; the same
+      category of effect as a cutting event, not a simple growth-rate penalty. Real, per-crop
+      <code>MIN_TEMPERATURE_FOR_COLD_DAMAGE</code>/<code>THRESHOLD_TEMPERATURE_FOR_COLD_DAMAGE</code>
+      values exist in the crop file and are dramatically differentiated by crop (corn/soybean:
+      threshold ~2-3&deg;C; winter wheat: threshold -10&deg;C, min -25&deg;C) &mdash; real data, never
+      used anywhere in this engine.</p>
+      <p>Checked whether it would even matter before investing further: corn's real threshold is
+      crossed on 246 days across the full 37-year Rock Springs record, wheat's on 610 days across its
+      real seasons &mdash; not a rare edge case for either crop. Searched the general crop-modeling
+      literature (STICS, WOFOST) for a portable cold-damage function and found the standard shape is a
+      linear/trapezoidal threshold-to-minimum ramp, plus a real "Frost Damage Index" concept
+      specifically for wheat with a base temperature of -9&deg;C &mdash; strikingly close to Cycles'
+      own -10&deg;C wheat threshold, a real corroborating cross-check. But no source found gives an
+      implementable formula for the <em>magnitude</em> of the canopy/thermal-time "rejuvenation," only
+      its qualitative shape. This is the same open category as item 3 (the pasture cutting trigger)
+      &mdash; a real, disclosed reset mechanism whose exact reset size isn't recoverable from any
+      source tried. Not implemented rather than guessed at.</p>
     </details>
 
     <p style="margin-top:14px;">This list is deliberately not flattering. It's the same list we'd want
@@ -946,7 +1005,7 @@ def transpiration_temp_factor(tmean, min_t, threshold_t):
         return 1.0
     return (tmean - min_t) / (threshold_t - min_t)
 
-TTF50_SHOOT_PARTITION = 0.5
+TTF50_SHOOT_PARTITION = 0.32  # real-data fit against real Cycles daily output (2026-09-23); see cycles_engine_validate.py
 
 def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
     ttf = max(1e-6, ttf)
@@ -1277,7 +1336,7 @@ def make_layers():
 
 CORN = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=0.841, canopy_shape=CORN_CANOPY_SHAPE,
+    calibration_factor=0.6913, canopy_shape=CORN_CANOPY_SHAPE,
     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=40.6875, make_layers=make_layers,
     n_max_conc=0.055, n_dilution_slope=0.4, legume=False,
     depletion_fraction=0.55,  # real FAO-56 Table 22 value for maize, field (grain)
@@ -1304,7 +1363,7 @@ CORN_LONG_SEASON["flowering_tt"] = 1300
 
 SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43,
     rue=1.3, wue=4.5, hi_x=0.4, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=1.116, kc=1.0, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0,
+    calibration_factor=0.9643, kc=1.0, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0,
     n_max_conc=0.07, n_dilution_slope=0.4, legume=True,
     depletion_fraction=0.50,  # real FAO-56 Table 22 value for soybeans -- same as the old default
     tr_max_mm_day=8,  # real GenericCrops.crop TRANSPIRATION_MAX (SoybeanMG.5)
@@ -1316,7 +1375,7 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
 # since it's the only one this engine has real parameters for, not because it's accurate).
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
     rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=0.716, canopy_shape=(5, -14, -15, 16),
+    calibration_factor=0.6241, canopy_shape=(5, -14, -15, 16),
     kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=40.6875, make_layers=make_layers,
     n_max_conc=0.07, n_dilution_slope=0.45, legume=False,
     depletion_fraction=0.55, tr_max_mm_day=8)  # real FAO-56 Table 22 (winter/spring wheat);
