@@ -198,6 +198,21 @@ against real Cycles output before concluding the gap is real.
 
 ## Resolved without asking (kept here for the record, not blocking)
 
+- **Real per-crop `THERMAL_TIME_TO_EMERGENCE` wired in -- confirmed correct, a tiny effect.**
+  Real Cycles' own daily crop output has an explicit `PRE_EMERGENCE` stage with EXACTLY zero
+  biomass from planting through this threshold (verified directly against real output: corn's
+  own biomass column is 0.000000 through thermal time 64.47, then 0.001000 the very next day
+  at 69.997 -- a hard cutoff at the crop file's own real value, 65). This engine's canopy-cover
+  formula, by contrast, gives a small but nonzero value even at ttf=0 (e.g. eie~0.0025 for
+  corn), so some (tiny) growth was happening before real Cycles would allow any at all. Gated
+  `eie` to exactly 0 before `crop.get("tt_emergence", 0.0)` is reached, which zeroes both
+  radiation- and transpiration-limited growth exactly (both terms are literally multiplied by
+  `eie`). Real per-crop values wired in: corn/silage corn 65, soybean 70, wheat 100
+  (degree-days). Effect on the four validated crops' correlations: none to three decimals
+  (0.544/0.846/0.276/0.510-0.511 unchanged); means shifted by ~0.01 Mg/ha at most, small enough
+  that each crop's `calibration_factor` only needed a 4th-decimal nudge. Kept regardless, same
+  standard as `TRANSPIRATION_MAX` and root depth -- real, disclosed, verified correct against
+  real output, genuinely negligible at this model's current precision but not wrong to have.
 - **Real per-crop `MAXIMUM_ROOTING_DEPTH` wired in -- confirmed correct, currently a null
   result everywhere we've tested it.** `root_max_m` (the parameter controlling how deep a
   crop's roots can reach for soil moisture) had been a single hardcoded 1.4m shared by every

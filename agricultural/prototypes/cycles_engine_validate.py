@@ -913,7 +913,8 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf, curve_numbe
         ttf = tt_cum / crop["tt_maturity"]
         if ttf >= harvest_ttf:
             break
-        eie = canopy_cover(ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE))
+        eie = 0.0 if tt_cum < crop.get("tt_emergence", 0.0) else canopy_cover(
+            ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE))
         root_depth = root_max_m * min(1.0, ttf / 0.5)
 
         if tillage_doy is not None and w["doy"] == tillage_doy:
@@ -1251,7 +1252,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         ttf = tt_cum / crop["tt_maturity"]
         if ttf >= harvest_ttf:
             break
-        eie = canopy_cover(ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE))
+        eie = 0.0 if tt_cum < crop.get("tt_emergence", 0.0) else canopy_cover(
+            ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE))
         root_depth = root_max_m * min(1.0, ttf / 0.5)
 
         # Tillage's soil-moisture mixing happens once, on tillage_doy itself, before
