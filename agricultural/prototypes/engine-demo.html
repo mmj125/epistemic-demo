@@ -1255,11 +1255,18 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
 NH3_FRAC_SYNTHETIC = 0.10  # real IPCC Tier-1 default (FracGASF); see cycles_engine_validate.py
 NH3_FRAC_MANURE = 0.20  # real IPCC Tier-1 default (FracGASM); see cycles_engine_validate.py
 
+def macnack_ammonia_loss_pct(soil_ph, air_temp_c, wind_speed_ms):
+    # Macnack, Chim & Raun (2013), real weather/pH-driven alternative to the flat IPCC default,
+    # specific to surface-broadcast urea; see cycles_engine_validate.py for the full citation
+    # and derivation. AL = -40.7 + 8.43*pH + 3.85*WS(m/s) + 0.33*AT(C), clamped to [0,1] fraction.
+    al_pct = -40.7 + 8.43 * soil_ph + 3.85 * wind_speed_ms + 0.33 * air_temp_c
+    return max(0.0, min(1.0, al_pct / 100.0))
+
 def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False,
                      n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
                      irrigation_trigger_frac=None, irrigation_amount_mm=25.0,
                      tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21,
-                     fert_placement_implement=None,
+                     fert_placement_implement=None, soil_ph=None,
                      spinup_rows=None, curve_number=75.0, slope_pct=0.0):
     # curve_number/slope_pct: real curve-number runoff (Eq. SI.1-7) via infiltrate() --
     # curve_number=75.0 is Cycles' own bundled Rock Springs sample default (no real per-site
@@ -1309,34 +1316,55 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     tillage_ftx_val = tillage_ftx(tillage_clay_frac)
     tillage_dr = 0.0
     tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
-    mineral_retention, manure_retention = 1.0, 1.0
+    volatilization_active = fert_placement_implement is not None or soil_ph is not None
+    fert_mixing_efficiency = 0.0
     if fert_placement_implement is not None:
         if fert_placement_implement not in TILLAGE_IMPLEMENTS:
             raise ValueError(f"Unknown fertilizer placement implement {fert_placement_implement!r} -- see TILLAGE_IMPLEMENTS for the real Cycles v1.4.4 implement catalog.")
         fert_mixing_efficiency = TILLAGE_IMPLEMENTS[fert_placement_implement][2]
-        mineral_retention = 1.0 - NH3_FRAC_SYNTHETIC * (1.0 - fert_mixing_efficiency)
-        manure_retention = 1.0 - NH3_FRAC_MANURE * (1.0 - fert_mixing_efficiency)
-    n_volatilized_total = 0.0 if fert_placement_implement is not None else None
+    wx_by_doy = {w["doy"]: w for w in weather_rows} if soil_ph is not None else None
+
+    def mineral_retention_for_doy(doy):
+        if not volatilization_active:
+            return 1.0
+        if soil_ph is None:
+            base_frac = NH3_FRAC_SYNTHETIC
+        else:
+            w = wx_by_doy.get(doy)
+            base_frac = NH3_FRAC_SYNTHETIC if w is None else macnack_ammonia_loss_pct(
+                soil_ph, (w["tx"] + w["tn"]) / 2.0, w["wind"])
+        return 1.0 - base_frac * (1.0 - fert_mixing_efficiency)
+
+    manure_retention = 1.0 - NH3_FRAC_MANURE * (1.0 - fert_mixing_efficiency) if volatilization_active else 1.0
+    n_volatilized_total = 0.0 if volatilization_active else None
     n_tracking_active = (not crop.get("legume", False)) and (
         n_rate_kg_ha is not None or n_applications or n_credit_kg_ha or manure_n_kg_ha)
     applications_by_doy = {}
     if n_tracking_active:
+        n_volatilized_mineral = 0.0
         if n_applications:
             mineral_applied = sum(amount for _, amount in n_applications)
-            total_n_input_kg_ha = mineral_applied * mineral_retention
+            total_n_input_kg_ha = 0.0
             n_pool = 0.0
             for doy, amount in n_applications:
-                applications_by_doy[doy] = applications_by_doy.get(doy, 0.0) + amount * mineral_retention
+                r = mineral_retention_for_doy(doy)
+                retained = amount * r
+                applications_by_doy[doy] = applications_by_doy.get(doy, 0.0) + retained
+                total_n_input_kg_ha += retained
+                n_volatilized_mineral += amount * (1.0 - r)
         else:
             mineral_applied = n_rate_kg_ha or 0.0
-            total_n_input_kg_ha = mineral_applied * mineral_retention
+            planting_doy = weather_rows[0]["doy"] if weather_rows else None
+            r = mineral_retention_for_doy(planting_doy)
+            total_n_input_kg_ha = mineral_applied * r
             n_pool = total_n_input_kg_ha
+            n_volatilized_mineral = mineral_applied * (1.0 - r)
         manure_after_volatilization = manure_n_kg_ha * manure_retention
         credit_and_manure = n_credit_kg_ha + manure_after_volatilization * manure_availability
         total_n_input_kg_ha += credit_and_manure
         n_pool += credit_and_manure
         if n_volatilized_total is not None:
-            n_volatilized_total = mineral_applied * (1 - mineral_retention) + manure_n_kg_ha * (1 - manure_retention)
+            n_volatilized_total = n_volatilized_mineral + manure_n_kg_ha * (1.0 - manure_retention)
     else:
         n_pool, total_n_input_kg_ha = None, None
     n_leached_total = 0.0 if n_pool is not None else None
