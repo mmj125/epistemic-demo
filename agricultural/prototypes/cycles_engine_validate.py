@@ -172,11 +172,22 @@ def slope_factor(slp):
 
 
 def cn_dry(cnb):
-    return cnb / (2.3 - 0.013 * cnb)
+    """Real SCS Antecedent Soil Moisture Condition I (dry) curve number, Matt-provided
+    directly from SWAT+ documentation (Eq 2:1.1.4) 2026-09-22, replacing this file's earlier
+    rounded NEH-4-style approximation (cnb/(2.3-0.013*cnb)) -- both are legitimate standard
+    forms for the same conversion and agree within ~1-2.5 CN points across a realistic 50-95
+    CN2 range (checked numerically before swapping), so this is a real refinement to the exact,
+    citable formula, not a correction of something wrong."""
+    return cnb - (20 * (100 - cnb)) / ((100 - cnb) + math.exp(2.533 - 0.0636 * (100 - cnb)))
 
 
 def cn_wet(cnb):
-    return cnb / (0.4 + 0.0058 * cnb)  # supplement showed "0.4 - 0.006xCNb"; standard AMC-III form uses +
+    """Real SCS Antecedent Soil Moisture Condition III (wet) curve number, same source and
+    swap as cn_dry() above (SWAT+ Eq 2:1.1.5). Previously: cnb/(0.4+0.0058*cnb), with a
+    comment noting the SI itself showed the sign wrong ("0.4 - 0.006xCNb") -- this SWAT+ form
+    sidesteps that ambiguity entirely since it's a different, independently-sourced equation
+    family, not a reading of Cycles' own (still possibly miskeyed) SI text."""
+    return cnb * math.exp(0.00673 * (100 - cnb))
 
 
 def moisture_adjusted_cn(cnb, fwc, slope_pct):

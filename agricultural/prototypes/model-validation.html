@@ -264,6 +264,16 @@
       ("1 for soil saturated to 0.6m depth... depth-weighted toward the surface"), with no exact
       formula given. Our implementation is a defensible interpretation of that description, not a
       verified match &mdash; right order of magnitude, not confirmed exact.</p>
+      <p><strong>Update, 2026-09-22:</strong> a separate piece of the same runoff mechanism, the
+      AMC-I/AMC-III (dry/wet) curve-number endpoint formulas that <code>fwc</code> interpolates
+      between, was upgraded to the exact, citable SCS formulas from SWAT+ documentation (Eq
+      2:1.1.4-1.1.5), replacing an earlier rounded NEH-4-style approximation. The two forms agree
+      within about 1-2.5 CN points across a realistic range, so this was a refinement to a correct
+      formula rather than a fix to a wrong one. Effect on validated numbers: essentially none
+      (corn/wheat/silage-corn correlations unchanged to three decimals; soybean's mean absolute
+      error moved 0.24&rarr;0.23 Mg/ha) &mdash; consistent with the earlier finding that runoff
+      itself barely triggers before harvest in the Rock Springs record. <code>fwc</code> itself
+      remains the undisclosed, unverified piece described above.</p>
     </details>
     <details class="gap">
       <summary>2. Bare-soil / residue evaporation formula (declined by devs)</summary>
