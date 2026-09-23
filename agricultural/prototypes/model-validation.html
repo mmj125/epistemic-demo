@@ -325,19 +325,27 @@
       carries the needed parameters &mdash; a genuinely different behavior, not just a relabeling: a layer
       just above field capacity now drains almost nothing per day, and even a nearly-saturated layer
       doesn't fully drain back to field capacity in one day, matching the paper's own stated intent
-      ("weighting by capacitance slows down water flow as the soil approaches field capacity"). This
-      is still a same-day approximation, not the paper's literal dynamically-timestepped sub-daily
-      iteration (Eq. 2) &mdash; a further, larger undertaking if these results motivate pursuing it.</p>
-      <p>Honest, genuinely mixed result &mdash; the first real movement from any of this week's water-balance
-      additions (curve-number runoff, antecedent-moisture spin-up, and the flat Ksat cap all measured
-      exactly zero effect at Rock Springs): corn 0.544&rarr;0.546, soybean 0.846&rarr;0.851, silage corn
-      0.511&rarr;0.526, winter wheat 0.226&rarr;0.222. Three of four crops improved modestly; wheat moved
-      slightly the other way. Not a breakthrough, but structurally coherent: silage corn, the one crop
-      whose weak correlation was specifically diagnosed as a water-balance <em>timing</em> problem (item 6
-      below), got the largest gain. Wheat's slight regression is consistent with its own separately-diagnosed
-      anomaly (real reported stress far exceeds what soil-moisture depletion alone would explain) &mdash; a
-      water-balance refinement was never expected to fix a problem already shown not to be a water-balance
-      problem.</p>
+      ("weighting by capacitance slows down water flow as the soil approaches field capacity").</p>
+      <p><strong>Update, same day:</strong> that first version applied campbell_khe() once per day using
+      only the day's starting moisture (a single Euler step), and checking it against finer sub-daily
+      stepping found this substantially overdrains &mdash; a synthetic near-saturated layer drained 22.2mm
+      in one step vs. a converged ~12.2mm once integrated at hourly resolution, roughly 1.8x too much.
+      <code>redistribute()</code> now integrates campbell_khe() across 24 sub-daily steps per layer per
+      day, recomputing the rate each step as moisture (and therefore the rate) falls &mdash; a disclosed,
+      fixed-step approximation of the paper's own adaptive-step-size scheme (Eq. 2), not a literal
+      implementation of that adaptive stepping, but a real numerical integration of the governing rate
+      law rather than one coarse step. 24 steps was chosen after checking convergence directly (1.5%
+      off a 480-step reference, vs. 82% off at 1 step).</p>
+      <p>Honest result across both rounds of this fix: three of four crops improved further in the same
+      direction as before (corn 0.544&rarr;0.549, soybean 0.846&rarr;0.854, silage corn 0.511&rarr;0.530),
+      winter wheat continued moving slightly the other way (0.226&rarr;0.216) &mdash; a consistent, coherent
+      signal rather than noise, not a breakthrough (these remain small movements) but the first real
+      water-balance change this week that moves anything at all. Silage corn, the one crop whose weak
+      correlation was specifically diagnosed as a water-balance <em>timing</em> problem (item 6 below), got
+      the largest gain in both rounds. Wheat's continued slight regression is consistent with its own
+      separately-diagnosed anomaly (real reported stress far exceeds what soil-moisture depletion alone
+      would explain) &mdash; a water-balance refinement was never expected to fix a problem already shown not
+      to be a water-balance problem.</p>
     </details>
 
     <details class="gap">
@@ -569,22 +577,35 @@ def campbell_khe(theta_s, theta_sfc, theta_sat, ksat, psi_e, b):
 
 OM_FROM_SOC = 1.72
 
-def redistribute(layers, water_in_mm):
-    # Rate-limited by campbell_khe() (real Eq. 1) when a layer carries the full
-    # Saxton-Rawls parameter set, falling back to a flat ksat_mm_day cap, then to the old
-    # unlimited-rate behavior -- see cycles_engine_validate.py's redistribute() docstring.
+REDISTRIBUTE_SUBSTEPS = 24  # see cycles_engine_validate.py's redistribute() docstring for the convergence check
+
+def redistribute(layers, water_in_mm, n_substeps=REDISTRIBUTE_SUBSTEPS):
+    # Sub-daily integration of campbell_khe() (real Eq. 1-2) when a layer carries the full
+    # Saxton-Rawls parameter set, recomputed each substep since the real rate decays as the
+    # layer drains -- a single full-day step overdrains substantially (see
+    # cycles_engine_validate.py's redistribute() docstring). Falls back to a flat ksat_mm_day
+    # cap, then to the old unlimited-rate behavior, for a layer missing those fields.
     remaining = water_in_mm
     for l in layers:
         thick_mm = l["thick"] * 1000
         add = min(remaining, max(0.0, (l["sat"] - l["theta"]) * thick_mm))
         l["theta"] += add / thick_mm
         remaining -= add
-        excess_mm = max(0.0, (l["theta"] - l["fc"]) * thick_mm)
         if "psi_e_kpa" in l and "B" in l:
-            rate_cap = campbell_khe(l["theta"], l["fc"], l["sat"], l["ksat_mm_day"], l["psi_e_kpa"], l["B"])
-        else:
-            rate_cap = l.get("ksat_mm_day", float("inf"))
-        drain = min(excess_mm, rate_cap)
+            dt = 1.0 / n_substeps
+            drain = 0.0
+            for _ in range(n_substeps):
+                excess_step = max(0.0, (l["theta"] - l["fc"]) * thick_mm)
+                if excess_step <= 0:
+                    break
+                khe = campbell_khe(l["theta"], l["fc"], l["sat"], l["ksat_mm_day"], l["psi_e_kpa"], l["B"])
+                flux = min(excess_step, khe * dt)
+                l["theta"] -= flux / thick_mm
+                drain += flux
+            remaining += drain
+            continue
+        excess_mm = max(0.0, (l["theta"] - l["fc"]) * thick_mm)
+        drain = min(excess_mm, l.get("ksat_mm_day", float("inf")))
         l["theta"] -= drain / thick_mm
         remaining += drain
     return remaining

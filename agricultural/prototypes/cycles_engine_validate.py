@@ -295,32 +295,51 @@ def runoff_mm(win, cn, slope_pct):
 # evaporation (no disclosed formula in either source; standard proxy used).
 # ---------------------------------------------------------------------------
 
-def redistribute(layers, water_in_mm):
-    """Cascading bucket, now rate-limited by campbell_khe() (real Eq. 1, Kemanian et al.
-    2024) when a layer carries the full Saxton-Rawls parameter set (psi_e_kpa, B, sat, plus
-    ksat_mm_day), falling back to a flat ksat_mm_day cap if only that field is present, and
-    to the original unlimited-rate behavior if neither is present -- three-tier graceful
+REDISTRIBUTE_SUBSTEPS = 24  # see redistribute() docstring for the convergence check that sets this
+
+
+def redistribute(layers, water_in_mm, n_substeps=REDISTRIBUTE_SUBSTEPS):
+    """Cascading bucket. When a layer carries the full Saxton-Rawls parameter set
+    (psi_e_kpa, B, sat, plus ksat_mm_day), its drainage above field capacity is now
+    integrated across n_substeps sub-daily steps (real Eq. 1-2, Kemanian et al. 2024),
+    recomputing campbell_khe() at each substep since the real rate genuinely decays as
+    the layer drains within the day -- a single full-day step using only the day's
+    starting moisture (this file's own first Eq. 1 implementation, shipped earlier the
+    same day this substepping was added) was found to overdrain substantially: a synthetic
+    near-saturated topsoil layer drained 22.2mm in one Euler step vs. a converged ~12.2mm
+    once substepped (n=480), roughly 1.8x too much water leaving the layer. n_substeps=24
+    (hourly) was chosen after checking convergence directly: 24 gives 12.42mm against the
+    n=480 reference's 12.24mm, ~1.5% off, while n=1 is ~82% off -- a disclosed, fixed-count
+    approximation of the paper's own adaptive-step-size scheme (which varies its sub-step
+    length by the profile's own slowest travel time, Eq. 2), not a literal implementation
+    of that adaptive stepping, but a real numerical integration of the same governing rate
+    law rather than one coarse Euler step. A layer with only ksat_mm_day (no psi_e_kpa/B)
+    falls back to a flat rate cap for its whole-day drainage, and a layer with neither
+    field falls back to the original unlimited-rate behavior -- three-tier graceful
     degradation so every existing make_layers()-equivalent in this project keeps working
     exactly as it did before, opting into more real physics only as its own layer dict
-    carries more of the needed fields. This is still a same-day approximation, not the
-    paper's literal dynamically-timestepped sub-daily solve (Eq. 2's travel-time-driven
-    iteration) -- but campbell_khe() now captures the actual governing rate law the real
-    equation describes (slowing smoothly as a layer nears field capacity), not just a flat
-    ceiling at the layer's fully-saturated conductivity the way the pre-existing ksat cap did.
-    Previously excess above field capacity always drained to the next layer (or out of the
-    profile) in full, in the same day, regardless of soil texture or how close to field
-    capacity the layer already was."""
+    carries more of the needed fields."""
     remaining = water_in_mm
     for l in layers:
         thick_mm = l["thick"] * 1000
         add = min(remaining, max(0.0, (l["sat"] - l["theta"]) * thick_mm))
         l["theta"] += add / thick_mm
         remaining -= add
-        excess_mm = max(0.0, (l["theta"] - l["fc"]) * thick_mm)
         if "psi_e_kpa" in l and "B" in l:
-            rate_cap = campbell_khe(l["theta"], l["fc"], l["sat"], l["ksat_mm_day"], l["psi_e_kpa"], l["B"])
-        else:
-            rate_cap = l.get("ksat_mm_day", math.inf)
+            dt = 1.0 / n_substeps
+            drain = 0.0
+            for _ in range(n_substeps):
+                excess_step = max(0.0, (l["theta"] - l["fc"]) * thick_mm)
+                if excess_step <= 0:
+                    break
+                khe = campbell_khe(l["theta"], l["fc"], l["sat"], l["ksat_mm_day"], l["psi_e_kpa"], l["B"])
+                flux = min(excess_step, khe * dt)
+                l["theta"] -= flux / thick_mm
+                drain += flux
+            remaining += drain
+            continue
+        excess_mm = max(0.0, (l["theta"] - l["fc"]) * thick_mm)
+        rate_cap = l.get("ksat_mm_day", math.inf)
         drain = min(excess_mm, rate_cap)
         l["theta"] -= drain / thick_mm
         remaining += drain
