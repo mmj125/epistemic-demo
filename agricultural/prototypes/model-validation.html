@@ -203,11 +203,10 @@
       actually used every day. Reusing each crop's own existing transpiration_temp_factor (already
       computed for water uptake) as a second multiplier on radiation-limited growth fixed the mean-level
       bias for all four crops and gave wheat its largest single correlation jump this project has seen
-      (0.276 -> 0.397). A related, smaller, real gap -- radiation-use efficiency runs ~25-35% below its
-      stated "maximum" even under warm, unstressed conditions -- was measured directly from real Cycles
-      output but deliberately NOT implemented: tested as a flat correction and found to make every crop's
-      correlation worse despite fixing the mean, so it stays open (QUESTIONS_FOR_DEVS.md item 9) rather
-      than shipped anyway.
+      (0.276 -> 0.397). A second, immediately following fix (gap-list item 18) resolved the remaining
+      warm-day gap too, just not as a discount on grain: it's a real, verified fix to the upstream biomass
+      the "Beyond final yield" table below used to flag as a mismatch grain's own calibration factor was
+      masking -- see that table and note for the honest, dramatically-improved result.
     </div>
 
     <p style="margin-top:16px;"><strong>Beyond final yield: how the model's other outputs compare</strong>
@@ -216,12 +215,20 @@
     <table>
       <tr><th>Variable</th><th>Real mean</th><th>Model mean</th><th>Mean % error</th><th>Correlation</th><th>What this shows</th></tr>
       <tr><td>Grain yield</td><td>10.56 Mg/ha</td><td>10.56 Mg/ha</td><td>8.6%</td><td>0.547</td><td>the calibrated, reported number</td></tr>
-      <tr><td>Total biomass</td><td>23.98 Mg/ha</td><td>31.52 Mg/ha</td><td>32.2%</td><td>0.550</td><td>uncalibrated &mdash; still the real upstream miss the grain calibration factor masks; the 2026-09-23 radiation-temperature fix (see gap-list item 17) fixed grain's own mean/correlation substantially but did NOT close this upstream gap &mdash; a real, honest, not-uniformly-improving result</td></tr>
-      <tr><td>Aboveground biomass</td><td>20.71 Mg/ha</td><td>27.30 Mg/ha</td><td>32.7%</td><td>0.531</td><td>still no meaningfully closer than total biomass</td></tr>
-      <tr><td>Harvest index (grain &divide; AG biomass)</td><td colspan="4">not yet re-checked against the 2026-09-23 radiation-temperature fix &mdash; flagged rather than left to silently imply the older number still holds</td></tr>
-      <tr><td>Planting date (day of year)</td><td>121.7</td><td>119.2</td><td>2.1%</td><td>0.824</td><td>unaffected by this fix (the soil-temperature-trigger proxy doesn't touch radiation/GR at all)</td></tr>
+      <tr><td>Total biomass</td><td>23.98 Mg/ha</td><td>24.74 Mg/ha</td><td>7.0%</td><td>0.550</td><td>uncalibrated, and now genuinely close &mdash; the 2026-09-23 NET_GROWTH_FRACTION fix (gap-list item 18) cut this error from 32.2% to 7.0% with zero effect on grain's own correlation, exactly as its derivation predicted</td></tr>
+      <tr><td>Aboveground biomass</td><td>20.71 Mg/ha</td><td>21.43 Mg/ha</td><td>7.6%</td><td>0.531</td><td>same fix, same result &mdash; down from 32.7% error</td></tr>
+      <tr><td>Harvest index (grain &divide; AG biomass)</td><td colspan="4">not yet re-checked against either the 2026-09-23 radiation-temperature or growth-conversion fixes &mdash; flagged rather than left to silently imply the older number still holds</td></tr>
+      <tr><td>Planting date (day of year)</td><td>121.7</td><td>119.2</td><td>2.1%</td><td>0.824</td><td>unaffected by either fix (the soil-temperature-trigger proxy doesn't touch radiation/GR at all)</td></tr>
       <tr><td>Reference ET (day-by-day, 2012)</td><td>2.81 mm/day</td><td>2.82 mm/day</td><td>0.4%</td><td>1.000</td><td>unaffected (a standard external formula, FAO-56, unrelated to GR)</td></tr>
     </table>
+    <p style="margin-top:10px;" class="note"><strong>Updated takeaway:</strong> the 2026-09-23 growth-
+    conversion fix (gap-list item 18) closes almost all of the gap this table used to highlight between
+    the calibrated grain number and the uncalibrated biomass underneath it &mdash; both now sit at a
+    similar, honest ~7-9% error, with grain's own year-to-year correlation completely unaffected (as
+    guaranteed by how the fix was derived, not just hoped for). This doesn't mean the model is now fully
+    accurate -- the remaining ~7% biomass-level miss and the crops still below the classroom-workable bar
+    are real -- but "the reported number got better" and "the underlying physics got better" are no longer
+    different claims for total/aboveground biomass the way they still are for, e.g., harvest index.</p>
     <p style="margin-top:10px;" class="note"><strong>Honest takeaway from this table, post-fix:</strong> the
     2026-09-23 radiation-temperature fix (gap-list item 17) is a real, substantial improvement to the
     CALIBRATED, reported grain-yield number and to wheat's correlation specifically &mdash; but it did not
@@ -672,6 +679,40 @@
       widened, the gap in the uncalibrated total biomass this model builds its grain number from &mdash;
       a real improvement to the calibrated, reported number, not a full fix to the underlying physics.</p>
     </details>
+    <details class="gap">
+      <summary>18. The warm-day radiation-use-efficiency gap (item 17's leftover), resolved as a
+      post-limitation growth-conversion loss instead of a discount on GR</summary>
+      <p>Re-diagnosed the ~25% warm-day gap flagged in item 17 and found the original measurement was
+      itself partly an artifact. The implied-RUE calculation there assumed every sampled day was purely
+      radiation-limited, but many were actually water-limited or ambiguous in this engine's own water
+      balance. Binning the same implied-RUE-ratio data by this engine's own GT/GR ratio (nominal,
+      uncorrected RUE) shows the ratio rising smoothly from 0.62 (GT/GR 0.6-0.9, water-limited-leaning)
+      to 0.80 (GT/GR &gt; 1.33, unambiguously radiation-limited) &mdash; most of the apparent gap was
+      water-limited days being misattributed to the radiation formula. Restricting to the cleanest,
+      most unambiguous days (GT/GR &gt; 1.5, n=23, stdev 0.039) gives a real, residual, reproducible gap
+      of 0.785, smaller than item 17's original ~0.74 but still real.</p>
+      <p>The reason item 17 explicitly declined to implement this as a flat multiplier on GR still holds
+      at any magnitude: confirmed directly (not assumed) that discounting GR before the min(GR, GT)
+      choice makes radiation the binding constraint far more often (a synthetic test moved corn from a
+      real 38-46% radiation-limited baseline to 81-85% under a flat correction), which washes out the
+      model's sensitivity to the real, water-driven year-to-year yield variation the whole point of this
+      engine is to track. The fix: apply the 0.785 fraction to <code>min(GR, GT)</code> AFTER the
+      limiting choice is made, not to GR before it. Since nothing else in this engine's day loop depends
+      on cumulative biomass (canopy cover and root depth are pure functions of thermal time; soil-
+      moisture extraction depends only on realized transpiration, not on how much biomass it produced),
+      this is mathematically a uniform rescaling of the season's whole growth trajectory &mdash; it
+      cannot change which of GR or GT wins on any day, unlike scaling GR beforehand.</p>
+      <p>Verified directly, not just reasoned: applying it reproduces every validated crop's grain
+      correlation to three decimals, completely unchanged (corn 0.547, soybean 0.858, wheat 0.397,
+      silage corn 0.512) &mdash; only the mean moved, absorbed by re-deriving each crop's
+      <code>calibration_factor</code> as usual. This is exactly the fix item 17 left as an open question
+      (QUESTIONS_FOR_DEVS.md item 9) and directly closes the gap the "Beyond final yield" table above
+      has repeatedly flagged: corn's uncalibrated total biomass error dropped from 32.2% to 7.0%,
+      aboveground biomass from 32.7% to 7.6%, both with grain's own correlation completely untouched.
+      The remaining ~25%-vs-0.785 distinction (what real Cycles' "Maximum eR" actually reduces to under
+      the cleanest conditions) is still not explained by any disclosed mechanism &mdash; this fix corrects
+      the model's OUTPUT to match, it doesn't identify the real cause, which stays open.</p>
+    </details>
 
     <p style="margin-top:14px;">This list is deliberately not flattering. It's the same list we'd want
     handed to us if someone else built a reimplementation of our own model and asked us to check it.</p>
@@ -1078,6 +1119,7 @@ def transpiration_temp_factor(tmean, min_t, threshold_t):
     return (tmean - min_t) / (threshold_t - min_t)
 
 TTF50_SHOOT_PARTITION = 0.32  # real-data fit against real Cycles daily output (2026-09-23); see cycles_engine_validate.py
+NET_GROWTH_FRACTION = 0.785  # real, measured post-limitation growth-conversion loss (2026-09-23); see cycles_engine_validate.py
 
 def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
     ttf = max(1e-6, ttf)
@@ -1170,7 +1212,7 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
         TR_actual = min(TRp * water_stress, crop.get("tr_max_mm_day", math.inf))
         extract_transpiration(layers, root_depth, TR_actual)
         GT = crop["wue"]/math.sqrt(Da) * TR_actual
-        dGB_water_limited = max(0.0, min(GR, GT)) / 1000
+        dGB_water_limited = max(0.0, min(GR, GT)) * NET_GROWTH_FRACTION / 1000
         demand.append(dGB_water_limited * 10 * n_marginal_demand_pct(ref_biomass * 10, crop) * 10)
         bg_multiplier.append(1.0 + tillage_ft(dr, ftx))
         if dr > 0:
@@ -1352,7 +1394,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         TR_actual = min(TRp * water_stress, crop.get("tr_max_mm_day", math.inf))
         extract_transpiration(layers, root_depth, TR_actual)
         GT = crop["wue"]/math.sqrt(Da) * TR_actual
-        dGB_water_limited = max(0.0, min(GR, GT)) / 1000
+        dGB_water_limited = max(0.0, min(GR, GT)) * NET_GROWTH_FRACTION / 1000
         n_stress = 1.0
         if n_pool is not None:
             if w["doy"] in applications_by_doy:
@@ -1414,7 +1456,7 @@ def make_layers():
 
 CORN = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=0.6922, canopy_shape=CORN_CANOPY_SHAPE,
+    calibration_factor=0.8818, canopy_shape=CORN_CANOPY_SHAPE,
     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=40.6875, make_layers=make_layers,
     n_max_conc=0.055, n_dilution_slope=0.4, legume=False,
     depletion_fraction=0.55,  # real FAO-56 Table 22 value for maize, field (grain)
@@ -1448,7 +1490,7 @@ CORN_LONG_SEASON["flowering_tt"] = 1300
 
 SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43,
     rue=1.3, wue=4.5, hi_x=0.4, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=0.9669, kc=1.0, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0,
+    calibration_factor=1.2318, kc=1.0, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0,
     n_max_conc=0.07, n_dilution_slope=0.4, legume=True,
     depletion_fraction=0.50,  # real FAO-56 Table 22 value for soybeans -- same as the old default
     tr_max_mm_day=8,  # real GenericCrops.crop TRANSPIRATION_MAX (SoybeanMG.5)
@@ -1462,7 +1504,7 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
 # since it's the only one this engine has real parameters for, not because it's accurate).
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
     rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=0.6357, canopy_shape=(5, -14, -15, 16),
+    calibration_factor=0.8097, canopy_shape=(5, -14, -15, 16),
     kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=40.6875, make_layers=make_layers,
     n_max_conc=0.07, n_dilution_slope=0.45, legume=False,
     depletion_fraction=0.55, tr_max_mm_day=8,  # real FAO-56 Table 22 (winter/spring wheat);
