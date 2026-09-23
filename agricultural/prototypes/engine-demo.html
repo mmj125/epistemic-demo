@@ -846,6 +846,57 @@ def redistribute(layers, water_in_mm):
         remaining += excess_mm
     return remaining
 
+# Curve-number runoff (Eq. SI.1-7, sign-corrected -- see cycles_engine_validate.py's module
+# docstring), wired into the water balance via infiltrate() below. cn_dry/cn_wet are the real
+# SCS Antecedent Soil Moisture Condition I/III formulas (SWAT+ documentation Eq 2:1.1.4-1.1.5,
+# Matt-provided directly, 2026-09-22).
+def slope_factor(slp):
+    return 1.1 - slp / (slp + math.exp(3.7 + 0.02 * slp))
+
+def cn_dry(cnb):
+    return cnb - (20 * (100 - cnb)) / ((100 - cnb) + math.exp(2.533 - 0.0636 * (100 - cnb)))
+
+def cn_wet(cnb):
+    return cnb * math.exp(0.00673 * (100 - cnb))
+
+def moisture_adjusted_cn(cnb, fwc, slope_pct):
+    cnd, cnw = cn_dry(cnb), cn_wet(cnb)
+    return cnd + (cnw - cnd) * fwc
+
+def compute_fwc(layers, depth_m=0.6):
+    # The curve-number moisture-adjustment factor -- described only in words in the SI
+    # ("1 for soil saturated to 0.6m depth, decreasing to zero if air-dry, depth-weighted
+    # toward the surface"), no exact formula given. A defensible reading, not verified exact.
+    depth, weighted_sum, weight_total = 0.0, 0.0, 0.0
+    for l in layers:
+        if depth >= depth_m:
+            break
+        d = min(l["thick"], depth_m - depth)
+        sat_frac = (l["theta"] - l["pwp"]) / (l["sat"] - l["pwp"]) if l["sat"] > l["pwp"] else 0.0
+        sat_frac = max(0.0, min(1.0, sat_frac))
+        weight = (depth_m - depth) * d
+        weighted_sum += sat_frac * weight
+        weight_total += weight
+        depth += l["thick"]
+    return weighted_sum / weight_total if weight_total > 0 else 0.0
+
+def runoff_mm(win, cn, slope_pct):
+    S = 254 * slope_factor(slope_pct) * (100 / cn - 1)
+    if win <= 0.2 * S:
+        return 0.0
+    return (win - 0.2 * S) ** 2 / (win + 0.8 * S)
+
+def infiltrate(layers, water_in_mm, curve_number, slope_pct):
+    # One day's curve-number runoff followed by infiltration (redistribute()) -- shared by
+    # simulate_season()'s main loop and its optional spin-up window.
+    if water_in_mm <= 0:
+        return 0.0, 0.0
+    fwc = compute_fwc(layers)
+    cn = moisture_adjusted_cn(curve_number, fwc, slope_pct)
+    runoff = runoff_mm(water_in_mm, cn, slope_pct)
+    drainage_mm = redistribute(layers, water_in_mm - runoff)
+    return drainage_mm, runoff
+
 def soil_evaporation(layers, eto_mm, canopy_cover_frac):
     l0 = layers[0]
     demand_mm = eto_mm * (1 - canopy_cover_frac)
@@ -1083,7 +1134,8 @@ def n_marginal_demand_pct(biomass_mgha, crop):
     return crop["n_max_conc"] * 100 * (1 - crop["n_dilution_slope"]) * biomass_mgha ** (-crop["n_dilution_slope"])
 
 def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
-                         tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21):
+                         tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21,
+                         curve_number=75.0, slope_pct=0.0, spinup_rows=None):
     # Unconstrained (no-nitrogen-feedback) water/canopy trajectory, used to precompute the
     # season's total N demand up front. Canopy cover depends only on thermal time and
     # transpiration-limited growth only on soil moisture, never on biomass or N status, so
@@ -1096,7 +1148,14 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
     # background-N trajectories would silently diverge. Returns (demand, bg_multiplier) --
     # a second list, one per day, of the (1+ft) multiplier BACKGROUND_N_KG_HA_DAY should be
     # scaled by that day; all 1.0 when tillage_doy is None.
+    # curve_number/slope_pct/spinup_rows must also match simulate_season's own values, for
+    # the same reason -- see infiltrate()/simulate_season's own docstring.
     layers = crop["make_layers"]()
+    if spinup_rows:
+        for w in spinup_rows:
+            infiltrate(layers, w["pp"], curve_number, slope_pct)
+            eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
+            soil_evaporation(layers, eto, 0.0)
     tillage_depth_m, tillage_disturb_rating, tillage_mixing_efficiency = TILLAGE_IMPLEMENTS[tillage_implement] \
         if tillage_doy is not None else (None, None, None)
     ftx = tillage_ftx(tillage_clay_frac)
@@ -1114,7 +1173,7 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
         if tillage_doy is not None and w["doy"] == tillage_doy:
             mix_tilled_layers(layers, tillage_depth_m, tillage_mixing_efficiency)
             dr += tillage_disturb_rating
-        redistribute(layers, w["pp"])
+        infiltrate(layers, w["pp"], curve_number, slope_pct)
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
         soil_evaporation(layers, eto, eie)
         GR = crop["rue"] * eie * w["solar"]
@@ -1140,7 +1199,16 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
 def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False,
                      n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
                      irrigation_trigger_frac=None, irrigation_amount_mm=25.0,
-                     tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21):
+                     tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21,
+                     spinup_rows=None, curve_number=75.0, slope_pct=0.0):
+    # curve_number/slope_pct: real curve-number runoff (Eq. SI.1-7) via infiltrate() --
+    # curve_number=75.0 is Cycles' own bundled Rock Springs sample default (no real per-site
+    # value exists in this project's STATSGO2 data); slope_pct=0.0 since no real slope data
+    # exists anywhere in this project either. Result now carries runoff_mm.
+    # spinup_rows: optional real weather rows simulated as bare, uncropped soil (no canopy, no
+    # transpiration) immediately before the tracked season, replacing an always-full field-
+    # capacity start. None (default) reproduces the exact old behavior. Callers typically pass
+    # that season's own Jan-1-through-planting weather as a defensible antecedent-moisture proxy.
     # n_applications: [(doy, amount_kg_ha), ...] real/disclosed Cycles usage (dated events,
     # not one lump) -- Kemanian et al. 2024 Fig. 6 (wheat 80/60 fall/spring split), SI Sec. IX
     # (Iowa maize, manured fields split 50/50 fall/spring). Replaces the day-0 lump if given.
@@ -1165,6 +1233,13 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     # of a flat multiplier held for an arbitrary fixed window. tillage_clay_frac (0-1) feeds ftx's
     # real texture scaling; defaults to 0.21, Rock Springs' own real topsoil clay fraction.
     layers = crop["make_layers"]()
+    runoff_total = 0.0
+    if spinup_rows:
+        for w in spinup_rows:
+            _, spin_runoff = infiltrate(layers, w["pp"], curve_number, slope_pct)
+            runoff_total += spin_runoff
+            eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
+            soil_evaporation(layers, eto, 0.0)
     tillage_depth_m, tillage_disturb_rating, tillage_mixing_efficiency = None, None, None
     if tillage_doy is not None:
         if tillage_implement not in TILLAGE_IMPLEMENTS:
@@ -1198,7 +1273,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     if n_pool is not None:
         daily_demand, tillage_bg_multiplier = _reference_n_demand(
             weather_rows, crop, root_max_m, harvest_ttf, tillage_doy=tillage_doy,
-            tillage_implement=tillage_implement, tillage_clay_frac=tillage_clay_frac)
+            tillage_implement=tillage_implement, tillage_clay_frac=tillage_clay_frac,
+            curve_number=curve_number, slope_pct=slope_pct, spinup_rows=spinup_rows)
         total_demand_kg_ha = sum(daily_demand)
         # Season-total background, using the real per-day tillage multiplier -- must match
         # the boosted rate exactly (not a flat estimate), since n_stress_fraction (and thus
@@ -1229,7 +1305,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             if pre_avail_frac < irrigation_trigger_frac:
                 irrigation_mm = irrigation_amount_mm
                 irrigation_total_mm += irrigation_mm
-        drainage_mm = redistribute(layers, w["pp"] + irrigation_mm)
+        drainage_mm, runoff = infiltrate(layers, w["pp"] + irrigation_mm, curve_number, slope_pct)
+        runoff_total += runoff
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
         soil_evaporation(layers, eto, eie)
         GR = crop["rue"] * eie * w["solar"]
@@ -1276,7 +1353,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     biomass_mg_ha = biomass * 10
     ag_biomass_mg_ha = ag_biomass * 10
     grain_mg_ha = ag_biomass * HI * 10 * crop.get("calibration_factor", 1.0)
-    result = dict(total=biomass_mg_ha, ag=ag_biomass_mg_ha, grain=grain_mg_ha)
+    result = dict(total=biomass_mg_ha, ag=ag_biomass_mg_ha, grain=grain_mg_ha, runoff_mm=runoff_total)
     if n_leached_total is not None:
         result["n_leached_kg_ha"] = n_leached_total
     if irrigation_trigger_frac is not None:
@@ -1423,12 +1500,15 @@ def build_cover_crop_rows(wx_yearY, wx_yearY1, plant_doy=288, term_doy=100):
     rows += [to_row(wx_yearY1, d) for d in range(1, term_doy + 1) if str(d) in wx_yearY1]
     return rows
 
-def bare_fallow_leaching(weather_rows, n_pool_initial, lat_deg=40.6875):
+def bare_fallow_leaching(weather_rows, n_pool_initial, lat_deg=40.6875, curve_number=75.0, slope_pct=0.0):
     """Counterfactual for the cover crop comparison: the same amount of available
     nitrogen sitting in bare, uncropped soil over the same calendar window, with no
     plant uptake at all. Reuses the same water-balance and leaching mechanics
-    simulate_season() uses (redistribute() for drainage, the same drainage-proportional
-    leaching formula) but skips every crop-growth calculation, since there's no crop.
+    simulate_season() uses (infiltrate() for curve-number runoff + drainage, added
+    2026-09-23 so this counterfactual stays fair once simulate_season gained real
+    runoff -- previously bare redistribute(), same water balance every actual crop
+    phase now runs through instead; the same drainage-proportional leaching formula)
+    but skips every crop-growth calculation, since there's no crop.
     Also credits the same BACKGROUND_N_KG_HA_DAY organic-matter mineralization
     simulate_season() now applies to a cropped field, gated the same way (above-freezing
     days only, as a simple proxy for biological activity) -- fallow soil keeps
@@ -1442,7 +1522,7 @@ def bare_fallow_leaching(weather_rows, n_pool_initial, lat_deg=40.6875):
         tmean = (w["tx"] + w["tn"]) / 2
         if tmean > 0:
             n_pool += BACKGROUND_N_KG_HA_DAY
-        drainage_mm = redistribute(layers, w["pp"])
+        drainage_mm, _ = infiltrate(layers, w["pp"], curve_number, slope_pct)
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], lat_deg)
         soil_evaporation(layers, eto, 0.0)  # eie=0: no canopy, bare soil evaporates at full potential rate
         profile_water_mm = sum(l["theta"] * l["thick"] * 1000 for l in layers)
