@@ -335,92 +335,92 @@ def extract_transpiration(layers, root_depth_m, tr_mm):
 # Cycles ships. mixing_efficiency is the real, disclosed "implement-specific coefficient"
 # Kemanian et al. 2024 Sec. 2.6 references only in words -- these are the actual numbers.
 TILLAGE_IMPLEMENTS = {
-    "Bale_straw_or_residue": (0.01, 0.0),
-    "Bed_shaper": (0.05, 0.071554),
-    "Bedder_hipper_disk_hiller": (0.15, 0.8),
-    "Bulldozer_clearing": (0.3, 0.8),
-    "Burn_residue_high_intensity": (0.01, 0.01),
-    "Burn_residue_low_intensity": (0.01, 0.01),
-    "Chisel_st_pt": (0.25, 0.265919),
-    "Chisel_sweep_shovel": (0.2, 0.265919),
-    "Chisel_twisted_shovel": (0.2, 0.447042),
-    "Cultipacker_roller": (0.05, 0.265919),
-    "Cultivator_field_6-12_in_sweeps": (0.12, 0.202386),
-    "Cultivator_field_w_spike_points": (0.12, 0.371806),
-    "Cultivator_hipper_disk_hiller_on_beds": (0.12, 0.572433),
-    "Cultivator_off_bar_w_disk_hillers_on_beds": (0.12, 0.308274),
-    "Disk_offset_heavy": (0.15, 0.657771),
-    "Disk_offset_heavy_>12_in_depth": (0.3, 0.8),
-    "Disk_tandem_heavy_primary_op": (0.2, 0.657771),
-    "Disk_tandem_secondary_op": (0.1, 0.265919),
-    "Drill_air_seeder_sweep_or_band_opener": (0.08, 0.497198),
-    "Drill_deep/semi-deep_furrow_12_to_18_in_spacing": (0.12, 0.497198),
-    "Drill_heavy_direct_seed_dbl_disk_opnr": (0.1, 0.639427),
-    "Drill_or_air_seeder_double_disk_openers_7-10_in_spac": (0.08, 0.071554),
-    "Drill_or_air_seeder_hoe/chisel_openers_6-12_in_spac": (0.08, 0.639427),
-    "Drill_or_air_seeder_hoe_opener_in_hvy_residue": (0.08, 0.497198),
-    "Drill_or_airseeder_double_disk": (0.08, 0.497198),
-    "Drill_or_airseeder_double_disk_opener_w_fert_openers": (0.08, 0.639427),
-    "Drill_or_airseeder_double_disk_w_fluted_coulters": (0.09, 0.639427),
-    "Drill_or_airseeder_offset_double_disk_openers": (0.08, 0.259212),
-    "Fert_applic_anhyd_knife_12_in": (0.12, 0.265919),
-    "Fert_applic_anhyd_knife_30_in": (0.12, 0.120616),
-    "Fert_applic_deep_plcmt_hvy_shnk": (0.15, 0.371806),
-    "Fert_applic_strip-till_30_in": (0.12, 0.265919),
-    "Fert_applic_surface_broadcast": (0.005, 0.0),
-    "Furrow_diker": (0.15, 0.265919),
-    "Furrow_shaper_torpedo": (0.1, 0.0),
-    "Graze_continuous": (0.02, 0.026833),
-    "Graze_rotational": (0.02, 0.026833),
-    "Graze_stubble_or_residue": (0.03, 0.026833),
-    "Harrow_coiled_tine": (0.08, 0.120616),
-    "Harrow_heavy_or_rotary": (0.08, 0.265919),
-    "Harrow_spike_tooth": (0.08, 0.075895),
-    "Harrow_tine_on_beds": (0.08, 0.120616),
-    "Harvest_corn_silage_or_forage_sorghum": (0.02, 0.0),
-    "Harvest_cotton": (0.02, 0.0),
-    "Harvest_grain": (0.01, 0.0),
-    "Harvest_grass_or_legume_seed": (0.01, 0.0),
-    "Harvest_hay": (0.01, 0.0),
-    "Harvest_peanut_digger": (0.1, 0.8),
-    "Harvest_root_crops_digger": (0.2, 0.8),
-    "Harvest_rootcrops_manually": (0.15, 0.202386),
-    "Harvest_sugarcane": (0.02, 0.0),
-    "Harvest_tobacco": (0.18, 0.0),
-    "Kill_Crop": (0.0, 0.0),
-    "Manure_injector": (0.1, 0.447042),
-    "Manure_spreader": (0.01, 0.0),
-    "Mower_swather_windrower": (0.01, 0.0),
-    "Mulch_treader": (0.04, 0.371806),
-    "Permeable_weed_barrier_applicator": (0.04, 0.202386),
-    "Planter_double_disk_opnr": (0.08, 0.071554),
-    "Planter_double_disk_opnr_18_in_rows": (0.08, 0.120616),
-    "Planter_double_disk_opnr_w_fluted_coulter": (0.08, 0.071554),
-    "Planter_in-row_subsoiler": (0.1, 0.120616),
-    "Planter_ridge_till": (0.15, 0.447042),
-    "Planter_small_veg_seed": (0.02, 0.0),
-    "Planter_strip_till": (0.08, 0.120616),
-    "Planter_sugarcane": (0.05, 0.026833),
-    "Planter_transplanter_vegetable": (0.1, 0.026833),
-    "Planting_broadcast_seeder": (0.01, 0.0),
-    "Plastic_mulch_apply": (0.05, 0.202386),
-    "Plastic_mulch_remove": (0.05, 0.202386),
-    "Plow_disk": (0.18, 0.657771),
-    "Plow_moldboard": (0.18, 0.8),
-    "Plow_moldboard_conservation": (0.18, 0.657771),
-    "Residue_row_cleaner": (0.02, 0.265919),
-    "Rodweeder": (0.05, 0.265919),
-    "Roller_corrugated_packer": (0.02, 0.153324),
-    "Roller_smooth": (0.02, 0.026833),
-    "Rotary_hoe": (0.05, 0.071554),
-    "Rototiller": (0.05, 0.8),
-    "Sprayer": (0.005, 0.0),
-    "Stalk_puller": (0.18, 0.153324),
-    "Striptiller_w_middlebuster_on_beds": (0.15, 0.572433),
-    "Subsoiler": (0.25, 0.120616),
-    "Subsoiler_bedder(ripper/hipper)": (0.25, 0.12),
-    "Subsoiler_ripper_24_to_40_in_deep": (0.25, 0.120616),
-    "Sweep_plow": (0.15, 0.0),
+    "Bale_straw_or_residue": (0.01, 3, 0),
+    "Bed_shaper": (0.05, 7, 0.071554),
+    "Bedder_hipper_disk_hiller": (0.15, 29, 0.8),
+    "Bulldozer_clearing": (0.3, 30, 0.8),
+    "Burn_residue_high_intensity": (0.01, 0, 0.01),
+    "Burn_residue_low_intensity": (0.01, 0, 0.01),
+    "Chisel_st_pt": (0.25, 19, 0.265919),
+    "Chisel_sweep_shovel": (0.2, 21, 0.265919),
+    "Chisel_twisted_shovel": (0.2, 24, 0.447042),
+    "Cultipacker_roller": (0.05, 19, 0.265919),
+    "Cultivator_field_6-12_in_sweeps": (0.12, 20, 0.202386),
+    "Cultivator_field_w_spike_points": (0.12, 18, 0.371806),
+    "Cultivator_hipper_disk_hiller_on_beds": (0.12, 23, 0.572433),
+    "Cultivator_off_bar_w_disk_hillers_on_beds": (0.12, 13, 0.308274),
+    "Disk_offset_heavy": (0.15, 27, 0.657771),
+    "Disk_offset_heavy_>12_in_depth": (0.3, 28, 0.8),
+    "Disk_tandem_heavy_primary_op": (0.2, 26, 0.657771),
+    "Disk_tandem_secondary_op": (0.1, 18, 0.265919),
+    "Drill_air_seeder_sweep_or_band_opener": (0.08, 22, 0.497198),
+    "Drill_deep/semi-deep_furrow_12_to_18_in_spacing": (0.12, 17, 0.497198),
+    "Drill_heavy_direct_seed_dbl_disk_opnr": (0.1, 23, 0.639427),
+    "Drill_or_air_seeder_double_disk_openers_7-10_in_spac": (0.08, 6, 0.071554),
+    "Drill_or_air_seeder_hoe/chisel_openers_6-12_in_spac": (0.08, 17, 0.639427),
+    "Drill_or_air_seeder_hoe_opener_in_hvy_residue": (0.08, 16, 0.497198),
+    "Drill_or_airseeder_double_disk": (0.08, 17, 0.497198),
+    "Drill_or_airseeder_double_disk_opener_w_fert_openers": (0.08, 23, 0.639427),
+    "Drill_or_airseeder_double_disk_w_fluted_coulters": (0.09, 18, 0.639427),
+    "Drill_or_airseeder_offset_double_disk_openers": (0.08, 8, 0.259212),
+    "Fert_applic_anhyd_knife_12_in": (0.12, 13, 0.265919),
+    "Fert_applic_anhyd_knife_30_in": (0.12, 8, 0.120616),
+    "Fert_applic_deep_plcmt_hvy_shnk": (0.15, 16, 0.371806),
+    "Fert_applic_strip-till_30_in": (0.12, 13, 0.265919),
+    "Fert_applic_surface_broadcast": (0.005, 5, 0),
+    "Furrow_diker": (0.15, 15, 0.265919),
+    "Furrow_shaper_torpedo": (0.1, 7, 0),
+    "Graze_continuous": (0.02, 4, 0.026833),
+    "Graze_rotational": (0.02, 4, 0.026833),
+    "Graze_stubble_or_residue": (0.03, 4, 0.026833),
+    "Harrow_coiled_tine": (0.08, 11, 0.120616),
+    "Harrow_heavy_or_rotary": (0.08, 15, 0.265919),
+    "Harrow_spike_tooth": (0.08, 10, 0.075895),
+    "Harrow_tine_on_beds": (0.08, 11, 0.120616),
+    "Harvest_corn_silage_or_forage_sorghum": (0.02, 5, 0),
+    "Harvest_cotton": (0.02, 5, 0),
+    "Harvest_grain": (0.01, 5, 0),
+    "Harvest_grass_or_legume_seed": (0.01, 3, 0),
+    "Harvest_hay": (0.01, 3, 0),
+    "Harvest_peanut_digger": (0.1, 25, 0.8),
+    "Harvest_root_crops_digger": (0.2, 25, 0.8),
+    "Harvest_rootcrops_manually": (0.15, 11, 0.202386),
+    "Harvest_sugarcane": (0.02, 5, 0),
+    "Harvest_tobacco": (0.18, 1, 0),
+    "Kill_Crop": (0, 0, 0),
+    "Manure_injector": (0.1, 21, 0.447042),
+    "Manure_spreader": (0.01, 5, 0),
+    "Mower_swather_windrower": (0.01, 3, 0),
+    "Mulch_treader": (0.04, 14, 0.371806),
+    "Permeable_weed_barrier_applicator": (0.04, 9, 0.202386),
+    "Planter_double_disk_opnr": (0.08, 5, 0.071554),
+    "Planter_double_disk_opnr_18_in_rows": (0.08, 7, 0.120616),
+    "Planter_double_disk_opnr_w_fluted_coulter": (0.08, 5, 0.071554),
+    "Planter_in-row_subsoiler": (0.1, 11, 0.120616),
+    "Planter_ridge_till": (0.15, 17, 0.447042),
+    "Planter_small_veg_seed": (0.02, 4, 0),
+    "Planter_strip_till": (0.08, 8, 0.120616),
+    "Planter_sugarcane": (0.05, 6, 0.026833),
+    "Planter_transplanter_vegetable": (0.1, 6, 0.026833),
+    "Planting_broadcast_seeder": (0.01, 3, 0),
+    "Plastic_mulch_apply": (0.05, 9, 0.202386),
+    "Plastic_mulch_remove": (0.05, 9, 0.202386),
+    "Plow_disk": (0.18, 26, 0.657771),
+    "Plow_moldboard": (0.18, 29, 0.8),
+    "Plow_moldboard_conservation": (0.18, 27, 0.657771),
+    "Residue_row_cleaner": (0.02, 12, 0.265919),
+    "Rodweeder": (0.05, 12, 0.265919),
+    "Roller_corrugated_packer": (0.02, 1, 0.153324),
+    "Roller_smooth": (0.02, 4, 0.026833),
+    "Rotary_hoe": (0.05, 11, 0.071554),
+    "Rototiller": (0.05, 29, 0.8),
+    "Sprayer": (0.005, 3, 0),
+    "Stalk_puller": (0.18, 6, 0.153324),
+    "Striptiller_w_middlebuster_on_beds": (0.15, 23, 0.572433),
+    "Subsoiler": (0.25, 15, 0.120616),
+    "Subsoiler_bedder(ripper/hipper)": (0.25, 29, 0.12),
+    "Subsoiler_ripper_24_to_40_in_deep": (0.25, 16, 0.120616),
+    "Sweep_plow": (0.15, 17, 0),
 }
 
 
@@ -595,6 +595,55 @@ NCRIT_FLOOR_MGHA = 1.0  # dilution curve is flat (at N_MAX_CONCENTRATION) below 
 # shows. This constant is what fixes that; not itself Cycles- or site-verified.
 BACKGROUND_N_KG_HA_DAY = 0.5
 
+# ---------------------------------------------------------------------------
+# Tillage's real decomposition-acceleration factor (Kemanian & Stockle 2010,
+# Eq. 5 -- C-Farm, Cycles' own predecessor model, real source PDF in this
+# repo's root as of 2026-09-22). Real formula, real per-implement input data,
+# still applied here as a disclosed stand-in multiplier on
+# BACKGROUND_N_KG_HA_DAY rather than a reproduction of the real mechanism,
+# which requires the full six-pool soil-carbon system this engine doesn't
+# implement -- see TILLAGE_IMPLEMENTS' docstring and simulate_season's
+# tillage_doy paragraph for the full account.
+# ---------------------------------------------------------------------------
+
+def tillage_ftx(clay_frac):
+    """Real texture scaling on tillage's decomposition-acceleration effect:
+    ftx = 1+4*exp(-5.5*fclay), ranging ~1.4 for clay soils to ~4.0 for sandy soils.
+    clay_frac is a 0-1 fraction (this engine's clay inputs are usually a 0-100 percent,
+    e.g. SOIL_LAYERS_RAW's own "clay" field -- divide by 100 at the call site)."""
+    return 1 + 4 * math.exp(-5.5 * clay_frac)
+
+
+def tillage_ft(dr, ftx):
+    """Real tillage-acceleration factor: ft = ftx*dr/(dr+exp(5.5-0.05*dr)), where dr is a
+    cumulative soil-disturbance rating (0-30 NRCS Soil Conditioning Index scale, additive
+    across tillage passes -- real per-implement values are TILLAGE_IMPLEMENTS' third
+    element, straight from Cycles v1.4.4's own till.txt SOIL_DISTURB_RATIO field).
+    ft is 0 at dr=0 (no disturbance, no acceleration) and rises toward ftx as dr grows --
+    a single tillage pass typically pushes dr into the range where ft is already close to
+    its ceiling (the paper: "a typical conventional tillage sequence... is sufficient to
+    accelerate the turnover rate near the maximum values")."""
+    if dr <= 0:
+        return 0.0
+    return ftx * dr / (dr + math.exp(5.5 - 0.05 * dr))
+
+
+def tillage_dr_decay(layers, max_rate_per_day=0.02):
+    """dr's own daily decay -- the paper states plainly that ft (and by extension its
+    driver, dr) decreases at "a maximum rate of 2% day-1 for soils at field capacity,"
+    slower when drier, but gives no exact moisture-scaling formula (this specific
+    sub-formula is not disclosed, unlike the ft/ftx equations themselves -- a defensible
+    interpretation, not a verified match, same spirit as this file's existing fwc/bare-
+    soil-evaporation proxies). Scales the 2%/day ceiling by the topsoil layer's own
+    fraction of field capacity (theta/fc, capped at 1.0, since field capacity is the
+    stated reference point and the paper gives no guidance for wetter-than-field-capacity
+    soil). Returns the fraction of the CURRENT dr that decays away today."""
+    l0 = layers[0]
+    if l0["fc"] <= 0:
+        return 0.0
+    moisture_frac = max(0.0, min(1.0, l0["theta"] / l0["fc"]))
+    return max_rate_per_day * moisture_frac
+
 
 def n_critical_pct(biomass_mgha, crop):
     """Whole-plant average/critical N concentration (%) at the given total biomass --
@@ -622,7 +671,8 @@ def n_marginal_demand_pct(biomass_mgha, crop):
     return crop["n_max_conc"] * 100 * (1 - crop["n_dilution_slope"]) * biomass_mgha ** (-crop["n_dilution_slope"])
 
 
-def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf, curve_number=75.0, slope_pct=0.0, spinup_rows=None):
+def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf, curve_number=75.0, slope_pct=0.0, spinup_rows=None,
+                         tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21):
     """Runs the same water/canopy physics as simulate_season's main loop below, but with
     no nitrogen feedback at all, to precompute the day-by-day nitrogen DEMAND of the fully
     unconstrained growth trajectory. This is a deliberate, verified duplication (not a
@@ -650,15 +700,27 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf, curve_numbe
 
     curve_number, slope_pct, spinup_rows: must match whatever simulate_season's main loop
     is called with, or this duplicated water balance would silently diverge from the real
-    one it's meant to mirror -- see infiltrate()/simulate_season()'s own parameters."""
+    one it's meant to mirror -- see infiltrate()/simulate_season()'s own parameters.
+
+    tillage_doy, tillage_implement, tillage_clay_frac: for the same reason, this also has
+    to mirror the main loop's own tillage moisture-mixing call (mix_tilled_layers()) and dr
+    decomposition-boost tracking (see simulate_season's tillage_doy paragraph and
+    tillage_ft()'s own docstring), or the two loops' water and background-N trajectories
+    would silently diverge. Returns (demand, bg_multiplier) -- a second list, one entry per
+    day, of the (1+ft) multiplier that day's BACKGROUND_N_KG_HA_DAY should be scaled by;
+    all 1.0 when tillage_doy is None."""
     layers = crop["make_layers"]()
     if spinup_rows:
         for w in spinup_rows:
             infiltrate(layers, w["pp"], curve_number, slope_pct)
             eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
             soil_evaporation(layers, eto, 0.0)
+    tillage_depth_m, tillage_mixing_efficiency = (TILLAGE_IMPLEMENTS[tillage_implement][0], TILLAGE_IMPLEMENTS[tillage_implement][2]) \
+        if tillage_doy is not None else (None, None)
+    ftx = tillage_ftx(tillage_clay_frac)
+    dr = 0.0
     tt_cum, ref_biomass = 0.0, 0.0
-    demand = []
+    demand, bg_multiplier = [], []
     for w in weather_rows:
         dtt = thermal_time_increment(w["tx"], w["tn"], crop["base_t"], crop["opt_t"], crop["max_t"])
         tt_cum += dtt
@@ -667,6 +729,10 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf, curve_numbe
             break
         eie = canopy_cover(ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE))
         root_depth = root_max_m * min(1.0, ttf / 0.5)
+
+        if tillage_doy is not None and w["doy"] == tillage_doy:
+            mix_tilled_layers(layers, tillage_depth_m, tillage_mixing_efficiency)
+            dr += TILLAGE_IMPLEMENTS[tillage_implement][1]
 
         infiltrate(layers, w["pp"], curve_number, slope_pct)
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
@@ -689,14 +755,17 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf, curve_numbe
         dGB_water_limited = max(0.0, min(GR, GT)) / 1000
 
         demand.append(dGB_water_limited * 10 * n_marginal_demand_pct(ref_biomass * 10, crop) * 10)
+        bg_multiplier.append(1.0 + tillage_ft(dr, ftx))
+        if dr > 0:
+            dr -= dr * tillage_dr_decay(layers)
         ref_biomass += dGB_water_limited
-    return demand
+    return demand, bg_multiplier
 
 
 def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False,
                      n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
                      irrigation_trigger_frac=None, irrigation_amount_mm=25.0,
-                     tillage_doy=None, tillage_implement=None, tillage_boost_days=30,
+                     tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21,
                      spinup_rows=None, curve_number=75.0, slope_pct=0.0):
     """weather_rows: dicts with doy, tx, tn, solar, rhx, rhn, wind, pp, in planting-day order.
     harvest_ttf: fraction of thermal time to maturity that triggers harvest -- 1.0 for grain
@@ -732,24 +801,30 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     computed from) drops below the trigger -- the default trigger, if a caller chooses to use
     one, is left to the caller to set explicitly rather than guessed at here.
 
-    tillage_doy, tillage_implement, tillage_boost_days: tillage's real Cycles mechanism (soil
+    tillage_doy, tillage_implement, tillage_clay_frac: tillage's real Cycles mechanism (soil
     mixing by an implement-specific coefficient, plus temporarily faster soil organic matter
     decomposition from disrupted aggregates -- Kemanian et al. 2024 Sec. 2.6, "tillage
     stimulation of Cs degradation") is coupled to the full six-pool soil carbon/nitrogen
     saturation system this engine deliberately does not implement (out of scope for v1, see
     CLAUDE.md). tillage_implement selects a real named implement from TILLAGE_IMPLEMENTS
     (parsed directly from Cycles v1.4.4's own till.txt, 86 real tools with real depth_m/
-    mixing_efficiency values -- raises ValueError if the name isn't in that table). Two
-    effects, split by how directly each is grounded in real data:
+    soil_disturb_rating/mixing_efficiency values -- raises ValueError if the name isn't in
+    that table). Two effects, split by how directly each is grounded in real data:
     (1) Soil moisture is genuinely mixed within the implement's real depth, weighted by its
     real mixing_efficiency, on tillage_doy itself -- see mix_tilled_layers() above for why
     this applies the real coefficient to moisture rather than the C/N pools Cycles itself
     mixes with it (this engine has no per-layer C/N pools to mix).
-    (2) BACKGROUND_N_KG_HA_DAY is multiplied by (1 + mixing_efficiency) for tillage_boost_days
-    days starting at tillage_doy, representing "tillage briefly releases previously-protected
-    soil organic nitrogen" -- still a disclosed placeholder for the real fT decomposition-
-    boost factor (undisclosed formula, same six-pool-system gap as above), just now SIZED by
-    a real per-implement number instead of an arbitrary caller-supplied multiplier.
+    (2) BACKGROUND_N_KG_HA_DAY is multiplied by (1 + ft) every day, where ft is C-Farm's own
+    real, disclosed decomposition-acceleration factor (Kemanian & Stockle 2010 Eq. 5 -- see
+    tillage_ft()/tillage_ftx()/tillage_dr_decay() above for the full formula and its real
+    inputs), still a disclosed placeholder for the real six-pool fT effect (this engine has
+    no soil-carbon pools for ft to act on directly), but now driven by the real formula's
+    actual shape -- a cumulative disturbance rating (dr) that jumps by the real implement's
+    SOIL_DISTURB_RATIO on tillage_doy and decays daily, rather than the earlier flat
+    multiplier held constant for an arbitrary fixed number of days. tillage_clay_frac (0-1)
+    feeds ftx's real texture scaling; defaults to 0.21, Rock Springs' own real topsoil clay
+    fraction (SOIL_LAYERS_RAW's own top-layer value elsewhere in this file) -- pass a site's
+    own real value when one is available (e.g. from a resolved STATSGO2 cell).
     tillage_doy=None (default) means neither effect runs.
     Nitrogen adequacy is applied as a single WHOLE-SEASON fraction of the unconstrained
     trajectory's total N demand (computed via _reference_n_demand above), not a day-by-day
@@ -817,11 +892,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     if tillage_doy is not None:
         if tillage_implement not in TILLAGE_IMPLEMENTS:
             raise ValueError(f"Unknown tillage implement {tillage_implement!r} -- see TILLAGE_IMPLEMENTS for the real Cycles v1.4.4 implement catalog.")
-        tillage_depth_m, tillage_mixing_efficiency = TILLAGE_IMPLEMENTS[tillage_implement]
-    # Disclosed placeholder for the real fT decomposition-boost factor (undisclosed formula --
-    # see tillage_doy's docstring); sized by the real implement's mixing_efficiency instead of
-    # an arbitrary caller-supplied multiplier. 1.0 (no boost) when tillage isn't used.
-    tillage_n_boost_factor = 1.0 + (tillage_mixing_efficiency or 0.0)
+        tillage_depth_m, tillage_disturb_rating, tillage_mixing_efficiency = TILLAGE_IMPLEMENTS[tillage_implement]
+    tillage_ftx_val = tillage_ftx(tillage_clay_frac)
+    tillage_dr = 0.0  # cumulative disturbance state -- see tillage_ft()/tillage_dr_decay() above
     tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
     n_tracking_active = (not crop.get("legume", False)) and (
         n_rate_kg_ha is not None or n_applications or n_credit_kg_ha or manure_n_kg_ha)
@@ -847,8 +920,10 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
 
     n_stress_fraction, daily_demand, day_i = 1.0, None, 0
     if n_pool is not None:
-        daily_demand = _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
-                                            curve_number=curve_number, slope_pct=slope_pct, spinup_rows=spinup_rows)
+        daily_demand, tillage_bg_multiplier = _reference_n_demand(
+            weather_rows, crop, root_max_m, harvest_ttf, curve_number=curve_number, slope_pct=slope_pct,
+            spinup_rows=spinup_rows, tillage_doy=tillage_doy, tillage_implement=tillage_implement,
+            tillage_clay_frac=tillage_clay_frac)
         total_demand_kg_ha = sum(daily_demand)
         # Background credit only counts on days the reference trajectory actually grows
         # (daily_demand[i] > 0 exactly when that day's dGB_water_limited > 0, i.e. the
@@ -871,11 +946,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         for i, d in enumerate(daily_demand):
             if d <= 0:
                 continue
-            rate = BACKGROUND_N_KG_HA_DAY
-            doy = weather_rows[i]["doy"]
-            if tillage_doy is not None and tillage_doy <= doy < tillage_doy + tillage_boost_days:
-                rate *= tillage_n_boost_factor
-            total_background_kg_ha += rate
+            total_background_kg_ha += BACKGROUND_N_KG_HA_DAY * tillage_bg_multiplier[i]
         total_supply_kg_ha = total_n_input_kg_ha + total_background_kg_ha
         supply_ratio = min(1.0, total_supply_kg_ha / total_demand_kg_ha) if total_demand_kg_ha > 0 else 1.0
         n_stress_fraction = 2 * supply_ratio - supply_ratio ** 2  # quadratic-plateau, see docstring above
@@ -891,8 +962,11 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
 
         # Tillage's soil-moisture mixing happens once, on tillage_doy itself, before
         # today's irrigation check and water balance -- see mix_tilled_layers() above.
+        # The cumulative disturbance rating (tillage_dr) jumps by the real implement's
+        # SOIL_DISTURB_RATIO the same day -- see tillage_ft()/tillage_dr_decay() above.
         if tillage_doy is not None and w["doy"] == tillage_doy:
             mix_tilled_layers(layers, tillage_depth_m, tillage_mixing_efficiency)
+            tillage_dr += tillage_disturb_rating
 
         # Irrigation (if requested) triggers off YESTERDAY's ending soil moisture, same
         # quantity water_stress is computed from below, and is added to today's water input
@@ -931,10 +1005,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             if w["doy"] in applications_by_doy:
                 n_pool += applications_by_doy[w["doy"]]
             if dGB_water_limited > 0:
-                background_rate = BACKGROUND_N_KG_HA_DAY
-                if tillage_doy is not None and tillage_doy <= w["doy"] < tillage_doy + tillage_boost_days:
-                    background_rate *= tillage_n_boost_factor
-                n_pool += background_rate
+                n_pool += BACKGROUND_N_KG_HA_DAY * (1.0 + tillage_ft(tillage_dr, tillage_ftx_val))
             n_stress = n_stress_fraction
             target_uptake_kg_ha = n_stress_fraction * daily_demand[day_i]
             n_uptake_kg_ha = min(n_pool, target_uptake_kg_ha)
@@ -954,6 +1025,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         if record_history:
             history.append(dict(doy=w["doy"], ttf=round(ttf, 4), canopy=round(eie, 4),
                                  water_stress=round(water_stress, 4), ag_mg_ha=round(ag_biomass * 10, 4)))
+
+        if tillage_dr > 0:
+            tillage_dr -= tillage_dr * tillage_dr_decay(layers)
 
     flowering_frac = crop["flowering_tt"] / crop["tt_maturity"]
     fpf = max(0.0, min(1.0, (tt_cum - crop["tt_maturity"] * flowering_frac) / (crop["tt_maturity"] * (1 - flowering_frac))))
