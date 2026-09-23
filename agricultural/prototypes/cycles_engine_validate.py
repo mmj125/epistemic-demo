@@ -920,7 +920,7 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf, curve_numbe
 
         avail_frac = root_zone_availability(layers, root_depth)
         water_stress = water_stress_response(avail_frac, crop.get("depletion_fraction", 0.5))
-        TR_actual = TRp * water_stress
+        TR_actual = min(TRp * water_stress, crop.get("tr_max_mm_day", math.inf))
         extract_transpiration(layers, root_depth, TR_actual)
 
         GT = crop["wue"] / math.sqrt(Da) * TR_actual
@@ -1265,7 +1265,16 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
 
         avail_frac = root_zone_availability(layers, root_depth)
         water_stress = water_stress_response(avail_frac, crop.get("depletion_fraction", 0.5))
-        TR_actual = TRp * water_stress
+        # tr_max_mm_day: real, disclosed per-crop TRANSPIRATION_MAX from GenericCrops.crop
+        # (corn/silage corn 10, soybean/wheat 8 mm/day), a physical ceiling on daily
+        # transpiration this engine never applied before -- crop.get(...) with an inf
+        # default keeps this a no-op for any crop dict that doesn't set it. Checked before
+        # relying on it: at Rock Springs, computed TRp never exceeds ~7.4mm/day across the
+        # full 37-year record for any validated crop, so this is a genuine no-op there (the
+        # regression suite's own unchanged numbers confirm it) -- kept anyway since it's real
+        # and could matter at a hotter/drier site already used elsewhere in this project
+        # (e.g. Kansas), not because it moves any currently-validated number.
+        TR_actual = min(TRp * water_stress, crop.get("tr_max_mm_day", math.inf))
         extract_transpiration(layers, root_depth, TR_actual)
 
         GT = crop["wue"] / math.sqrt(Da) * TR_actual
