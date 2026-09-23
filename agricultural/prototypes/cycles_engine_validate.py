@@ -157,7 +157,35 @@ def saxton_rawls(sand_pct, clay_pct, om_pct):
                   - 0.018 * (S * OM) - 0.027 * (C * OM) - 0.584 * (S * C) + 0.078)
     theta_s33 = theta_s33t + (0.636 * theta_s33t - 0.107)
     theta_sat = theta_33 + theta_s33 - 0.097 * S + 0.043
-    return dict(pwp=max(0.01, theta_1500), fc=max(0.02, theta_33), sat=max(0.05, theta_sat))
+    pwp, fc, sat = max(0.01, theta_1500), max(0.02, theta_33), max(0.05, theta_sat)
+
+    # Secondary parameters (Saxton & Rawls 2006, Soil Sci. Soc. Am. J. 70(5), Table 1,
+    # Eq. 4/14-18) -- obtained directly from the paper (Matt supplied the PDF 2026-09-23
+    # after this sandbox's network policy blocked every attempt to fetch it, including
+    # WebSearch). Verified against the paper's own Table 3 worked example (Sand texture,
+    # S=88%, C=5%, OM=2.5%w) before trusting: this function's existing pwp/fc/sat reproduce
+    # the table's 5/10/46 %v to the displayed precision, and ksat below reproduces the
+    # table's 108.1 mm/h as 108.15 -- both essentially exact, not just plausible.
+    # B/lambda (Eq. 14-15/18) describe the slope of the log moisture-tension curve; ksat
+    # (Eq. 16) is the saturated hydraulic conductivity Darcy's law would use to rate-limit
+    # flow between layers. psi_e (Eq. 4, kPa) is the air-entry/bubbling pressure. None of
+    # these were previously computed anywhere in this engine -- redistribute() moved water
+    # between layers at an unlimited daily rate (a same-day cascading bucket), the specific
+    # gap already flagged in this file's own docstrings and in CLAUDE.md as an approximation
+    # of Cycles' real sub-daily capacitance-weighted flow (Eq. 1-2). ksat_mm_day now lets
+    # redistribute() rate-limit that flow by each layer's own real conductivity -- see its
+    # docstring. B/lambda/psi_e are exposed but not yet consumed anywhere; a real prerequisite
+    # for a fuller unsaturated-flow (Darcy/Richards-style) redistribution scheme, not attempted
+    # here -- that would need Cycles' own Eq. 1-2 exact form, not just these soil parameters.
+    psi_et = (-21.67 * S - 27.93 * C - 81.97 * theta_s33
+              + 71.12 * (S * theta_s33) + 8.29 * (C * theta_s33)
+              + 14.05 * (S * C) + 27.16)
+    psi_e = psi_et + (0.02 * psi_et ** 2 - 0.113 * psi_et - 0.70)
+    B = (math.log(1500) - math.log(33)) / (math.log(fc) - math.log(pwp))
+    lam = 1 / B
+    ksat_mm_h = 1930 * (sat - fc) ** (3 - lam)
+    return dict(pwp=pwp, fc=fc, sat=sat, psi_e_kpa=psi_e, B=B, lam=lam,
+                ksat_mm_day=ksat_mm_h * 24)
 
 
 OM_FROM_SOC = 1.72  # standard Van Bemmelen conversion, SOC% -> OM%
@@ -233,15 +261,33 @@ def runoff_mm(win, cn, slope_pct):
 # ---------------------------------------------------------------------------
 
 def redistribute(layers, water_in_mm):
+    """Cascading bucket, now rate-limited by each layer's own saturated hydraulic
+    conductivity (ksat_mm_day, Saxton & Rawls 2006 Eq. 16, see saxton_rawls() above) when
+    present on the layer dict -- a real, disclosed partial step toward the paper's own
+    Eq. 1-2 capacitance-weighted redistribution (still not a literal sub-daily solve, see
+    module docstring), not the full mechanism. Previously excess above field capacity
+    always drained to the next layer (or out of the profile) in full, in the same day,
+    regardless of soil texture -- a clay-rich layer with a real ksat of a few mm/day
+    behaved identically to a sandy layer with a real ksat of hundreds of mm/day. Now a
+    layer can only pass up to its own ksat_mm_day downward per day; anything beyond that
+    is real, physically legitimate perched water that stays in the layer (capped at
+    saturation, never exceeding it, since the amount added this same call is already
+    capped at the headroom up to saturation) and drains further on subsequent days.
+    A layer dict with no "ksat_mm_day" key (e.g. a caller that hasn't been updated to
+    attach it) falls back to the old unlimited-rate behavior exactly -- this keeps every
+    existing make_layers()-equivalent in this project working unchanged unless and until
+    it opts in by adding the field, rather than silently changing behavior everywhere at
+    once."""
     remaining = water_in_mm
     for l in layers:
-        cap_mm = max(0.0, (l["fc"] - l["theta"]) * l["thick"] * 1000)
-        add = min(remaining, cap_mm + max(0.0, (l["sat"] - l["fc"]) * l["thick"] * 1000))
-        l["theta"] += add / (l["thick"] * 1000)
+        thick_mm = l["thick"] * 1000
+        add = min(remaining, max(0.0, (l["sat"] - l["theta"]) * thick_mm))
+        l["theta"] += add / thick_mm
         remaining -= add
-        excess_mm = max(0.0, (l["theta"] - l["fc"]) * l["thick"] * 1000)
-        l["theta"] -= excess_mm / (l["thick"] * 1000)
-        remaining += excess_mm
+        excess_mm = max(0.0, (l["theta"] - l["fc"]) * thick_mm)
+        drain = min(excess_mm, l.get("ksat_mm_day", math.inf))
+        l["theta"] -= drain / thick_mm
+        remaining += drain
     return remaining
 
 
