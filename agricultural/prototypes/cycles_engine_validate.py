@@ -709,8 +709,21 @@ def transpiration_temp_factor(tmean, min_t, threshold_t):
     return (tmean - min_t) / (threshold_t - min_t)
 
 
-TTF50_SHOOT_PARTITION = 0.5  # Eq. SI.8-11's own half-max point isn't given a numeric value anywhere
-                             # in either source -- using the literal reading of its name ("TTf50")
+TTF50_SHOOT_PARTITION = 0.32  # Eq. SI.8-11's own half-max point isn't given a numeric value in
+# either source -- the literal reading of its name (0.5) was replaced 2026-09-23 with a real,
+# data-driven fit against real Cycles' own daily output (QUESTIONS_FOR_DEVS.md item 3, formerly
+# unresolved): the paper's own equation implies the INSTANTANEOUS (marginal) shoot fraction of
+# a day's new growth equals shoot_fraction(ttf) exactly (dAG/dTotal = shoot_fraction(ttf) by
+# construction, since dAG = dGB*shoot_fraction(ttf) and dTotal = dGB), so day-to-day differences
+# in real AG BIOMASS/BIOMASS from four independent real daily-output files (two separate corn
+# seasons, soybean, wheat -- 5174 usable (ttf, marginal-fraction) points total, growth days only)
+# were regressed against this exact functional form with fsti=0.45/fstf=0.95 held fixed. Every
+# one of the four independently gave a best fit clustered tightly at 0.315-0.335 (corn 0.320 and
+# 0.317 from two different rotations, soybean 0.316, wheat 0.335) -- strong, consistent evidence
+# this is a real, roughly species-independent constant near 0.32, not 0.5. Pooled fit across all
+# four: 0.3205 (SSE 6.87 vs. 78.54 at the old 0.5 -- an ~11x reduction, mean absolute error
+# 0.113->0.025). Rounded to 0.32 here, not the literal 0.3205, since the fit's own precision
+# doesn't warrant a 4th significant figure.
 
 
 def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
