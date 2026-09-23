@@ -854,22 +854,35 @@ def campbell_khe(theta_s, theta_sfc, theta_sat, ksat, psi_e, b):
 
 OM_FROM_SOC = 1.72
 
-def redistribute(layers, water_in_mm):
-    # Rate-limited by campbell_khe() (real Eq. 1) when a layer carries the full
-    # Saxton-Rawls parameter set, falling back to a flat ksat_mm_day cap, then to the old
-    # unlimited-rate behavior -- see cycles_engine_validate.py's redistribute() docstring.
+REDISTRIBUTE_SUBSTEPS = 24  # see cycles_engine_validate.py's redistribute() docstring for the convergence check
+
+def redistribute(layers, water_in_mm, n_substeps=REDISTRIBUTE_SUBSTEPS):
+    # Sub-daily integration of campbell_khe() (real Eq. 1-2) when a layer carries the full
+    # Saxton-Rawls parameter set, recomputed each substep since the real rate decays as the
+    # layer drains -- a single full-day step overdrains substantially (see
+    # cycles_engine_validate.py's redistribute() docstring). Falls back to a flat ksat_mm_day
+    # cap, then to the old unlimited-rate behavior, for a layer missing those fields.
     remaining = water_in_mm
     for l in layers:
         thick_mm = l["thick"] * 1000
         add = min(remaining, max(0.0, (l["sat"] - l["theta"]) * thick_mm))
         l["theta"] += add / thick_mm
         remaining -= add
-        excess_mm = max(0.0, (l["theta"] - l["fc"]) * thick_mm)
         if "psi_e_kpa" in l and "B" in l:
-            rate_cap = campbell_khe(l["theta"], l["fc"], l["sat"], l["ksat_mm_day"], l["psi_e_kpa"], l["B"])
-        else:
-            rate_cap = l.get("ksat_mm_day", float("inf"))
-        drain = min(excess_mm, rate_cap)
+            dt = 1.0 / n_substeps
+            drain = 0.0
+            for _ in range(n_substeps):
+                excess_step = max(0.0, (l["theta"] - l["fc"]) * thick_mm)
+                if excess_step <= 0:
+                    break
+                khe = campbell_khe(l["theta"], l["fc"], l["sat"], l["ksat_mm_day"], l["psi_e_kpa"], l["B"])
+                flux = min(excess_step, khe * dt)
+                l["theta"] -= flux / thick_mm
+                drain += flux
+            remaining += drain
+            continue
+        excess_mm = max(0.0, (l["theta"] - l["fc"]) * thick_mm)
+        drain = min(excess_mm, l.get("ksat_mm_day", float("inf")))
         l["theta"] -= drain / thick_mm
         remaining += drain
     return remaining
