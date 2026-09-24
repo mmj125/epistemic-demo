@@ -630,6 +630,71 @@ against real Cycles output before concluding the gap is real.
      this engine share the same property -- invisible at Rock Springs,
      real everywhere drier.
 
+     **Update (2026-09-24), checked at Iowa and Maryland as recommended
+     above.** Real Cycles' own initial SMC (2011-01-01, already-existing
+     Iowa native output) confirms the SAME pattern found at Kansas, not a
+     one-site coincidence: (theta_initial-pwp)/(fc-pwp) = 0.449, 0.474,
+     0.480, 0.474 across Iowa's four real soil layers. Ran a fresh native
+     Cycles simulation for Maryland (no prior run existed for this site;
+     built real input files from the already-resolved Othello-series
+     STATSGO2 soil and the committed NLDAS-2 weather tiles, same pipeline
+     already used to resolve this preset elsewhere in this project) and
+     found the identical pattern a third time: 0.466, 0.476, 0.486, 0.509
+     across Maryland's four layers. Three independent real sites, twelve
+     layers total, all landing in a tight 0.45-0.51 band around exactly
+     0.50 -- this is now a well-established, cross-site fact about how
+     real Cycles starts a simulation, not a Kansas-specific quirk.
+
+     Applying the fix (fresh-start, `INITIAL_MOISTURE_FRACTION=0.5` vs.
+     the old `theta=fc`) at Iowa (2 real years, 2011/2012, from the
+     already-existing native run) gave a real, substantial improvement,
+     the same direction and a similar-sized effect as Kansas: mean
+     overshoot 1.37x -> 1.21x, MAE 1.347 -> 0.754 Mg/ha. At Maryland (6
+     real years generated fresh via native Cycles for this check --
+     1988, 1993, 2000, 2005, 2012, 2016, real yields 3.80-7.73 Mg/ha),
+     the fix helped more modestly: mean overshoot 1.66x -> 1.60x, MAE
+     2.962 -> 2.804 Mg/ha.
+
+     **A genuine methodological lesson worth recording, not just the
+     result**: the first Maryland pass used only 4 years (1988, 2005,
+     2012, 2016) and found a striking correlation of -0.966 between our
+     model and real Cycles -- an apparent near-perfect INVERSE ranking,
+     which looked like a serious, distinct bug worth chasing (real
+     Cycles' best year among the four, 2012, was one of our model's
+     worst, and vice versa). Checked one hypothesis directly before
+     trusting the correlation (vapor pressure deficit, since
+     `GT = wue/sqrt(Da)*TR_actual` means an unusually low Da could
+     inflate growth) -- and it pointed the WRONG direction (2012 actually
+     has the *highest* Da of the four years, which should suppress our
+     model's growth, not inflate it, the opposite of what would explain
+     the inversion). Rather than chase further hypotheses on 4 points,
+     generated 2 more real Maryland years (1993, 2000) via the same
+     native-Cycles pipeline -- and the correlation collapsed to -0.023 /
+     -0.062 (essentially zero, not inverse) once n=6. The dramatic -0.966
+     was a small-sample artifact, not a real signal. Worth remembering
+     the shape of this: a striking correlation from 4 points is cheap to
+     over-trust, and cheap to check when (as here) more real reference
+     years can be generated directly rather than assumed sufficient.
+
+     What's real and DOES survive the larger sample: our model's Maryland
+     output barely responds to which year it's given at all (stdev 0.73
+     Mg/ha across the 6 years, range 2.08) while real Cycles' actual
+     yields vary far more (stdev 1.44, range 3.94) -- our model isn't
+     ranking years backwards, it's just comparatively flat regardless of
+     year. A plausible, not-yet-confirmed explanation: Maryland's humid
+     Chesapeake coastal-plain climate rarely lets water become the
+     limiting factor the way Kansas's semi-arid climate does every year --
+     which would mean this water-balance-only engine has structurally
+     less to say about what actually drives Maryland's real year-to-year
+     variability (nitrogen dynamics, disease pressure, or something else
+     entirely outside this engine's scope), the same way it has the MOST
+     explanatory power at the most water-limited site (Kansas, pre-fix
+     correlation already 0.98+) and middling power at the moderately
+     water-limited one (Rock Springs, 0.55). Not confirmed, and not
+     something the initial-moisture fix (or likely any water-balance fix)
+     would be expected to close -- flagged here as a real, distinct,
+     probably-structural limitation rather than another lever to chase.
+
      **Real, disclosed consequence for `engine-demo.html` specifically,
      not smoothed over**: unlike the two canonical validation scripts
      (which spin up from Jan 1 through planting using real bare-fallow
