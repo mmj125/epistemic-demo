@@ -13,7 +13,7 @@ import os
 sys.path.insert(0, os.path.dirname(__file__))
 from cycles_engine_validate import (
     REFERENCE_DATA_DIR, saxton_rawls, OM_FROM_SOC, simulate_soil_temp,
-    find_planting_doy, simulate_season, CORN_CANOPY_SHAPE,
+    find_planting_doy, simulate_season, CORN_CANOPY_SHAPE, INITIAL_MOISTURE_FRACTION,
 )
 
 CORN = dict(
@@ -55,7 +55,8 @@ def make_layers():
     for L in SOIL_LAYERS_RAW:
         om = L["soc"] * OM_FROM_SOC
         hyd = saxton_rawls(L["sand"], L["clay"], om)
-        layers.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"], theta=hyd["fc"],
+        layers.append(dict(thick=L["thick"], fc=hyd["fc"], pwp=hyd["pwp"], sat=hyd["sat"],
+                            theta=hyd["pwp"] + INITIAL_MOISTURE_FRACTION * (hyd["fc"] - hyd["pwp"]),
                             ksat_mm_day=hyd["ksat_mm_day"], psi_e_kpa=hyd["psi_e_kpa"], B=hyd["B"]))
     return layers
 
