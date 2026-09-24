@@ -1851,8 +1851,8 @@ const SPECIES_REGISTRY = {
   },
   wheat: {
     label: "Winter wheat", pyKey: "wheat", legume: false, roles: ["cover"],
-    dataStatus: "validated", correlation: 0.397, workableAsCash: false, implementedInDemo: true,
-    notes: "Real GenericCrops.crop parameters, not a placeholder. Correlation improved substantially, 0.253 -> 0.397, on 2026-09-23 (the largest single jump this project has seen from any one fix) when radiation-limited growth gained a cold-temperature reduction it never had -- wheat's long, cold-season-heavy growing window made it the biggest beneficiary (QUESTIONS_FOR_DEVS.md item 9 / gap-list item 17). Still below the classroom-workable bar, so not offered as a cash-crop choice; used as-is for the fall-planted cover-crop role. The remaining driver of its weak year-to-year tracking is still open (QUESTIONS_FOR_DEVS.md item 7).",
+    dataStatus: "validated", correlation: 0.399, workableAsCash: false, implementedInDemo: true,
+    notes: "Real GenericCrops.crop parameters, not a placeholder. Correlation improved substantially, 0.253 -> 0.399, across 2026-09-23's radiation-related fixes (the largest single jump, 0.253 -> 0.397, came from giving radiation-limited growth a cold-temperature reduction it never had -- wheat's long, cold-season-heavy growing window made it the biggest beneficiary; a wheat-specific radiation-temperature refit added a further, smaller 0.397 -> 0.399). Still below the classroom-workable bar, so not offered as a cash-crop choice; used as-is for the fall-planted cover-crop role. Real nitrogen input (90 kg N/ha, the actual disclosed rate for this crop) was tried and made things dramatically worse -- this simplified model's own implied wheat N demand runs about 2.7x the real rate, the same missing-background-soil-N limitation already known for corn. The remaining driver of its weak year-to-year tracking, and this N-input finding, are both in QUESTIONS_FOR_DEVS.md item 6.",
   },
   winter_rye: {
     label: "Winter rye (cover crop)", pyKey: "winter_rye", legume: false, roles: ["cover"],
