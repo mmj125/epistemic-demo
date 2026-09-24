@@ -422,6 +422,131 @@ against real Cycles output before concluding the gap is real.
      corn's own carryover behavior at Kansas or any other non-Rock-Springs
      site is untested.
 
+     **Update (2026-09-24), the root-discovery fix itself, directly pursued
+     with the new Kansas 6-year benchmark as a second check alongside Rock
+     Springs.** First re-confirmed the anomaly is real, not a modeling
+     artifact of imagination: instrumented 2012's daily history and found
+     `water_stress` reads a PERFECT 1.0 (zero stress) for a 20-day span,
+     doy 125-145, during which total real rainfall was 12.5mm across the
+     entire 30-day window (120-150) -- there is no physical rain event that
+     could justify this. Traced the mechanism precisely: by this point
+     layer 1 (the shallow 0.33m layer) is nearly at wilting point
+     (theta 0.113 vs. pwp 0.113, essentially zero available water), but
+     layers 2 and 3 (0.31m and 0.88m, far larger total capacity) are still
+     completely untouched at field capacity, since root_depth has only
+     just reached into them. The POOLED ratio (avail/capacity across all
+     three) lands around 0.55-0.60 even with layer 1 essentially dead --
+     and `water_stress_response()`'s threshold (1-depletion_fraction,
+     0.45 for corn) means ANY pooled ratio above that clips straight to
+     1.0, fully unstressed. So the bug isn't really "a brief inflated
+     credit that fades" -- it's that a single lumped root-zone reservoir
+     structurally can't distinguish "barely-accessible deep water exists"
+     from "the crop is not thirsty," and the FAO-56 Ks threshold is lenient
+     enough that a moderately-full pool (even one propped up almost
+     entirely by inaccessible depth) reads as no stress at all.
+
+     Given this sharper diagnosis, tried FOUR further mechanisms (on top of
+     the two already discarded above), each tested against BOTH the Rock
+     Springs 4-crop suite (must not regress the one benchmark with real
+     statistical power) AND the new 6-year Kansas benchmark (should
+     actually move the number, not just the single 2012 case):
+
+     - **Quarter-weighted blend, gap-squared**: compute the real FAO-56
+       40-30-20-10 depth-quarter ratio alongside the flat pooled one, pull
+       toward the weighted (lower) value by the SQUARE of their gap (a
+       parameter-free correction that's a no-op when the two agree, i.e.
+       at a normal, roughly-uniform profile). Rock Springs: unchanged to
+       three decimals (corn 0.547, soybean 0.858, wheat 0.400, silage corn
+       0.511) -- confirmed the gradient-conditional design is genuinely
+       safe. Kansas: essentially unchanged (5.05x -> 5.07x-5.08x mean
+       ratio, 2012 still 18.4-18.6x) -- too weak to matter, because
+       `water_stress_response()`'s hard threshold-clip means a modest
+       correction that stays above 0.45 changes nothing regardless of how
+       "real" the correction is. Discarded for being ineffective, not
+       harmful.
+     - **Hard exclusion once a layer measurably depletes (theta < fc)**:
+       a layer contributes to neither numerator nor denominator until
+       something has actually removed water from it (not merely until
+       root_depth nominally reaches it). Kansas fresh-start: dramatic
+       apparent improvement (5.05x -> 2.44x, MAE 2.30 -> 0.67 Mg/ha) --
+       but Rock Springs catastrophically regressed (mean yield roughly
+       HALVED across all four crops: corn 10.55 -> 5.29 Mg/ha, soybean
+       4.71 -> 2.29, wheat 4.33 -> 2.36, silage corn 14.79 -> 7.55).
+       Root cause: at a humid site, a deeper layer often legitimately
+       sits exactly at field capacity for days at a stretch simply because
+       daily demand was low, not because it's inaccessible -- excluding it
+       from the DENOMINATOR too shrinks the effective capacity pool enough
+       that ordinary, mild depletion reads as severe stress far too often.
+       Discarded outright; the "Kansas improvement" here was a side effect
+       of breaking the water balance broadly, not a real, targeted fix.
+     - **Elapsed-days step-function delay** (`advance_root_days()`/
+       `establish_days`, a layer counts fully once root_depth has reached
+       it for N days, zero credit before that -- deliberately different
+       from the residence-time RAMP already discarded above, since a hard
+       step avoids "any nonzero weight eventually pulls toward 1"):
+       swept N from 14 to 120. At every N tried, Kansas got WORSE, not
+       better (fresh-start mean ratio 5.07x at N=14 climbing to 14.26x at
+       N=120), and Rock Springs correlation degraded steadily (corn 0.547
+       at N=14 down to 0.206 at N=120). Cause: `extract_transpiration()`
+       still cascades into a "not yet counted" layer once shallow layers
+       run short (it has no such gate), so the plant keeps physically
+       drawing down deep water even while the stress ratio can't see it --
+       decoupling the feedback in a way that made both sites worse as the
+       delay grew. Discarded.
+     - **Pure quarter-weighted ratio, unconditional** (the exact FAO-56
+       40-30-20-10 formula as the SOLE availability calculation, not
+       blended): re-confirmed the previously-documented Rock Springs
+       regression (corn 0.547 -> 0.542, silage corn 0.512 -> 0.488; wheat
+       actually improved 0.399 -> 0.417) -- but, contrary to the
+       hand-calculation that motivated trying this, Kansas got WORSE too
+       (5.05x -> 5.30x mean ratio, MAE 2.30 -> 2.38). A real, empirically-
+       tested reminder that a plausible-sounding hand estimate for one
+       day's ratio doesn't predict a whole season's integrated effect.
+       Discarded.
+     - **FAO-56's own ETc-adjusted depletion fraction** (Allen et al. 1998
+       Eq. 8-4, a real, disclosed, separate mechanism from Table 22's base
+       p-values: `p_adj = p_table + 0.04*(5-ETc)`, clipped to [0.10,
+       0.80] -- crops tolerate less depletion under high evaporative
+       demand, more under low demand; `TRp`, already Kc-adjusted, stood in
+       for ETc). This is the only one of the six mechanisms tried that
+       moved the CHAINED Kansas number in the right direction at all:
+       2012 chained 6.19x -> 5.98x, mean ratio 2.16x -> 2.13x. But it cost
+       real correlation at Rock Springs across three of four crops (corn
+       0.547 -> 0.528, soybean 0.858 -> 0.843, wheat 0.399 -> 0.377;
+       silage corn improved, 0.512 -> 0.523). A ~1.4% aggregate Kansas
+       gain against a real, broad-based Rock Springs cost -- not a trade
+       worth making as-is. Not discarded as *wrong* (it's a real, correctly
+       cited FAO-56 mechanism this engine genuinely doesn't implement
+       elsewhere), just not net-positive at its current, unconditional
+       strength; could be revisited with the same kind of gradient-gating
+       used for the quarter-weighted blend (only apply the ETc adjustment
+       when ETc is unusually high relative to the site's own normal range,
+       rather than every day everywhere) if this is picked up again.
+
+     **Net standing on root discovery specifically**: six real, distinct,
+     mechanistically-motivated fixes have now been tried (two in the
+     original diagnostic session, four here), tested against both the one
+     benchmark with real statistical power (Rock Springs) and a new,
+     independent 6-year out-of-sample benchmark (Kansas). None is a clean
+     win. The anomaly itself is real and precisely diagnosed (a 20-day,
+     essentially-zero-rain window reading as perfectly unstressed), but it
+     resists correction via any tested adjustment to the availability
+     formula, the extraction cascade, or the stress-response threshold.
+     This suggests the actual fix, if one exists short of a genuine
+     multi-layer root-density/hydraulic-conductance model, may not be a
+     small formula change at all -- the single-lumped-reservoir Ks
+     approach (a real, standard, FAO-56-endorsed simplification) may
+     simply not be expressive enough to correctly separate "some water
+     exists somewhere in the root zone" from "the crop can actually use
+     it fast enough," especially at a site where capacity is concentrated
+     in a few large, discretely-reached layers rather than distributed
+     smoothly. Carryover (see above) remains the one mechanism that has
+     robustly, substantially helped at Kansas without costing Rock
+     Springs anything -- not because it addresses root discovery directly,
+     but because it changes the STARTING state of the very layers this
+     bug misjudges, so there's less "phantom full" capacity for it to
+     exploit in the first place.
+
 7. **The soil water redistribution scheme (Eq. 1-2) -- largely resolved, one piece
    still open.** Originally: the paper gives the real capacitance-weighted flow
    equation (khe as a function of saturated hydraulic conductivity ks, air-entry
