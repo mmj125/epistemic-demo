@@ -1099,6 +1099,46 @@ against real Cycles output before concluding the gap is real.
     approximately, since Eq. SI.5-SI.7 is literally what this paper says
     Cycles itself computes.
 
+    **Update (2026-09-24), tested head-to-head as flagged above -- kept the
+    SWAT-sourced version, not a close call once the full picture is
+    considered.** Built the SI's own literal Eq. SI.5-SI.7 path as a scratch
+    A/B alternative: `si_cn_dry(cnb)=cnb/(2.3-0.013*cnb)` (Eq. SI.5, no sign
+    issue -- checked numerically, gives sensible values throughout the
+    realistic range as printed); `si_cn_wet(cnb)=cnb/(0.4+0.006*cnb)` (Eq.
+    SI.6, sign-corrected); `si_fwc()`, reusing this project's own pre-SWAT
+    depth-weighted-to-0.6m interpretation (recovered from git history, commit
+    0917a44^ -- the same defensible-but-unverified reading of the SI's words
+    already documented above, since the SI still gives no exact formula for
+    this piece either way); and `CN = CN_dry+(CN_wet-CN_dry)*f_wc` (Eq.
+    SI.7), converted to a retention parameter via the same standard
+    `S=254*(100/CN-1)` used everywhere else in this engine.
+
+    Tested against both established benchmarks. Rock Springs (4-crop suite):
+    tiny, mixed movements in both directions -- corn 0.547->0.550, soybean
+    0.858->0.856, wheat 0.399->0.393, silage corn 0.512->0.519, none moving
+    by more than 0.007. Kansas (6-year benchmark, fresh-start and 1-year
+    chained): essentially identical -- fresh-start mean overshoot 3.63x
+    (SWAT) vs. 3.67x (SI), MAE 1.454 vs. 1.495; chained mean overshoot 2.16x
+    both ways, MAE 0.628 vs. 0.640. Neither formula family is meaningfully
+    better or worse at either site -- a genuine wash, not a close win for
+    either side.
+
+    Given accuracy doesn't distinguish them, the deciding factor is
+    disclosure completeness, and there the SWAT-sourced version wins clearly:
+    `cn_dry()`/`cn_wet()`/`retention_param_mm()`'s continuous S(SW) function
+    are ALL real, cited, exact formulas with zero undisclosed components.
+    The SI's own Eq. SI.5-SI.7, even with both signs now correctly read,
+    still needs `f_wc`, and neither the paper nor the SI gives an exact
+    formula for it -- only "1 for a soil saturated to 0.6m depth... decreases
+    to zero if air-dry... weighted based on depth, with the soil surface
+    having the most importance" (still true after this session's much more
+    careful SI read; nothing new on this specific point turned up). Switching
+    to the SI's own literal structure would trade one set of fully-disclosed
+    formulas for a mix of disclosed formulas plus a still-guessed weighting
+    scheme, for no accuracy gain -- not a faithfulness improvement despite
+    initially looking like one. Kept the current SWAT-sourced implementation
+    unchanged; the SI path was a scratch test only, not committed anywhere.
+
   Cross-referenced everything else in both documents relevant to what this
   engine implements. Confirmed correct as already built: Eq. 3-5 (the
   min(GR,GT) radiation/transpiration growth minimum), Eq. 6 (the canopy-cover
