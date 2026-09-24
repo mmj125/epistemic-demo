@@ -209,6 +209,107 @@ against real Cycles output before concluding the gap is real.
      access to -- narrows the open question to (b) or (c), or a genuinely
      undisclosed root-growth formula.
 
+     **Update (2026-09-24), a Kansas-specific diagnostic and two tested fixes,
+     one real correction to an earlier wrong conclusion.** Prompted by a
+     directed head-to-head test against native Cycles at a semi-arid site
+     (Western Kansas, real STATSGO2/NLDAS-2 data, corn N=150, real reference
+     0.137 Mg/ha for 2012), found a specific, mechanistic cause for why this
+     engine overshoots there: `root_zone_availability()` credits a soil layer
+     at its FULL current moisture content the instant `root_depth` reaches it,
+     with zero regard for whether the root has had any time to actually draw
+     it down. Instrumented day-by-day at Kansas and confirmed directly: water
+     stress correctly hits 1.0 (fully unstressed) around doy 128-145 purely
+     because `root_depth` is still growing into untouched, still-at-field-
+     capacity subsoil, not because of any real rain event (precipitation in
+     that window was 0.1-0.7mm, trivial) -- a "root discovery" artifact, not
+     rain-driven recovery as first suspected.
+
+     Two candidate fixes for this specific mechanism were tested and BOTH
+     failed to move the Kansas number:
+     - **Borg & Grimes (1986)** *Depth development of roots with time: an
+       empirical description* (Trans. ASAE 29:194-197; widely cited in DSSAT/
+       HYDRUS/SWAP), a real, sigmoidal root-growth-vs-time curve
+       (`Zr/Zrmax = 0.5 + 0.5*sin(3.03*(t/tm) - 1.47)`) reaching full depth at
+       t/tm=1.0 instead of this engine's own made-up `min(1, ttf/0.5)` shape
+       (full depth at ttf=0.5, twice as fast). Coefficients are search-
+       corroborated, not independently verified against the primary source --
+       every host tried (arxiv.org, researchgate.net, eurekamag.com,
+       files.core.ac.uk) is blocked by this sandbox's network egress policy.
+       Tested against the full 4-crop suite: corn 0.547->0.544, soybean
+       0.858->**0.825** (a real regression on the strongest, most
+       statistically solid crop), wheat unchanged, silage corn 0.512->0.544.
+       At Kansas: no improvement (barely moved, if anything slightly worse).
+       Discarded -- slowing the overall root-growth rate delays *when* a
+       fresh layer gets discovered, but doesn't change that discovery is
+       still instant and total once it happens, so the same cliff just
+       recurs later in the season with time left to recover from it.
+     - **Root residence-time weighting**: a new mechanism (`root_days` per
+       layer, incremented once per day root_depth has reached that layer,
+       weighting both the layer's "available" and "capacity" contributions to
+       `root_zone_availability()`/`extract_transpiration()` by
+       `min(1, root_days/ramp_days)` instead of crediting it at full weight
+       immediately) -- an engineering approximation for missing root-density
+       buildup, not a literature-sourced formula. Swept ramp_days from 7 to
+       90 days. At Rock Springs: negligible to slightly negative (soybean
+       0.858->0.848 at ramp_days=45, others flat). At Kansas: **zero
+       measurable effect at any ramp_days tested**, even layered on top of
+       real multi-year carryover (see below) -- confirmed this wasn't a test
+       artifact by checking the underlying math directly (a layer sitting
+       exactly at field capacity contributes an identical avail/capacity
+       ratio of 1.0 regardless of its weight, so down-weighting a
+       still-untouched layer doesn't change the pooled average unless a
+       *different*, already-depleted layer's weight moves relative to it --
+       which the sweep confirmed doesn't happen enough to matter here).
+       Discarded as a standalone fix. The diagnosis that motivated it (fresh
+       soil credited instantly, no residence effect) remains real and
+       correctly identified -- it's just not the dominant lever at this site.
+
+     **Real correction to an earlier conclusion, found while building the
+     residence-time test:** a genuine bug in this session's own Kansas test
+     harness, not the engine, was caught and fixed. `simulate_season()`
+     internally calls `crop["make_layers"]()` TWICE when nitrogen tracking is
+     active -- once inside `_reference_n_demand()`'s independent precompute
+     pass, once for the main loop's own real growth trajectory. A test
+     harness that forces `make_layers` to return one shared, pre-built
+     `layers` object (the correct trick for carrying soil state *across*
+     separate `simulate_season()` calls in different years) accidentally lets
+     the precompute pass and the main loop double-mutate that SAME object
+     *within* one call, corrupting the result. This was silently in play for
+     both the fresh-start baseline and the multi-year chained test reported
+     earlier the same day, and produced a badly wrong number: a fresh-start
+     baseline of 0.739 Mg/ha (5.39x over real) that looked like real progress
+     against the previously-documented ~18x gap, and a chained multi-year
+     result (0.738 Mg/ha) that looked identical to the baseline, appearing to
+     show multi-year carryover has no effect at all.
+
+     Fixed (give `_reference_n_demand`'s internal call a throwaway deep copy
+     via a call-count dispatch, so only the main loop's own call receives and
+     mutates the real carried-forward state) and re-run. The corrected
+     numbers tell a different, better story: fresh-start baseline is
+     **2.527 Mg/ha (18.44x over real)** -- matches the original, pre-this-
+     session ~18x finding almost exactly, meaning none of this session's
+     water-balance fixes meaningfully touched the Kansas gap, contrary to
+     what was said earlier the same day. A real 3-year chained run (2010,
+     2011, 2012, real crop-driven depletion carried forward, not bare
+     fallow) gives **1.047 Mg/ha (7.65x over real)** for 2012 -- **more than
+     halving the gap**. Multi-year state carryover is real and substantial
+     here, reversing the earlier (bugged) conclusion that it does nothing.
+     Layering the residence-time weighting on top of working carryover adds
+     nothing further (7.65x at every ramp_days tested, unchanged) -- the two
+     mechanisms don't compound.
+
+     Net standing: of everything tried at Kansas this session (runoff,
+     spin-up, Ksat rate-limiting, Campbell conductivity/substepping,
+     evaporation Kr, `fwc`/retention_param_mm, TRANSPIRATION_MAX, root depth,
+     emergence delay, NET_GROWTH_FRACTION, Borg-Grimes root curve, residence-
+     time weighting), **real multi-year, crop-inclusive state carryover is
+     the only mechanism that has moved the Kansas number at all**, and it
+     moved it substantially. Not yet built as a real engine feature -- this
+     was a scratch, hand-chained 3-call test, not `simulate_season()` gaining
+     a first-class "continue from a prior season" parameter. Worth pursuing
+     as a real feature given this result, rather than another single-
+     mechanism parameter search.
+
 7. **The soil water redistribution scheme (Eq. 1-2) -- largely resolved, one piece
    still open.** Originally: the paper gives the real capacitance-weighted flow
    equation (khe as a function of saturated hydraulic conductivity ks, air-entry
