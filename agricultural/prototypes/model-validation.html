@@ -189,7 +189,7 @@
       <tr><td>Soybean grain</td><td>4.72 Mg/ha</td><td>4.72 Mg/ha</td><td>5.2%</td><td>0.858</td><td><span class="tag tag-pass">passes bar</span></td></tr>
       <tr><td>Corn grain (continuous)</td><td>10.56 Mg/ha</td><td>10.56 Mg/ha</td><td>8.6%</td><td>0.547</td><td><span class="tag tag-fail">below bar</span></td></tr>
       <tr><td>Silage corn forage</td><td>14.81 Mg/ha</td><td>14.81 Mg/ha</td><td>8.8%</td><td>0.512</td><td><span class="tag tag-fail">below bar</span></td></tr>
-      <tr><td>Winter wheat grain</td><td>4.33 Mg/ha</td><td>4.33 Mg/ha</td><td>11.4%</td><td>0.397</td><td><span class="tag tag-fail">below bar (closer than ever)</span></td></tr>
+      <tr><td>Winter wheat grain</td><td>4.33 Mg/ha</td><td>4.33 Mg/ha</td><td>11.4%</td><td>0.399</td><td><span class="tag tag-fail">below bar (closer than ever)</span></td></tr>
       <tr><td>Pasture perennials (orchardgrass, etc.)</td><td colspan="2">real annual yield 5.25&ndash;7.94 Mg/ha, not tracked</td><td>&mdash;</td><td>&minus;0.28 to 0.16<br>(across 4 tested fixes)</td><td><span class="tag tag-unresolved">unresolved</span></td></tr>
       <tr><td>Winter rye / hairy vetch (cover)</td><td colspan="4">no real Cycles reference data available to correlate against &mdash; RUE/WUE are real (SI Table SI.2), everything else borrowed</td><td><span class="tag tag-unresolved">unvalidated</span></td></tr>
     </table>
@@ -713,6 +713,42 @@
       the cleanest conditions) is still not explained by any disclosed mechanism &mdash; this fix corrects
       the model's OUTPUT to match, it doesn't identify the real cause, which stays open.</p>
     </details>
+    <details class="gap">
+      <summary>19. Wheat needed its own radiation-temperature response, separate from the shared
+      NET_GROWTH_FRACTION -- a modest, real refinement</summary>
+      <p>Item 18's fix (applied globally, one shared 0.785 fraction after min(GR, GT)) assumed
+      every crop's warm-day gap was the same size. Checked directly whether that held for soybean
+      and silage corn too, using the same "clean, GT/GR &gt; 1.5" method: soybean 0.786 (n=5) and
+      silage corn 0.806 (n=19) -- both match corn's own 0.785 almost exactly, confirming the shared
+      constant is well-supported for all three. Wheat did NOT match: n=117 clean days gave mean
+      0.471, median 0.502, stdev 0.256 -- roughly half the other crops' value, and far noisier.</p>
+      <p>Traced why rather than just accepting a lower wheat-specific constant: wheat's real
+      growing season (fall through early summer) never reaches the genuinely warm, unambiguously
+      radiation-limited conditions corn/soybean/silage corn's own clean samples came from -- every
+      one of wheat's 117 clean days fell in November through April, and the implied-RUE ratio
+      within that subset still correlates strongly with temperature (corr 0.85) even after the
+      existing cold-temperature fix (item 17) is already applied. A direct linear regression of the
+      RAW ratio (before any temp_factor correction) against daily mean temperature, using a larger,
+      cleaner n=401 sample, gives ratio = 0.202 + 0.0375*tmean -- reaching the shared 0.785 plateau
+      at tmean~15.55&deg;C, not at wheat's own transpiration threshold of 12&deg;C (a real, distinct
+      threshold that was never independently validated for radiation, only reused from
+      transpiration). The nonzero floor at 0&deg;C (0.202, i.e. 0.257 of the 0.785 plateau) is real
+      too -- the existing formula predicts exactly zero growth at freezing, but real Cycles' wheat
+      output keeps growing at about a quarter of its eventual rate even that cold.</p>
+      <p>Implemented as a second, separate temperature-response curve (<code>radiation_temp_factor</code>)
+      applied only to GR, with its own floor and plateau temperature, while transpiration keeps
+      using its own unchanged threshold for GT. Defaults to reproducing the existing shared
+      temperature response exactly (floor=0, plateau=the crop's own transpiration threshold), so
+      this is a genuine no-op for any crop that doesn't set <code>rad_temp_floor</code>/
+      <code>rad_temp_plateau_t</code> -- verified directly: corn's reference number
+      (10.42557318788082 Mg/ha at N=650) is byte-for-byte unchanged. Wheat's own real values
+      (floor=0.257, plateau=15.55&deg;C) gave a modest, real improvement: correlation 0.397 -&gt;
+      0.399, and the total-biomass level bias (already substantially cut by item 18) improved
+      further, 1.233x -&gt; 1.204x of real output. Smaller than hoped given how cleanly the
+      underlying data fit, but a real, verified, disclosed refinement, not a regression -- kept for
+      the same reason `TRANSPIRATION_MAX`/root depth/emergence delay were kept despite modest
+      effects: real, sourced, and correctly implemented.</p>
+    </details>
 
     <p style="margin-top:14px;">This list is deliberately not flattering. It's the same list we'd want
     handed to us if someone else built a reimplementation of our own model and asked us to check it.</p>
@@ -1117,6 +1153,12 @@ def transpiration_temp_factor(tmean, min_t, threshold_t):
     if tmean >= threshold_t:
         return 1.0
     return (tmean - min_t) / (threshold_t - min_t)
+def radiation_temp_factor(tmean, min_t, floor, plateau_t):
+    if tmean <= min_t:
+        return floor
+    if tmean >= plateau_t:
+        return 1.0
+    return floor + (1 - floor) * (tmean - min_t) / (plateau_t - min_t)
 
 TTF50_SHOOT_PARTITION = 0.32  # real-data fit against real Cycles daily output (2026-09-23); see cycles_engine_validate.py
 NET_GROWTH_FRACTION = 0.785  # real, measured post-limitation growth-conversion loss (2026-09-23); see cycles_engine_validate.py
@@ -1201,7 +1243,9 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
         soil_evaporation(layers, eto, eie, precip_mm=w["pp"], de_state=de_state)
         tmean = (w["tx"] + w["tn"]) / 2
         temp_factor = transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
-        GR = crop["rue"] * temp_factor * eie * w["solar"]
+        rad_temp_factor = radiation_temp_factor(tmean, crop["tr_min_t"], crop.get("rad_temp_floor", 0.0),
+                                                 crop.get("rad_temp_plateau_t", crop["tr_threshold_t"]))
+        GR = crop["rue"] * rad_temp_factor * eie * w["solar"]
         es = 0.6108 * math.exp(17.27*tmean/(tmean+237.3))
         ea = es * (w["rhx"] + w["rhn"]) / 200
         Da = max(0.05, es - ea)
@@ -1383,7 +1427,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         soil_evaporation(layers, eto, eie, precip_mm=w["pp"] + irrigation_mm, de_state=de_state)
         tmean = (w["tx"] + w["tn"]) / 2
         temp_factor = transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
-        GR = crop["rue"] * temp_factor * eie * w["solar"]
+        rad_temp_factor = radiation_temp_factor(tmean, crop["tr_min_t"], crop.get("rad_temp_floor", 0.0),
+                                                 crop.get("rad_temp_plateau_t", crop["tr_threshold_t"]))
+        GR = crop["rue"] * rad_temp_factor * eie * w["solar"]
         es = 0.6108 * math.exp(17.27*tmean/(tmean+237.3))
         ea = es * (w["rhx"] + w["rhn"]) / 200
         Da = max(0.05, es - ea)
@@ -1504,9 +1550,12 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
 # since it's the only one this engine has real parameters for, not because it's accurate).
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
     rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=0.8097, canopy_shape=(5, -14, -15, 16),
+    calibration_factor=0.8290, canopy_shape=(5, -14, -15, 16),
     kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=40.6875, make_layers=make_layers,
     n_max_conc=0.07, n_dilution_slope=0.45, legume=False,
+    rad_temp_floor=0.257, rad_temp_plateau_t=15.55,  # wheat-specific radiation-temperature response
+    # (2026-09-23), fit from real Cycles output -- see radiation_temp_factor()'s docstring in
+    # cycles_engine_validate.py
     depletion_fraction=0.55, tr_max_mm_day=8,  # real FAO-56 Table 22 (winter/spring wheat);
     # tr_max_mm_day is real GenericCrops.crop TRANSPIRATION_MAX (WinterWheat)
     root_max_m=2.0,  # real GenericCrops.crop MAXIMUM_ROOTING_DEPTH (WinterWheat)
