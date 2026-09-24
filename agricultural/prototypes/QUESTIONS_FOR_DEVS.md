@@ -182,6 +182,19 @@ against real Cycles output before concluding the gap is real.
      What is wheat's actual root growth function, and does WATER STRESS for
      wheat reflect soil moisture alone or something else layered on top?
 
+     **Update (2026-09-24):** checked hypothesis (a) directly against the real
+     crop file rather than guessing further -- `GenericCrops.crop` has no
+     per-species root-growth-RATE parameter at all, for wheat or any other
+     crop; `MAXIMUM_ROOTING_DEPTH` (already wired in for every crop) is the
+     only real root-related field that exists. So (a) can't be resolved with
+     disclosed data as stated -- there's no real number to swap in for a
+     species-specific curve shape, only the same generic
+     `root_depth=root_max*min(1,ttf/0.5)` shape every crop already shares.
+     This doesn't rule out a real underlying root-growth-rate difference in
+     actual Cycles, only that it isn't in the one crop-parameter file we have
+     access to -- narrows the open question to (b) or (c), or a genuinely
+     undisclosed root-growth formula.
+
 7. **The soil water redistribution scheme (Eq. 1-2) -- largely resolved, one piece
    still open.** Originally: the paper gives the real capacitance-weighted flow
    equation (khe as a function of saturated hydraulic conductivity ks, air-entry
