@@ -112,6 +112,46 @@ against real Cycles output before concluding the gap is real.
      same-day cascading bucket) rather than the crop-side stress-response
      formula -- see item 7 below, which is really the same underlying gap.
 
+     **Update (2026-09-24, tested and discarded):** with the redistribution
+     physics substantially improved since the above was written (real
+     Saxton-Rawls secondary parameters, the closed-form Campbell Eq. 1
+     conductivity function, sub-daily substepping), re-checked this specific
+     gap directly against real Cycles' own `water.txt` per-layer output for
+     2016. Silage corn's onset had actually drifted to 2016-07-14 (worse than
+     the 11-day gap above) under this week's other changes; instrumenting the
+     cause showed `root_zone_availability()` averages soil moisture *uniformly*
+     across the whole root zone (1.55m by mid-season for silage corn), while
+     the real per-layer data shows the top ~0.20m already near wilting point
+     for weeks before the whole-profile average reflects it -- the flat average
+     dilutes an already-dry topsoil against comparatively moist deeper layers.
+     Found a real, citable fix for exactly this shape of problem: FAO-56
+     Chapter 8's own "40-30-20-10 percent water extraction pattern... from the
+     upper to lower quarters of the root zone," so re-weighted
+     `root_zone_availability()` by depth-quarter using those real fractions
+     instead of a flat average. Tested three weightings (40/30/20/10 as
+     stated, an aggressive 70/20/10/0, and a mild 35/30/20/15) against the full
+     four-crop suite. The standard 40/30/20/10 weighting did move silage
+     corn's onset date the right direction (2016-07-14 -> 2016-07-11, a real
+     3-day improvement, though still 11 days short of real Cycles' 2016-06-30)
+     -- but every weighting tested, including the mildest, made aggregate
+     correlation *worse* for every one of the four validated crops (baseline
+     corn 0.547/soybean 0.858/wheat 0.399/silage corn 0.512; 40/30/20/10 gave
+     0.543/0.852/0.385/0.488; the mild variant gave 0.537/0.856/0.377/0.502;
+     the aggressive variant was worse still). Discarded, matching this
+     project's standing discipline of not shipping a fix that improves one
+     specific case at the expense of overall correlation (the same call
+     already made once this session for a flat RUE-discount attempt and once
+     for a fitted power-law water-stress curve). The idea itself remains
+     physically well-motivated and real (unlike a guessed shape), so it's
+     recorded here rather than silently dropped -- if this is revisited, note
+     that the direction of the fix is right (weighting toward the topsoil
+     helps this specific timing case) but naive depth-quarter weighting
+     trades away accuracy elsewhere across the 9-37-year records for all four
+     crops, not just this one drought event; a more targeted approach
+     (perhaps blending flat and quarter-weighted only when the profile shows a
+     steep enough moisture gradient) might be worth trying instead of a
+     constant weighting applied every day regardless of profile shape.
+
    - **Winter wheat**: a much stranger anomaly, not a timing/shape issue at all.
      Real wheat yield correlates -0.89 with real Cycles' own max-per-season
      WATER STRESS across the 9 harvested years (1988-2015) -- confirming stress
