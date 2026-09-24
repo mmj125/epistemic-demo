@@ -499,3 +499,30 @@ against real Cycles output before concluding the gap is real.
   unchanged to three decimals), since nothing calls `simulate_season()` for
   wheat with nitrogen tracking active anywhere in this project -- a pure
   data-completeness fix, not a behavior change.
+
+- **Re-tried wheat's real 90 kg N/ha fertilizer input after the biomass fixes
+  -- still doesn't work, confirmed why (2026-09-24).** CLAUDE.md's own account
+  (2026-09-23) left this open: applying wheat's real fertilization (a single
+  90 kg N/ha UAN broadcast at DOY 75, from `CornSilageSoyWheat.operation`)
+  made correlation dramatically worse (0.276 -> -0.145) before the
+  NET_GROWTH_FRACTION/wheat-radiation-temperature fixes, which were expected
+  to fix the underlying cause (an overestimated biomass trajectory). Re-tested
+  now that wheat's total-biomass level bias has improved substantially
+  (1.233x -> 1.204x, on top of everything else fixed since): the real N input
+  alone still collapses correlation just as badly (0.399 unconstrained ->
+  0.023 constrained), so the biomass fix did not resolve this. Swept an
+  additional flat nitrogen credit on top of the real 90 kg N/ha input (0 to
+  500 kg N/ha) and found correlation only recovers to the unconstrained
+  baseline once the credit reaches ~150 kg N/ha -- i.e., this simplified
+  model's own implied total-season N demand for wheat is roughly 240 kg N/ha
+  to be non-limiting, nearly 2.7x the real 90 kg N/ha application that
+  apparently suffices for real Cycles. This is the exact same limitation
+  already disclosed for corn ("no background soil-supplied nitrogen... the
+  point at which the knob stops mattering is much higher than a real-world
+  fertilizer recommendation would suggest"), now confirmed to apply
+  identically to wheat rather than being a corn-specific quirk. There's no
+  real, disclosed number to use for a wheat-specific credit large enough to
+  close this gap -- any credit that reproduces the real mean is circular
+  (chosen to match the answer, not derived from anything). Not pursued
+  further: closing this for real needs the full six-pool soil-supplied
+  nitrogen system (already out of v1 scope), not a bigger fudge factor.
