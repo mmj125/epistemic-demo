@@ -1211,6 +1211,23 @@ NCRIT_FLOOR_MGHA = 1.0
 # spread over a ~150-day season, 0.5 kg N/ha/day sits in the middle of that range.
 BACKGROUND_N_KG_HA_DAY = 0.5
 
+def rothc_temp_factor(tmean):
+    # Real RothC temperature rate-modifier (Coleman & Jenkinson), from the model's own
+    # Fortran source: 0 for T<-5C, else 47.91/(exp(106.06/(T+18.27))+1.0). See
+    # cycles_engine_validate.py's rothc_temp_factor() for the full sourcing/derivation.
+    if tmean < -5.0:
+        return 0.0
+    return 47.91 / (math.exp(106.06 / (tmean + 18.27)) + 1.0)
+
+def rothc_moisture_factor(theta, fc, pwp, min_factor=0.2):
+    # Real RothC moisture rate-modifier, adapted to this engine's own theta/fc/pwp in place
+    # of RothC's own separate soil-moisture-deficit bookkeeping. See
+    # cycles_engine_validate.py's rothc_moisture_factor() for the full derivation.
+    if fc <= pwp:
+        return 1.0
+    frac = max(0.0, min(1.0, (theta - pwp) / (fc - pwp)))
+    return min_factor + (1.0 - min_factor) * frac
+
 def tillage_ftx(clay_frac):
     return 1 + 4 * math.exp(-5.5 * clay_frac)
 
@@ -1300,7 +1317,8 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
         GT = crop["wue"]/math.sqrt(Da) * TR_actual
         dGB_water_limited = max(0.0, min(GR, GT)) * NET_GROWTH_FRACTION / 1000
         demand.append(dGB_water_limited * 10 * n_marginal_demand_pct(ref_biomass * 10, crop) * 10)
-        bg_multiplier.append(1.0 + tillage_ft(dr, ftx))
+        weather_factor = rothc_temp_factor(tmean) * rothc_moisture_factor(layers[0]["theta"], layers[0]["fc"], layers[0]["pwp"])
+        bg_multiplier.append((1.0 + tillage_ft(dr, ftx)) * weather_factor)
         if dr > 0:
             dr -= dr * tillage_dr_decay(layers)
         ref_biomass += dGB_water_limited
@@ -1502,7 +1520,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             if w["doy"] in applications_by_doy:
                 n_pool += applications_by_doy[w["doy"]]
             if dGB_water_limited > 0:
-                n_pool += BACKGROUND_N_KG_HA_DAY * (1.0 + tillage_ft(tillage_dr, tillage_ftx_val))
+                weather_factor = rothc_temp_factor(tmean) * rothc_moisture_factor(layers[0]["theta"], layers[0]["fc"], layers[0]["pwp"])
+                n_pool += BACKGROUND_N_KG_HA_DAY * (1.0 + tillage_ft(tillage_dr, tillage_ftx_val)) * weather_factor
             n_stress = n_stress_fraction
             target_uptake_kg_ha = n_stress_fraction * daily_demand[day_i]
             n_uptake_kg_ha = min(n_pool, target_uptake_kg_ha)
@@ -1708,10 +1727,12 @@ def bare_fallow_leaching(weather_rows, n_pool_initial, lat_deg=40.6875, curve_nu
     but skips every crop-growth calculation, since there's no crop.
     Also credits the same BACKGROUND_N_KG_HA_DAY organic-matter mineralization
     simulate_season() now applies to a cropped field, gated the same way (above-freezing
-    days only, as a simple proxy for biological activity) -- fallow soil keeps
-    mineralizing whether or not a crop is using the result, and leaving this out here
-    would have made the cover-crop-vs-bare-fallow comparison count background N for one
-    side but not the other. Also tracks de_state (real FAO-56 two-stage evaporation
+    days only, as a simple proxy for biological activity) and scaled by the same real
+    RothC temperature/moisture factor added 2026-09-24 -- fallow soil keeps mineralizing
+    (at whatever rate that day's real weather and topsoil moisture support) whether or not
+    a crop is using the result, and leaving either the credit or its weather-scaling out
+    here would have made the cover-crop-vs-bare-fallow comparison count background N
+    unevenly between the two sides. Also tracks de_state (real FAO-56 two-stage evaporation
     depletion, added 2026-09-23 alongside the same runoff fix above and for the same
     reason -- every actual crop phase now reduces its evaporation demand once the
     surface has been drying a while; leaving this counterfactual on the old no-memory
@@ -1724,7 +1745,8 @@ def bare_fallow_leaching(weather_rows, n_pool_initial, lat_deg=40.6875, curve_nu
     for w in weather_rows:
         tmean = (w["tx"] + w["tn"]) / 2
         if tmean > 0:
-            n_pool += BACKGROUND_N_KG_HA_DAY
+            weather_factor = rothc_temp_factor(tmean) * rothc_moisture_factor(layers[0]["theta"], layers[0]["fc"], layers[0]["pwp"])
+            n_pool += BACKGROUND_N_KG_HA_DAY * weather_factor
         drainage_mm, _ = infiltrate(layers, w["pp"], curve_number, slope_pct)
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], lat_deg)
         soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state)  # eie=0: no canopy, bare soil evaporates at full potential rate

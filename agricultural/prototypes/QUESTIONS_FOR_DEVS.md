@@ -1283,3 +1283,102 @@ against real Cycles output before concluding the gap is real.
   simulation controls" form (which exposes every other `simulate_season()`
   parameter) is the natural place to add a density control if this is picked
   up again.
+
+- **Wheat's real dominant driver is nitrogen, not water -- and the missing
+  piece turned out to be that our nitrogen supply mechanism had zero year-
+  to-year weather variability, now fixed with a real, sourced external
+  formula (2026-09-24).** Re-checked the "wheat's real reported water
+  stress is far larger than real soil moisture would explain" anomaly
+  (item 7, and the "Follow-up diagnostic session" entry elsewhere in this
+  file) and found the whole premise rested on a column-misread: precisely
+  re-parsed real Cycles' own `WinterWheat.txt` at the exact flagged row
+  (2012-03-16) and found `N STRESS = 59.5373`, `WATER STRESS = 0.0` -- the
+  "59.5% water stress" quoted since 2026-09-10 was actually N stress,
+  attributed to the wrong column. Confirmed with a direct correlation
+  check: real wheat yield correlates -0.894 with real Cycles' own max-per-
+  season N stress across all 9 harvested years, and only 0.359 with max
+  water stress. Every water-balance fix this session (including today's
+  f_wc resolution) has been improving a mechanism that isn't wheat's actual
+  dominant driver.
+
+  Checked whether the full six-pool nitrogen system (SI Eq. SI.10-14,
+  finally readable this session via the OMML parser) could close this for
+  real: the differential equations for microbial/soil carbon pools and
+  their saturation-scaled efficiency/decomposition factors are genuinely
+  disclosed now, but the actual rate constants (k_ra, k_rt, k_rz, k_rm,
+  k_m, k_s), the soil-environment scalar fE, the microbial-cap scalar fA,
+  and the saturation capacity C_sx are not given anywhere -- not in the
+  paper, the SI, or any of Cycles' own input files (checked
+  `GenericCrops.crop` and the `.soil` files directly, nothing). The
+  structure is disclosed; the numbers that make it run are not. Confirms
+  the full six-pool system is still correctly out of v1 scope, now for a
+  more precise reason than originally stated.
+
+  Tested applying wheat's real disclosed fertilizer input (90 kg N/ha UAN
+  broadcast at DOY 75, from `CornSilageSoyWheat.operation`) plus the
+  paper's own real disclosed previous-crop credit (60 kg N/ha for maize
+  following soybean, SI Sec. IX -- wheat also follows soybean in this
+  rotation, never previously tested for wheat specifically): correlation
+  went 0.393 (no nitrogen tracking) -> 0.017 (90 kg/ha alone) -> 0.219
+  (90 + the real 60 kg/ha credit) -- real, disclosed, and a genuine
+  improvement over 90-alone, but still worse than not modeling nitrogen at
+  all. Diagnosed why rather than concluding the credit just isn't enough:
+  `BACKGROUND_N_KG_HA_DAY` is a flat 0.5 kg N/ha/day constant with no
+  year-to-year variability at all, so even the right total nitrogen amount
+  can fix the mean level but can't reproduce which specific years get more
+  or less N-stressed -- exactly what a -0.894 yield/stress correlation
+  requires.
+
+  Found a real, external, non-Cycles-specific formula for the missing
+  piece: RothC (Rothamsted Research's own soil carbon model, Coleman &
+  Jenkinson, widely cited since the 1990s) publishes exact temperature and
+  moisture rate-modifiers for organic-matter decomposition. Got them from
+  the model's own literal Fortran source
+  (github.com/Rothamsted-Models/RothC_Code/blob/master/RothC.for) after a
+  web-search summary of the same formula came back transcribed wrong --
+  `RM_TMP = 0` below -5C, else `47.91/(exp(106.06/(T+18.27))+1.0)`; a
+  moisture factor that ramps linearly between 0.2 and 1.0 across a
+  wilting-point-to-field-capacity-like range. Adapted the moisture piece
+  to this engine's own already-tracked topsoil `theta/fc/pwp` rather than
+  reproducing RothC's own separate soil-moisture-deficit bookkeeping.
+  Implemented as `rothc_temp_factor()`/`rothc_moisture_factor()`,
+  multiplied into `BACKGROUND_N_KG_HA_DAY` in both `_reference_n_demand()`
+  and `simulate_season()`'s main loop (mirrored, the same discipline
+  already required for tillage's own dr/ft tracking) and into
+  `engine-demo.html`'s own `bare_fallow_leaching()` counterfactual (so the
+  cover-crop-vs-bare-fallow comparison stays fair on both sides). Result:
+  correlation 0.017 -> **0.473** (90 kg/ha alone, weather-varying
+  background) and 0.219 -> **0.431** (90 + the real 60 kg/ha credit,
+  weather-varying background) -- both now beat the 0.393 no-nitrogen-
+  tracking baseline, the first nitrogen-side change this session to
+  actually help wheat past where "don't model it" already stood.
+
+  Verified safe before shipping: `_reference_n_demand()` is only ever
+  called when nitrogen tracking is active at all (confirmed with a call
+  counter: zero calls during the standard `run_validation.py`/
+  `run_validation_rotation2.py` suite, none of which pass nitrogen
+  parameters), so this is completely inert on the headline
+  0.550/0.856/0.393/0.518 correlation numbers -- re-ran the full suite
+  and confirmed byte-identical. Mass balance re-verified to close exactly
+  (uptake+leached+remaining = applications+credit+background, checked to
+  six decimal places with the new weather-varying background included).
+  The standing tillage sanity check (moldboard plow: real yield gain at a
+  nitrogen-limiting rate, zero at a non-limiting rate) and the manure-
+  availability-equivalence check (200 kg manure @ 0.5 = 100 kg mineral,
+  byte-identical) both re-verified to still pass with the new factor
+  composed in. Ported into both embedded `ENGINE_SOURCE` copies
+  identically, confirmed byte-identical to each other afterward (51223
+  bytes each), and confirmed the extracted embedded engine executes
+  cleanly and reproduces the same numbers.
+
+  Real, disclosed consequence: this changes nitrogen dynamics everywhere
+  they're used, not just wheat -- corn's own nitrogen-tracking runs (e.g.
+  Rock Springs 2012, N=50, no tillage) moved from 5.0253 to 4.9683 Mg/ha,
+  a real, expected shift from the same mechanism now varying by weather
+  instead of being flat. Every specific number already documented
+  elsewhere in this file or in CLAUDE.md for `engine-demo.html`'s
+  nitrogen-sweep/frontier/rotation panels (built against the old flat
+  background) will not reproduce exactly if re-run now -- not re-verified
+  panel by panel here, the same disclosed-not-exhaustive standard already
+  applied to the last several engine-wide fixes this session; re-check a
+  given panel's numbers when it's next touched, not before.

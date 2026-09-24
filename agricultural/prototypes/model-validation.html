@@ -782,6 +782,57 @@
       effects: real, sourced, and correctly implemented.</p>
     </details>
 
+    <details class="gap">
+      <summary>20. Wheat's real dominant driver is nitrogen, not water &mdash; a column-misread
+      corrected, and a real external formula closes the resulting gap (resolved, 2026-09-24)</summary>
+      <p>The "wheat's real reported water stress is far larger than real soil moisture would explain"
+      anomaly documented elsewhere in this file (and quoted since 2026-09-10) turned out to rest on a
+      column-misread: precisely re-parsed real Cycles' own <code>WinterWheat.txt</code> at the exact
+      flagged row and found <code>N STRESS = 59.5373</code>, <code>WATER STRESS = 0.0</code> &mdash;
+      the "59.5% water stress" was actually N stress. Confirmed directly: real wheat yield correlates
+      -0.894 with real Cycles' own max-per-season N stress and only 0.359 with max water stress. Every
+      water-balance fix on this page (f_wc included) has been improving a mechanism that isn't wheat's
+      actual dominant driver.</p>
+      <p>Checked whether the full six-pool nitrogen system (SI Eq. SI.10-14, finally readable this
+      session via a custom OMML parser) could close this: the differential equations for microbial/soil
+      carbon pools and their saturation-scaled efficiency/decomposition factors are genuinely disclosed
+      now, but the rate constants (k_ra, k_rt, k_rz, k_rm, k_m, k_s), the soil-environment scalar fE, the
+      microbial-cap scalar fA, and the saturation capacity C_sx are not given anywhere &mdash; not in the
+      paper, the SI, or any of Cycles' own input files. The structure is disclosed; the numbers that make
+      it run are not. The full six-pool system stays correctly out of scope, now for a more precise
+      reason.</p>
+      <p>Tested wheat's real disclosed fertilizer input (90 kg N/ha, from
+      <code>CornSilageSoyWheat.operation</code>) plus the paper's own real disclosed previous-crop credit
+      (60 kg N/ha for maize following soybean, SI Sec. IX &mdash; wheat also follows soybean here):
+      correlation went 0.393 (no nitrogen tracking) &rarr; 0.017 (90 kg/ha alone) &rarr; 0.219 (plus the
+      real credit) &mdash; a real improvement, but still worse than not modeling nitrogen at all. The
+      actual cause: <code>BACKGROUND_N_KG_HA_DAY</code> is a flat constant with zero year-to-year
+      variability, so even the right total nitrogen can fix the mean but not which specific years get
+      stressed.</p>
+      <p>Found a real, external, non-Cycles-specific formula for the missing variability: RothC
+      (Rothamsted Research's own soil carbon model, Coleman &amp; Jenkinson, widely cited since the
+      1990s) publishes exact temperature and moisture rate-modifiers for organic-matter decomposition,
+      obtained from the model's own literal Fortran source after a web-search paraphrase of the same
+      formula came back transcribed wrong. Temperature: 0 below -5&deg;C, else
+      <code>47.91/(exp(106.06/(T+18.27))+1.0)</code>. Moisture: a linear ramp between 0.2 and 1.0,
+      adapted to this engine's own already-tracked topsoil theta/fc/pwp rather than RothC's own separate
+      moisture-deficit bookkeeping. Multiplied into <code>BACKGROUND_N_KG_HA_DAY</code> in both the
+      demand-precompute pass and the main day loop (mirrored, same discipline as tillage's own dr/ft
+      tracking) and into the rotation panel's bare-fallow counterfactual, so that comparison stays fair
+      on both sides. Result: correlation 0.017 &rarr; <strong>0.473</strong> (90 kg/ha alone) and 0.219
+      &rarr; <strong>0.431</strong> (90 + the real credit) &mdash; both now beat the 0.393 no-tracking
+      baseline.</p>
+      <p>Verified safe: <code>_reference_n_demand()</code> only runs when nitrogen tracking is active at
+      all (confirmed with a call counter: zero calls during the standard validation suite), so this is
+      completely inert on the headline 0.550/0.856/0.393/0.518 correlation numbers above &mdash; re-ran
+      the full suite and confirmed byte-identical. Mass balance re-verified to close exactly with the new
+      factor included. The tillage and manure-availability sanity checks used throughout this page both
+      re-verified to still pass unchanged. Real, disclosed consequence: this changes nitrogen dynamics
+      everywhere they're used, not just wheat (e.g. Rock Springs 2012 corn at N=50 moved from 5.0253 to
+      4.9683 Mg/ha) &mdash; specific numbers already documented elsewhere for the nitrogen-sweep/frontier/
+      rotation panels will not reproduce exactly until re-checked.</p>
+    </details>
+
     <p style="margin-top:14px;">This list is deliberately not flattering. It's the same list we'd want
     handed to us if someone else built a reimplementation of our own model and asked us to check it.</p>
   </div>
@@ -1234,6 +1285,23 @@ NCRIT_FLOOR_MGHA = 1.0
 # spread over a ~150-day season, 0.5 kg N/ha/day sits in the middle of that range.
 BACKGROUND_N_KG_HA_DAY = 0.5
 
+def rothc_temp_factor(tmean):
+    # Real RothC temperature rate-modifier (Coleman & Jenkinson), from the model's own
+    # Fortran source: 0 for T<-5C, else 47.91/(exp(106.06/(T+18.27))+1.0). See
+    # cycles_engine_validate.py's rothc_temp_factor() for the full sourcing/derivation.
+    if tmean < -5.0:
+        return 0.0
+    return 47.91 / (math.exp(106.06 / (tmean + 18.27)) + 1.0)
+
+def rothc_moisture_factor(theta, fc, pwp, min_factor=0.2):
+    # Real RothC moisture rate-modifier, adapted to this engine's own theta/fc/pwp in place
+    # of RothC's own separate soil-moisture-deficit bookkeeping. See
+    # cycles_engine_validate.py's rothc_moisture_factor() for the full derivation.
+    if fc <= pwp:
+        return 1.0
+    frac = max(0.0, min(1.0, (theta - pwp) / (fc - pwp)))
+    return min_factor + (1.0 - min_factor) * frac
+
 def tillage_ftx(clay_frac):
     return 1 + 4 * math.exp(-5.5 * clay_frac)
 
@@ -1323,7 +1391,8 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
         GT = crop["wue"]/math.sqrt(Da) * TR_actual
         dGB_water_limited = max(0.0, min(GR, GT)) * NET_GROWTH_FRACTION / 1000
         demand.append(dGB_water_limited * 10 * n_marginal_demand_pct(ref_biomass * 10, crop) * 10)
-        bg_multiplier.append(1.0 + tillage_ft(dr, ftx))
+        weather_factor = rothc_temp_factor(tmean) * rothc_moisture_factor(layers[0]["theta"], layers[0]["fc"], layers[0]["pwp"])
+        bg_multiplier.append((1.0 + tillage_ft(dr, ftx)) * weather_factor)
         if dr > 0:
             dr -= dr * tillage_dr_decay(layers)
         ref_biomass += dGB_water_limited
@@ -1525,7 +1594,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             if w["doy"] in applications_by_doy:
                 n_pool += applications_by_doy[w["doy"]]
             if dGB_water_limited > 0:
-                n_pool += BACKGROUND_N_KG_HA_DAY * (1.0 + tillage_ft(tillage_dr, tillage_ftx_val))
+                weather_factor = rothc_temp_factor(tmean) * rothc_moisture_factor(layers[0]["theta"], layers[0]["fc"], layers[0]["pwp"])
+                n_pool += BACKGROUND_N_KG_HA_DAY * (1.0 + tillage_ft(tillage_dr, tillage_ftx_val)) * weather_factor
             n_stress = n_stress_fraction
             target_uptake_kg_ha = n_stress_fraction * daily_demand[day_i]
             n_uptake_kg_ha = min(n_pool, target_uptake_kg_ha)

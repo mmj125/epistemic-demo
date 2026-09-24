@@ -924,6 +924,60 @@ NCRIT_FLOOR_MGHA = 1.0  # dilution curve is flat (at N_MAX_CONCENTRATION) below 
 BACKGROUND_N_KG_HA_DAY = 0.5
 
 # ---------------------------------------------------------------------------
+# Weather-driven scaling on BACKGROUND_N_KG_HA_DAY (2026-09-24). The flat
+# constant above has zero year-to-year variability, which is exactly why
+# turning nitrogen tracking on for winter wheat (which real Cycles output
+# shows is dominated by nitrogen stress, not water -- see QUESTIONS_FOR_DEVS.md
+# item 6) made correlation WORSE than not modeling nitrogen at all: applying
+# real nitrogen constraints at a flat, unvarying supply rate can fix the mean
+# level but can't reproduce which specific years get more or less N-stressed.
+# Real Cycles' own soil-carbon/mineralization equations (SI Eq. SI.10-14,
+# now readable via this session's OMML parser) give the right STRUCTURE but
+# not the numbers needed to run them -- the rate constants (k_ra, k_rt, k_rz,
+# k_rm, k_m, k_s), the soil-environment scalar fE, the microbial-cap scalar
+# fA, and the saturation capacity C_sx are disclosed nowhere, not in the
+# paper, the SI, or any of Cycles' own input files (checked GenericCrops.crop
+# and the .soil files directly). Rather than guess at those, this uses a
+# real, independently-sourced, external formula for exactly the same kind of
+# temperature/moisture scaling on organic-matter decomposition: RothC
+# (Rothamsted Research's own soil carbon model, Coleman & Jenkinson, widely
+# cited since the 1990s, not a Cycles-specific or invented shape), obtained
+# from its own literal Fortran source
+# (github.com/Rothamsted-Models/RothC_Code/blob/master/RothC.for) rather than
+# a paraphrase, since a web-search summary of the same formula came back
+# transcribed wrong on the first pass.
+# ---------------------------------------------------------------------------
+
+def rothc_temp_factor(tmean):
+    """Real RothC temperature rate-modifier (Coleman & Jenkinson), quoted verbatim from the
+    model's own Fortran source: RM_TMP = 0 for T<-5C, else 47.91/(exp(106.06/(T+18.27))+1.0).
+    Ranges from 0 at/below -5C through 1.0 around 30C (its own real behavior, not tuned for
+    this engine) -- used here to scale BACKGROUND_N_KG_HA_DAY's flat rate by how warm a given
+    day actually was, giving real, sourced year-to-year variability the flat constant never
+    had."""
+    if tmean < -5.0:
+        return 0.0
+    return 47.91 / (math.exp(106.06 / (tmean + 18.27)) + 1.0)
+
+
+def rothc_moisture_factor(theta, fc, pwp, min_factor=0.2):
+    """Real RothC moisture rate-modifier, adapted to this engine's own already-tracked soil
+    state rather than RothC's own separate soil-moisture-deficit (SMD) bookkeeping (a
+    monthly-timestep quantity this engine has no equivalent of). RothC's own real shape is a
+    linear ramp between min_factor (0.2, RothC's own real default floor) at a wilting-point-
+    like threshold and 1.0 at a field-capacity-like threshold -- reproduced here using this
+    engine's own (theta-pwp)/(fc-pwp) fraction as the ramp's input in place of RothC's own
+    SMD/SMD1bar/SMD15barAdj ratio, since both are the same real concept (how depleted is the
+    topsoil relative to field capacity/wilting point) expressed through different, already-
+    tracked bookkeeping -- a disclosed adaptation of a real formula's shape, not a literal
+    port of RothC's own moisture accounting."""
+    if fc <= pwp:
+        return 1.0
+    frac = max(0.0, min(1.0, (theta - pwp) / (fc - pwp)))
+    return min_factor + (1.0 - min_factor) * frac
+
+
+# ---------------------------------------------------------------------------
 # Tillage's real decomposition-acceleration factor (Kemanian & Stockle 2010,
 # Eq. 5 -- C-Farm, Cycles' own predecessor model, real source PDF in this
 # repo's root as of 2026-09-22). Real formula, real per-implement input data,
@@ -1035,8 +1089,11 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf, curve_numbe
     decomposition-boost tracking (see simulate_season's tillage_doy paragraph and
     tillage_ft()'s own docstring), or the two loops' water and background-N trajectories
     would silently diverge. Returns (demand, bg_multiplier) -- a second list, one entry per
-    day, of the (1+ft) multiplier that day's BACKGROUND_N_KG_HA_DAY should be scaled by;
-    all 1.0 when tillage_doy is None.
+    day, of the multiplier that day's BACKGROUND_N_KG_HA_DAY should be scaled by: the tillage
+    (1+ft) factor (1.0 when tillage_doy is None) times a real, weather-driven RothC
+    temperature/moisture factor (rothc_temp_factor()/rothc_moisture_factor() above, added
+    2026-09-24 -- never 1.0, always reflects that day's actual temperature and topsoil
+    moisture).
 
     initial_layers: real multi-year state carryover (2026-09-24), see simulate_season's own
     initial_layers paragraph for the full story -- this function needs its own INDEPENDENT
@@ -1100,7 +1157,8 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf, curve_numbe
         dGB_water_limited = max(0.0, min(GR, GT)) * NET_GROWTH_FRACTION / 1000
 
         demand.append(dGB_water_limited * 10 * n_marginal_demand_pct(ref_biomass * 10, crop) * 10)
-        bg_multiplier.append(1.0 + tillage_ft(dr, ftx))
+        weather_factor = rothc_temp_factor(tmean) * rothc_moisture_factor(layers[0]["theta"], layers[0]["fc"], layers[0]["pwp"])
+        bg_multiplier.append((1.0 + tillage_ft(dr, ftx)) * weather_factor)
         if dr > 0:
             dr -= dr * tillage_dr_decay(layers)
         ref_biomass += dGB_water_limited
@@ -1506,7 +1564,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             if w["doy"] in applications_by_doy:
                 n_pool += applications_by_doy[w["doy"]]
             if dGB_water_limited > 0:
-                n_pool += BACKGROUND_N_KG_HA_DAY * (1.0 + tillage_ft(tillage_dr, tillage_ftx_val))
+                weather_factor = rothc_temp_factor(tmean) * rothc_moisture_factor(layers[0]["theta"], layers[0]["fc"], layers[0]["pwp"])
+                n_pool += BACKGROUND_N_KG_HA_DAY * (1.0 + tillage_ft(tillage_dr, tillage_ftx_val)) * weather_factor
             n_stress = n_stress_fraction
             target_uptake_kg_ha = n_stress_fraction * daily_demand[day_i]
             n_uptake_kg_ha = min(n_pool, target_uptake_kg_ha)
