@@ -17,6 +17,20 @@ against real Cycles output before concluding the gap is real.
    is actually present anywhere in the document (SI Section II is transpiration
    only). What's the actual formula?
 
+   **Update (2026-09-23):** implemented FAO-56's real, standard two-stage
+   evaporation-reduction coefficient (Allen et al. 1998 Eq. 73-74, Kr driven by
+   cumulative depletion since the surface was last wetted) in place of the old
+   no-memory proxy -- a real, sourced, correctly-behaving mechanism (verified via
+   a synthetic dry-down test showing the expected Stage-1-then-decelerating-
+   Stage-2 shape), but it measured zero effect on any validated crop's
+   correlation, since Rock Springs' rainfall resets the depletion counter before
+   Stage 2 ever triggers in this record. This closes the "Kr" half of the real
+   FAO-56 method; still open, unaddressed by that fix: Cycles' own actual
+   evaporation formula (still undisclosed), the exact per-texture REW table
+   (a single disclosed 9mm default is used instead), and FAO-56's own
+   Kcmax-based potential-demand term (Eq. 72, not implemented -- this engine's
+   own non-intercepted-radiation proxy still drives the potential-demand side).
+
 4. **Perennial forage cutting trigger (`CLIPPING_BIOMASS_THRESHOLD_UPPER` /
    `HARVEST_TIMING` interaction).** For orchardgrass at Rock Springs (real
    `GenericCrops.crop` values verified directly: `MATURITY_TT=1500`,
@@ -454,3 +468,34 @@ against real Cycles output before concluding the gap is real.
   floor/plateau (verified: corn's reference number is byte-for-byte unchanged).
   Modest but real result for wheat: correlation 0.397 -> 0.399, total-biomass
   level bias 1.233x -> 1.204x of real output.
+
+- **The critical-N-dilution curve's flat-below-1-Mg/ha threshold -- tested and not
+  changed.** Checked whether the biomass threshold at which N concentration stops
+  being flat at N_MAX_CONCENTRATION and starts declining (assumed to be exactly
+  1 Mg/ha, matching the standard literature convention) actually matches real
+  Cycles output. Pulled real (biomass, AG N CONCN) pairs at N STRESS=0 (so the
+  crop is growing at its unconstrained potential, the only fair comparison)
+  across corn, soybean, and wheat's own real daily crop-output files and grid-
+  searched the best-fit threshold per crop, holding N_MAX_CONCENTRATION/
+  N_DILUTION_SLOPE fixed at each crop's own real disclosed values. Each crop's
+  best-fit threshold moved the fit meaningfully (corn 0.70, soybean 1.50, wheat
+  0.15 -- 21-78% SSE reduction each), but the three values are wildly
+  inconsistent with each other and with 1.0, with no real disclosed constant to
+  anchor any one of them. Not implemented: this would be curve-fitting a free
+  parameter per crop with no citable justification, the same category of
+  mistake as the earlier reverted power-law water-stress fit. `n_max_conc`/
+  `n_dilution_slope` are real, disclosed GenericCrops.crop values and stay
+  exactly as they are; only the assumed threshold (never itself a disclosed
+  Cycles parameter) was tested and left unchanged.
+
+- **WHEAT was missing its own real `n_max_conc`/`n_dilution_slope` values in
+  `run_validation_rotation2.py` -- fixed (2026-09-24).** While checking the
+  N-dilution curve above, found the canonical validation script's WHEAT dict
+  never had these two fields set at all, unlike CORN/SOYBEAN -- a real
+  completeness gap (the embedded `ENGINE_SOURCE` copies in `engine-demo.html`/
+  `model-validation.html` already had the correct real values, 0.07/0.45, so
+  only the canonical script needed the fix). Added the real GenericCrops.crop
+  values. Zero effect on validation (confirmed: all four crops' correlations
+  unchanged to three decimals), since nothing calls `simulate_season()` for
+  wheat with nitrogen tracking active anywhere in this project -- a pure
+  data-completeness fix, not a behavior change.

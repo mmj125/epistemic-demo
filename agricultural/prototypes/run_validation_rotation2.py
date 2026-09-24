@@ -75,7 +75,14 @@ WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
              # (12 degC) undershot real growth at every temperature this crop actually experiences
              tr_max_mm_day=8,  # real GenericCrops.crop TRANSPIRATION_MAX (WinterWheat)
              root_max_m=2.0,  # real GenericCrops.crop MAXIMUM_ROOTING_DEPTH (WinterWheat)
-             tt_emergence=100)  # real GenericCrops.crop THERMAL_TIME_TO_EMERGENCE (WinterWheat)
+             tt_emergence=100,  # real GenericCrops.crop THERMAL_TIME_TO_EMERGENCE (WinterWheat)
+             n_max_conc=0.07, n_dilution_slope=0.45)  # real GenericCrops.crop values (WinterWheat) --
+             # added 2026-09-24, a real data-completeness gap: unlike CORN/SOYBEAN, WHEAT never had
+             # these two fields set, so it silently fell back to whatever crop["n_max_conc"] happened
+             # to be if nitrogen tracking were ever activated for it -- currently a KeyError risk, not
+             # a wrong-number risk, since nothing in this project calls simulate_season() for wheat
+             # with n_rate_kg_ha/n_applications/n_credit_kg_ha/manure_n_kg_ha set (verified: zero
+             # effect on validation, confirming this is a pure completeness fix, not a behavior change)
 
 CORN_SILAGE = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
                     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
