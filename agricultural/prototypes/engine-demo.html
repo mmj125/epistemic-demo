@@ -913,28 +913,40 @@ def slope_factor(slp):
     return 1.1 - slp / (slp + math.exp(3.7 + 0.02 * slp))
 
 def cn_dry(cnb):
-    return cnb - (20 * (100 - cnb)) / ((100 - cnb) + math.exp(2.533 - 0.0636 * (100 - cnb)))
+    return cnb / (2.3 - 0.013 * cnb)
 
 def cn_wet(cnb):
-    return cnb * math.exp(0.00673 * (100 - cnb))
+    return cnb / (0.4 + 0.006 * cnb)
+
+def depth_weighted_ffc(layers, depth_m=0.6):
+    # Real, sourced f_wc (2026-09-24) -- Williams, Kannan, Wang, Santhi & Arnold (2012, J.
+    # Hydrologic Engineering 17(11):1221-1229) Eq. 16, applied to their Eq. 11 fraction-of-
+    # field-capacity, using Cycles' own stated 0.6m depth cutoff. See
+    # cycles_engine_validate.py's depth_weighted_ffc() for the full derivation, the primary-
+    # source quotes, and the test results that justified switching back to Cycles' own
+    # formula from the SWAT-sourced substitute this replaces.
+    z_prev, weighted_sum, weight_total = 0.0, 0.0, 0.0
+    for l in layers:
+        z = z_prev + l["thick"]
+        if z > depth_m + 1e-9:
+            break
+        ffc_l = (l["theta"] - l["pwp"]) / (l["fc"] - l["pwp"]) if l["fc"] > l["pwp"] else 0.0
+        ffc_l = max(0.0, min(1.0, ffc_l))
+        w = (z - z_prev) / z if z > 0 else 0.0
+        weighted_sum += ffc_l * w
+        weight_total += w
+        z_prev = z
+    return weighted_sum / weight_total if weight_total > 0 else 0.0
 
 def retention_param_mm(layers, curve_number):
-    # Real SWAT soil-moisture-based retention parameter S(SW) (Neitsch et al., SWAT
-    # theoretical documentation, Eq. 2:1.1.11-2:1.1.13) -- replaces the earlier
-    # compute_fwc()/moisture_adjusted_cn() ad hoc pair. See cycles_engine_validate.py's
-    # retention_param_mm() for the full derivation and verification.
-    fc_mm = sum((l["fc"] - l["pwp"]) * l["thick"] * 1000 for l in layers)
-    sat_mm = sum((l["sat"] - l["pwp"]) * l["thick"] * 1000 for l in layers)
-    sw_mm = sum(max(0.0, l["theta"] - l["pwp"]) * l["thick"] * 1000 for l in layers)
-    cn1, cn3 = cn_dry(curve_number), cn_wet(curve_number)
-    s_max = 25400.0 / cn1 - 254.0
-    s3 = 25400.0 / cn3 - 254.0
-    s_sat = 25400.0 / 99.0 - 254.0
-    num_fc = fc_mm / (1 - s3 / s_max) - fc_mm
-    num_sat = sat_mm / (1 - s_sat / s_max) - sat_mm
-    w2 = (math.log(num_fc) - math.log(num_sat)) / (sat_mm - fc_mm)
-    w1 = math.log(num_fc) + w2 * fc_mm
-    return s_max * (1 - sw_mm / (sw_mm + math.exp(w1 - w2 * sw_mm)))
+    # Cycles' own literal Eq. SI.5-SI.7 (2026-09-24): CN = CN_dry + (CN_wet-CN_dry)*f_wc,
+    # S = 254*(100/CN - 1). Replaces a SWAT+-sourced continuous S(SW) substitute used while
+    # f_wc was still undisclosed -- see cycles_engine_validate.py's retention_param_mm().
+    cn_d = cn_dry(curve_number)
+    cn_w = cn_wet(curve_number)
+    fwc = depth_weighted_ffc(layers)
+    cn = cn_d + (cn_w - cn_d) * fwc
+    return 254.0 * (100.0 / cn - 1.0)
 
 def runoff_mm(win, s_mm, slope_pct):
     S = s_mm * slope_factor(slope_pct)
@@ -1548,7 +1560,7 @@ def make_layers():
 
 CORN = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=0.8818, canopy_shape=CORN_CANOPY_SHAPE,
+    calibration_factor=0.8775, canopy_shape=CORN_CANOPY_SHAPE,
     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=40.6875, make_layers=make_layers,
     n_max_conc=0.055, n_dilution_slope=0.4, legume=False,
     depletion_fraction=0.55,  # real FAO-56 Table 22 value for maize, field (grain)
@@ -1582,7 +1594,7 @@ CORN_LONG_SEASON["flowering_tt"] = 1300
 
 SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43,
     rue=1.3, wue=4.5, hi_x=0.4, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=1.2318, kc=1.0, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0,
+    calibration_factor=1.2238, kc=1.0, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0,
     n_max_conc=0.07, n_dilution_slope=0.4, legume=True,
     depletion_fraction=0.50,  # real FAO-56 Table 22 value for soybeans -- same as the old default
     tr_max_mm_day=8,  # real GenericCrops.crop TRANSPIRATION_MAX (SoybeanMG.5)
@@ -1596,7 +1608,7 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
 # since it's the only one this engine has real parameters for, not because it's accurate).
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
     rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=0.8290, canopy_shape=(5, -14, -15, 16),
+    calibration_factor=0.8288, canopy_shape=(5, -14, -15, 16),
     kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=40.6875, make_layers=make_layers,
     n_max_conc=0.07, n_dilution_slope=0.45, legume=False,
     rad_temp_floor=0.257, rad_temp_plateau_t=15.55,  # wheat-specific radiation-temperature response
@@ -2671,8 +2683,8 @@ wireFieldSlot("B");
 const SPECIES_REGISTRY = {
   corn: {
     label: "Corn (grain)", pyKey: "corn", legume: false, roles: ["cash"],
-    dataStatus: "validated", correlation: 0.547, workableAsCash: true, implementedInDemo: true,
-    notes: "Real correlation is 0.547 (mean 10.56 Mg/ha), corrected 2026-09-22 from a since-corrupted reference (was wrongly documented as 0.771/10.93). Improved slightly 2026-09-23 when radiation-limited growth gained a cold-temperature reduction it never had (QUESTIONS_FOR_DEVS.md item 9 / model-validation.html gap-list item 17). Does NOT clear the classroom-workable bar (~0.6-0.7). Still kept as a cash-crop choice (no crop besides soybean currently clears the bar) but not claimed to pass. Matches the real GenericCrops.crop CornRM.90 (short-season) hybrid exactly.",
+    dataStatus: "validated", correlation: 0.550, workableAsCash: true, implementedInDemo: true,
+    notes: "Real correlation is 0.550 (mean 10.56 Mg/ha), corrected 2026-09-22 from a since-corrupted reference (was wrongly documented as 0.771/10.93). Improved 2026-09-23 when radiation-limited growth gained a cold-temperature reduction it never had (0.540->0.547), then again 2026-09-24 when the curve-number runoff mechanism's f_wc factor was resolved from a real external formula instead of a substitute (0.547->0.550, QUESTIONS_FOR_DEVS.md item 1 / model-validation.html gap-list item 1). Does NOT clear the classroom-workable bar (~0.6-0.7). Still kept as a cash-crop choice (no crop besides soybean currently clears the bar) but not claimed to pass. Matches the real GenericCrops.crop CornRM.90 (short-season) hybrid exactly.",
   },
   corn_long_season: {
     label: "Corn (long-season hybrid)", pyKey: "corn_long_season", legume: false, roles: ["cash"],
@@ -2681,13 +2693,13 @@ const SPECIES_REGISTRY = {
   },
   soybean: {
     label: "Soybean", pyKey: "soybean", legume: true, roles: ["cash"],
-    dataStatus: "validated", correlation: 0.858, workableAsCash: true, implementedInDemo: true,
-    notes: "Validated, 0.858 correlation (up from 0.846 on 2026-09-23, when radiation-limited growth gained a cold-temperature reduction -- see gap-list item 17). Legume -- nitrogen rate has no effect on yield, by design (real rhizobia N fixation, not a modeled nodulation submodel).",
+    dataStatus: "validated", correlation: 0.856, workableAsCash: true, implementedInDemo: true,
+    notes: "Validated, 0.856 correlation (up from 0.846 on 2026-09-23, when radiation-limited growth gained a cold-temperature reduction -- see gap-list item 17; a real curve-number/f_wc fix on 2026-09-24 moved it slightly the other way, 0.858->0.856, noise-level -- see gap-list item 1). Legume -- nitrogen rate has no effect on yield, by design (real rhizobia N fixation, not a modeled nodulation submodel).",
   },
   wheat: {
     label: "Winter wheat", pyKey: "wheat", legume: false, roles: ["cover"],
-    dataStatus: "validated", correlation: 0.399, workableAsCash: false, implementedInDemo: true,
-    notes: "Real GenericCrops.crop parameters, not a placeholder. Correlation improved substantially, 0.253 -> 0.399, across 2026-09-23's radiation-related fixes (the largest single jump, 0.253 -> 0.397, came from giving radiation-limited growth a cold-temperature reduction it never had -- wheat's long, cold-season-heavy growing window made it the biggest beneficiary; a wheat-specific radiation-temperature refit added a further, smaller 0.397 -> 0.399). Still below the classroom-workable bar, so not offered as a cash-crop choice; used as-is for the fall-planted cover-crop role. Real nitrogen input (90 kg N/ha, the actual disclosed rate for this crop) was tried and made things dramatically worse -- this simplified model's own implied wheat N demand runs about 2.7x the real rate, the same missing-background-soil-N limitation already known for corn. The remaining driver of its weak year-to-year tracking, and this N-input finding, are both in QUESTIONS_FOR_DEVS.md item 6.",
+    dataStatus: "validated", correlation: 0.393, workableAsCash: false, implementedInDemo: true,
+    notes: "Real GenericCrops.crop parameters, not a placeholder. Correlation improved substantially, 0.253 -> 0.399, across 2026-09-23's radiation-related fixes (the largest single jump, 0.253 -> 0.397, came from giving radiation-limited growth a cold-temperature reduction it never had -- wheat's long, cold-season-heavy growing window made it the biggest beneficiary; a wheat-specific radiation-temperature refit added a further, smaller 0.397 -> 0.399). A 2026-09-24 curve-number/f_wc fix (see gap-list item 1) moved it slightly down, 0.399 -> 0.393 -- the one crop of four where this real, sourced fix was a small net negative rather than positive or flat. Still below the classroom-workable bar, so not offered as a cash-crop choice; used as-is for the fall-planted cover-crop role. Real nitrogen input (90 kg N/ha, the actual disclosed rate for this crop) was tried and made things dramatically worse -- this simplified model's own implied wheat N demand runs about 2.7x the real rate, the same missing-background-soil-N limitation already known for corn. The remaining driver of its weak year-to-year tracking, and this N-input finding, are both in QUESTIONS_FOR_DEVS.md item 6.",
   },
   winter_rye: {
     label: "Winter rye (cover crop)", pyKey: "winter_rye", legume: false, roles: ["cover"],
@@ -2701,8 +2713,8 @@ const SPECIES_REGISTRY = {
   },
   corn_silage: {
     label: "Corn (silage)", pyKey: null, legume: false, roles: ["cash"],
-    dataStatus: "validated-not-workable", correlation: 0.512, workableAsCash: false, implementedInDemo: false,
-    notes: "Validated only in the standalone run_validation_rotation2.py harness, never ported into this interactive engine. 0.512 correlation (up slightly from 0.501 on 2026-09-23's radiation-temperature fix), still below the classroom-workable bar -- the underlying water-stress-timing gap (about an 11-day onset mismatch against real Cycles output) is unresolved, see QUESTIONS_FOR_DEVS.md item 6.",
+    dataStatus: "validated-not-workable", correlation: 0.518, workableAsCash: false, implementedInDemo: false,
+    notes: "Validated only in the standalone run_validation_rotation2.py harness, never ported into this interactive engine. 0.518 correlation (up from 0.501 on 2026-09-23's radiation-temperature fix, then 0.512 -> 0.518 on 2026-09-24's curve-number/f_wc fix -- see gap-list item 1), still below the classroom-workable bar -- the underlying water-stress-timing gap (about an 11-day onset mismatch against real Cycles output) is unresolved, see QUESTIONS_FOR_DEVS.md item 6.",
   },
   orchardgrass: {
     label: "Orchardgrass (pasture)", pyKey: null, legume: false, roles: ["cash"],

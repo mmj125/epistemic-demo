@@ -1184,6 +1184,59 @@ against real Cycles output before concluding the gap is real.
     only-in-words gap; worth a retry if this sandbox's network policy ever
     loosens, particularly for the CropSyst manual page specifically.
 
+    **Update (2026-09-24), f_wc found for real -- Matt personally obtained
+    and uploaded the two papers this file recommended, resolving the last
+    open piece of this item.** `cropsyst.pdf` (Stockle, Martin & Campbell
+    1994, "CropSyst, a cropping systems simulation model: water/nitrogen
+    budgets and crop yield") turned out to be a dead end for this specific
+    question -- read in full via `pdftotext -layout`, it only cites "the
+    USDA-SCS curve number approach (USDA-ARS, 1972)" by name for runoff,
+    with no moisture-adjustment equation of its own given anywhere. The
+    real find was in the SECOND paper: Williams, Kannan, Wang, Santhi &
+    Arnold (2012, J. Hydrologic Engineering 17(11):1221-1229,
+    "williams-et-al-2011-evolution-of-the-scs-runoff-curve-number-method...
+    .pdf") -- already on this list as a candidate (above), now actually
+    read. Its Eq. 16 is a real, disclosed depth-weighting function built
+    for exactly this purpose in the same curve-number lineage: `FFC* =
+    sum(FFCl*(Zl-Zl-1)/Zl) / sum((Zl-Zl-1)/Zl)`, summed over soil layers
+    with cumulative bottom depth `Zl<=`(a cutoff, 1.0m in the paper's own
+    application), applied to their Eq. 11 fraction-of-field-capacity
+    (`FFC=(SW-WP)/(FC-WP)`). The paper states its own intent in words that
+    match Cycles' SI description almost verbatim: dividing by `Zl` "reduces
+    the influence of lower layers," multiplying by layer thickness "gives
+    proper weight to thick layers relative to thin layers" -- precisely
+    Cycles' own "weighted based on depth, with the soil surface having the
+    most importance," now with an actual formula behind it. Implemented as
+    `depth_weighted_ffc()`, using Cycles' own stated 0.6m cutoff (not
+    Williams' own 1.0m, calibrated for a different model family, APEX/
+    SWAT) and summing only whole layers within the cutoff (the paper's own
+    literal quantifier, not a fractional split of a straddling layer --
+    Rock Springs' own layer boundaries land exactly on 0.6m with no
+    straddle to resolve there anyway).
+
+    With a real f_wc in hand, re-ran the exact SI-vs-SWAT test from the
+    update above, this time with `depth_weighted_ffc()` instead of the old
+    ad hoc saturation-fraction guess. This changes the verdict: at Rock
+    Springs, movements stayed noise-level in both directions (corn
+    0.547->0.550, soybean 0.858->0.856, wheat 0.399->0.393, silage corn
+    0.512->0.518, none beyond 0.006) -- but at the harder, more diagnostic
+    6-year Kansas benchmark, the real f_wc improved every one of four
+    metrics: fresh-start correlation 0.975->0.981, fresh MAE
+    1.454->1.435, chained correlation 0.976->0.983, chained MAE
+    0.628->0.536. The disclosure-completeness argument that favored SWAT
+    in the prior update no longer applies either -- `cn_dry()`/`cn_wet()`/
+    `depth_weighted_ffc()` are now ALL Cycles' own literal, cited formulas
+    (Eq. SI.5/SI.6, sign-corrected, plus the newly-sourced f_wc), not a
+    substitute borrowed from a different model family. Shipped: `cn_dry()`/
+    `cn_wet()` reverted to the SI's own literal formulas, `retention_param_mm()`
+    rewritten to use `CN=CN_dry+(CN_wet-CN_dry)*f_wc` (Eq. SI.7) directly,
+    the SWAT-sourced continuous S(SW) function removed. Calibration
+    factors re-derived for all four crops to keep means matching real
+    output exactly (corn 0.8818->0.8775, soybean 1.2318->1.2238, wheat
+    0.8290->0.8288, silage corn 0.8591->0.8554). This closes out this
+    item for real -- the whole curve-number mechanism is now Cycles' own
+    disclosed structure end to end, no substitute formula left in it.
+
   Cross-referenced everything else in both documents relevant to what this
   engine implements. Confirmed correct as already built: Eq. 3-5 (the
   min(GR,GT) radiation/transpiration growth minimum), Eq. 6 (the canopy-cover

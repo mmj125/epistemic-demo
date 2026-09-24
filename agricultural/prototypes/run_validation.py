@@ -19,11 +19,11 @@ from cycles_engine_validate import (
 CORN = dict(
     tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=0.8818,  # residual after the AG-biomass fix + corn-specific canopy refit +
+    calibration_factor=0.8775,  # residual after the AG-biomass fix + corn-specific canopy refit +
     # the 2026-09-23 TTF50_SHOOT_PARTITION refit + the emergence-gate fix + the cold-temperature
-    # radiation-growth reduction + the NET_GROWTH_FRACTION post-limitation growth-conversion fix
-    # (see the comments above thermal_time_increment()); re-derived to keep the mean yield matching
-    # real output exactly, same as every prior calibration_factor update
+    # radiation-growth reduction + the NET_GROWTH_FRACTION post-limitation growth-conversion fix +
+    # the 2026-09-24 curve-number/f_wc swap (real Eq SI.5-SI.7, see retention_param_mm()); re-
+    # derived to keep the mean yield matching real output exactly, same as every prior update
     canopy_shape=CORN_CANOPY_SHAPE,
     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=40.6875,
     n_max_conc=0.055, n_dilution_slope=0.4, legume=False,  # real GenericCrops.crop values, corn is not a legume

@@ -236,69 +236,90 @@ def slope_factor(slp):
 
 
 def cn_dry(cnb):
-    """Real SCS Antecedent Soil Moisture Condition I (dry) curve number, Matt-provided
-    directly from SWAT+ documentation (Eq 2:1.1.4) 2026-09-22, replacing this file's earlier
-    rounded NEH-4-style approximation (cnb/(2.3-0.013*cnb)) -- both are legitimate standard
-    forms for the same conversion and agree within ~1-2.5 CN points across a realistic 50-95
-    CN2 range (checked numerically before swapping), so this is a real refinement to the exact,
-    citable formula, not a correction of something wrong."""
-    return cnb - (20 * (100 - cnb)) / ((100 - cnb) + math.exp(2.533 - 0.0636 * (100 - cnb)))
+    """Real SCS Antecedent Soil Moisture Condition I (dry) curve number. History: started as a
+    rounded NEH-4-style approximation (cnb/(2.3-0.013*cnb)); replaced 2026-09-22 with a
+    SWAT+-sourced form (Eq 2:1.1.4) that agreed within ~1-2.5 CN points; replaced again
+    2026-09-24 with Cycles' own literal SI Eq. SI.5 (read directly from the SI's own parsed
+    OMML XML -- no sign issue here, unlike Eq. SI.6 below), now that Eq. SI.7's f_wc is fully
+    resolved too (see retention_param_mm()) -- this is Cycles' OWN stated formula, not a
+    substitute, and testing (below) showed it's at least as good as the SWAT substitute it
+    replaces, so faithfulness to the primary source broke the tie."""
+    return cnb / (2.3 - 0.013 * cnb)
 
 
 def cn_wet(cnb):
-    """Real SCS Antecedent Soil Moisture Condition III (wet) curve number, same source and
-    swap as cn_dry() above (SWAT+ Eq 2:1.1.5). Previously: cnb/(0.4+0.0058*cnb), with a
-    comment noting the SI itself showed the sign wrong ("0.4 - 0.006xCNb") -- this SWAT+ form
-    sidesteps that ambiguity entirely since it's a different, independently-sourced equation
-    family, not a reading of Cycles' own (still possibly miskeyed) SI text."""
-    return cnb * math.exp(0.00673 * (100 - cnb))
+    """Real SCS Antecedent Soil Moisture Condition III (wet) curve number -- Cycles' own SI
+    Eq. SI.6, sign-corrected: the SI prints "CNb/(0.4-0.006*CNb)", which goes negative for any
+    CNb above ~66.7 (confirmed numerically, breaking most real agricultural soils) -- the
+    external SCS-CN derivation this equation is based on requires a "+", giving sensible,
+    always-above-CNb wet curve numbers throughout the realistic range instead. Previously
+    replaced by a SWAT+-sourced substitute (Eq 2:1.1.5) specifically to sidestep this sign
+    ambiguity; reverted to Cycles' own (now sign-corrected) formula 2026-09-24 alongside
+    cn_dry() above, for the same reason."""
+    return cnb / (0.4 + 0.006 * cnb)
+
+
+def depth_weighted_ffc(layers, depth_m=0.6):
+    """Real, sourced f_wc (2026-09-24) -- Cycles' own SI Eq. SI.7 curve-number moisture-
+    adjustment factor, described only in words in both Cycles sources ("1 for soil saturated
+    to a depth of 0.6m... decreasing to zero if air dry... weighted based on depth, with the
+    soil surface having the most importance"), no exact formula ever given by either. Resolved
+    by finding the real, disclosed depth-weighting function this same curve-number lineage
+    already uses for exactly this purpose: Williams, Kannan, Wang, Santhi & Arnold (2012,
+    J. Hydrologic Engineering 17(11):1221-1229), Eq. 16, applied to their own Eq. 11 fraction-
+    of-field-capacity (FFC = (SW-WP)/(FC-WP) -- Cycles' words say "field capacity" is the
+    reference point, not saturation, unlike this function's own earlier ad-hoc guess which
+    used a saturation fraction instead):
+
+        FFC* = sum(FFCl*(Zl-Zl-1)/Zl) / sum((Zl-Zl-1)/Zl),  summed over layers with Zl<=depth_m
+
+    where Zl = real cumulative depth (m) to the bottom of layer l. Quoting the paper's own
+    stated intent for this exact shape: dividing by Zl "reduces the influence of lower layers";
+    multiplying by layer thickness (Zl-Zl-1) "gives proper weight to thick layers relative to
+    thin layers" -- both match Cycles' own "surface has the most importance" description
+    exactly, not just approximately. Uses Cycles' own stated 0.6m cutoff, not Williams' own
+    1.0m (calibrated for a different model family, APEX/SWAT). Sums only WHOLE layers with
+    Zl<=depth_m (the paper's own literal quantifier), not a fractional split of a layer
+    straddling the cutoff -- Rock Springs' own layer boundaries (0.05+0.05+0.10+0.20+0.20m)
+    land exactly on 0.6m with no straddle to resolve there.
+
+    Tested (not just derived) against both established benchmarks before shipping: at Rock
+    Springs, corn/soybean/wheat/silage-corn correlations all moved within +/-0.006 of the
+    prior SWAT-substitute values (0.547/0.858/0.399/0.512 -> 0.550/0.856/0.393/0.518) --
+    noise-level, not a regression. At the harder, more diagnostic 6-year Kansas benchmark
+    (semi-arid, where the curve-number/runoff mechanism actually matters), it improved on
+    every one of four metrics: fresh-start correlation 0.975->0.981, fresh MAE 1.454->1.435,
+    chained correlation 0.976->0.983, chained MAE 0.628->0.536. Combined with cn_dry()/cn_wet()
+    reverting to Cycles' own literal (sign-corrected) formulas above, this closes out
+    QUESTIONS_FOR_DEVS.md item 1 -- the whole curve-number mechanism is now Cycles' own
+    disclosed structure with a real, cited f_wc, not a substitute borrowed from a different
+    model family."""
+    z_prev, weighted_sum, weight_total = 0.0, 0.0, 0.0
+    for l in layers:
+        z = z_prev + l["thick"]
+        if z > depth_m + 1e-9:
+            break
+        ffc_l = (l["theta"] - l["pwp"]) / (l["fc"] - l["pwp"]) if l["fc"] > l["pwp"] else 0.0
+        ffc_l = max(0.0, min(1.0, ffc_l))
+        w = (z - z_prev) / z if z > 0 else 0.0
+        weighted_sum += ffc_l * w
+        weight_total += w
+        z_prev = z
+    return weighted_sum / weight_total if weight_total > 0 else 0.0
 
 
 def retention_param_mm(layers, curve_number):
-    """Real SWAT soil-moisture-based retention parameter S(SW), replacing this file's earlier
-    from-Cycles'-own-words guess at fwc (QUESTIONS_FOR_DEVS.md item 1: "1 for soil saturated
-    to 0.6m depth... decreasing to zero if air-dry, depth-weighted toward the surface", no
-    exact formula ever given by either Cycles source). Sourced from SWAT+ theoretical
-    documentation (Neitsch et al.), Eq. 2:1.1.11-2:1.1.13 -- this sandbox's network policy
-    blocks swat.tamu.edu/swatplus.gitbook.io directly (the same class of block already
-    documented for fao.org and modeling.bsyse.wsu.edu elsewhere in this file), so the equation
-    came from two independent web-search summaries rather than a direct primary-source read;
-    trusted only after the numeric verification below reproduced its own three defining anchor
-    points exactly. Unlike the original event-based AMC I/II/III classification, SWAT
-    continuously varies the retention parameter with the WHOLE SOIL PROFILE's actual water
-    content (not the ad hoc top-0.6m-depth-weighted guess this replaces):
-
-        S = Smax * (1 - SW/(SW + exp(w1 - w2*SW)))                             (Eq. 2:1.1.11)
-        w1 = ln(FC/(1-S3/Smax) - FC) + w2*FC                                   (Eq. 2:1.1.12)
-        w2 = [ln(FC/(1-S3/Smax) - FC) - ln(SAT/(1-Ssat/Smax) - SAT)]/(SAT-FC)  (Eq. 2:1.1.13)
-
-    SW = current profile water content EXCLUDING water held at wilting point (mm); FC, SAT =
-    that same profile's water content at field capacity / saturation, also excluding wilting-
-    point water (so SW=0 at wilting point by construction, SW=FC at field capacity, SW=SAT at
-    saturation). Smax is the retention parameter at CN1 (dry AMC, this file's own real cn_dry()
-    above) -- the curve's asymptote as SW->0. S3 is the retention parameter at CN3 (wet AMC,
-    cn_wet() above), anchoring S at SW=FC -- SWAT's own real convention that field-capacity
-    moisture represents the "wet" runoff condition, not saturation. Ssat anchors the opposite
-    end: S at CN=99 (near-total runoff), forced at SW=SAT (a fully saturated profile can't
-    sustain much infiltration regardless of the base curve_number).
-
-    Verified before use: reproduces all three anchor points to full float precision at Rock
-    Springs' own soil profile and curve_number=75 (S(SW->0)=Smax=192.69mm, S(SW=FC)=S3=32.22mm
-    exactly, S(SW=SAT)=Ssat=2.57mm exactly), and is smoothly, monotonically decreasing as SW
-    rises across the full 0-SAT range -- matching the real, disclosed direction ("curve number
-    ...increasing to near 100 as the soil approaches saturation")."""
-    fc_mm = sum((l["fc"] - l["pwp"]) * l["thick"] * 1000 for l in layers)
-    sat_mm = sum((l["sat"] - l["pwp"]) * l["thick"] * 1000 for l in layers)
-    sw_mm = sum(max(0.0, l["theta"] - l["pwp"]) * l["thick"] * 1000 for l in layers)
-    cn1, cn3 = cn_dry(curve_number), cn_wet(curve_number)
-    s_max = 25400.0 / cn1 - 254.0
-    s3 = 25400.0 / cn3 - 254.0
-    s_sat = 25400.0 / 99.0 - 254.0
-    num_fc = fc_mm / (1 - s3 / s_max) - fc_mm
-    num_sat = sat_mm / (1 - s_sat / s_max) - sat_mm
-    w2 = (math.log(num_fc) - math.log(num_sat)) / (sat_mm - fc_mm)
-    w1 = math.log(num_fc) + w2 * fc_mm
-    return s_max * (1 - sw_mm / (sw_mm + math.exp(w1 - w2 * sw_mm)))
+    """Retention parameter S, now via Cycles' OWN literal Eq. SI.5-SI.7 structure (2026-09-24):
+    CN = CN_dry + (CN_wet-CN_dry)*f_wc, S = 254*(100/CN - 1) -- cn_dry()/cn_wet()/
+    depth_weighted_ffc() above. Replaces a SWAT+-sourced continuous S(SW) substitute used
+    2026-09-23 to 2026-09-24 while f_wc itself was still undisclosed; see
+    depth_weighted_ffc()'s own docstring for the real source that resolved it and the
+    head-to-head test results that justified switching back to Cycles' own formula."""
+    cn_d = cn_dry(curve_number)
+    cn_w = cn_wet(curve_number)
+    fwc = depth_weighted_ffc(layers)
+    cn = cn_d + (cn_w - cn_d) * fwc
+    return 254.0 * (100.0 / cn - 1.0)
 
 
 def runoff_mm(win, s_mm, slope_pct):
