@@ -1161,6 +1161,17 @@ def canopy_cover(ttf_norm, eix=1.0, shape=DEFAULT_CANOPY_SHAPE):
     ttf_norm = max(0.0, ttf_norm)
     return eix / (1 + math.exp(a + b*ttf_norm) + math.exp(c + d*ttf_norm))
 
+def effective_canopy_cover(ei, pdf=1.0):
+    # Real Eq. 7, Kemanian et al. 2024 -- plant-density adjustment to canopy cover, a
+    # fully disclosed formula this engine never implemented until now. pdf=1.0 is an exact
+    # no-op (see cycles_engine_validate.py's own docstring for the derivation and the
+    # float-precision check), so every crop that doesn't set plant_density_factor is
+    # unaffected. Clamped below 1.0 to avoid a math-domain error from ln(0).
+    ei = min(ei, 1.0 - 1e-9)
+    if ei <= 0.0:
+        return 0.0
+    return 1.0 - math.exp(math.log(1.0 - ei) * math.sqrt(pdf))
+
 def transpiration_temp_factor(tmean, min_t, threshold_t):
     if tmean <= min_t:
         return 0.0
@@ -1250,8 +1261,9 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
         ttf = tt_cum / crop["tt_maturity"]
         if ttf >= harvest_ttf:
             break
-        eie = 0.0 if tt_cum < crop.get("tt_emergence", 0.0) else canopy_cover(
-            ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE))
+        eie = 0.0 if tt_cum < crop.get("tt_emergence", 0.0) else effective_canopy_cover(
+            canopy_cover(ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE)),
+            crop.get("plant_density_factor", 1.0))
         root_depth = root_max_m * min(1.0, ttf/0.5)
         if tillage_doy is not None and w["doy"] == tillage_doy:
             mix_tilled_layers(layers, tillage_depth_m, tillage_mixing_efficiency)
@@ -1440,8 +1452,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         ttf = tt_cum / crop["tt_maturity"]
         if ttf >= harvest_ttf:
             break
-        eie = 0.0 if tt_cum < crop.get("tt_emergence", 0.0) else canopy_cover(
-            ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE))
+        eie = 0.0 if tt_cum < crop.get("tt_emergence", 0.0) else effective_canopy_cover(
+            canopy_cover(ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE)),
+            crop.get("plant_density_factor", 1.0))
         root_depth = root_max_m * min(1.0, ttf/0.5)
         if tillage_doy is not None and w["doy"] == tillage_doy:
             mix_tilled_layers(layers, tillage_depth_m, tillage_mixing_efficiency)
