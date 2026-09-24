@@ -336,17 +336,91 @@ against real Cycles output before concluding the gap is real.
      built feature behaves identically to the scratch version that found the
      effect, not just plausibly similar.
 
-     Not yet done: no UI wiring anywhere (this is engine-only, matching the
-     "engine first, UI later" pattern already used for the six mechanisms
-     added 2026-09-17) -- no panel in `engine-demo.html`/`investigation.html`
-     currently chains seasons or exposes this parameter. Rock Springs' own
-     37-year validated record was not re-checked against a chained run
-     (would need real off-season weather between each year's harvest and the
-     next planting, already loaded in both validation harnesses via
-     `weather_flat`, just not yet threaded through a chained call). Multi-
-     site validation (the broader effort this whole Kansas thread grew out
-     of) still hasn't been run -- this result is one site, one crop, one
-     3-year window, not a systematic check.
+     Not yet done (as of the paragraph above): no UI wiring anywhere (this is
+     engine-only, matching the "engine first, UI later" pattern already used
+     for the six mechanisms added 2026-09-17) -- no panel in
+     `engine-demo.html`/`investigation.html` currently chains seasons or
+     exposes this parameter, and per Matt's own direct instruction
+     (2026-09-24: "let's use it to improve our model and not yet worry about
+     UI until we make it more accurate"), none was built in the follow-up
+     work below either.
+
+     **Update (2026-09-24), the two follow-up tests this instruction asked
+     for.** (1) Rock Springs' own 37-year validated corn record, chained for
+     real: carried real ending soil state from each year into the next
+     (bridged by that year's own real Jan-1-through-planting weather as bare
+     fallow, the same role `spinup_rows` already plays), starting from a
+     fresh field-capacity state in 1980 only. Result: **no meaningful
+     change** -- fresh-start correlation 0.554, chained 0.555 (both slightly
+     above the 0.547 headline figure since this exact run already carried
+     spin-up for the very first year too; the difference between the two
+     is noise, not a real effect). Diagnosed rather than left as an
+     unexplained null: Rock Springs gets enough real winter/spring
+     precipitation that the profile is back near field capacity by planting
+     time most years regardless of what carried over from the prior season
+     -- consistent with the same pattern already found for runoff, spin-up,
+     and the Ksat rate cap earlier this session (real, correctly-implemented
+     mechanisms that only bind at a site dry enough to expose them, and
+     Rock Springs isn't that site).
+
+     (2) Since Rock Springs couldn't say anything more about this
+     mechanism, and the one real Kansas data point (2012) isn't enough to
+     know if 7.65x was a fluke of one year, generated five more real
+     Cycles reference points at Kansas using the native `Cycles` binary
+     still on this machine (same real STATSGO2 Manter-series soil, same
+     `CornN150.operation`, a fresh one-year lead-in spin each time, no
+     `USE_REINITIALIZATION`, matching exactly how the original 2012
+     reference was produced): 1988, 1993, 2005, 2008, 2016, spanning real
+     drought (1988: 1.126 Mg/ha) to real wet years (1993: 4.369 Mg/ha).
+     Ran our own model the same way -- fresh-start each year vs. a
+     one-year-lead-in chained run (spin year Y-1 grown fresh, real ending
+     state carried through a bare-fallow bridge into year Y) -- across all
+     six years:
+
+     | Year | Real Cycles | Fresh-start | Chained (1yr) |
+     |------|------------:|-------------:|---------------:|
+     | 1988 | 1.126 | 3.578 (3.18x) | 1.586 (1.41x) |
+     | 1993 | 4.369 | 6.111 (1.40x) | 4.695 (1.07x) |
+     | 2005 | 2.937 | 4.959 (1.69x) | 3.398 (1.16x) |
+     | 2008 | 0.980 | 3.471 (3.54x) | 1.576 (1.61x) |
+     | 2012 | 0.137 | 2.527 (18.38x) | 0.851 (6.19x) |
+     | 2016 | 2.391 | 5.082 (2.13x) | 3.649 (1.53x) |
+
+     Carryover improved every single one of the 6 years, not just the
+     already-known 2012 case -- mean overshoot 5.05x -> 2.16x, mean absolute
+     error 2.298 -> 0.636 Mg/ha. Correlation was already high both ways
+     (0.983 fresh, 0.977 chained -- essentially unchanged, the small drop is
+     noise at n=6) confirming this model already ranks good/bad years
+     correctly without carryover; carryover fixes the absolute magnitude,
+     not the ranking. This is real, systematic, out-of-sample evidence (none
+     of these 5 extra years were used to derive or tune anything) that
+     multi-year soil-state carryover is a genuine fix at a semi-arid site,
+     not a one-year coincidence.
+
+     Also checked whether a longer lead-in does better: a 3-year continuous
+     lead-in (vs. the 1-year version above) gave only a marginal further
+     gain (mean ratio 2.16x -> 2.13x, MAE 0.636 -> 0.592) -- almost all of
+     the achievable benefit is captured by the immediately preceding season;
+     more history has sharply diminishing returns. Practical implication if
+     this is ever wired into a real feature: one prior season of carryover
+     is enough, a deep multi-year state isn't needed.
+
+     Honest limit of this fix, not smoothed over: even chained, the worst
+     case (2012) still overshoots real Cycles by 6.19x -- carryover cuts the
+     gap substantially but doesn't close it. The residual is most likely
+     the still-unfixed "root discovery" artifact documented above
+     (`root_zone_availability()` crediting a freshly-reached layer at full
+     moisture instantly) rather than a soil-history-depth problem, since
+     more lead-in years barely moved the 2012 number (6.19x -> 6.13x) --
+     the same conclusion the residence-time-weighting test already pointed
+     to. That mechanism is still genuinely unresolved; carryover and the
+     root-discovery fix look like two separate, additive problems, not one.
+
+     Still not done: no UI wiring (per Matt's explicit instruction above);
+     no test yet at Iowa or Maryland (the other two preset sites with real
+     STATSGO2/NLDAS-2 data already in this project); wheat/soybean/silage
+     corn's own carryover behavior at Kansas or any other non-Rock-Springs
+     site is untested.
 
 7. **The soil water redistribution scheme (Eq. 1-2) -- largely resolved, one piece
    still open.** Originally: the paper gives the real capacitance-weighted flow
