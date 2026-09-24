@@ -95,6 +95,7 @@ GenericHagerstown.soil, GenericCrops.crop, and ContinuousCorn.operation/.ctrl,
 run the real binary once to get real output to compare against, and point
 REFERENCE_DATA_DIR below at that directory.
 """
+import copy
 import math
 
 REFERENCE_DATA_DIR = "/tmp/cycles-run"  # set to a local Cycles v1.4.4 sample directory to reproduce validation
@@ -942,7 +943,7 @@ def n_marginal_demand_pct(biomass_mgha, crop):
 
 
 def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf, curve_number=75.0, slope_pct=0.0, spinup_rows=None,
-                         tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21):
+                         tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21, initial_layers=None):
     """Runs the same water/canopy physics as simulate_season's main loop below, but with
     no nitrogen feedback at all, to precompute the day-by-day nitrogen DEMAND of the fully
     unconstrained growth trajectory. This is a deliberate, verified duplication (not a
@@ -978,8 +979,18 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf, curve_numbe
     tillage_ft()'s own docstring), or the two loops' water and background-N trajectories
     would silently diverge. Returns (demand, bg_multiplier) -- a second list, one entry per
     day, of the (1+ft) multiplier that day's BACKGROUND_N_KG_HA_DAY should be scaled by;
-    all 1.0 when tillage_doy is None."""
-    layers = crop["make_layers"]()
+    all 1.0 when tillage_doy is None.
+
+    initial_layers: real multi-year state carryover (2026-09-24), see simulate_season's own
+    initial_layers paragraph for the full story -- this function needs its own INDEPENDENT
+    copy, never the caller's real carried-forward object, since it's a throwaway parallel
+    trajectory used only to size N demand, not the actual season being simulated. A test
+    harness that shared one object between this precompute pass and simulate_season's main
+    loop (rather than the deep copy used here) let both mutate the same soil state within a
+    single call, corrupting a whole day's worth of investigation before being caught -- see
+    QUESTIONS_FOR_DEVS.md item 6's "real correction" paragraph. copy.deepcopy() here is what
+    keeps that from being possible again."""
+    layers = copy.deepcopy(initial_layers) if initial_layers is not None else crop["make_layers"]()
     root_max_m = crop.get("root_max_m", root_max_m)
     de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
     if spinup_rows:
@@ -1070,7 +1081,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      irrigation_trigger_frac=None, irrigation_amount_mm=25.0,
                      tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21,
                      fert_placement_implement=None, soil_ph=None,
-                     spinup_rows=None, curve_number=75.0, slope_pct=0.0):
+                     spinup_rows=None, curve_number=75.0, slope_pct=0.0, initial_layers=None):
     """weather_rows: dicts with doy, tx, tn, solar, rhx, rhn, wind, pp, in planting-day order.
     harvest_ttf: fraction of thermal time to maturity that triggers harvest -- 1.0 for grain
     crops (HARVEST_TIMING=-999 in the real crop file), lower for forage/silage crops harvested
@@ -1219,8 +1230,42 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     this same hardcoded 1.4m default regardless of species, a real, disclosed difference this
     engine was simply ignoring. crop.get("root_max_m", root_max_m) keeps exact prior behavior
     for any crop dict that doesn't set the field (backward compatible, no call site changes
-    needed anywhere in this project)."""
-    layers = crop["make_layers"]()
+    needed anywhere in this project).
+
+    initial_layers: real multi-year, crop-inclusive soil-state carryover (2026-09-24). When
+    given (a layers list in the exact shape crop["make_layers"]() returns -- typically a
+    prior call's own returned "final_layers"), this season starts from THAT actual ending
+    moisture state instead of always resetting to field capacity via crop["make_layers"]().
+    None (default) reproduces the exact old always-fresh-start behavior byte-for-byte.
+
+    This closes a real, substantial gap, not a marginal one: a directed head-to-head test
+    against native Cycles at a semi-arid site (Western Kansas, real STATSGO2 soil, real
+    NLDAS-2 weather, 2012 corn) found this engine overshoots by 18.44x when every season
+    starts fresh. A hand-chained 3-year test (2010-2012, real crop-driven depletion carried
+    forward via this exact mechanism, not bare fallow) cut that to 7.65x -- more than half
+    the gap closed by this one change, the largest effect any single mechanism has had on
+    that comparison this session (see QUESTIONS_FOR_DEVS.md item 6 for the full account,
+    including a real test-harness bug that initially hid this finding and was caught and
+    fixed before trusting it). Rock Springs' own 37-year validated record was NOT re-checked
+    against a chained run before this was implemented -- carryover there would need the same
+    real off-season weather (harvest day through next planting, spanning the calendar-year
+    boundary) a caller must supply via spinup_rows, not something this function derives on
+    its own.
+
+    A caller chaining seasons must NOT pass the same crop dict's "make_layers" closure a
+    shared, hand-built layers object the way this session's own early test scripts briefly
+    did by mistake -- that let this function's OWN internal _reference_n_demand() precompute
+    pass (an intentionally-independent, throwaway parallel trajectory, never the real season)
+    mutate the same soil state the real main loop below was also mutating, silently
+    corrupting the result. initial_layers exists specifically so a caller never needs that
+    workaround: this function deep-copies initial_layers internally, once for
+    _reference_n_demand()'s own independent pass, once for the main loop's real trajectory
+    below -- the two can never see or affect each other's soil state, regardless of what a
+    caller passes in. When initial_layers is given, the result dict also carries
+    "final_layers" -- the real ending soil state (theta, and any per-layer state a future
+    mechanism might add), ready to feed into the next chained call's own initial_layers with
+    no extraction step needed."""
+    layers = copy.deepcopy(initial_layers) if initial_layers is not None else crop["make_layers"]()
     root_max_m = crop.get("root_max_m", root_max_m)
     de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
     runoff_total = 0.0
@@ -1307,7 +1352,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         daily_demand, tillage_bg_multiplier = _reference_n_demand(
             weather_rows, crop, root_max_m, harvest_ttf, curve_number=curve_number, slope_pct=slope_pct,
             spinup_rows=spinup_rows, tillage_doy=tillage_doy, tillage_implement=tillage_implement,
-            tillage_clay_frac=tillage_clay_frac)
+            tillage_clay_frac=tillage_clay_frac, initial_layers=initial_layers)
         total_demand_kg_ha = sum(daily_demand)
         # Background credit only counts on days the reference trajectory actually grows
         # (daily_demand[i] > 0 exactly when that day's dGB_water_limited > 0, i.e. the
@@ -1446,4 +1491,6 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         result["n_remaining_kg_ha"] = n_pool
     if n_volatilized_total is not None:
         result["n_volatilized_kg_ha"] = n_volatilized_total
+    if initial_layers is not None:
+        result["final_layers"] = layers
     return result

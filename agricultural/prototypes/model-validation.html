@@ -796,6 +796,7 @@ def build_season_rows(wx_year, crop, plant_doy_override=None):
 `;
 
 const ENGINE_SOURCE = String.raw`
+import copy
 import math
 
 def eto_fao56(doy, tmax, tmin, rs, rhmax, rhmin, wind_z, lat_deg, alt_m=0.0, wind_height_m=10.0):
@@ -1197,7 +1198,7 @@ def n_marginal_demand_pct(biomass_mgha, crop):
 
 def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
                          tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21,
-                         curve_number=75.0, slope_pct=0.0, spinup_rows=None):
+                         curve_number=75.0, slope_pct=0.0, spinup_rows=None, initial_layers=None):
     # Unconstrained (no-nitrogen-feedback) water/canopy trajectory, used to precompute the
     # season's total N demand up front. Canopy cover depends only on thermal time and
     # transpiration-limited growth only on soil moisture, never on biomass or N status, so
@@ -1212,7 +1213,11 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
     # scaled by that day; all 1.0 when tillage_doy is None.
     # curve_number/slope_pct/spinup_rows must also match simulate_season's own values, for
     # the same reason -- see infiltrate()/simulate_season's own docstring.
-    layers = crop["make_layers"]()
+    # initial_layers: real multi-year state carryover (2026-09-24) -- deep-copied here so
+    # this precompute pass, an intentionally throwaway parallel trajectory, can never mutate
+    # the same soil state the real main loop below is also using. See simulate_season's own
+    # initial_layers comment for the full account of the test-harness bug this prevents.
+    layers = copy.deepcopy(initial_layers) if initial_layers is not None else crop["make_layers"]()
     root_max_m = crop.get("root_max_m", root_max_m)
     de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
     if spinup_rows:
@@ -1279,7 +1284,19 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      irrigation_trigger_frac=None, irrigation_amount_mm=25.0,
                      tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21,
                      fert_placement_implement=None, soil_ph=None,
-                     spinup_rows=None, curve_number=75.0, slope_pct=0.0):
+                     spinup_rows=None, curve_number=75.0, slope_pct=0.0, initial_layers=None):
+    # initial_layers: real multi-year, crop-inclusive soil-state carryover (2026-09-24).
+    # When given (a layers list shaped like crop["make_layers"]() returns, typically a
+    # prior call's own returned "final_layers"), this season starts from that real ending
+    # moisture instead of always resetting to field capacity. None (default) reproduces the
+    # exact old behavior byte-for-byte. A real head-to-head against native Cycles at a
+    # semi-arid site (Kansas, 2012 corn) found this engine overshoots 18.44x when every
+    # season starts fresh; a 3-year chained run using this parameter cut that to 7.65x --
+    # the largest effect any single mechanism has had on that comparison (QUESTIONS_FOR_DEVS.md
+    # item 6). Deep-copies internally for both the N-demand precompute pass and the real main
+    # loop, so a caller's own passed-in object is never mutated and the two internal uses can
+    # never corrupt each other -- when given, the result also carries "final_layers", the real
+    # ending state, ready to feed straight into the next chained call.
     # curve_number/slope_pct: real curve-number runoff (Eq. SI.1-7) via infiltrate() --
     # curve_number=75.0 is Cycles' own bundled Rock Springs sample default (no real per-site
     # value exists in this project's STATSGO2 data); slope_pct=0.0 since no real slope data
@@ -1311,7 +1328,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     # disclosed placeholder for the real six-pool fT effect, now shaped by the real formula instead
     # of a flat multiplier held for an arbitrary fixed window. tillage_clay_frac (0-1) feeds ftx's
     # real texture scaling; defaults to 0.21, Rock Springs' own real topsoil clay fraction.
-    layers = crop["make_layers"]()
+    layers = copy.deepcopy(initial_layers) if initial_layers is not None else crop["make_layers"]()
     root_max_m = crop.get("root_max_m", root_max_m)
     de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
     runoff_total = 0.0
@@ -1389,7 +1406,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         daily_demand, tillage_bg_multiplier = _reference_n_demand(
             weather_rows, crop, root_max_m, harvest_ttf, tillage_doy=tillage_doy,
             tillage_implement=tillage_implement, tillage_clay_frac=tillage_clay_frac,
-            curve_number=curve_number, slope_pct=slope_pct, spinup_rows=spinup_rows)
+            curve_number=curve_number, slope_pct=slope_pct, spinup_rows=spinup_rows,
+            initial_layers=initial_layers)
         total_demand_kg_ha = sum(daily_demand)
         # Season-total background, using the real per-day tillage multiplier -- must match
         # the boosted rate exactly (not a flat estimate), since n_stress_fraction (and thus
@@ -1484,6 +1502,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         result["n_remaining_kg_ha"] = n_pool
     if n_volatilized_total is not None:
         result["n_volatilized_kg_ha"] = n_volatilized_total
+    if initial_layers is not None:
+        result["final_layers"] = layers
     return result
 
 SOIL_LAYERS_RAW = [

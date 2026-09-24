@@ -304,11 +304,49 @@ against real Cycles output before concluding the gap is real.
      emergence delay, NET_GROWTH_FRACTION, Borg-Grimes root curve, residence-
      time weighting), **real multi-year, crop-inclusive state carryover is
      the only mechanism that has moved the Kansas number at all**, and it
-     moved it substantially. Not yet built as a real engine feature -- this
-     was a scratch, hand-chained 3-call test, not `simulate_season()` gaining
-     a first-class "continue from a prior season" parameter. Worth pursuing
-     as a real feature given this result, rather than another single-
-     mechanism parameter search.
+     moved it substantially.
+
+     **Built as a real engine feature the same day**, not left as a scratch
+     test: `simulate_season()` gained an `initial_layers` parameter (both
+     `cycles_engine_validate.py` and the two embedded `ENGINE_SOURCE` copies,
+     verified byte-identical to each other afterward, 48607 bytes each). When
+     given a prior call's own returned `layers` state, this season starts
+     from that real ending moisture instead of always resetting to field
+     capacity; `None` (the default) reproduces the exact old behavior
+     byte-for-byte (confirmed: the full 4-crop validation suite is unchanged
+     to three decimals after adding this). `_reference_n_demand()`'s own
+     internal precompute pass gets an independent `copy.deepcopy()` of
+     whatever's passed in, never the caller's real object and never the same
+     object the main loop mutates -- the exact discipline that would have
+     prevented the test-harness bug described above, now built into the
+     function itself rather than left to a caller to get right by
+     convention. When `initial_layers` is used, the result dict also carries
+     `final_layers`, the real ending state, so chaining seasons needs no
+     extraction step: `carried = result["final_layers"]` feeds directly into
+     the next call's own `initial_layers`.
+
+     Verified three ways before trusting it: (1) the caller's own passed-in
+     object is never mutated (checked directly -- identical before/after),
+     confirming the deep-copy discipline holds; (2) two calls with the same
+     untouched input are fully deterministic (identical output to full float
+     precision); (3) the real public API (no dispatch hacks, no shared-object
+     tricks) reproduces the exact same chained Kansas result already found
+     with the hand-built test harness -- 1.047 Mg/ha, 7.65x over real Cycles
+     for 2012, down from 2.527 Mg/ha/18.44x fresh-start -- confirming the
+     built feature behaves identically to the scratch version that found the
+     effect, not just plausibly similar.
+
+     Not yet done: no UI wiring anywhere (this is engine-only, matching the
+     "engine first, UI later" pattern already used for the six mechanisms
+     added 2026-09-17) -- no panel in `engine-demo.html`/`investigation.html`
+     currently chains seasons or exposes this parameter. Rock Springs' own
+     37-year validated record was not re-checked against a chained run
+     (would need real off-season weather between each year's harvest and the
+     next planting, already loaded in both validation harnesses via
+     `weather_flat`, just not yet threaded through a chained call). Multi-
+     site validation (the broader effort this whole Kansas thread grew out
+     of) still hasn't been run -- this result is one site, one crop, one
+     3-year window, not a systematic check.
 
 7. **The soil water redistribution scheme (Eq. 1-2) -- largely resolved, one piece
    still open.** Originally: the paper gives the real capacitance-weighted flow
