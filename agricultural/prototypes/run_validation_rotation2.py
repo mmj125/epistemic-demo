@@ -54,16 +54,25 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
              rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
              kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=LAT,
-             make_layers=make_layers, calibration_factor=0.8097,  # re-derived 2026-09-23 for the
+             make_layers=make_layers, calibration_factor=0.8290,  # re-derived 2026-09-23 for the
              # real-data TTF50_SHOOT_PARTITION refit (0.223 -> 0.276) -- plus the same-day
              # emergence-gate fix, plus the cold-temperature radiation-growth reduction
              # (transpiration_temp_factor now also applied to GR, not just GT -- the fix that
              # improved wheat's own correlation again, 0.276 -> 0.397, the largest single jump
-             # wheat has seen), plus the NET_GROWTH_FRACTION post-limitation growth-conversion fix
-             # -- see the comments above thermal_time_increment() in cycles_engine_validate.py
+             # wheat has seen), plus the NET_GROWTH_FRACTION post-limitation growth-conversion fix,
+             # plus wheat's own rad_temp_floor/rad_temp_plateau_t radiation-temperature refit
+             # (0.397 -> 0.399, modest but real, plus a real reduction in the total-biomass level
+             # bias, 1.233x -> 1.204x) -- see the comments above thermal_time_increment() and
+             # radiation_temp_factor() in cycles_engine_validate.py
              depletion_fraction=0.55,  # real FAO-56 Table 22 (winter/spring wheat)
              canopy_shape=(5, -14, -15, 16),  # refit from real data -- see QUESTIONS_FOR_DEVS.md item 5;
                                                # fixes level bias, does NOT fix wheat's weak correlation
+             rad_temp_floor=0.257, rad_temp_plateau_t=15.55,  # wheat-specific radiation-temperature
+             # response (2026-09-23), separate from tr_min_t/tr_threshold_t used for transpiration --
+             # fit directly from real Cycles output (see radiation_temp_factor()'s own docstring in
+             # cycles_engine_validate.py); wheat's own fall-to-spring season never reaches truly warm,
+             # unambiguously-radiation-limited conditions, so reusing the transpiration threshold
+             # (12 degC) undershot real growth at every temperature this crop actually experiences
              tr_max_mm_day=8,  # real GenericCrops.crop TRANSPIRATION_MAX (WinterWheat)
              root_max_m=2.0,  # real GenericCrops.crop MAXIMUM_ROOTING_DEPTH (WinterWheat)
              tt_emergence=100)  # real GenericCrops.crop THERMAL_TIME_TO_EMERGENCE (WinterWheat)

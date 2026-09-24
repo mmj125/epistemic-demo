@@ -771,6 +771,30 @@ def transpiration_temp_factor(tmean, min_t, threshold_t):
     return (tmean - min_t) / (threshold_t - min_t)
 
 
+def radiation_temp_factor(tmean, min_t, floor, plateau_t):
+    """A second, separate temperature-response curve for radiation-limited growth (GR), reusing
+    transpiration_temp_factor's own linear-ramp shape but with its own floor/plateau, since
+    2026-09-23's "next fix" investigation found wheat's own real data does NOT fit the reused
+    transpiration threshold (see NET_GROWTH_FRACTION's docstring above for how that shared 0.785
+    constant was derived for corn/soybean/silage corn). Wheat's clean (GT/GR>1.5, n=401 real day
+    samples, all real Cycles output, no N/water stress) raw implied-RUE ratio -- WITHOUT any
+    temp_factor pre-divided out -- regresses linearly against tmean as 0.202 + 0.0375*tmean,
+    reaching the shared 0.785 plateau (the same value corn/soybean/silage corn's own warm-day data
+    converges to) at tmean~15.55 degC, not at wheat's own tr_threshold_t=12 (transpiration's real
+    threshold, never independently validated for radiation). The nonzero floor at tmean=min_t
+    (0.202/0.785=0.257 of the plateau) is real too: transpiration_temp_factor predicts exactly 0
+    growth at wheat's own min_t=0 degC, but real Cycles' wheat output keeps growing at ~26% of its
+    eventual full rate even near freezing. With floor=0 and plateau_t=threshold_t this collapses
+    to exactly transpiration_temp_factor(tmean, min_t, threshold_t) -- a true no-op for any crop
+    that doesn't set rad_temp_floor/rad_temp_plateau_t, verified directly, not just by
+    inspection."""
+    if tmean <= min_t:
+        return floor
+    if tmean >= plateau_t:
+        return 1.0
+    return floor + (1 - floor) * (tmean - min_t) / (plateau_t - min_t)
+
+
 TTF50_SHOOT_PARTITION = 0.32  # Eq. SI.8-11's own half-max point isn't given a numeric value in
 # either source -- the literal reading of its name (0.5) was replaced 2026-09-23 with a real,
 # data-driven fit against real Cycles' own daily output (QUESTIONS_FOR_DEVS.md item 3, formerly
@@ -989,7 +1013,9 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf, curve_numbe
 
         tmean = (w["tx"] + w["tn"]) / 2
         temp_factor = transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
-        GR = crop["rue"] * temp_factor * eie * w["solar"]
+        rad_temp_factor = radiation_temp_factor(tmean, crop["tr_min_t"], crop.get("rad_temp_floor", 0.0),
+                                                 crop.get("rad_temp_plateau_t", crop["tr_threshold_t"]))
+        GR = crop["rue"] * rad_temp_factor * eie * w["solar"]
         es = 0.6108 * math.exp(17.27 * tmean / (tmean + 237.3))
         ea = es * (w["rhx"] + w["rhn"]) / 200
         Da = max(0.05, es - ea)
@@ -1345,7 +1371,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
 
         tmean = (w["tx"] + w["tn"]) / 2
         temp_factor = transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
-        GR = crop["rue"] * temp_factor * eie * w["solar"]
+        rad_temp_factor = radiation_temp_factor(tmean, crop["tr_min_t"], crop.get("rad_temp_floor", 0.0),
+                                                 crop.get("rad_temp_plateau_t", crop["tr_threshold_t"]))
+        GR = crop["rue"] * rad_temp_factor * eie * w["solar"]
         es = 0.6108 * math.exp(17.27 * tmean / (tmean + 237.3))
         ea = es * (w["rhx"] + w["rhn"]) / 200
         Da = max(0.05, es - ea)

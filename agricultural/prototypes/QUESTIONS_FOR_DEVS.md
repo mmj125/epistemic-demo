@@ -379,3 +379,25 @@ against real Cycles output before concluding the gap is real.
   applies it before or after the radiation/water co-limitation choice -- remains
   open; this is a verified fix to the model's output, not an identification of
   the real cause.
+- **Wheat needed its own radiation-temperature response, separate from the shared
+  fix above -- a modest, real refinement.** Checked whether the shared 0.785
+  fraction (item above) actually held for all four crops before assuming so:
+  soybean's own clean-day (GT/GR > 1.5) implied ratio is 0.786 (n=5) and silage
+  corn's is 0.806 (n=19), both matching corn almost exactly. Wheat's does not --
+  n=117 clean days give mean 0.471, stdev 0.256, roughly half the shared value
+  and far noisier. Traced why: every one of wheat's clean days fell in
+  November-April (its real fall-to-early-summer season never reaches genuinely
+  warm, unambiguous radiation-limited conditions), and the implied-RUE ratio
+  within that subset still correlates strongly with temperature (corr 0.85) even
+  after the existing cold-temperature fix is applied. A larger, cleaner sample
+  (n=401, raw ratio with no temp correction pre-applied) regresses linearly
+  against daily mean temperature as `ratio = 0.202 + 0.0375*tmean`, reaching the
+  shared 0.785 plateau at ~15.55°C, not at wheat's own 12°C transpiration
+  threshold (a real, distinct value never independently validated for
+  radiation). The nonzero floor at 0°C (real Cycles keeps wheat growing at about
+  a quarter of its eventual rate even near freezing, not zero) is real too.
+  Implemented as a second temperature-response curve applied only to radiation-
+  limited growth, defaulting to a no-op for any crop that doesn't set its own
+  floor/plateau (verified: corn's reference number is byte-for-byte unchanged).
+  Modest but real result for wheat: correlation 0.397 -> 0.399, total-biomass
+  level bias 1.233x -> 1.204x of real output.
