@@ -1139,6 +1139,51 @@ against real Cycles output before concluding the gap is real.
     initially looking like one. Kept the current SWAT-sourced implementation
     unchanged; the SI path was a scratch test only, not committed anywhere.
 
+    **Update (2026-09-24), a real attempt to find f_wc's own exact formula
+    directly, per Matt's "or we go find f_wc ourselves."** Tried eight
+    distinct sources before concluding it's genuinely unreachable this
+    session, not just under-tried: CropSyst's own manual page describing its
+    curve-number method (`sites.bsyse.wsu.edu/cs_suite/CropSyst/manual/
+    simulation/soil/runoff/curve_number.htm` -- the single most specific,
+    promising lead, since the main paper states outright "Cycles shares
+    biophysical fundamentals with CropSyst," meaning this water balance was
+    very plausibly inherited near-verbatim); both of Kemanian's own prior
+    papers already sitting locally in this repo (`KemanianStockle2010.pdf`,
+    `overview-of-c-farm-dec-2008-web-document_2.pdf` -- checked directly via
+    `pdftotext`, confirmed neither describes the water balance beyond naming
+    "runoff" as an output, deferring entirely to CropSyst's own module, the
+    same conclusion already reached once before this session for the carbon
+    submodel specifically); Williams et al. (2012) itself, the paper the SI
+    already cites for the slope factor (Eq. SI.4) and whose title
+    ("...application to CONTINUOUS runoff simulation") made it a strong
+    second candidate for the whole moisture-adjustment mechanism, not just
+    the slope piece; and Wikipedia's CropSyst page. Every direct fetch
+    (`WebFetch`, and a raw `curl` for two of them) returned `EGRESS_BLOCKED`
+    -- including, notably, `en.wikipedia.org` and `ars.usda.gov`, neither of
+    which any prior session's documented network-policy hits (fao.org,
+    swat.tamu.edu, arxiv.org, researchgate.net, core.ac.uk) had flagged as
+    blocked before, suggesting this session's egress policy is tighter than
+    usual, not that this particular formula was searched for carelessly.
+
+    `WebSearch` itself (a separate tool/pathway, evidently not subject to
+    the same domain restrictions) did surface one real, if modest, useful
+    fact worth keeping: the continuous-CN literature this whole area
+    descends from draws a clear line between two real, named families --
+    a "Revised Soil Moisture Index" (SMI) method, driven by accumulated
+    evapotranspiration/climate history rather than a direct moisture
+    reading, and an "SMCII"-style method, driven directly by actual current
+    soil water content ("soil features," in one search summary's own
+    phrasing). The SI's own description of f_wc ("saturated to a depth of
+    0.6m... weighted based on depth") is unambiguously the second kind, a
+    real soil-moisture reading, not a precipitation/ET accounting index --
+    confirming (not just assuming) that `retention_param_mm()`'s own
+    approach (continuous, driven by the profile's actual current SW) is in
+    the right conceptual family, even without the exact depth-weighted
+    formula itself. Not enough to justify a change on its own -- flagged as
+    context, not a fix. f_wc's exact formula remains a genuine, disclosed-
+    only-in-words gap; worth a retry if this sandbox's network policy ever
+    loosens, particularly for the CropSyst manual page specifically.
+
   Cross-referenced everything else in both documents relevant to what this
   engine implements. Confirmed correct as already built: Eq. 3-5 (the
   min(GR,GT) radiation/transpiration growth minimum), Eq. 6 (the canopy-cover
