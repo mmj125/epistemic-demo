@@ -783,6 +783,23 @@ def canopy_cover(ttf_norm, eix=1.0, shape=DEFAULT_CANOPY_SHAPE):
     return eix / (1 + math.exp(a + b * ttf_norm) + math.exp(c + d * ttf_norm))
 
 
+def effective_canopy_cover(ei, pdf=1.0):
+    """Real Eq. 7, Kemanian et al. 2024: adjusts the base canopy cover fraction (ei, from
+    canopy_cover()/Eq. 6 above) for planting density, since the paper's own hardcoded default
+    shape constants (6, -20, -15, 16) "represent a normalized plant density (PDf) of 1" -- a
+    higher PDf hastens canopy closure (denser stands shade the ground faster), the mechanism
+    this engine had no way to represent at all before this. pdf=1.0 (the default) is an exact
+    no-op: ln(1-ei)*sqrt(1) = ln(1-ei), so 1-exp(ln(1-ei)) = ei identically, confirmed to full
+    float precision -- every currently-validated crop leaves this parameter unset and gets
+    byte-identical behavior. Clamped just below 1.0 to avoid a math-domain error from ln(0);
+    ei reaching exactly eix is a limit the sigmoid in Eq. 6 never actually attains in practice,
+    so this clamp is a numerical safety net, not a behavior change."""
+    ei = min(ei, 1.0 - 1e-9)
+    if ei <= 0.0:
+        return 0.0
+    return 1.0 - math.exp(math.log(1.0 - ei) * math.sqrt(pdf))
+
+
 def transpiration_temp_factor(tmean, min_t, threshold_t):
     if tmean <= min_t:
         return 0.0
@@ -1029,8 +1046,9 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf, curve_numbe
         ttf = tt_cum / crop["tt_maturity"]
         if ttf >= harvest_ttf:
             break
-        eie = 0.0 if tt_cum < crop.get("tt_emergence", 0.0) else canopy_cover(
-            ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE))
+        eie = 0.0 if tt_cum < crop.get("tt_emergence", 0.0) else effective_canopy_cover(
+            canopy_cover(ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE)),
+            crop.get("plant_density_factor", 1.0))
         root_depth = root_max_m * min(1.0, ttf / 0.5)
 
         if tillage_doy is not None and w["doy"] == tillage_doy:
@@ -1405,8 +1423,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         ttf = tt_cum / crop["tt_maturity"]
         if ttf >= harvest_ttf:
             break
-        eie = 0.0 if tt_cum < crop.get("tt_emergence", 0.0) else canopy_cover(
-            ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE))
+        eie = 0.0 if tt_cum < crop.get("tt_emergence", 0.0) else effective_canopy_cover(
+            canopy_cover(ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE)),
+            crop.get("plant_density_factor", 1.0))
         root_depth = root_max_m * min(1.0, ttf / 0.5)
 
         # Tillage's soil-moisture mixing happens once, on tillage_doy itself, before

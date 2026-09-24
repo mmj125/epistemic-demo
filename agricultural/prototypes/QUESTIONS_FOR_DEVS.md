@@ -1035,3 +1035,113 @@ against real Cycles output before concluding the gap is real.
   (chosen to match the answer, not derived from anything). Not pursued
   further: closing this for real needs the full six-pool soil-supplied
   nitrogen system (already out of v1 scope), not a bigger fudge factor.
+
+- **A full, systematic paper + SI audit (2026-09-24), per Matt's direct
+  "let's return to the paper and SI and make sure we have everything they
+  say" -- after many sessions of chasing small numerical levers with
+  diminishing returns, stepped back and re-derived a complete, primary-source
+  cross-reference instead.** Two real methodological upgrades made this
+  possible: (1) the SI document (`CYCLES_supplemental.docx`) contains its 22
+  equations as real, parseable OMML XML, not images -- previous sessions'
+  attempts to read it (LibreOffice import failures, plain-text extraction)
+  never actually parsed the math itself. Wrote a real OMML-to-text converter
+  (recursively walking `m:oMath`/`m:f`/`m:sSup`/`m:sSub`/`m:d`/`m:nary`/etc.
+  and interleaving with the surrounding paragraph/table text in document
+  order) and got a complete, faithful linear transcript of the whole SI for
+  the first time this project has had one. (2) The main paper's own equations
+  were re-extracted with `pdftotext -layout` rather than read visually off a
+  rendered page image -- layout-preserving text extraction turns out to keep
+  superscript/subscript exponents correctly attached to their base terms,
+  which a purely visual read of a small rendered image can miss.
+
+  This confirmed, directly from the primary source rather than by inference,
+  every sign/exponent error this project had previously suspected from
+  external methods or numeric implausibility alone -- worth stating plainly
+  since Matt separately recalled Armen mentioning a typo in one of the
+  equations that the devs later fixed, and asked whether it's the same thing
+  found here. Three real, confirmed typos exist, not one:
+  - **Main paper Eq. 1** (the central water-redistribution equation, not a
+    supplementary footnote) prints the numerator's conductivity exponent as
+    `(2+3b)`. With realistic Saxton-Rawls b values (roughly 4-10), that
+    exponent runs 15-35, collapsing conductivity to ~0 everywhere except
+    within a hair of saturation -- confirmed nonsensical directly, not just
+    suspected. Read as `2+3/b` (a division slash almost certainly lost in
+    typesetting), it exactly reproduces Campbell's (1974) own independently
+    well-known textbook form K(theta)=Ksat*(theta/theta_sat)^(2b+3) -- both
+    the numeric implausibility of the literal reading and the exact match to
+    a citable standard formula point the same direction. This is the
+    strongest single candidate for what Armen described: it's in the
+    flagship equation of the methods section, the error is dramatic enough
+    that anyone actually running the equation would hit it immediately, and
+    it has the exact signature of a single lost character in typesetting.
+    Already found and corrected in this engine (`campbell_khe()`,
+    2026-09-23) before this audit -- this pass confirmed it against a clean
+    primary-source re-read rather than changing anything.
+  - **SI Eq. SI.2** (SCS-CN runoff) prints the denominator as `Win - 0.8S`.
+    Plugging in realistic values gives negative runoff outright (e.g.
+    Win=30mm, S=40mm -> Q=-242mm). The standard SCS-CN derivation (and every
+    external source) requires `Win + 0.8S`, which gives a sensible, always-
+    positive result. Already corrected in `runoff_mm()`.
+  - **SI Eq. SI.6** (wet curve number) prints `CN_wet = CNb/(0.4-0.006*CNb)`.
+    This denominator goes negative for any CNb above ~66.7 -- not a rare edge
+    case, it breaks for MOST real agricultural curve numbers (including this
+    project's own default of 75). The corrected `0.4+0.006*CNb` gives
+    sensible values (CN_wet > CNb, properly bounded under 100) across the
+    entire realistic range. Already corrected once (2026-09-22) but later
+    superseded by a different, SWAT+-sourced formula family entirely (see
+    `retention_param_mm()`) rather than the SI's own now-confirmed structure
+    -- flagged as worth reconsidering: the SI's own Eq. SI.5-SI.7 describes a
+    CN_dry/CN_wet-plus-linearly-interpolated-fwc mechanism, structurally
+    different from the SWAT-sourced continuous S(SW) function currently
+    implemented. Not reverted in this pass (the SWAT substitute is real and
+    was itself numerically verified), but worth testing head-to-head now
+    that the SI's own equations can be read precisely rather than
+    approximately, since Eq. SI.5-SI.7 is literally what this paper says
+    Cycles itself computes.
+
+  Cross-referenced everything else in both documents relevant to what this
+  engine implements. Confirmed correct as already built: Eq. 3-5 (the
+  min(GR,GT) radiation/transpiration growth minimum), Eq. 6 (the canopy-cover
+  double sigmoid, including the exact hardcoded default shape constants 6,
+  -20, -15, 16 for a "normalized plant density of 1"), SI Eq. SI.1 (potential
+  transpiration TRp), SI Eq. SI.8 (shoot partitioning), and SI Eq. SI.9
+  (harvest index) all match the primary source exactly, now confirmed rather
+  than assumed. Found one genuine, complete, fully-disclosed gap: **Eq. 7**,
+  a plant-density adjustment to canopy cover
+  (`eie(PDf) = 1 - exp(ln(1-ei)*sqrt(PDf))`), was never implemented at all --
+  see the entry below for the fix. Two smaller, lower-priority items: Eq. 2
+  gives an exact formula for Cycles' real adaptive sub-daily time step
+  (based on each layer's own travel time), which this engine approximates
+  with a fixed 24-substep scheme (already numerically converged, so low
+  priority to change); and the main paper mentions diffuse-radiation
+  conditions can raise radiation-use efficiency by ~20%, not usable without
+  diffuse-fraction weather data this project doesn't have.
+
+- **Eq. 7 (plant-density adjustment to canopy cover) implemented (2026-09-24),
+  the direct result of the audit above.** A complete, disclosed, one-line
+  formula from the main paper, never built: `effective_canopy_cover(ei, pdf)`
+  = `1 - exp(ln(1-ei)*sqrt(pdf))`, applied to `canopy_cover()`'s own output
+  (`ei`, Eq. 6) at both call sites (`_reference_n_demand()` and the main
+  `simulate_season()` loop) via a new `plant_density_factor` crop parameter,
+  defaulting to 1.0 -- confirmed an exact no-op at that default (to full
+  float precision: `ln(1-ei)*sqrt(1)=ln(1-ei)`, so `1-exp(ln(1-ei))=ei`
+  identically), so every currently-validated crop is unaffected since none
+  sets this parameter. Verified: the full 4-crop validation suite reproduces
+  byte-identical correlations (corn 0.547, soybean 0.858, wheat 0.399, silage
+  corn 0.512). The mechanism itself does something real and sensible when
+  used -- swept `plant_density_factor` from 0.7 to 1.6 at Rock Springs 2012
+  corn (N=650, non-limiting): grain rises monotonically with diminishing
+  returns (10.02 -> 10.43 -> 10.68 -> 10.86 Mg/ha), matching the real
+  agronomic pattern (denser stands close canopy faster and capture more
+  early-season radiation, with the benefit tapering off) rather than an
+  artifact. Composes correctly with tillage (re-verified the standing
+  moldboard-plow sanity check at plant_density_factor=1.3: real yield gain
+  at a nitrogen-limiting rate). Ported into both embedded `ENGINE_SOURCE`
+  copies identically, confirmed byte-identical to each other afterward
+  (49665 bytes each) and reproducing the canonical script's exact numbers
+  through the embedded copy. No UI wiring anywhere -- engine-only, matching
+  the "engine first, UI later" pattern already used for the six mechanisms
+  added 2026-09-17 and everything since. `model-validation.html`'s own "Full
+  simulation controls" form (which exposes every other `simulate_season()`
+  parameter) is the natural place to add a density control if this is picked
+  up again.
