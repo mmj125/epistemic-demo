@@ -547,6 +547,112 @@ against real Cycles output before concluding the gap is real.
      bug misjudges, so there's less "phantom full" capacity for it to
      exploit in the first place.
 
+     **Update (2026-09-24), the real hidden lever, found by asking a
+     different question.** Rather than keep varying the availability
+     formula, went looking directly at what real Cycles' own daily output
+     shows at Kansas that our model doesn't reproduce -- something not yet
+     done for this site (only aggregate yield had been checked). Pulled
+     `water.txt`'s real per-layer SMC for the full 2011-2012 record (the
+     native run already used to generate this session's Kansas reference
+     points) and found something structural: layer 3 (the big 0.88m
+     layer) sits at essentially the SAME value, 0.058-0.061 m3/m3, from
+     the very first day of the simulation record (2011-01-01) all the way
+     through 2012, including *before the 2012 crop is even planted*.
+     Real rain events visibly bump layer 1 (topsoil) up and down; layers
+     2 and 3 barely move at all, and never recover toward anything close
+     to what our own Saxton-Rawls calculation calls field capacity
+     (0.145 for layer 3).
+
+     Checked the ratio precisely: `(theta_initial - pwp) / (fc - pwp)`
+     using our own computed pwp/fc for this exact soil, at the very first
+     day of the whole simulation record (2011-01-01), gives 0.463, 0.497,
+     0.503 for layers 1, 2, 3 -- two of three within 0.7% of exactly
+     0.50. This is a real, measured fact about how real Cycles starts a
+     simulation: **at half of plant-available water, not at field
+     capacity.** Every make_layers()-equivalent in this project (the two
+     canonical validation scripts, both embedded engine copies, this
+     session's own Kansas test scripts) has always initialized
+     `theta=fc` -- explicitly documented as a known simplification
+     ("every soil layer always initializes to field capacity with no
+     spin-up or carryover," CLAUDE.md, 2026-09-22) but never checked
+     against what real Cycles itself actually does at time zero, because
+     no prior comparison had a real Cycles run whose recorded output
+     began at the literal start of a simulation.
+
+     Why this matters enormously more at Kansas than Rock Springs, and
+     why six formula-level fixes to `root_zone_availability()` all missed
+     it: at Rock Springs, the real Jan-1-to-planting bare-fallow spinup
+     that every validated run already does gets enough real rain to wash
+     out a 100%-vs-50%-of-available starting difference within weeks,
+     well before planting -- confirmed directly, the full 4-crop suite is
+     byte-identical to three decimals with the fix applied (corn 0.547,
+     soybean 0.858, wheat 0.399, silage corn 0.512, all unchanged). At
+     Kansas, real layer 3 never gets meaningfully recharged once
+     depleted (the same "layers 2/3 barely move all season" pattern this
+     item's original diagnosis already found, now explained by the wrong
+     STARTING point rather than a wrong within-season formula) -- so
+     starting a fresh Kansas run at "100% full" instead of "50% full"
+     means carrying real, phantom extra water for the ENTIRE season, not
+     just a transient window.
+
+     Tested directly against the same 6-year Kansas benchmark used for
+     every other fix in this item: fresh-start mean overshoot dropped
+     from 5.05x to 3.63x (2012 specifically: 18.44x -> 12.49x), mean
+     absolute error 2.298 -> 1.454 Mg/ha, at zero cost anywhere tested.
+     This is the first of seven distinct mechanisms tried against this
+     benchmark (the two from the original session, five here) that is an
+     unambiguous, uncomplicated win -- no tradeoff to weigh, unlike the
+     ETc-adjustment or any of the availability-formula variants. Combined
+     with one year of real carryover, the improvement doesn't stack much
+     further (chained mean ratio 2.16x either way, 2012 still 6.19x) --
+     expected, since the chained case's own starting point already comes
+     from a full season of real simulated dynamics in the spin year, not
+     a fresh reset, so only the SPIN year's own initial condition
+     benefits, and that gets substantially overwritten by the time the
+     spin year's own season ends.
+
+     Shipped as `INITIAL_MOISTURE_FRACTION = 0.5` in
+     `cycles_engine_validate.py` (both canonical validation scripts and
+     both embedded `ENGINE_SOURCE` copies, confirmed byte-identical to
+     each other afterward, 48919 bytes each). Real, disclosed limit worth
+     being honest about: this is a genuine hidden lever, not the entire
+     answer -- 2012's fresh-start overshoot only dropped from 18.44x to
+     12.49x, still far above the classroom-workable bar, and the deeper
+     "root discovery" symptom (a lumped-reservoir stress calculation that
+     can't distinguish accessible from barely-accessible water) is still
+     unresolved on top of this. What this DOES change is the diagnosis:
+     the dominant driver of Kansas's overshoot looks less like a
+     within-season dynamics bug and more like a wrong INITIAL CONDITION
+     that a humid-climate validation suite (Rock Springs) could never
+     have surfaced, because rain erases the difference there before it
+     matters. Worth checking this same lever at Iowa and Maryland next,
+     and worth wondering whether OTHER "disclosed simplifications" in
+     this engine share the same property -- invisible at Rock Springs,
+     real everywhere drier.
+
+     **Real, disclosed consequence for `engine-demo.html` specifically,
+     not smoothed over**: unlike the two canonical validation scripts
+     (which spin up from Jan 1 through planting using real bare-fallow
+     weather before every season, the same mechanism that makes this
+     fix a no-op at Rock Springs), `engine-demo.html`'s own interactive
+     panels (Run a season, the nitrogen-sweep/frontier panel, the
+     field-comparison panel, the rotation panel) call `simulate_season()`
+     directly from `build_season_rows()`'s output with NO spinup_rows at
+     all -- confirmed by grepping every call site. This means those
+     panels' own starting condition changes for real with this fix (a
+     direct check found Rock Springs 2012 corn @ N=150 moving from
+     8.2919 to 8.1832 Mg/ha, a small, sensible ~1.3% reduction from
+     slightly less available water at day one, not a red flag). Every
+     specific number already written into this file's own history for
+     those panels (the Tab 3 crossover point, the profit-maximizing
+     nitrogen rate, the tillage-compare spreads, the season-risk 37-year
+     averages, and more) was computed before this fix and will not
+     reproduce exactly if re-run now -- the same category of disclosure
+     already made for the FAO-56 depletion-fraction and NET_GROWTH_FRACTION
+     ports. `model-validation.html` is unaffected in this specific way
+     since its own form exposes `spinup_rows` as a real parameter rather
+     than omitting it.
+
 7. **The soil water redistribution scheme (Eq. 1-2) -- largely resolved, one piece
    still open.** Originally: the paper gives the real capacitance-weighted flow
    equation (khe as a function of saturated hydraulic conductivity ks, air-entry

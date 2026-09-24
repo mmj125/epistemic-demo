@@ -321,6 +321,25 @@ def runoff_mm(win, s_mm, slope_pct):
 
 REDISTRIBUTE_SUBSTEPS = 24  # see redistribute() docstring for the convergence check that sets this
 
+# Real, measured (2026-09-24) -- NOT field capacity. Every make_layers()-equivalent in this
+# project initialized theta=fc (100% of plant-available water) at the start of any fresh run,
+# a disclosed simplification ("every soil layer always initializes to field capacity with no
+# spin-up or carryover"). Directly checking real Cycles' own water.txt output for a semi-arid
+# Kansas site (a run whose simulation literally starts 2011-01-01) found its actual starting
+# SMC sits almost exactly halfway between wilting point and field capacity in every layer:
+# (theta0-pwp)/(fc-pwp) = 0.463, 0.497, 0.503 for layers 1-3 -- not a coincidence, two of three
+# land within 0.7% of exactly 0.50. At a humid site (Rock Springs) this makes no measurable
+# difference (the real Jan-1-to-planting bare-fallow spinup already run before every season has
+# enough real rain to erase a 100%-vs-50%-of-available starting difference well before planting
+# -- confirmed: the full 4-crop validation suite is byte-identical to three decimals with this
+# constant applied). At a semi-arid site it matters for months: Kansas's real layer 3 never
+# gets meaningfully recharged once depleted, so starting our own fresh-run default at "full"
+# instead of "half" was carrying phantom water the entire season. Tested directly against 6
+# independent real Kansas reference years (drought to wet): fresh-start mean overshoot dropped
+# from 5.05x to 3.63x (2012 specifically: 18.44x -> 12.49x), zero cost anywhere. See
+# QUESTIONS_FOR_DEVS.md item 6 for the full evidence trail.
+INITIAL_MOISTURE_FRACTION = 0.5
+
 
 def redistribute(layers, water_in_mm, n_substeps=REDISTRIBUTE_SUBSTEPS):
     """Cascading bucket. When a layer carries the full Saxton-Rawls parameter set
