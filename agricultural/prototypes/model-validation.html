@@ -833,6 +833,53 @@
       rotation panels will not reproduce exactly until re-checked.</p>
     </details>
 
+    <details class="gap">
+      <summary>21. CropSyst's own public source code checked directly (2026-09-25) &mdash; two of our
+      fixes independently confirmed exactly right, one real-looking mechanism tested and rejected, the
+      pasture cutting trigger narrowed but still open</summary>
+      <p>Unlike Cycles, CropSyst (the model Cycles shares its biophysical fundamentals with, per the
+      main paper) has real, public <code>.cpp</code> source at <code>mingliangwsu/VIC-CropSyst-Package</code>
+      on GitHub. Checked it directly rather than continuing to guess at undisclosed Cycles internals.
+      Two independent confirmations of already-shipped fixes: the Eq. 1 Campbell conductivity exponent
+      (read as <code>2+3/b</code> after concluding the paper's printed <code>(2+3b)</code> was a lost
+      division slash) exactly matches CropSyst's own <code>hydraulic_properties.cpp</code>
+      (<code>2.0*Campbell_b+3.0</code>, and separately <code>2.0+3.0/Campbell_b</code>, in two different
+      functions). The Williams et al. 2012 depth-weighted <code>f_wc</code> formula already shipped
+      matches CropSyst's own <code>runoff_SCS.cpp</code> depth-weighting structure exactly. Neither
+      changed any shipped code &mdash; both are now independently corroborated, not resting on this
+      project's own derivation alone.</p>
+      <p>Found a real, disclosed, per-crop mechanism (<code>biomass_growth_RUE_TUE.cpp</code>) that looked
+      like a strong candidate for item 9's still-open question: RUE declines linearly with rising solar
+      radiation (a light-saturation effect), not a flat discount. Binning 852 real, unambiguously
+      radiation-limited days from the continuous-corn record by solar radiation shows a real, monotonic
+      decline (~0.80 at low radiation to ~0.64 at high radiation, R&sup2;=0.29 over the flat-mean
+      baseline) &mdash; a materially better isolated fit than the current flat 0.785. Built and tested
+      both structurally sound placements in this engine: before the min(GR,GT) choice reproduces the
+      exact correlation-destroying distortion already documented for the flat version (86% of days
+      become radiation-limited vs. a real ~40% baseline); after the min(GR,GT) choice is safe but
+      empirically worse for 3 of 4 crops (corn 0.547&rarr;0.495, wheat 0.399&rarr;0.276). <strong>Not
+      shipped either way</strong> &mdash; a real, better-isolated-fit mechanism that doesn't transfer
+      cleanly onto this engine's specific architecture, the same lesson as the reverted power-law
+      water-stress fit. The flat <code>NET_GROWTH_FRACTION=0.785</code> stays.</p>
+      <p>Re-opened the pasture cutting trigger (item 4) with CropSyst's real clipping logic: three
+      independent OR'd triggers (a biomass ceiling matching Cycles' own 4000 kg/ha exactly, an LAI
+      ceiling, a days-after-flowering trigger), plus a protected <code>reserve_biomass</code> pool and a
+      post-cut growth-RATE adjustment &mdash; none of which were tested before. Cycles' own crop file has
+      no LAI or flowering-trigger field for any pasture species and no LAI output column at all, so the
+      literal CropSyst defaults don't transfer as numbers, only as structure. Pulled 9 real cuts (1982-83,
+      not just 1982's four): aboveground biomass at cut ranges 0.32-4.38 Mg/ha (1983's first cut, after
+      the longest uninterrupted spring regrowth, is the one case that actually reaches the 4.0 Mg/ha
+      ceiling) and thermal-time-since-reset ranges 648.8-898.1 degree-days with no fixed value across
+      either year. Still unresolved.</p>
+      <p><strong>The most consequential finding from this pass wasn't about the trigger at all:</strong>
+      <code>CornSoyWheatPasture.operation</code> plants Orchardgrass, WhiteClover, and LotusCorniculatus
+      simultaneously on the same day at three different densities (0.68 / 0.16 / 0.16, summing to 1.0)
+      &mdash; a real mixed pasture stand, not the orchardgrass monoculture this project has validated
+      against the whole time. No version of this engine has ever modeled species competition or a
+      density-weighted mixed canopy, which may be a more fundamental reason the pasture rotation has
+      never met the classroom-workable bar than any cutting-trigger formula alone.</p>
+    </details>
+
     <p style="margin-top:14px;">This list is deliberately not flattering. It's the same list we'd want
     handed to us if someone else built a reimplementation of our own model and asked us to check it.</p>
   </div>

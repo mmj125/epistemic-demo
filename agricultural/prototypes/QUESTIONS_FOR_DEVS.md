@@ -81,6 +81,66 @@ against real Cycles output before concluding the gap is real.
    (both biomass and thermal time) really a fixed ~25% carryover, or does it
    depend on which threshold fired?
 
+   **Follow-up (2026-09-25), using CropSyst's own real, public source code**
+   (`mingliangwsu/VIC-CropSyst-Package` on GitHub -- Cycles shares its biophysical
+   fundamentals with CropSyst per the main paper, and unlike Cycles this repo
+   actually has real `.cpp` source, not just compiled binaries). CropSyst's own
+   `management/management_param_V5.cpp` implements clipping as three independent
+   OR'd triggers, not one: a biomass ceiling (`biomass_forces_clipping`, default
+   4000 kg/ha -- exactly matching Cycles' own `CLIPPING_BIOMASS_THRESHOLD_UPPER`),
+   an LAI ceiling (`LAI_forces_clipping`, default 5.0), and a days-after-flowering
+   trigger (`flowering_forces_clipping`, default 0 days). There's also a real
+   `reserve_biomass` pool explicitly "unavailable for clipping" (a protected
+   fraction the plant never risks losing, structurally different from a flat
+   post-cut percentage) and a post-cut `adjust_relative_growth_rate_for_clipping`
+   term (default 1.0, range 0.5-1.5) -- a growth-RATE adjustment after a cut,
+   not a biomass reset at all, a mechanism never tested before.
+
+   Tested this against real data before assuming it transfers: Cycles' own
+   `GenericCrops.crop` has no LAI field or flowering-trigger field for any
+   pasture species (confirmed directly) and no per-day LAI column in its own
+   daily crop output either (`Orchardgrass.txt`'s header has no LAI, only
+   `FRAC INTERCEP` as the closest analog) -- Cycles' own architecture has no LAI
+   state variable at all (its canopy scheme is cover-based, Eq. 6), so CropSyst's
+   literal LAI trigger has no path into Cycles as a numeric default; only its
+   existence as a *structural* idea (a second, OR'd trigger besides biomass)
+   transfers.
+
+   Pulled 9 real cuts (all of 1982 and 1983, not just 1982's four) to re-test
+   with a larger sample: real aboveground biomass at cut now ranges 0.32-4.38
+   Mg/ha across the 9 cuts (1983's first cut, after the longest uninterrupted
+   spring regrowth, is the ONE case that actually reaches the 4.0 Mg/ha ceiling
+   -- every other cut stays well under it), and real thermal-time-since-reset
+   ranges 648.8-898.1 degree-days, non-monotonic across a season (1982 rises
+   653->802->828->890 across its four cuts; 1983 does not repeat that pattern,
+   719->649->896->883->898) -- ruling out both "a fixed thermal-time target" and
+   a revised guess of 60% of `FLOWERING_TT` (600, tested directly, doesn't match
+   either). The ~25% post-cut carryover ratio (both biomass and thermal time)
+   found in the original four 1982 cuts holds up in this larger sample too
+   (1982-06-10: 210.7/801.8 = 26.3%). Confirmed `CLIPPING_START 1` /
+   `CLIPPING_END 366` on the operation file spans the entire year -- clipping is
+   genuinely automatic/threshold-triggered, not a fixed calendar schedule with
+   these fields just marking an allowed window.
+
+   **The most consequential real finding from this pass isn't about the trigger
+   at all: `CornSoyWheatPasture.operation` plants Orchardgrass, WhiteClover, AND
+   LotusCorniculatus simultaneously on the same day (DOY 75, year 3) at three
+   different densities (0.68 / 0.16 / 0.16, summing to 1.0) -- a real mixed
+   pasture stand, not the orchardgrass monoculture this project has validated
+   against the whole time.** This has never been documented before in this
+   project and may be a more fundamental reason the pasture rotation has never
+   met the classroom-workable bar than any cutting-trigger formula: three
+   competing species sharing light/water/nutrients at different densities is a
+   structurally different system from a monoculture stand, and no version of
+   this engine has ever modeled species competition or a density-weighted mixed
+   canopy. Question for the devs, given the trigger mechanism above still isn't
+   fully resolved: is the actual trigger logic closer to CropSyst's three-OR'd-
+   condition structure (with real numeric LAI/flowering thresholds that exist
+   somewhere in Cycles even though `GenericCrops.crop` doesn't expose them), and
+   separately, does Cycles model inter-species competition in a mixed stand like
+   this one, or does each species' `DENSITY` value scale its outcome independently
+   with no shared-resource interaction at all?
+
 5. **Canopy-cover shape constants (Eq. 6's `a`, `b`, `c`, `d`) per crop.** The paper
    gives explicit defaults (6, -20, -15, 16) but states they "represent a normalized
    plant density (PDf) of 1" for the case demonstrated. Checked directly for winter
@@ -800,6 +860,44 @@ against real Cycles output before concluding the gap is real.
    the radiation/water co-limitation choice** (the distinction that made this
    workaround succeed where a naive one failed)?
 
+   **Follow-up (2026-09-25), a real candidate found via CropSyst's own public
+   source, tested and NOT adopted.** CropSyst's `crop/biomass_growth_RUE_TUE.cpp`
+   has a real, disclosed, per-crop mechanism that plausibly IS the answer:
+   `RUE_kg_MJ_adjusted = RUE_kg_MJ - (RUE_efficiency_decrease_rate * solar_rad)`
+   -- RUE declines linearly as solar radiation rises (a real light-saturation
+   effect), not a flat, radiation-independent discount. Directly tested this
+   shape against real Cycles' own daily output before assuming it fits: binning
+   852 clean (zero water-stress, zero N-stress) days from the full 37-year
+   continuous-corn record by solar radiation shows a real, monotonic decline
+   from ~0.80 (10-15 MJ/m2/day) to ~0.64 (30 MJ/m2/day) -- a materially better
+   fit (R^2=0.29 over the flat-mean baseline) than the single 0.785 constant
+   currently used. `RUE_efficiency_decrease_rate`'s own numeric value isn't in
+   CropSyst's public repo (it's a crop-database field, not a compiled default;
+   confirmed by an exhaustive repo search turning up zero assignments), so this
+   session fit the slope/intercept directly off real Cycles' own output the
+   same way `TTf50` was fit.
+
+   Built and tested both structurally sound placements before deciding: applying
+   it to GR before the min(GR,GT) choice (CropSyst's own literal placement)
+   reproduces the exact same correlation-destroying distortion already
+   documented for the flat version (86% of days become radiation-limited vs. a
+   real ~40% baseline; every crop's correlation drops, e.g. corn 0.547->0.476).
+   Applying it after the min(GR,GT) choice (the placement that keeps the flat
+   `NET_GROWTH_FRACTION` safe) is structurally sound but empirically worse for
+   3 of 4 crops (corn 0.547->0.495, soybean 0.858->0.837, wheat 0.399->0.276;
+   only silage corn improved, 0.512->0.542) -- because on the majority of days,
+   which are water- not radiation-limited, this now scales down GT-driven growth
+   by that day's radiation level too, which has no physical basis (GT depends on
+   transpiration/WUE, not RUE). **Not shipped either way** -- the flat
+   `NET_GROWTH_FRACTION=0.785` stays, a real case of a mechanistically-motivated,
+   better-isolated-fit formula not transferring cleanly onto this engine's
+   specific growth-limitation architecture (the same lesson as the reverted
+   power-law water-stress fit earlier this session). This sharpens the open
+   question above: if real Cycles does apply a radiation-magnitude-dependent RUE
+   decline, what does it do on a water-limited day to avoid the same distortion
+   this session hit, and is there a real, disclosed per-crop
+   `RUE_efficiency_decrease_rate`-equivalent value?
+
 ## Resolved without asking (kept here for the record, not blocking)
 
 - **Real per-crop `THERMAL_TIME_TO_EMERGENCE` wired in -- confirmed correct, a tiny effect.**
@@ -1382,3 +1480,32 @@ against real Cycles output before concluding the gap is real.
   panel by panel here, the same disclosed-not-exhaustive standard already
   applied to the last several engine-wide fixes this session; re-check a
   given panel's numbers when it's next touched, not before.
+
+- **CropSyst's own public source code confirmed as a real, independent
+  cross-check (2026-09-25), not just a hoped-for lead.** Found CropSyst has
+  genuine, public `.cpp` source (unlike Cycles, which ships binaries only) at
+  `mingliangwsu/VIC-CropSyst-Package` on GitHub, a WSU-affiliated research
+  repo coupling CropSyst to the VIC hydrology model. Two of this session's
+  own already-shipped, independently-derived fixes were confirmed EXACTLY
+  correct by CropSyst's own real code, not just plausible: (1) the Eq. 1
+  Campbell conductivity exponent, read as `2+3/b` after concluding the paper's
+  own printed `(2+3b)` was a lost division slash -- CropSyst's
+  `soil/hydraulic_properties.cpp` computes the identical `2.0*Campbell_b+3.0`
+  and, separately, `2.0+3.0/get_Campbell_b(...)`, in two different functions.
+  (2) The Williams et al. 2012 depth-weighted `f_wc` formula already shipped
+  (`depth_weighted_ffc()`) -- CropSyst's own `soil/runoff_SCS.cpp` computes
+  the identical thickness-over-cumulative-depth weighting structure
+  (`layering = layer_thickness/sublayer_depth`, summed and normalized) for
+  the same purpose. Neither cross-check changed any shipped code; both are
+  now noted in the relevant items above as independently confirmed rather
+  than resting on this session's own derivation alone. Also found, but out of
+  scope to use: `organic_matter/single_pool/OM_single_pool.cpp` has a code
+  path literally gated on a `KEMANIAN_HUMIFICATION` preprocessor flag (direct
+  evidence of the shared lineage), and `organic_matter/OM_const.h` has real
+  numeric decomposition rate constants for a multi-pool SOM scheme (microbial
+  0.005/day, labile-active 0.02/day, metastable-active 0.0005/day, passive
+  0.0000185/day) -- real data for the six-pool system's own still-undisclosed
+  rate constants (see the redistribution/decomposition items above), not
+  pursued further since using it means building the full six-pool subsystem,
+  already correctly scoped out of v1 as a genuine new subsystem, not a
+  parameter swap.
