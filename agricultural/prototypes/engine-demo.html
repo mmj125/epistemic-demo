@@ -3608,6 +3608,11 @@ def _oi_make_layers():
 _oi_crop = dict(CROPS[oi_crop_key])
 _oi_crop["make_layers"] = _oi_make_layers
 _oi_tillage_val = oi_tillage or None
+# Real per-site topsoil clay fraction for tillage's texture scaling -- same fix as the
+# nitrogen-sweep/field-comparison panels above (found 2026-09-25 during a broad audit),
+# ported here since this panel resolves a real uploaded field's own soil too and was
+# defaulting to Rock Springs' 0.21 regardless of what the student actually uploaded.
+_oi_tillage_clay = (_oi_soil_raw[0]["clay"] / 100.0) if _oi_soil_raw else 0.21
 _wx_year = _oi_wx.get(oi_year)
 if _wx_year is None:
     _result = {"error": f"No weather data for {oi_year}"}
@@ -3615,7 +3620,7 @@ else:
     _plant_doy, _rows = build_season_rows(_wx_year, _oi_crop)
     _res = simulate_season(_rows, _oi_crop, n_rate_kg_ha=oi_n_rate, record_history=False,
                             tillage_doy=(_plant_doy if _oi_tillage_val else None),
-                            tillage_implement=_oi_tillage_val)
+                            tillage_implement=_oi_tillage_val, tillage_clay_frac=_oi_tillage_clay)
     _result = {"plant_doy": _plant_doy, **_res}
 json.dumps(_result)
 `);
@@ -3700,13 +3705,14 @@ def _oi_make_layers():
 _oi_crop = dict(CROPS[oi_crop_key])
 _oi_crop["make_layers"] = _oi_make_layers
 _oi_tillage_val = oi_tillage or None
+_oi_tillage_clay = (_oi_soil_raw[0]["clay"] / 100.0) if _oi_soil_raw else 0.21
 _wx_year = _oi_wx.get(oi_year)
 _plant_doy, _rows = build_season_rows(_wx_year, _oi_crop)
 _out = []
 for _r in _oi_rates:
     _res = simulate_season(_rows, _oi_crop, n_rate_kg_ha=_r, record_history=False,
                             tillage_doy=(_plant_doy if _oi_tillage_val else None),
-                            tillage_implement=_oi_tillage_val)
+                            tillage_implement=_oi_tillage_val, tillage_clay_frac=_oi_tillage_clay)
     _out.append({"n_rate": _r, "grain": _res["grain"], "leached": _res.get("n_leached_kg_ha", 0.0)})
 json.dumps(_out)
 `);
