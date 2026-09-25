@@ -115,16 +115,18 @@
       <p class="note">Click "Run Simulation" to log your current design and score it against your last logged iteration
       &mdash; lower is better. Cost is a real dollar figure ($1 per cm of rod, $10 per connector). Force concentration
       is the largest force carried by any single member (N) &mdash; low means the load is spread out across many
-      members, high means one member is doing most of the work. The weighting below (how much deflection vs. cost
-      vs. force concentration matters) is set by your instructor for this assignment, not something to change
-      mid-assignment.</p>
+      members, high means one member is doing most of the work. The weighting below controls how much each of those
+      three criteria counts toward a design's score. Try setting one weight much higher than the others and re-running
+      &mdash; there is no single best design, only a best-for-this-weighting one. (This control will move to a
+      separate instructor view once that exists; for now it's open here so the effect of different weightings is
+      easy to see and demo directly.)</p>
       <p style="font-size:.85rem;color:var(--muted);margin-top:8px;">
         Current weights &mdash; Deflection: <strong id="w-defl-display" style="color:var(--text);">150</strong>,
         Cost: <strong id="w-cost-display" style="color:var(--text);">0.1</strong>,
         Force concentration: <strong id="w-force-display" style="color:var(--text);">5.6</strong>
       </p>
-      <details style="margin-top:10px;">
-        <summary style="cursor:pointer;font-size:.82rem;color:var(--accent);">Instructor: set weights for this assignment</summary>
+      <details open style="margin-top:10px;">
+        <summary style="cursor:pointer;font-size:.82rem;color:var(--accent);">Set criteria weights</summary>
         <div class="btn-row" style="margin-top:10px;">
           <label style="font-size:.82rem;color:var(--muted);">Deflection weight
             <input type="number" id="w-defl" value="150" step="10" style="width:70px;"></label>
@@ -134,9 +136,10 @@
             <input type="number" id="w-force" value="5.6" step="0.5" style="width:70px;"></label>
           <button class="btn" id="btn-genlink">Generate link for students</button>
         </div>
-        <p class="note">These fields update the display above live, for your own preview. To lock a specific
-        weighting for students, click "Generate link" and share that URL instead of this page's own address &mdash;
-        opening it fixes the weights shown above and hides these input fields.</p>
+        <p class="note">These fields update the display above live. To lock a specific
+        weighting so it can't be changed (for a future instructor-assigned link), click "Generate link" and share
+        that URL instead of this page's own address &mdash; opening it fixes the weights shown above and hides
+        these input fields.</p>
         <input type="text" id="student-link" readonly style="width:100%;margin-top:6px;padding:7px 10px;
           background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);
           font-family:monospace;font-size:.78rem;display:none;" onclick="this.select()">
@@ -748,10 +751,10 @@ function readWeightsFromInputs(){
   });
 });
 
-// Weights are an instructor call, not something students adjust live (per Matt directly) - so the editable
-// inputs live inside a closed-by-default <details>, and a link carrying ?wDefl=&wCost=&wForce= locks them in
-// for students entirely (that <details> section is hidden, not just collapsed) rather than leaving the
-// controls visible-but-discouraged.
+// Weights will eventually be an instructor call, not something students adjust live - the editable inputs are
+// left open by default for now (pre-instructor-view demo phase) so different weightings are easy to compare
+// directly. A link carrying ?wDefl=&wCost=&wForce= already locks them in entirely (the whole <details> section
+// is hidden, not just collapsed) for whenever this needs to be distributed as a fixed assignment.
 const urlParams = new URLSearchParams(window.location.search);
 const linkedWeights = ["wDefl","wCost","wForce"].every(k => urlParams.has(k));
 if(linkedWeights){
