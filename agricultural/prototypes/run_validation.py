@@ -27,6 +27,10 @@ CORN = dict(
     canopy_shape=CORN_CANOPY_SHAPE,
     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=40.6875,
     n_max_conc=0.055, n_dilution_slope=0.4, legume=False,  # real GenericCrops.crop values, corn is not a legume
+    n_min_conc=0.002,  # real GenericCrops.crop N_MIN_CONCENTRATION_STRAW (0.2%), added 2026-09-25
+    # for the day-by-day concentration-tracked N-stress mechanism -- see simulate_season()'s
+    # own comment above canopy_n_kg_ha in cycles_engine_validate.py. Never triggers on this
+    # crop's own default (n_rate_kg_ha=None) validation path.
     depletion_fraction=0.55,  # real FAO-56 Table 22 value for maize, field (grain)
     tr_max_mm_day=10,  # real GenericCrops.crop TRANSPIRATION_MAX (CornRM.90); never triggers at
     # Rock Springs (TRp maxes out ~7.4mm/day across the full record) but real and disclosed

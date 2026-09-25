@@ -57,7 +57,12 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
              rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
              kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=LAT,
-             make_layers=make_layers, calibration_factor=1.2075,  # re-derived 2026-09-25 after wiring
+             make_layers=make_layers, calibration_factor=1.2895,  # re-derived 2026-09-25 (a second
+             # time the same day) after replacing the season-total quadratic-plateau N-stress
+             # mechanism with a real, day-by-day concentration-tracked one (see simulate_season()'s
+             # own comment above canopy_n_kg_ha in cycles_engine_validate.py) -- correlation moved
+             # 0.473 -> 0.523 from this fix alone, recalibrated here (1.2075 * 4.328790555555556 /
+             # 4.053449054815334) to keep the mean matching the real 4.328790555555556 Mg/ha exactly
              # in wheat's own real fertilization event (see n_applications=[(75, 90)] on the
              # validate() call below) -- before this, wheat's validation ran with NO nitrogen
              # tracking at all despite a real, disclosed 90 kg N/ha UAN application sitting in
@@ -98,13 +103,16 @@ WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
              tr_max_mm_day=8,  # real GenericCrops.crop TRANSPIRATION_MAX (WinterWheat)
              root_max_m=2.0,  # real GenericCrops.crop MAXIMUM_ROOTING_DEPTH (WinterWheat)
              tt_emergence=100,  # real GenericCrops.crop THERMAL_TIME_TO_EMERGENCE (WinterWheat)
-             n_max_conc=0.07, n_dilution_slope=0.45)  # real GenericCrops.crop values (WinterWheat) --
+             n_max_conc=0.07, n_dilution_slope=0.45,  # real GenericCrops.crop values (WinterWheat) --
              # added 2026-09-24, a real data-completeness gap: unlike CORN/SOYBEAN, WHEAT never had
              # these two fields set, so it silently fell back to whatever crop["n_max_conc"] happened
              # to be if nitrogen tracking were ever activated for it -- currently a KeyError risk, not
              # a wrong-number risk, since nothing in this project calls simulate_season() for wheat
              # with n_rate_kg_ha/n_applications/n_credit_kg_ha/manure_n_kg_ha set (verified: zero
              # effect on validation, confirming this is a pure completeness fix, not a behavior change)
+             n_min_conc=0.002)  # real GenericCrops.crop N_MIN_CONCENTRATION_STRAW (0.2%), added
+             # 2026-09-25 for the day-by-day concentration-tracked N-stress mechanism -- see
+             # simulate_season()'s own comment above canopy_n_kg_ha in cycles_engine_validate.py.
 
 CORN_SILAGE = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
                     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
@@ -122,7 +130,7 @@ CORN_SILAGE = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_
                     root_max_m=1.55,  # real GenericCrops.crop MAXIMUM_ROOTING_DEPTH (CornSilageRM.90)
                     # -- notably shallower than grain corn's 2.0m, a real distinguishing trait
                     tt_emergence=65,  # real GenericCrops.crop THERMAL_TIME_TO_EMERGENCE (CornSilageRM.90)
-                    n_max_conc=0.055, n_dilution_slope=0.4, legume=False)  # real GenericCrops.crop
+                    n_max_conc=0.055, n_dilution_slope=0.4, legume=False,  # real GenericCrops.crop
                     # values for CornRM.90 -- CORN_SILAGE shares every other growth parameter
                     # (rue/wue/hi_x/tt_maturity/base_t/opt_t/max_t, all identical to CORN's own
                     # values above) with grain corn, since it's the same crop harvested earlier,
@@ -138,6 +146,10 @@ CORN_SILAGE = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_
                     # page's "Full simulation controls" panel either) -- but the same KeyError
                     # trap wheat had before 2026-09-24 doesn't need to exist here waiting for
                     # whoever wires nitrogen into this crop next.
+                    n_min_conc=0.002)  # real GenericCrops.crop N_MIN_CONCENTRATION_STRAW (0.2%),
+                    # added 2026-09-25 for the day-by-day concentration-tracked N-stress mechanism
+                    # -- see simulate_season()'s own comment above canopy_n_kg_ha in
+                    # cycles_engine_validate.py. Same not-currently-reachable status as above.
 
 
 def load_weather():

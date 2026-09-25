@@ -189,7 +189,7 @@
       <tr><td>Soybean grain</td><td>4.72 Mg/ha</td><td>4.72 Mg/ha</td><td>5.2%</td><td>0.856</td><td><span class="tag tag-pass">passes bar</span></td></tr>
       <tr><td>Corn grain (continuous)</td><td>10.56 Mg/ha</td><td>10.56 Mg/ha</td><td>8.5%</td><td>0.550</td><td><span class="tag tag-fail">below bar</span></td></tr>
       <tr><td>Silage corn forage</td><td>14.81 Mg/ha</td><td>14.81 Mg/ha</td><td>8.6%</td><td>0.518</td><td><span class="tag tag-fail">below bar</span></td></tr>
-      <tr><td>Winter wheat grain</td><td>4.33 Mg/ha</td><td>4.33 Mg/ha</td><td>11.5%</td><td>0.473</td><td><span class="tag tag-fail">below bar</span></td></tr>
+      <tr><td>Winter wheat grain</td><td>4.33 Mg/ha</td><td>4.33 Mg/ha</td><td>10.6%</td><td>0.523</td><td><span class="tag tag-fail">below bar</span></td></tr>
       <tr><td>Pasture perennials (orchardgrass, etc.)</td><td colspan="2">real annual yield 5.25&ndash;7.94 Mg/ha, not tracked</td><td>&mdash;</td><td>&minus;0.28 to 0.16<br>(across 4 tested fixes)</td><td><span class="tag tag-unresolved">unresolved</span></td></tr>
       <tr><td>Winter rye / hairy vetch (cover)</td><td colspan="4">no real Cycles reference data available to correlate against &mdash; RUE/WUE are real (SI Table SI.2), everything else borrowed</td><td><span class="tag tag-unresolved">unvalidated</span></td></tr>
     </table>
@@ -893,6 +893,62 @@
       never met the classroom-workable bar than any cutting-trigger formula alone.</p>
     </details>
 
+    <details class="gap">
+      <summary>22. Nitrogen stress rebuilt as a real, day-by-day mechanism (2026-09-25), replacing a
+      season-total shortcut &mdash; wheat 0.473 &rarr; <strong>0.523</strong></summary>
+      <p>The nitrogen-adequacy mechanism shipped 2026-09-14 (a single whole-season quadratic-plateau
+      supply/demand ratio, computed by a separate <code>_reference_n_demand()</code> function that
+      duplicated the main loop's own water/canopy physics just to get a season-total demand number) was
+      always a structural compromise: it fixed the day-by-day fertilizer pool's own hard-zero-collapse
+      bug, but it meant nitrogen stress on any given day depended on the whole season's total supply and
+      demand, not on the plant's own actual nitrogen status that day &mdash; and every duplicate-loop
+      function is a standing risk of the exact class of bug already found and fixed once this session
+      (irrigation silently missing from <code>_reference_n_demand()</code>, invisible until a specific
+      combination of features was tested).</p>
+      <p>Found a real, better mechanism via CropSyst's own public source (<code>crop_N_common.cpp</code>,
+      <code>mingliangwsu/VIC-CropSyst-Package</code>): <code>N_reduction_factor =
+      1-(Ncrit-Nactual)/(Ncrit-Nmin)</code>, clipped to [0,1] &mdash; a function of the plant's own actual
+      tissue nitrogen concentration that day, compared against a critical concentration (already computed
+      here via the existing dilution-curve <code>n_critical_pct()</code>, previously dead code, never
+      called) and a minimum concentration floor. The Lemaire, Jeuffroy &amp; Gastal (2008) paper the user
+      supplied (uploaded to the repo as "plant and crop N status paper.pdf") gives real, crop-specific
+      dilution-curve coefficients and a Nitrogen Nutrition Index (NNI=Na/Nc) framework, but no separate
+      Nmin curve at all &mdash; only a generic, non-crop-specific ~0.8% structural-tissue asymptote (Eq.
+      4-6), not what was used. Instead: Cycles' own real, already-available, crop-specific
+      <code>N_MIN_CONCENTRATION_STRAW</code> field (0.2% for corn/wheat/silage corn in
+      <code>GenericCrops.crop</code>) was reused as Nmin &mdash; a disclosed reinterpretation of a real
+      number nominally scoped to grain/straw partitioning elsewhere in Cycles' schema, for the same
+      conceptual role (a low, mostly-structural-tissue floor) CropSyst's own Nmin plays.</p>
+      <p>Implementation: a new day-by-day <code>canopy_n_kg_ha</code> state variable tracks cumulative
+      plant nitrogen content; each day's actual tissue concentration (<code>Nactual</code>) is compared
+      against that day's critical concentration at the plant's current biomass; the resulting stress
+      fraction multiplies water/radiation-limited growth directly, same as the old mechanism did with its
+      season-total ratio. Daily uptake into the pool is funded by the existing marginal-demand-rate
+      function (<code>n_marginal_demand_pct()</code>) applied to that day's already-stressed growth, not
+      potential growth, avoiding circularity. This let <code>_reference_n_demand()</code> be removed
+      entirely (not just superseded) &mdash; there is now only one loop, structurally eliminating the
+      bug class item 20's own fix had to patch around.</p>
+      <p>Verified against every standing benchmark before shipping: the full 4-crop suite is unaffected
+      when nitrogen tracking is inactive (corn 0.550, soybean 0.856, wheat 0.523 itself only differs
+      because it now tracks its own real fertilizer input by default per item 20, silage corn 0.518, all
+      exactly reproducing the pre-rebuild numbers to three decimals wherever nitrogen tracking was already
+      off). Wheat's own validated correlation improved again under the new mechanism, 0.473 &rarr;
+      <strong>0.523</strong> (MAE 0.44 Mg/ha, mean recalibrated to match exactly). Corn was re-tested with
+      its own real nitrogen input wired in under the new mechanism too and still does not beat its
+      no-tracking baseline (0.5095 vs. 0.550) &mdash; consistent with, not contradicted by, the
+      already-documented finding that corn's real nitrogen stress correlates only weakly with its own
+      yield (-0.21) unlike wheat's dominant driver (-0.894), so corn's default validation path correctly
+      continues not to track nitrogen. The standing tillage sanity check (real yield gain at a
+      nitrogen-limiting rate, ~zero at a non-limiting rate), the manure-availability equivalence check
+      (200 kg/ha manure at the real 0.5 multiplier exactly matching 100 kg/ha mineral), and the nitrogen
+      mass-balance identity were all re-verified to still pass, both in the canonical engine and in this
+      page's own embedded copy after porting (including a real gap caught mid-port: the embedded copies
+      had never defined <code>n_critical_pct()</code> at all, since it was dead code in the canonical
+      script too until this fix made it load-bearing, and the embedded <code>CORN</code>/<code>WHEAT</code>
+      dicts needed the real <code>n_min_conc=0.002</code> value added explicitly rather than silently
+      falling back to a 0.0 default).</p>
+    </details>
+
     <p style="margin-top:14px;">This list is deliberately not flattering. It's the same list we'd want
     handed to us if someone else built a reimplementation of our own model and asked us to check it.</p>
   </div>
@@ -1377,92 +1433,24 @@ def tillage_dr_decay(layers, max_rate_per_day=0.02):
     moisture_frac = max(0.0, min(1.0, l0["theta"] / l0["fc"]))
     return max_rate_per_day * moisture_frac
 
+def n_critical_pct(biomass_mgha, crop):
+    # Whole-plant critical N concentration (%), %Nc(W)=a*W^-b -- used as the day-by-day
+    # stress-comparison threshold; see cycles_engine_validate.py for the full account.
+    biomass_mgha = max(biomass_mgha, 0.01)
+    if biomass_mgha < NCRIT_FLOOR_MGHA:
+        return crop["n_max_conc"] * 100
+    return crop["n_max_conc"] * 100 * biomass_mgha ** (-crop["n_dilution_slope"])
+
 def n_marginal_demand_pct(biomass_mgha, crop):
     biomass_mgha = max(biomass_mgha, 0.01)
     if biomass_mgha < NCRIT_FLOOR_MGHA:
         return crop["n_max_conc"] * 100
     return crop["n_max_conc"] * 100 * (1 - crop["n_dilution_slope"]) * biomass_mgha ** (-crop["n_dilution_slope"])
 
-def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
-                         tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21,
-                         curve_number=75.0, slope_pct=0.0, spinup_rows=None, initial_layers=None,
-                         irrigation_trigger_frac=None, irrigation_amount_mm=25.0):
-    # Unconstrained (no-nitrogen-feedback) water/canopy trajectory, used to precompute the
-    # season's total N demand up front. Canopy cover depends only on thermal time and
-    # transpiration-limited growth only on soil moisture, never on biomass or N status, so
-    # this trajectory is identical regardless of N rate -- see cycles_engine_validate.py's
-    # docstring for why a day-by-day pool that can hit a hard, uncorrectable zero mid-season
-    # was replaced with this whole-season approach.
-    # tillage_doy/tillage_implement/tillage_clay_frac must mirror simulate_season's own
-    # tillage handling below (mix_tilled_layers water-mixing + the real dr/ft decomposition-
-    # acceleration factor, Kemanian & Stockle 2010 Eq. 5) or the two loops' water and
-    # background-N trajectories would silently diverge. Returns (demand, bg_multiplier) --
-    # a second list, one per day, of the (1+ft) multiplier BACKGROUND_N_KG_HA_DAY should be
-    # scaled by that day; all 1.0 when tillage_doy is None.
-    # curve_number/slope_pct/spinup_rows must also match simulate_season's own values, for
-    # the same reason -- see infiltrate()/simulate_season's own docstring.
-    # initial_layers: real multi-year state carryover (2026-09-24) -- deep-copied here so
-    # this precompute pass, an intentionally throwaway parallel trajectory, can never mutate
-    # the same soil state the real main loop below is also using. See simulate_season's own
-    # initial_layers comment for the full account of the test-harness bug this prevents.
-    layers = copy.deepcopy(initial_layers) if initial_layers is not None else crop["make_layers"]()
-    root_max_m = crop.get("root_max_m", root_max_m)
-    de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
-    if spinup_rows:
-        for w in spinup_rows:
-            infiltrate(layers, w["pp"], curve_number, slope_pct)
-            eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
-            soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state)
-    tillage_depth_m, tillage_disturb_rating, tillage_mixing_efficiency = TILLAGE_IMPLEMENTS[tillage_implement] \
-        if tillage_doy is not None else (None, None, None)
-    ftx = tillage_ftx(tillage_clay_frac)
-    dr = 0.0
-    tt_cum, ref_biomass = 0.0, 0.0
-    demand, bg_multiplier = [], []
-    for w in weather_rows:
-        dtt = thermal_time_increment(w["tx"], w["tn"], crop["base_t"], crop["opt_t"], crop["max_t"])
-        tt_cum += dtt
-        ttf = tt_cum / crop["tt_maturity"]
-        if ttf >= harvest_ttf:
-            break
-        eie = 0.0 if tt_cum < crop.get("tt_emergence", 0.0) else effective_canopy_cover(
-            canopy_cover(ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE)),
-            crop.get("plant_density_factor", 1.0))
-        root_depth = root_max_m * min(1.0, ttf/0.5)
-        if tillage_doy is not None and w["doy"] == tillage_doy:
-            mix_tilled_layers(layers, tillage_depth_m, tillage_mixing_efficiency)
-            dr += tillage_disturb_rating
-        irrigation_mm = 0.0
-        if irrigation_trigger_frac is not None:
-            pre_avail_frac = root_zone_availability(layers, root_depth)
-            if pre_avail_frac < irrigation_trigger_frac:
-                irrigation_mm = irrigation_amount_mm
-        infiltrate(layers, w["pp"] + irrigation_mm, curve_number, slope_pct)
-        eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
-        soil_evaporation(layers, eto, eie, precip_mm=w["pp"] + irrigation_mm, de_state=de_state)
-        tmean = (w["tx"] + w["tn"]) / 2
-        temp_factor = transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
-        rad_temp_factor = radiation_temp_factor(tmean, crop["tr_min_t"], crop.get("rad_temp_floor", 0.0),
-                                                 crop.get("rad_temp_plateau_t", crop["tr_threshold_t"]))
-        GR = crop["rue"] * rad_temp_factor * eie * w["solar"]
-        es = 0.6108 * math.exp(17.27*tmean/(tmean+237.3))
-        ea = es * (w["rhx"] + w["rhn"]) / 200
-        Da = max(0.05, es - ea)
-        TRp = (1 + (crop["kc"]-1)*eie) * eie * eto
-        TRp *= temp_factor
-        avail_frac = root_zone_availability(layers, root_depth)
-        water_stress = water_stress_response(avail_frac, crop.get("depletion_fraction", 0.5))
-        TR_actual = min(TRp * water_stress, crop.get("tr_max_mm_day", math.inf))
-        extract_transpiration(layers, root_depth, TR_actual)
-        GT = crop["wue"]/math.sqrt(Da) * TR_actual
-        dGB_water_limited = max(0.0, min(GR, GT)) * NET_GROWTH_FRACTION / 1000
-        demand.append(dGB_water_limited * 10 * n_marginal_demand_pct(ref_biomass * 10, crop) * 10)
-        weather_factor = rothc_temp_factor(tmean) * rothc_moisture_factor(layers[0]["theta"], layers[0]["fc"], layers[0]["pwp"])
-        bg_multiplier.append((1.0 + tillage_ft(dr, ftx)) * weather_factor)
-        if dr > 0:
-            dr -= dr * tillage_dr_decay(layers)
-        ref_biomass += dGB_water_limited
-    return demand, bg_multiplier
+# _reference_n_demand() (the demand-precompute duplicate-loop function) was removed
+# 2026-09-25, superseded by the day-by-day concentration-tracked N-stress mechanism
+# now in simulate_season()'s own main loop (see the comment above canopy_n_kg_ha
+# there). See cycles_engine_validate.py / git history for the removed function.
 
 NH3_FRAC_SYNTHETIC = 0.10  # real IPCC Tier-1 default (FracGASF); see cycles_engine_validate.py
 NH3_FRAC_MANURE = 0.20  # real IPCC Tier-1 default (FracGASM); see cycles_engine_validate.py
@@ -1596,27 +1584,13 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     n_uptake_total = 0.0 if n_pool is not None else None
     irrigation_total_mm = 0.0
     history = [] if record_history else None
-    n_stress_fraction, daily_demand, day_i = 1.0, None, 0
-    if n_pool is not None:
-        daily_demand, tillage_bg_multiplier = _reference_n_demand(
-            weather_rows, crop, root_max_m, harvest_ttf, tillage_doy=tillage_doy,
-            tillage_implement=tillage_implement, tillage_clay_frac=tillage_clay_frac,
-            curve_number=curve_number, slope_pct=slope_pct, spinup_rows=spinup_rows,
-            initial_layers=initial_layers, irrigation_trigger_frac=irrigation_trigger_frac,
-            irrigation_amount_mm=irrigation_amount_mm)
-        total_demand_kg_ha = sum(daily_demand)
-        # Season-total background, using the real per-day tillage multiplier -- must match
-        # the boosted rate exactly (not a flat estimate), since n_stress_fraction (and thus
-        # yield) is fixed from this total before the day loop runs; boosting only the day-by-day
-        # pool below would just leach out as unused surplus without ever reaching yield.
-        total_background_kg_ha = 0.0
-        for i, d in enumerate(daily_demand):
-            if d <= 0:
-                continue
-            total_background_kg_ha += BACKGROUND_N_KG_HA_DAY * tillage_bg_multiplier[i]
-        total_supply_kg_ha = total_n_input_kg_ha + total_background_kg_ha
-        supply_ratio = min(1.0, total_supply_kg_ha / total_demand_kg_ha) if total_demand_kg_ha > 0 else 1.0
-        n_stress_fraction = 2 * supply_ratio - supply_ratio ** 2  # quadratic-plateau, smooth diminishing returns
+    # Real, day-by-day concentration-tracked N stress (2026-09-25), replacing the season-
+    # total quadratic-plateau. Found via CropSyst's own public source (crop_N_common.cpp):
+    # N_reduction_factor = 1-(Ncrit-Nactual)/(Ncrit-Nmin), a function of the plant's own
+    # actual tissue N status, not a season-total ratio. Ncrit already existed
+    # (n_critical_pct()); Nmin is each crop's own real N_MIN_CONCENTRATION_STRAW (0.2% for
+    # corn/wheat/silage corn). See cycles_engine_validate.py for the full account.
+    canopy_n_kg_ha = 0.0
     for w in weather_rows:
         dtt = thermal_time_increment(w["tx"], w["tn"], crop["base_t"], crop["opt_t"], crop["max_t"])
         tt_cum += dtt
@@ -1663,17 +1637,26 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             if dGB_water_limited > 0:
                 weather_factor = rothc_temp_factor(tmean) * rothc_moisture_factor(layers[0]["theta"], layers[0]["fc"], layers[0]["pwp"])
                 n_pool += BACKGROUND_N_KG_HA_DAY * (1.0 + tillage_ft(tillage_dr, tillage_ftx_val)) * weather_factor
-            n_stress = n_stress_fraction
-            target_uptake_kg_ha = n_stress_fraction * daily_demand[day_i]
-            n_uptake_kg_ha = min(n_pool, target_uptake_kg_ha)
+            biomass_before_mg_ha = biomass * 10
+            n_crit_pct = n_critical_pct(biomass_before_mg_ha, crop)
+            n_min_pct = crop.get("n_min_conc", 0.0) * 100
+            n_actual_pct = (canopy_n_kg_ha / (biomass_before_mg_ha * 10) if biomass_before_mg_ha > 1e-6
+                            else crop["n_max_conc"] * 100)
+            if n_actual_pct >= n_crit_pct or n_crit_pct <= n_min_pct:
+                n_stress = 1.0
+            else:
+                n_stress = max(0.0, min(1.0, 1.0 - (n_crit_pct - n_actual_pct) / (n_crit_pct - n_min_pct)))
+            dGB_n_limited = dGB_water_limited * n_stress
+            demand_today_kg_ha = dGB_n_limited * 10 * n_marginal_demand_pct(biomass_before_mg_ha, crop) * 10
+            n_uptake_kg_ha = min(n_pool, demand_today_kg_ha)
             n_pool -= n_uptake_kg_ha
             n_uptake_total += n_uptake_kg_ha
+            canopy_n_kg_ha += n_uptake_kg_ha
             profile_water_mm = sum(l["theta"] * l["thick"] * 1000 for l in layers)
             if profile_water_mm > 0 and n_pool > 0 and drainage_mm > 0:
                 leached_kg_ha = drainage_mm * (n_pool / profile_water_mm)
                 n_pool = max(0.0, n_pool - leached_kg_ha)
                 n_leached_total += leached_kg_ha
-            day_i += 1
         dGB = dGB_water_limited * n_stress
         biomass += dGB
         ag_biomass += dGB * shoot_fraction(ttf, crop["fsti"], crop["fstf"])
@@ -1723,6 +1706,8 @@ CORN = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
     calibration_factor=0.8775, canopy_shape=CORN_CANOPY_SHAPE,
     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=40.6875, make_layers=make_layers,
     n_max_conc=0.055, n_dilution_slope=0.4, legume=False,
+    n_min_conc=0.002,  # real GenericCrops.crop N_MIN_CONCENTRATION_STRAW (0.2%), added 2026-09-25
+    # for the day-by-day concentration-tracked N-stress mechanism -- see cycles_engine_validate.py
     depletion_fraction=0.55,  # real FAO-56 Table 22 value for maize, field (grain)
     tr_max_mm_day=10,  # real GenericCrops.crop TRANSPIRATION_MAX (CornRM.90); a no-op at Rock
     # Springs (TRp never exceeds ~7.4mm/day there) but real and kept for other sites.
@@ -1771,6 +1756,8 @@ WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
     calibration_factor=0.8288, canopy_shape=(5, -14, -15, 16),
     kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=40.6875, make_layers=make_layers,
     n_max_conc=0.07, n_dilution_slope=0.45, legume=False,
+    n_min_conc=0.002,  # real GenericCrops.crop N_MIN_CONCENTRATION_STRAW (0.2%), added 2026-09-25
+    # for the day-by-day concentration-tracked N-stress mechanism -- see cycles_engine_validate.py
     rad_temp_floor=0.257, rad_temp_plateau_t=15.55,  # wheat-specific radiation-temperature response
     # (2026-09-23), fit from real Cycles output -- see radiation_temp_factor()'s docstring in
     # cycles_engine_validate.py
@@ -2069,8 +2056,8 @@ const SPECIES_REGISTRY = {
   },
   wheat: {
     label: "Winter wheat", pyKey: "wheat", legume: false, roles: ["cover"],
-    dataStatus: "validated", correlation: 0.473, workableAsCash: false, implementedInDemo: true,
-    notes: "Real GenericCrops.crop parameters, not a placeholder. Correlation improved substantially, 0.253 -> 0.399, across 2026-09-23's radiation-related fixes (the largest single jump, 0.253 -> 0.397, came from giving radiation-limited growth a cold-temperature reduction it never had -- wheat's long, cold-season-heavy growing window made it the biggest beneficiary; a wheat-specific radiation-temperature refit added a further, smaller 0.397 -> 0.399). A 2026-09-24 curve-number/f_wc fix (see gap-list item 1) moved it slightly down, 0.399 -> 0.393. Then, 2026-09-25: wheat's validation had been running with NO nitrogen tracking at all despite a real, disclosed 90 kg N/ha UAN application sitting in CornSilageSoyWheat.operation (YEAR 3, DOY 75) that had simply never been wired into the harness -- an earlier attempt to use this same real rate (pre-RothC) had made things dramatically worse and was logged as a rejected finding, but with RothC's weather-driven background-N variability now shipped, wiring it in for real gives 0.393 -> 0.473, the single largest correlation jump any fix has produced for this crop, with the mean recalibrated to match exactly (MAE 0.50 Mg/ha, unchanged from before). Still below the classroom-workable bar, so not offered as a cash-crop choice. This fix lives in the canonical run_validation_rotation2.py validation harness -- NOT yet ported into this demo's own embedded WHEAT dict, since here wheat only ever plays the fall-planted cover-crop role (a student-set nitrogen slider, not this fixed 90kg cash-crop scenario), and porting the same calibration_factor change without checking it against that different context could make the cover-crop panel's own numbers worse rather than better. See QUESTIONS_FOR_DEVS.md items 6 and 20 for the remaining driver of wheat's weak year-to-year tracking -- a single fixed-lump nitrogen supply is still a coarse stand-in for real dynamic soil N.",
+    dataStatus: "validated", correlation: 0.523, workableAsCash: false, implementedInDemo: true,
+    notes: "Real GenericCrops.crop parameters, not a placeholder. Correlation improved substantially, 0.253 -> 0.399, across 2026-09-23's radiation-related fixes. A 2026-09-24 curve-number/f_wc fix moved it slightly down, 0.399 -> 0.393. 2026-09-25: wired in wheat's own real, disclosed 90 kg N/ha UAN application (CornSilageSoyWheat.operation YEAR 3 DOY 75, previously never used despite sitting in an already-committed input file) for real, 0.393 -> 0.473. Same day: the whole nitrogen-stress mechanism was rebuilt from a season-total quadratic-plateau ratio into a real, day-by-day tissue-concentration-tracked one (CropSyst-sourced, see the page's own gap-list item 22), improving wheat further, 0.473 -> 0.523 in the canonical validation harness. This demo's own embedded WHEAT dict (used only for the fall-planted cover-crop role, a student-set nitrogen slider, not this fixed 90kg cash-crop scenario) got the day-by-day mechanism's real n_min_conc field added too, since the mechanism itself is now engine-wide -- its calibration_factor was left untouched, never having been validated against real Cycles output the way this cash-crop scenario is. Still below the classroom-workable bar, so not offered as a cash-crop choice. See QUESTIONS_FOR_DEVS.md items 6 and 20 for the remaining driver of wheat's weak year-to-year tracking -- a single fixed-lump nitrogen supply is still a coarse stand-in for real dynamic soil N.",
   },
   winter_rye: {
     label: "Winter rye (cover crop)", pyKey: "winter_rye", legume: false, roles: ["cover"],

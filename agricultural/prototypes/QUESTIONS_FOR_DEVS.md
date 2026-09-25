@@ -1509,3 +1509,68 @@ against real Cycles output before concluding the gap is real.
   pursued further since using it means building the full six-pool subsystem,
   already correctly scoped out of v1 as a genuine new subsystem, not a
   parameter swap.
+
+- **Nitrogen stress rebuilt as a real day-by-day mechanism (2026-09-25), and
+  `_reference_n_demand()` removed entirely.** The season-total quadratic-
+  plateau mechanism above (item 6/20's context) worked, but only by computing
+  a whole-season nitrogen demand up front via a separate function
+  (`_reference_n_demand()`) that duplicated the main loop's own water/canopy
+  physics -- a standing structural risk (exactly the bug class that let
+  irrigation silently go missing from that function earlier this session,
+  undetected until a specific feature combination was tested) and a
+  mechanism that judged nitrogen stress by a season-total ratio rather than
+  the plant's own actual nitrogen status on a given day.
+
+  Found a real, better mechanism via CropSyst's own public source
+  (`crop_N_common.cpp`, `mingliangwsu/VIC-CropSyst-Package`, the same repo
+  already cross-checked above): `N_reduction_factor =
+  1-(Ncrit-Nactual)/(Ncrit-Nmin)`, clipped to [0,1] -- a function of the
+  plant's own actual tissue nitrogen concentration that day. `Ncrit` was
+  already computed here (`n_critical_pct()`, the standard dilution curve,
+  previously dead code with no caller). `Nmin` needed a real source: the
+  user supplied Lemaire, Jeuffroy & Gastal (2008), *Eur. J. Agron.* 28:614-624
+  ("plant and crop N status paper.pdf", now on `main`), which gives real,
+  crop-specific dilution-curve coefficients (Table 1) and the Nitrogen
+  Nutrition Index framework (NNI=Na/Nc) -- but no separate Nmin curve at all,
+  only a generic, non-crop-specific ~0.8% structural-tissue asymptote (Eq.
+  4-6). Used Cycles' own real, crop-specific `N_MIN_CONCENTRATION_STRAW`
+  field instead (0.2% for corn/wheat/silage corn in `GenericCrops.crop`) --
+  a disclosed reinterpretation of a real number nominally scoped to
+  grain/straw partitioning elsewhere in Cycles' schema, for the same
+  conceptual role (a low, mostly-structural-tissue floor) CropSyst's own
+  Nmin plays.
+
+  Implementation: a new day-by-day `canopy_n_kg_ha` state tracks cumulative
+  plant nitrogen; each day's actual concentration is compared against that
+  day's critical concentration at current biomass, and the resulting stress
+  fraction multiplies growth directly. Daily uptake is funded from the
+  nitrogen pool via the existing marginal-demand-rate function applied to
+  that day's already-stressed growth (not potential growth, avoiding
+  circularity). `_reference_n_demand()` was removed entirely, not just
+  superseded -- there's now only one loop, closing off the whole bug class.
+
+  Verified against every standing benchmark: the full 4-crop suite is
+  byte-identical to three decimals wherever nitrogen tracking is inactive
+  (corn 0.550, soybean 0.856, silage corn 0.518). Wheat's own validated
+  correlation (already improved to 0.473 by item 20's fertilization fix)
+  improved further under the new mechanism, 0.473 -> **0.523** (MAE 0.44
+  Mg/ha, mean recalibrated to match exactly). Corn was re-tested with its
+  own real nitrogen input under the new mechanism too and still doesn't
+  beat its no-tracking baseline (0.5095 vs. 0.550) -- consistent with the
+  already-documented finding that corn's real nitrogen stress correlates
+  only weakly with its own yield (-0.21), unlike wheat's dominant driver
+  (-0.894), so corn's default validation path correctly continues not to
+  track nitrogen. The standing tillage sanity check, the manure-
+  availability-equivalence check, and the nitrogen mass-balance identity
+  were all re-verified to still pass, in both the canonical engine and both
+  embedded copies after porting -- including a real gap caught mid-port
+  (the embedded copies had never defined `n_critical_pct()` at all, since it
+  was dead code in the canonical script too until this fix made it
+  load-bearing, and the embedded `CORN`/`WHEAT` dicts needed the real
+  `n_min_conc=0.002` value added explicitly rather than silently falling
+  back to a 0.0 default). Real, disclosed consequence: every specific
+  nitrogen-tracking number already documented elsewhere in this file or in
+  CLAUDE.md (built against the old season-total mechanism) will not
+  reproduce exactly if re-run now -- not re-verified panel by panel here,
+  the same disclosed-not-exhaustive standard already applied to the last
+  several engine-wide fixes this session.
