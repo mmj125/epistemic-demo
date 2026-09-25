@@ -2261,13 +2261,21 @@ else:
     _wx_year = ALL_WX[run_year]
 _tillage_val = run_tillage or None
 _ph_val = float(run_soil_ph) if run_soil_ph else None
+# Real per-site topsoil clay fraction for tillage's own texture scaling (tillage_ftx()) --
+# previously always used the 0.21 Rock Springs default even when a different resolved site
+# was selected, silently applying the wrong soil's clay% to a non-Rock-Springs tillage run.
+# Found 2026-09-25 during a broad audit for this exact class of gap (a mechanism that
+# should read from the resolved site's own data but has a stale hardcoded default instead) --
+# see model-validation.html's own "Full simulation controls" panel for the pattern this
+# already followed correctly, ported here to match.
+_tillage_clay = (_site_soil[0]["clay"] / 100.0) if (use_resolved_site and _site_soil) else 0.21
 plant_doy, rows = build_season_rows(_wx_year, crop_obj)
 rates = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650]
 sweep_out = []
 for r in rates:
     res = simulate_season(rows, crop_obj, n_rate_kg_ha=r,
                            tillage_doy=(plant_doy if _tillage_val else None), tillage_implement=_tillage_val,
-                           soil_ph=_ph_val)
+                           tillage_clay_frac=_tillage_clay, soil_ph=_ph_val)
     sweep_out.append({"n_rate": r, "grain": res["grain"], "leached": res.get("n_leached_kg_ha", 0.0),
                        "volatilized": res.get("n_volatilized_kg_ha", 0.0)})
 json.dumps(sweep_out)
@@ -3146,6 +3154,10 @@ _field_crop = dict(CORN)
 _field_crop["make_layers"] = _field_make_layers
 _field_tillage_val = field_tillage or None
 _field_ph_val = float(field_soil_ph) if field_soil_ph else None
+# Real per-site topsoil clay fraction, same fix and same reason as the nitrogen-sweep
+# panel's own _tillage_clay above -- this call already has the resolved site's real soil
+# in scope (_field_soil_raw) but was defaulting to Rock Springs' 0.21 regardless.
+_field_tillage_clay = (_field_soil_raw[0]["clay"] / 100.0) if _field_soil_raw else 0.21
 _wx_year = _field_wx.get(field_year)
 if _wx_year is None:
     _result = {"error": f"No weather data for {field_year}"}
@@ -3153,7 +3165,8 @@ else:
     _plant_doy, _rows = build_season_rows(_wx_year, _field_crop)
     _res = simulate_season(_rows, _field_crop, n_rate_kg_ha=150.0, record_history=False,
                             tillage_doy=(_plant_doy if _field_tillage_val else None),
-                            tillage_implement=_field_tillage_val, soil_ph=_field_ph_val)
+                            tillage_implement=_field_tillage_val, tillage_clay_frac=_field_tillage_clay,
+                            soil_ph=_field_ph_val)
     _result = {"plant_doy": _plant_doy, **_res}
 json.dumps(_result)
 `);
