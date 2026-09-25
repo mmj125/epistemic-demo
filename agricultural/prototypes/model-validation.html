@@ -189,7 +189,7 @@
       <tr><td>Soybean grain</td><td>4.72 Mg/ha</td><td>4.72 Mg/ha</td><td>5.2%</td><td>0.856</td><td><span class="tag tag-pass">passes bar</span></td></tr>
       <tr><td>Corn grain (continuous)</td><td>10.56 Mg/ha</td><td>10.56 Mg/ha</td><td>8.5%</td><td>0.550</td><td><span class="tag tag-fail">below bar</span></td></tr>
       <tr><td>Silage corn forage</td><td>14.81 Mg/ha</td><td>14.81 Mg/ha</td><td>8.6%</td><td>0.518</td><td><span class="tag tag-fail">below bar</span></td></tr>
-      <tr><td>Winter wheat grain</td><td>4.33 Mg/ha</td><td>4.33 Mg/ha</td><td>11.4%</td><td>0.393</td><td><span class="tag tag-fail">below bar</span></td></tr>
+      <tr><td>Winter wheat grain</td><td>4.33 Mg/ha</td><td>4.33 Mg/ha</td><td>11.5%</td><td>0.473</td><td><span class="tag tag-fail">below bar</span></td></tr>
       <tr><td>Pasture perennials (orchardgrass, etc.)</td><td colspan="2">real annual yield 5.25&ndash;7.94 Mg/ha, not tracked</td><td>&mdash;</td><td>&minus;0.28 to 0.16<br>(across 4 tested fixes)</td><td><span class="tag tag-unresolved">unresolved</span></td></tr>
       <tr><td>Winter rye / hairy vetch (cover)</td><td colspan="4">no real Cycles reference data available to correlate against &mdash; RUE/WUE are real (SI Table SI.2), everything else borrowed</td><td><span class="tag tag-unresolved">unvalidated</span></td></tr>
     </table>
@@ -831,6 +831,19 @@
       everywhere they're used, not just wheat (e.g. Rock Springs 2012 corn at N=50 moved from 5.0253 to
       4.9683 Mg/ha) &mdash; specific numbers already documented elsewhere for the nitrogen-sweep/frontier/
       rotation panels will not reproduce exactly until re-checked.</p>
+      <p><strong>Follow-up (2026-09-25): the real fix was sitting unused.</strong> With RothC shipped,
+      re-tested wheat's own real disclosed fertilizer input (90 kg N/ha UAN, <code>CornSilageSoyWheat.
+      operation</code> YEAR 3 DOY 75) as the validation harness's actual default, not just a one-off test
+      &mdash; it had never been wired in as the default despite sitting in an already-committed input file
+      the whole time. Correlation: 0.393 (no tracking) &rarr; <strong>0.473</strong>, recalibrated to match
+      the real mean exactly (MAE 0.50 Mg/ha, unchanged). The real previous-crop N credit (60 kg/ha,
+      disclosed for maize-following-soybean, extended here as an untested assumption for wheat-following-
+      soybean) was tested alongside it and rejected: better absolute mean untouched but a worse correlation
+      (0.431 vs 0.473) &mdash; since <code>calibration_factor</code> already exists to fix absolute-level
+      bias without touching correlation, there's no reason to lean on the shakier assumption. Now the
+      default in <code>run_validation_rotation2.py</code>. Not yet ported into this page's own embedded
+      demo engine, where wheat only plays a cover-crop role with a student-set nitrogen slider, a different
+      context this specific fix hasn't been checked against.</p>
     </details>
 
     <details class="gap">
@@ -2049,8 +2062,8 @@ const SPECIES_REGISTRY = {
   },
   wheat: {
     label: "Winter wheat", pyKey: "wheat", legume: false, roles: ["cover"],
-    dataStatus: "validated", correlation: 0.393, workableAsCash: false, implementedInDemo: true,
-    notes: "Real GenericCrops.crop parameters, not a placeholder. Correlation improved substantially, 0.253 -> 0.399, across 2026-09-23's radiation-related fixes (the largest single jump, 0.253 -> 0.397, came from giving radiation-limited growth a cold-temperature reduction it never had -- wheat's long, cold-season-heavy growing window made it the biggest beneficiary; a wheat-specific radiation-temperature refit added a further, smaller 0.397 -> 0.399). A 2026-09-24 curve-number/f_wc fix (see gap-list item 1) moved it slightly down, 0.399 -> 0.393 -- the one crop of four where this real, sourced fix was a small net negative rather than positive or flat. Still below the classroom-workable bar, so not offered as a cash-crop choice; used as-is for the fall-planted cover-crop role. Real nitrogen input (90 kg N/ha, the actual disclosed rate for this crop) was tried and made things dramatically worse -- this simplified model's own implied wheat N demand runs about 2.7x the real rate, the same missing-background-soil-N limitation already known for corn. The remaining driver of its weak year-to-year tracking, and this N-input finding, are both in QUESTIONS_FOR_DEVS.md item 6.",
+    dataStatus: "validated", correlation: 0.473, workableAsCash: false, implementedInDemo: true,
+    notes: "Real GenericCrops.crop parameters, not a placeholder. Correlation improved substantially, 0.253 -> 0.399, across 2026-09-23's radiation-related fixes (the largest single jump, 0.253 -> 0.397, came from giving radiation-limited growth a cold-temperature reduction it never had -- wheat's long, cold-season-heavy growing window made it the biggest beneficiary; a wheat-specific radiation-temperature refit added a further, smaller 0.397 -> 0.399). A 2026-09-24 curve-number/f_wc fix (see gap-list item 1) moved it slightly down, 0.399 -> 0.393. Then, 2026-09-25: wheat's validation had been running with NO nitrogen tracking at all despite a real, disclosed 90 kg N/ha UAN application sitting in CornSilageSoyWheat.operation (YEAR 3, DOY 75) that had simply never been wired into the harness -- an earlier attempt to use this same real rate (pre-RothC) had made things dramatically worse and was logged as a rejected finding, but with RothC's weather-driven background-N variability now shipped, wiring it in for real gives 0.393 -> 0.473, the single largest correlation jump any fix has produced for this crop, with the mean recalibrated to match exactly (MAE 0.50 Mg/ha, unchanged from before). Still below the classroom-workable bar, so not offered as a cash-crop choice. This fix lives in the canonical run_validation_rotation2.py validation harness -- NOT yet ported into this demo's own embedded WHEAT dict, since here wheat only ever plays the fall-planted cover-crop role (a student-set nitrogen slider, not this fixed 90kg cash-crop scenario), and porting the same calibration_factor change without checking it against that different context could make the cover-crop panel's own numbers worse rather than better. See QUESTIONS_FOR_DEVS.md items 6 and 20 for the remaining driver of wheat's weak year-to-year tracking -- a single fixed-lump nitrogen supply is still a coarse stand-in for real dynamic soil N.",
   },
   winter_rye: {
     label: "Winter rye (cover crop)", pyKey: "winter_rye", legume: false, roles: ["cover"],

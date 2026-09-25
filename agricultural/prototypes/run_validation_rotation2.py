@@ -57,17 +57,34 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
              rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
              kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=LAT,
-             make_layers=make_layers, calibration_factor=0.8288,  # re-derived 2026-09-24 for the
-             # real-data TTF50_SHOOT_PARTITION refit (0.223 -> 0.276) -- plus the same-day
-             # emergence-gate fix, plus the cold-temperature radiation-growth reduction
-             # (transpiration_temp_factor now also applied to GR, not just GT -- the fix that
-             # improved wheat's own correlation again, 0.276 -> 0.397, the largest single jump
-             # wheat has seen), plus the NET_GROWTH_FRACTION post-limitation growth-conversion fix,
-             # plus wheat's own rad_temp_floor/rad_temp_plateau_t radiation-temperature refit
-             # (0.397 -> 0.399, modest but real, plus a real reduction in the total-biomass level
-             # bias, 1.233x -> 1.204x), plus the curve-number/f_wc swap (real Eq SI.5-SI.7, a
-             # small regression here, 0.399 -> 0.393 -- see retention_param_mm()) -- see the
-             # comments above thermal_time_increment() and radiation_temp_factor() in
+             make_layers=make_layers, calibration_factor=1.2075,  # re-derived 2026-09-25 after wiring
+             # in wheat's own real fertilization event (see n_applications=[(75, 90)] on the
+             # validate() call below) -- before this, wheat's validation ran with NO nitrogen
+             # tracking at all despite a real, disclosed 90 kg N/ha UAN application sitting in
+             # CornSilageSoyWheat.operation (YEAR 3, DOY 75, the spring topdress after fall
+             # planting) that had simply never been plugged into the validation harness. Tested
+             # against the fully-current engine (post f_wc/RothC/TTf50/radiation-temp fixes):
+             # correlation 0.393 -> 0.473, the single largest jump wheat has seen from any fix
+             # this project has tried, achieved with zero new formula guessing. A real previous-
+             # crop N credit (60 kg/ha, disclosed for maize-following-soybean, SI Sec. IX -- an
+             # assumption to extend it to wheat-following-soybean, not itself disclosed for wheat)
+             # was tested too and rejected: 90kg+credit gives a better absolute mean untouched
+             # (3.75 vs 4.33 Mg/ha) but a WORSE correlation (0.431) than 90kg alone -- and
+             # calibration_factor already exists specifically to correct absolute-level bias
+             # without touching correlation, so there's no real reason to lean on the shakier,
+             # cross-crop-assumption credit when the fully-disclosed 90kg-alone number scores
+             # higher once recalibrated. This calibration_factor (0.8288 * 4.328790555555556 /
+             # 2.9712609741581075) brings the recalibrated mean back to the real 4.329 Mg/ha
+             # exactly (MAE 0.496, essentially the same level accuracy as the old no-N baseline's
+             # 0.48) while keeping the new 0.473 correlation untouched, per this project's own
+             # standing discipline that calibration_factor rescaling never changes correlation.
+             # Everything from the prior calibration history below is unaffected and still real:
+             # the TTF50_SHOOT_PARTITION refit (0.223 -> 0.276), the same-day emergence-gate fix,
+             # the cold-temperature radiation-growth reduction (transpiration_temp_factor also
+             # applied to GR, 0.276 -> 0.397), the NET_GROWTH_FRACTION post-limitation growth-
+             # conversion fix, wheat's own rad_temp_floor/rad_temp_plateau_t refit (0.397 -> 0.399),
+             # and the curve-number/f_wc swap (0.399 -> 0.393, the baseline this fix started from)
+             # -- see the comments above thermal_time_increment() and radiation_temp_factor() in
              # cycles_engine_validate.py
              depletion_fraction=0.55,  # real FAO-56 Table 22 (winter/spring wheat)
              canopy_shape=(5, -14, -15, 16),  # refit from real data -- see QUESTIONS_FOR_DEVS.md item 5;
@@ -138,7 +155,7 @@ def real_harvest(rotation, crop_name):
     return out
 
 
-def validate(rotation, crop_name, crop_params, label, metric="grain", harvest_ttf=1.0):
+def validate(rotation, crop_name, crop_params, label, metric="grain", harvest_ttf=1.0, n_applications=None):
     _, weather_flat = load_weather()
     flat_index = {(y, d): i for i, (y, d, r) in enumerate(weather_flat)}
     real = real_harvest(rotation, crop_name)
@@ -158,7 +175,8 @@ def validate(rotation, crop_name, crop_params, label, metric="grain", harvest_tt
         # docstring / CLAUDE.md 2026-09-22).
         jan1_idx = flat_index.get((info["plant_year"], 1))
         spinup_rows = [r for (_, _, r) in weather_flat[jan1_idx:start]] if jan1_idx is not None else None
-        result = simulate_season(rows, crop_params, harvest_ttf=harvest_ttf, spinup_rows=spinup_rows)
+        result = simulate_season(rows, crop_params, harvest_ttf=harvest_ttf, spinup_rows=spinup_rows,
+                                  n_applications=n_applications)
         my_yield[hyear] = result[metric]
 
     years = sorted(my_yield)
@@ -177,5 +195,8 @@ def validate(rotation, crop_name, crop_params, label, metric="grain", harvest_tt
 
 if __name__ == "__main__":
     validate("CornSilageSoyWheat", "SoybeanMG.5", SOYBEAN, "Soybean")
-    validate("CornSilageSoyWheat", "WinterWheat", WHEAT, "Winter Wheat")
+    validate("CornSilageSoyWheat", "WinterWheat", WHEAT, "Winter Wheat",
+              n_applications=[(75, 90)])  # real UAN topdress, CornSilageSoyWheat.operation
+              # YEAR 3 DOY 75 -- see WHEAT's calibration_factor comment above for why this
+              # is now wired in as the default rather than validating with no N tracking
     validate("CornSilageSoyWheat", "CornSilageRM.90", CORN_SILAGE, "Silage Corn", metric="forage", harvest_ttf=0.85)
