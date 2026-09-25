@@ -121,7 +121,23 @@ CORN_SILAGE = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_
                     tr_max_mm_day=10,  # real GenericCrops.crop TRANSPIRATION_MAX (CornSilageRM.90)
                     root_max_m=1.55,  # real GenericCrops.crop MAXIMUM_ROOTING_DEPTH (CornSilageRM.90)
                     # -- notably shallower than grain corn's 2.0m, a real distinguishing trait
-                    tt_emergence=65)  # real GenericCrops.crop THERMAL_TIME_TO_EMERGENCE (CornSilageRM.90)
+                    tt_emergence=65,  # real GenericCrops.crop THERMAL_TIME_TO_EMERGENCE (CornSilageRM.90)
+                    n_max_conc=0.055, n_dilution_slope=0.4, legume=False)  # real GenericCrops.crop
+                    # values for CornRM.90 -- CORN_SILAGE shares every other growth parameter
+                    # (rue/wue/hi_x/tt_maturity/base_t/opt_t/max_t, all identical to CORN's own
+                    # values above) with grain corn, since it's the same crop harvested earlier,
+                    # so it's the same real crop-file entry for these fields too. Added 2026-09-25
+                    # during a broad audit for exactly this class of gap (found for WHEAT on
+                    # 2026-09-24, missed here at the time): without these two fields,
+                    # n_marginal_demand_pct()/n_critical_pct() would raise a bare KeyError the
+                    # moment nitrogen tracking was ever activated for this crop. Currently a
+                    # completeness fix, not a behavior change -- nothing in this project calls
+                    # simulate_season() for CORN_SILAGE with n_rate_kg_ha/n_applications/
+                    # n_credit_kg_ha/manure_n_kg_ha set (confirmed: this crop isn't even in
+                    # model-validation.html's own CROPS registry, so it isn't reachable from that
+                    # page's "Full simulation controls" panel either) -- but the same KeyError
+                    # trap wheat had before 2026-09-24 doesn't need to exist here waiting for
+                    # whoever wires nitrogen into this crop next.
 
 
 def load_weather():

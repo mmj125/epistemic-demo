@@ -1385,7 +1385,8 @@ def n_marginal_demand_pct(biomass_mgha, crop):
 
 def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
                          tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21,
-                         curve_number=75.0, slope_pct=0.0, spinup_rows=None, initial_layers=None):
+                         curve_number=75.0, slope_pct=0.0, spinup_rows=None, initial_layers=None,
+                         irrigation_trigger_frac=None, irrigation_amount_mm=25.0):
     # Unconstrained (no-nitrogen-feedback) water/canopy trajectory, used to precompute the
     # season's total N demand up front. Canopy cover depends only on thermal time and
     # transpiration-limited growth only on soil moisture, never on biomass or N status, so
@@ -1431,9 +1432,14 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf,
         if tillage_doy is not None and w["doy"] == tillage_doy:
             mix_tilled_layers(layers, tillage_depth_m, tillage_mixing_efficiency)
             dr += tillage_disturb_rating
-        infiltrate(layers, w["pp"], curve_number, slope_pct)
+        irrigation_mm = 0.0
+        if irrigation_trigger_frac is not None:
+            pre_avail_frac = root_zone_availability(layers, root_depth)
+            if pre_avail_frac < irrigation_trigger_frac:
+                irrigation_mm = irrigation_amount_mm
+        infiltrate(layers, w["pp"] + irrigation_mm, curve_number, slope_pct)
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
-        soil_evaporation(layers, eto, eie, precip_mm=w["pp"], de_state=de_state)
+        soil_evaporation(layers, eto, eie, precip_mm=w["pp"] + irrigation_mm, de_state=de_state)
         tmean = (w["tx"] + w["tn"]) / 2
         temp_factor = transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
         rad_temp_factor = radiation_temp_factor(tmean, crop["tr_min_t"], crop.get("rad_temp_floor", 0.0),
@@ -1596,7 +1602,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             weather_rows, crop, root_max_m, harvest_ttf, tillage_doy=tillage_doy,
             tillage_implement=tillage_implement, tillage_clay_frac=tillage_clay_frac,
             curve_number=curve_number, slope_pct=slope_pct, spinup_rows=spinup_rows,
-            initial_layers=initial_layers)
+            initial_layers=initial_layers, irrigation_trigger_frac=irrigation_trigger_frac,
+            irrigation_amount_mm=irrigation_amount_mm)
         total_demand_kg_ha = sum(daily_demand)
         # Season-total background, using the real per-day tillage multiplier -- must match
         # the boosted rate exactly (not a flat estimate), since n_stress_fraction (and thus

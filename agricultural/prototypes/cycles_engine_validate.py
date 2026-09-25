@@ -1054,7 +1054,8 @@ def n_marginal_demand_pct(biomass_mgha, crop):
 
 
 def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf, curve_number=75.0, slope_pct=0.0, spinup_rows=None,
-                         tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21, initial_layers=None):
+                         tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21, initial_layers=None,
+                         irrigation_trigger_frac=None, irrigation_amount_mm=25.0):
     """Runs the same water/canopy physics as simulate_season's main loop below, but with
     no nitrogen feedback at all, to precompute the day-by-day nitrogen DEMAND of the fully
     unconstrained growth trajectory. This is a deliberate, verified duplication (not a
@@ -1103,7 +1104,26 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf, curve_numbe
     loop (rather than the deep copy used here) let both mutate the same soil state within a
     single call, corrupting a whole day's worth of investigation before being caught -- see
     QUESTIONS_FOR_DEVS.md item 6's "real correction" paragraph. copy.deepcopy() here is what
-    keeps that from being possible again."""
+    keeps that from being possible again.
+
+    irrigation_trigger_frac, irrigation_amount_mm: real, previously-missing bug fix
+    (2026-09-25, found during a broad audit for exactly this class of issue, not from a
+    specific report). This function is documented above as needing to mirror EVERY input
+    that affects the main loop's water balance, "or the two loops' water... trajectories
+    would silently diverge" -- but irrigation was added to simulate_season() without ever
+    being added here, so any caller combining nitrogen tracking with irrigation got a
+    demand baseline computed as if irrigation never happened, silently understating how
+    much MORE nitrogen an irrigated (faster-growing) crop would actually need. Confirmed
+    directly, not just reasoned: at a real semi-arid site (Western Kansas, 2012, N=100),
+    turning irrigation on changed grain from 1.58 to 10.16 Mg/ha (irrigation clearly doing
+    real work) while n_uptake stayed pinned at the exact same 128.88 kg/ha in both cases --
+    the tell that n_stress_fraction was computed identically either way, ignoring
+    irrigation's real effect on demand entirely. This was live and reachable, not just
+    theoretical: model-validation.html's own "Full simulation controls" panel lets a
+    reviewer set nitrogen and irrigation together in the same run. Fixed by mirroring the
+    exact same irrigation block the main loop already has, using the same
+    root_zone_availability() call already computed for water_stress -- see the identical
+    logic and comment below."""
     layers = copy.deepcopy(initial_layers) if initial_layers is not None else crop["make_layers"]()
     root_max_m = crop.get("root_max_m", root_max_m)
     de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
@@ -1133,9 +1153,18 @@ def _reference_n_demand(weather_rows, crop, root_max_m, harvest_ttf, curve_numbe
             mix_tilled_layers(layers, tillage_depth_m, tillage_mixing_efficiency)
             dr += TILLAGE_IMPLEMENTS[tillage_implement][1]
 
-        infiltrate(layers, w["pp"], curve_number, slope_pct)
+        # Mirrors simulate_season()'s main loop exactly -- see this function's own
+        # irrigation_trigger_frac docstring paragraph for why this was missing and what it
+        # silently broke.
+        irrigation_mm = 0.0
+        if irrigation_trigger_frac is not None:
+            pre_avail_frac = root_zone_availability(layers, root_depth)
+            if pre_avail_frac < irrigation_trigger_frac:
+                irrigation_mm = irrigation_amount_mm
+
+        infiltrate(layers, w["pp"] + irrigation_mm, curve_number, slope_pct)
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
-        soil_evaporation(layers, eto, eie, precip_mm=w["pp"], de_state=de_state)
+        soil_evaporation(layers, eto, eie, precip_mm=w["pp"] + irrigation_mm, de_state=de_state)
 
         tmean = (w["tx"] + w["tn"]) / 2
         temp_factor = transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
@@ -1468,7 +1497,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         daily_demand, tillage_bg_multiplier = _reference_n_demand(
             weather_rows, crop, root_max_m, harvest_ttf, curve_number=curve_number, slope_pct=slope_pct,
             spinup_rows=spinup_rows, tillage_doy=tillage_doy, tillage_implement=tillage_implement,
-            tillage_clay_frac=tillage_clay_frac, initial_layers=initial_layers)
+            tillage_clay_frac=tillage_clay_frac, initial_layers=initial_layers,
+            irrigation_trigger_frac=irrigation_trigger_frac, irrigation_amount_mm=irrigation_amount_mm)
         total_demand_kg_ha = sum(daily_demand)
         # Background credit only counts on days the reference trajectory actually grows
         # (daily_demand[i] > 0 exactly when that day's dGB_water_limited > 0, i.e. the
