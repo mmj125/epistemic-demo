@@ -778,6 +778,22 @@ against real Cycles output before concluding the gap is real.
      since its own form exposes `spinup_rows` as a real parameter rather
      than omitting it.
 
+   **Update, 2026-09-25:** the "root discovery" artifact behind most of this item's Kansas
+   overshoot (a shallow, nearly-dry layer's stress masked the moment root growth reaches a
+   deeper, still-full layer, since the old mechanism pooled available water across the whole
+   root zone before computing one ratio) is now understood as partly a MECHANISM problem, not
+   only a missing-carryover one. Replaced the pooled root_zone_availability()/
+   water_stress_response()/extract_transpiration() trio with a real hydraulic-conductance
+   mechanism (Campbell 1985, extended by Jara & Stockle 1998 -- the exact mechanism Kemanian
+   et al. 2024 cites by name for Cycles' own model, traced via CropSyst's own public C++
+   source plus the WSU CropSyst manual's "Crop Transpiration" page, retrieved via the Wayback
+   Machine). See "Resolved without asking" below (the hydraulic-conductance water-stress
+   mechanism entry) for the full account, including a real, mixed result: Kansas's
+   fresh-start overshoot improves (3.63x -> 3.24x) and the chained-carryover case's absolute
+   error improves even though its bias flips from over- to under-shooting (2.16x over ->
+   0.73x under, MAE 0.54-0.63 -> 0.35 Mg/ha) -- real progress on the diagnosed confound, not a
+   clean resolution into "now correctly calibrated."
+
 7. **The soil water redistribution scheme (Eq. 1-2) -- largely resolved, one piece
    still open.** Originally: the paper gives the real capacitance-weighted flow
    equation (khe as a function of saturated hydraulic conductivity ks, air-entry
@@ -1574,3 +1590,112 @@ against real Cycles output before concluding the gap is real.
   reproduce exactly if re-run now -- not re-verified panel by panel here,
   the same disclosed-not-exhaustive standard already applied to the last
   several engine-wide fixes this session.
+
+- **Water stress and transpiration rebuilt as a real hydraulic-conductance
+  mechanism (2026-09-25), replacing the pooled root-zone-availability
+  approach responsible for the long-standing "root discovery" artifact --
+  a real, mixed result, kept anyway.** Kemanian et al. 2024 cites a
+  specific mechanism by name for Cycles' own transpiration/water-stress
+  model (Campbell 1985, extended by Jara & Stockle 1998) but never gives
+  its formulas -- the paper only names it. Traced it two independent ways:
+  CropSyst's own public C++ source (`mingliangwsu/VIC-CropSyst-Package` --
+  Cycles shares its biophysical fundamentals with CropSyst, and unlike
+  Cycles this repo ships real source, not just binaries --
+  `transpiration.cpp`'s `Crop_transpiration_2` class and
+  `crop_common.cpp`'s `water_stress` definition), and the actual WSU
+  CropSyst manual's own "Crop Transpiration" page
+  (`modeling.bsyse.wsu.edu`, blocked from this sandbox directly; retrieved
+  via the Wayback Machine outside this sandbox and pasted in verbatim).
+  The two corroborate each other's structure exactly (a harmonic-mean
+  root/plant conductance split; a leaf-water-potential stress ratio that
+  matches the C++ code's own `transpiration_ratio` calculation).
+
+  This replaces the engine's original mechanism -- a single POOLED
+  root-zone available-water ratio (avail water summed across every layer
+  within root depth, divided by capacity) -- which is the diagnosed cause
+  of the "root discovery" artifact documented under item 6 above: a
+  shallow, nearly-dry layer's real stress got masked the instant root
+  growth reached a deeper, still-full layer, since pooling before
+  computing one ratio structurally cannot distinguish "water exists
+  somewhere in the root zone" from "the crop can actually use it." The new
+  mechanism instead computes each active layer's own real soil water
+  potential and solves for the single leaf water potential consistent
+  with ALL of them and the crop's real total root conductance, then
+  extracts each layer's own uptake from that shared value -- a layer near
+  wilting point contributes almost nothing on its own terms, by
+  construction, regardless of how much water a different layer holds.
+
+  One real, disclosed gap even in this simpler formula: `fl`, the fraction
+  of total root length in each layer. CropSyst's own exact formula for
+  this (`crop_root.cpp`'s `Crop_root_vital` class) needs
+  `density_distribution_curvature` and `surface_density`, real per-crop
+  parameters with NO default anywhere in the C++ source, in Cycles' own
+  `GenericCrops.crop`, or in the one further WSU manual page (the "root
+  editor") that would very likely carry them -- not found despite a real
+  search attempt from both inside and outside this sandbox. Substituted
+  with FAO-56's own real, disclosed 40/30/20/10 depth-quartile
+  root-water-extraction weighting instead -- a real, sourced
+  approximation, not CropSyst's own exact shape.
+
+  One further, disclosed correction: the manual's own pasted closed-form
+  solution for the STRESSED leaf-water-potential case diverges to 1.5x the
+  wilting potential under extreme demand when checked numerically -- not
+  physically sensible, and consistent with a transcription error in that
+  one line (the same class of OCR/typesetting slip already documented
+  elsewhere in this project for the SI's own sign errors). Solved the
+  manual's own STATED implicit relationship directly via plain algebra
+  instead, which gives the physically expected smooth approach to the
+  wilting potential in the same limit.
+
+  Result: real, verified, and genuinely mixed, not a clean win. At Rock
+  Springs (the only site with real per-year ground truth for all four
+  crops): corn 0.550->0.527, soybean 0.856->0.802, silage corn
+  0.518->0.516, and winter wheat **0.523->0.332** -- the largest single-crop
+  cost. Instrumented every real wheat season under the new mechanism and
+  found `water_stress` reads EXACTLY 1.0, every single day, all 9
+  validated years -- wheat never once triggers water stress at Rock
+  Springs under its own real `LWP_STRESS_ONSET`=-1000 J/kg threshold.
+  Confirmed this is the mechanism working correctly, not a bug, by
+  artificially drying the soil layers in isolation and confirming stress
+  DOES trigger then (0.50 at 5% available water) -- real Rock Springs
+  soil, under wheat's own real root profile and water balance, simply
+  never gets remotely that dry on its own. This flattens whatever
+  (arguably not fully physically grounded) water-driven variability the
+  old pooled mechanism gave wheat, costing real correlation even though
+  wheat's actual dominant driver is nitrogen, not water (-0.894 vs. 0.359,
+  already established above).
+
+  At the harder, more diagnostic 6-year Kansas benchmark (semi-arid, corn,
+  real STATSGO2 soil, real NLDAS-2 weather, real native-Cycles reference
+  runs for 1988/1993/2005/2008/2012/2016) -- the benchmark this whole
+  rebuild was motivated by -- the result is a genuine improvement in error
+  but not a clean directional fix: fresh-start mean overshoot fell from
+  3.63x to 3.24x (2012 specifically 12.49x->11.84x); the one-year-carryover
+  chained case flipped from a 2.16x OVERshoot to a 0.73x UNDERshoot (2012:
+  6.19x over -> 0.28x under) -- but mean absolute error actually IMPROVED
+  despite the bias direction flipping (chained MAE 0.54-0.63->0.35 Mg/ha),
+  and correlation stayed high both ways (fresh 0.973, chained 0.986). The
+  "root discovery" symptom this was built to fix is real and reduced; it
+  did not cleanly resolve into "now correctly calibrated," it resolved
+  into "wrong in the other direction, by less."
+
+  Kept despite the Rock Springs cost -- a real project decision, not an
+  automatic one, made after presenting both benchmarks' before/after
+  numbers directly: the new mechanism replaces a mechanism already known
+  to be structurally wrong with the actual cited physics, corn's own
+  water-stress response is now genuinely more realistic (varies
+  meaningfully year to year, e.g. a real 2016 minimum of 0.23, not just a
+  level shift), and the Kansas benchmark's absolute error improves even
+  though its bias flips. Wheat's specific non-triggering finding is a
+  real, disclosed, evidence-backed result, not smoothed over --
+  recalibrated (`calibration_factor` only, which never changes
+  correlation) rather than reverted. Ported into both `engine-demo.html`'s
+  and `model-validation.html`'s embedded engine copies, confirmed
+  byte-identical between the two files' shared engine code afterward
+  (their own `WHEAT` crop dicts legitimately differ in
+  `calibration_factor` only: `engine-demo.html`'s copy is used solely for
+  the fall-planted cover-crop role, never itself validated against real
+  Cycles output the way `model-validation.html`'s cash-crop scenario is,
+  so it was rescaled by the same ratio rather than freshly recalibrated
+  against a scenario it doesn't run). See `model-validation.html`'s own
+  gap-list item 23 for the full write-up with inline citations.

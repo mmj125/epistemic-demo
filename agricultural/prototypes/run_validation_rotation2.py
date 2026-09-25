@@ -41,23 +41,46 @@ def make_layers():
 SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43,
                rue=1.3, wue=4.5, hi_x=0.4, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
                kc=1.0, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=LAT,
-               make_layers=make_layers, calibration_factor=1.2238,  # re-derived 2026-09-24 for the
+               make_layers=make_layers, calibration_factor=1.1894,  # re-derived 2026-09-24 for the
                # real-data TTF50_SHOOT_PARTITION refit (0.5 -> 0.32) + the same-day emergence-gate
                # fix + the cold-temperature radiation-growth reduction + the NET_GROWTH_FRACTION
                # post-limitation growth-conversion fix + the curve-number/f_wc swap (real Eq
-               # SI.5-SI.7, see retention_param_mm()) -- see cycles_engine_validate.py
+               # SI.5-SI.7, see retention_param_mm()) -- see cycles_engine_validate.py, and re-
+               # derived again 2026-09-25 for the hydraulic-conductance water-stress mechanism
+               # (campbell_water_uptake()) -- correlation moved 0.856 -> 0.802 from that switch
+               # alone, see QUESTIONS_FOR_DEVS.md/CLAUDE.md for the full account
                n_max_conc=0.07, n_dilution_slope=0.4, legume=True,  # real GenericCrops.crop values;
                # soybean fixes its own N (LEGUME=1) so the nitrogen knob correctly has no effect on it
                depletion_fraction=0.50,  # real FAO-56 Table 22 value for soybeans -- same as this
                # engine's own prior default, so this crop's numbers are unaffected by adding it
                tr_max_mm_day=8,  # real GenericCrops.crop TRANSPIRATION_MAX (SoybeanMG.5)
                root_max_m=1.5,  # real GenericCrops.crop MAXIMUM_ROOTING_DEPTH (SoybeanMG.5)
-               tt_emergence=70)  # real GenericCrops.crop THERMAL_TIME_TO_EMERGENCE (SoybeanMG.5)
+               tt_emergence=70,  # real GenericCrops.crop THERMAL_TIME_TO_EMERGENCE (SoybeanMG.5)
+               lwp_stress_onset=-1100, lwp_wilting_point=-1800)  # real GenericCrops.crop
+               # LWP_STRESS_ONSET/LWP_WILTING_POINT (SoybeanMG.5, J/kg), added 2026-09-25 for
+               # campbell_water_uptake() -- see CORN's own comment in run_validation.py. Water
+               # stress still applies to soybean (only NITROGEN stress is exempted, via the
+               # legume flag) -- this crop selects the new mechanism same as any other.
 
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
              rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
              kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=LAT,
-             make_layers=make_layers, calibration_factor=1.2895,  # re-derived 2026-09-25 (a second
+             make_layers=make_layers, calibration_factor=1.1667,  # re-derived 2026-09-25 (a
+             # third time the same day) for the hydraulic-conductance water-stress mechanism
+             # (campbell_water_uptake()) -- correlation moved 0.523 -> 0.332 from that switch
+             # alone, the largest Rock Springs cost of any crop: instrumented every real wheat
+             # season under the new mechanism and found water_stress reads EXACTLY 1.0 every
+             # single day, all 9 years -- wheat never once triggers stress at this site under
+             # its own real LWP_STRESS_ONSET=-1000 threshold (verified the formula itself is
+             # correct by artificially drying the soil layers and confirming stress DOES
+             # trigger then; real Rock Springs soil under wheat's own water balance never gets
+             # remotely close on its own). This flattens whatever water-driven variability the
+             # old FAO-56 pooled mechanism gave wheat, costing correlation even though wheat's
+             # real dominant driver is nitrogen, not water (-0.894 vs 0.359, already established).
+             # Kept anyway (see QUESTIONS_FOR_DEVS.md/CLAUDE.md for the real cross-crop tradeoff:
+             # Kansas's error improves substantially, corn's own water response becomes genuinely
+             # more realistic) -- a real, disclosed, mixed result, not a clean win.
+             # calibration_factor before this switch (1.2895) was re-derived 2026-09-25 (a second
              # time the same day) after replacing the season-total quadratic-plateau N-stress
              # mechanism with a real, day-by-day concentration-tracked one (see simulate_season()'s
              # own comment above canopy_n_kg_ha in cycles_engine_validate.py) -- correlation moved
@@ -110,18 +133,24 @@ WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
              # a wrong-number risk, since nothing in this project calls simulate_season() for wheat
              # with n_rate_kg_ha/n_applications/n_credit_kg_ha/manure_n_kg_ha set (verified: zero
              # effect on validation, confirming this is a pure completeness fix, not a behavior change)
-             n_min_conc=0.002)  # real GenericCrops.crop N_MIN_CONCENTRATION_STRAW (0.2%), added
+             n_min_conc=0.002,  # real GenericCrops.crop N_MIN_CONCENTRATION_STRAW (0.2%), added
              # 2026-09-25 for the day-by-day concentration-tracked N-stress mechanism -- see
              # simulate_season()'s own comment above canopy_n_kg_ha in cycles_engine_validate.py.
+             lwp_stress_onset=-1000, lwp_wilting_point=-2100)  # real GenericCrops.crop
+             # LWP_STRESS_ONSET/LWP_WILTING_POINT (WinterWheat, J/kg), added 2026-09-25 for
+             # campbell_water_uptake() -- see CORN's own comment in run_validation.py.
 
 CORN_SILAGE = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
                     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
                     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=LAT,
-                    make_layers=make_layers, forage_fraction=0.95, calibration_factor=0.8554,  # re-derived
+                    make_layers=make_layers, forage_fraction=0.95, calibration_factor=0.8431,  # re-derived
                     # 2026-09-24 for the real-data TTF50_SHOOT_PARTITION refit + the same-day
                     # emergence-gate fix + the cold-temperature radiation-growth reduction + the
                     # NET_GROWTH_FRACTION post-limitation growth-conversion fix + the curve-number/
-                    # f_wc swap (real Eq SI.5-SI.7, see retention_param_mm()) -- see cycles_engine_validate.py
+                    # f_wc swap (real Eq SI.5-SI.7, see retention_param_mm()) -- see
+                    # cycles_engine_validate.py, and again 2026-09-25 for the hydraulic-conductance
+                    # water-stress mechanism (campbell_water_uptake()) -- correlation essentially
+                    # unchanged from that switch (0.518 -> 0.516)
                     depletion_fraction=0.55,  # real FAO-56 Table 22 value, same crop biology as grain corn
                     canopy_shape=CORN_CANOPY_SHAPE,  # real fix (thermal time, canopy shape, harvest
                     # date, forage ratio all individually verified accurate) does NOT move correlation
@@ -146,10 +175,14 @@ CORN_SILAGE = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_
                     # page's "Full simulation controls" panel either) -- but the same KeyError
                     # trap wheat had before 2026-09-24 doesn't need to exist here waiting for
                     # whoever wires nitrogen into this crop next.
-                    n_min_conc=0.002)  # real GenericCrops.crop N_MIN_CONCENTRATION_STRAW (0.2%),
+                    n_min_conc=0.002,  # real GenericCrops.crop N_MIN_CONCENTRATION_STRAW (0.2%),
                     # added 2026-09-25 for the day-by-day concentration-tracked N-stress mechanism
                     # -- see simulate_season()'s own comment above canopy_n_kg_ha in
                     # cycles_engine_validate.py. Same not-currently-reachable status as above.
+                    lwp_stress_onset=-1100, lwp_wilting_point=-2000)  # real GenericCrops.crop
+                    # LWP_STRESS_ONSET/LWP_WILTING_POINT (CornSilageRM.90, J/kg, identical to
+                    # grain corn's own CornRM.90 values), added 2026-09-25 for
+                    # campbell_water_uptake() -- see CORN's own comment in run_validation.py.
 
 
 def load_weather():

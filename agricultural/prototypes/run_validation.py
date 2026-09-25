@@ -19,11 +19,17 @@ from cycles_engine_validate import (
 CORN = dict(
     tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=0.8775,  # residual after the AG-biomass fix + corn-specific canopy refit +
+    calibration_factor=0.8490,  # residual after the AG-biomass fix + corn-specific canopy refit +
     # the 2026-09-23 TTF50_SHOOT_PARTITION refit + the emergence-gate fix + the cold-temperature
     # radiation-growth reduction + the NET_GROWTH_FRACTION post-limitation growth-conversion fix +
-    # the 2026-09-24 curve-number/f_wc swap (real Eq SI.5-SI.7, see retention_param_mm()); re-
-    # derived to keep the mean yield matching real output exactly, same as every prior update
+    # the 2026-09-24 curve-number/f_wc swap (real Eq SI.5-SI.7, see retention_param_mm()) + the
+    # 2026-09-25 hydraulic-conductance water-stress mechanism (campbell_water_uptake(), replacing
+    # root_zone_availability()/water_stress_response() as the primary path -- see lwp_stress_onset/
+    # lwp_wilting_point below); re-derived to keep the mean yield matching real output exactly,
+    # same as every prior update. Correlation moved 0.550 -> 0.527 from the water-mechanism switch
+    # alone (this recalibration only fixes the mean, doesn't touch correlation, as always) -- see
+    # QUESTIONS_FOR_DEVS.md and CLAUDE.md for the full before/after account across all four crops
+    # plus the Kansas benchmark, and why this was kept despite the Rock Springs correlation cost.
     canopy_shape=CORN_CANOPY_SHAPE,
     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=40.6875,
     n_max_conc=0.055, n_dilution_slope=0.4, legume=False,  # real GenericCrops.crop values, corn is not a legume
@@ -39,6 +45,12 @@ CORN = dict(
     tt_emergence=65,  # real GenericCrops.crop THERMAL_TIME_TO_EMERGENCE (CornRM.90); real Cycles'
     # own daily output shows exactly zero biomass in a PRE_EMERGENCE stage before this point, not
     # a smoothly-ramping small value -- a genuine, if tiny, discrepancy this now closes
+    lwp_stress_onset=-1100, lwp_wilting_point=-2000,  # real GenericCrops.crop LWP_STRESS_ONSET/
+    # LWP_WILTING_POINT (CornRM.90, J/kg), added 2026-09-25 for the real hydraulic-conductance-
+    # based transpiration/water-stress mechanism (campbell_water_uptake(), see
+    # cycles_engine_validate.py) -- presence of both fields (plus the already-real
+    # tr_max_mm_day above) is what selects that mechanism over the older, superseded
+    # depletion_fraction/root_zone_availability fallback for this crop.
 )
 
 SOIL_LAYERS_RAW = [

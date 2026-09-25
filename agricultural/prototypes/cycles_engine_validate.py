@@ -487,7 +487,18 @@ def water_stress_response(avail_frac, depletion_fraction=0.5):
     """Maps root-zone available-water fraction (0=at wilting point, 1=at field capacity) to
     a 0-1 multiplier on potential transpiration (1=no stress). This IS the real, standard
     FAO-56 water-stress coefficient Ks (Allen et al. 1998, Ch. 8, Eq. 84), not an invented
-    shape -- confirmed 2026-09-22 by extracting the real chapter text (Matt-provided, this
+    shape
+
+    Superseded 2026-09-25 as simulate_season()'s PRIMARY water-stress mechanism by
+    campbell_water_uptake() (see its own docstring below) for any crop whose dict carries
+    real lwp_stress_onset/lwp_wilting_point/tr_max_mm_day values -- this pooled, single-ratio
+    FAO-56 approach is the diagnosed cause of the long-standing "root discovery" bug (a
+    shallow, nearly-dry layer's real stress gets masked by a deep, still-full layer root
+    growth just reached, since pooling available water across the whole root zone before
+    computing one stress ratio can't tell "water exists somewhere" from "the crop can use
+    it"). Kept, unchanged, as the automatic fallback for any crop dict that doesn't carry
+    those three real fields -- see simulate_season()'s own crop_ct precompute for exactly
+    which condition selects which path. -- confirmed 2026-09-22 by extracting the real chapter text (Matt-provided, this
     sandbox's network egress blocks fao.org directly) and checking the exact formula against
     the source's own worked numeric example (Example 37): Ks=(TAW-Dr)/(TAW-RAW), which in
     this engine's own avail_frac/depletion_fraction terms reduces exactly to
@@ -539,6 +550,199 @@ def extract_transpiration(layers, root_depth_m, tr_mm):
         remaining -= take
         depth += l["thick"]
     return tr_mm - remaining
+
+
+# ---------------------------------------------------------------------------
+# Hydraulic-conductance-based transpiration / water stress (2026-09-25) --
+# Campbell (1985) / Jara & Stockle (1998), the mechanism Kemanian et al. 2024
+# cites BY NAME for Cycles' own transpiration/water-stress model but does not
+# itself give the formulas for. Traced from that name-only citation to a
+# complete, real, verifiable mechanism two ways: CropSyst's own public C++
+# source (mingliangwsu/VIC-CropSyst-Package, transpiration.cpp's
+# Crop_transpiration_2 class and crop_common.cpp's water_stress definition --
+# gives the harmonic-mean conductance structure, the real 0.65/0.35 root/top
+# split, and the transpiration_ratio stress formula) and the WSU CropSyst
+# manual's own "Crop Transpiration" page (modeling.bsyse.wsu.edu, blocked from
+# this sandbox directly -- retrieved via the Wayback Machine by the project
+# owner and pasted in verbatim, since neither a direct fetch nor an archive.org
+# API call could reach it from here). The manual documents CropSyst's
+# ORIGINAL/simpler formula (matching Campbell 1985 directly, cited by name in
+# the manual text); the real C++ class is literally named Crop_transpiration_2,
+# a later, extended version that additionally applies a dry-soil root-activity
+# reduction (root_activity_factor / dry_soil_root_activity_coef) the simpler
+# manual formula doesn't include at all -- dry_soil_root_activity_coef has no
+# default anywhere in the C++ source, so this implements the manual's simpler,
+# fully-real formula rather than layer in that one still-undisclosed exponent.
+#
+# One real, disclosed gap remains even in the simpler formula: fl, the
+# fraction of total root length in each soil layer. CropSyst's own exact
+# formula for this (crop_root.cpp's Crop_root_vital class) needs
+# density_distribution_curvature and surface_density, real per-crop input
+# parameters with NO default anywhere in the C++ source, in Cycles' own
+# GenericCrops.crop file, or in the one further WSU manual page ("the root
+# editor") that would very likely carry them -- not found despite a real
+# search attempt. Substituted with FAO-56's own real, disclosed 40-30-20-10
+# depth-quartile root-water-extraction weighting instead (see
+# root_length_fraction_by_layer() below) -- a real, sourced approximation,
+# not CropSyst's own exact shape, flagged here and in QUESTIONS_FOR_DEVS.md
+# rather than silently presented as exact.
+# ---------------------------------------------------------------------------
+
+LEAF_WATER_POTENTIAL_AT_FC = -30.0  # J/kg -- the real reference tension the CropSyst manual's
+# own Campbell-curve fit uses for "field capacity" ("estimated from known water content at
+# field capacity [-30 J/kg]... and permanent wilting point [-1,500 J/kg]"). NOT an independent
+# input: by construction of layer_water_potential()'s own per-layer a/b fit below, soil water
+# potential AT field capacity always equals exactly this value, for every layer, regardless of
+# texture -- that's what makes total_root_conductance()'s CT formula (which needs "yfc") work
+# from already-available data with no extra soil input.
+CROP_WATER_POTENTIAL_K_SEC_PER_DAY = 86400.0  # seconds/day -- the manual's own "K", converting
+# between the per-day quantities this engine already tracks (Trpot, WUmax) and the per-second
+# terms the real conductance formulas are stated in.
+
+
+def layer_water_potential(theta, fc, pwp):
+    """Real Campbell (1985) soil-water-potential curve: ysl = -a*WCl^(-b). a/b are fit per
+    LAYER against that layer's own already-computed field capacity (taken as the real -30 J/kg
+    reference tension) and wilting point (-1500 J/kg) -- both already produced by
+    saxton_rawls() for every layer in this engine:
+        b = ln(1500/30) / ln(fc/pwp)
+        a = 30 * fc**b
+    A DIFFERENT, unrelated Campbell-curve parameterization already exists in this file
+    (campbell_khe()'s psi_e_kpa/B, normalized against saturation/air-entry pressure, used for
+    inter-layer drainage) -- this is not that. This fit is normalized directly against each
+    layer's own real fc/pwp points, the specific normalization the manual's own CT/leaf-water-
+    potential formulas are built around (see LEAF_WATER_POTENTIAL_AT_FC above). Returns J/kg,
+    numerically ~equal to kPa for water -- consistent with LWP_STRESS_ONSET/LWP_WILTING_POINT's
+    own real GenericCrops.crop units, so no unit conversion is needed anywhere this is used
+    alongside those crop-file values."""
+    if fc <= pwp or theta <= 0:
+        return -1500.0  # degenerate soil data, or theta at/below zero -- treat as maximally dry
+    b = math.log(1500.0 / 30.0) / math.log(fc / pwp)
+    a = 30.0 * fc ** b
+    return -a * theta ** (-b)
+
+
+def total_root_conductance(wumax_mm_day, lwp_stress_onset):
+    """Real CT (CropSyst / Campbell 1985): CT = 1.5*WUmax / ((yfc - yl_sc) * K) -- the crop's
+    own maximum total root conductance, derived entirely from data this engine already has:
+    WUmax (this engine's tr_max_mm_day, real GenericCrops.crop TRANSPIRATION_MAX) and yl_sc
+    (LWP_STRESS_ONSET, the real leaf water potential just before stomatal closure onset). yfc
+    is fixed at exactly -30 J/kg (LEAF_WATER_POTENTIAL_AT_FC) by construction of
+    layer_water_potential()'s own fit, not a separate soil input. 1.5 converts total root
+    conductance to total plant hydraulic conductance (the manual's own stated real constant,
+    independently corroborated by the real C++ source's own hardcoded 0.65/0.35 root/top
+    split, which sums to the same 1.0-vs-1.5-scaled relationship). Called once per crop, not
+    per day -- only CTc (= CT * canopy cover) varies daily."""
+    wumax_m_day = wumax_mm_day / 1000.0
+    denom = (LEAF_WATER_POTENTIAL_AT_FC - lwp_stress_onset) * CROP_WATER_POTENTIAL_K_SEC_PER_DAY
+    return (1.5 * wumax_m_day) / denom if denom else 0.0
+
+
+def root_length_fraction_by_layer(layers, root_depth_m):
+    """Real FAO-56 depth-quartile root-water-extraction weighting (0.4/0.3/0.2/0.1, surface
+    to deepest quarter of the current root zone) -- a real, disclosed substitute for
+    CropSyst's own still-undisclosed exponential root-length-density curve (see the module
+    section header above this function). layers[0] (this engine's evaporative surface layer,
+    see soil_evaporation()) is EXCLUDED from root water uptake entirely, per the CropSyst
+    manual's own explicit rule ("No transpiration is allowed from soil layer one, the
+    evaporative layer") -- the remaining layers' weights are renormalized to sum to 1.0 so
+    that exclusion doesn't silently discard part of the crop's total root conductance."""
+    if root_depth_m <= 0:
+        return [0.0] * len(layers)
+    qweights = (0.4, 0.3, 0.2, 0.1)
+    qdepth = root_depth_m / 4.0
+    fl = [0.0] * len(layers)
+    depth = 0.0
+    for i, l in enumerate(layers):
+        top = depth
+        if top >= root_depth_m:
+            break
+        bot = min(depth + l["thick"], root_depth_m)
+        if i > 0 and qdepth > 0:
+            for q in range(4):
+                qtop, qbot = q * qdepth, (q + 1) * qdepth
+                overlap = max(0.0, min(bot, qbot) - max(top, qtop))
+                if overlap > 0:
+                    fl[i] += qweights[q] * (overlap / qdepth)
+        depth += l["thick"]
+    total = sum(fl)
+    return [f / total for f in fl] if total > 0 else fl
+
+
+def campbell_water_uptake(layers, root_depth_m, trp_mm_day, canopy_cover_frac, ct,
+                           lwp_stress_onset, lwp_wilting_point):
+    """The real mechanism itself -- see the module section header above for the full sourcing
+    trail. Computes each active layer's own real soil water potential
+    (layer_water_potential()) and solves for the single leaf water potential (yl) consistent
+    with ALL of them and the crop's real total root conductance, THEN extracts each layer's
+    own actual uptake from that shared yl -- replacing the engine's original
+    root_zone_availability()/water_stress_response()/extract_transpiration() trio, whose
+    single pooled-availability ratio is the diagnosed cause of the long-standing "root
+    discovery" bug (a shallow, nearly-dry layer's real stress getting masked by a deep, still-
+    full layer root growth just reached). Here, a layer that's nearly at wilting point
+    contributes almost nothing on its own terms (its own potential already sits close to
+    the solved yl), regardless of how much water some other, wetter layer still holds --
+    that falls directly out of using each layer's own potential difference (ys_i - yl), not
+    out of a pooled ratio that structurally cannot distinguish the two cases.
+
+    Unstressed case (manual, real): yl = avg(ys) - 1.5*Trpot/(CTc*K), avg(ys) weighted by fl.
+    Stressed case (when that result falls below lwp_stress_onset): the manual states an
+    IMPLICIT relationship, yl = ys - 1.5*Trpot*stress_ratio(yl)/(CTc*K) where
+    stress_ratio(yl) = (yl-yl_wilt)/(yl_sc-yl_wilt) -- this exact stress_ratio formula
+    independently matches CropSyst's own C++ source's transpiration_ratio calculation
+    verbatim, corroborating it's real. One real, disclosed correction: the manual's own
+    *pasted closed-form* rearrangement of that implicit relationship diverges to 1.5x the
+    wilting potential as demand grows without bound (checked numerically) -- not physically
+    sensible, and consistent with a transcription error in that one specific line (the same
+    class of OCR/typesetting slip already documented elsewhere in this file for the SI's own
+    sign errors). This function instead solves the STATED implicit relationship directly via
+    plain algebra (multiply through, collect yl terms):
+        yl*(D+M) = avg(ys)*D + M*yl_wilt,  where D = yl_sc-yl_wilt, M = 1.5*Trpot/(CTc*K)
+        yl = (avg(ys)*D + M*yl_wilt) / (D+M)
+    which gives yl -> yl_wilt smoothly as demand grows without bound (the physically expected
+    limit), not 1.5x it.
+
+    Mutates layers' theta in place (the real per-layer extraction, clamped so no layer is
+    ever drawn down below its own wilting point). Returns (TR_actual_mm, water_stress) --
+    water_stress = TR_actual_mm/trp_mm_day, clipped to [0,1], matching CropSyst's own real
+    definition (crop_common.cpp: water_stress = water_limited_act_transpiration /
+    limited_pot_transpiration) -- reported for simulate_season()'s existing history/
+    diagnostic output, not used to separately gate growth: TR_actual_mm itself is already the
+    real, physically-limited transpiration and feeds GT directly, same role the mechanism
+    this replaces played."""
+    if trp_mm_day <= 0 or canopy_cover_frac <= 0 or ct <= 0:
+        return 0.0, (1.0 if trp_mm_day <= 0 else 0.0)
+    fl = root_length_fraction_by_layer(layers, root_depth_m)
+    ctc = ct * canopy_cover_frac
+    ys = [0.0] * len(layers)
+    avg_ys = 0.0
+    for i, l in enumerate(layers):
+        if fl[i] <= 0:
+            continue
+        ys[i] = layer_water_potential(l["theta"], l["fc"], l["pwp"])
+        avg_ys += fl[i] * ys[i]
+    K = CROP_WATER_POTENTIAL_K_SEC_PER_DAY
+    trp_m_day = trp_mm_day / 1000.0
+    M = 1.5 * trp_m_day / (ctc * K)
+    yl_unstressed = avg_ys - M
+    if yl_unstressed >= lwp_stress_onset:
+        yl = yl_unstressed
+    else:
+        D = lwp_stress_onset - lwp_wilting_point
+        yl = (avg_ys * D + M * lwp_wilting_point) / (D + M) if (D + M) > 0 else lwp_wilting_point
+        yl = max(yl, lwp_wilting_point)
+    actual_mm = 0.0
+    for i, l in enumerate(layers):
+        if fl[i] <= 0:
+            continue
+        cl = fl[i] * ctc
+        wul_mm = max(0.0, (K / 1.5) * cl * (ys[i] - yl) * 1000.0)
+        avail_mm = max(0.0, (l["theta"] - l["pwp"]) * l["thick"] * 1000.0)
+        wul_mm = min(wul_mm, avail_mm)
+        l["theta"] -= wul_mm / (l["thick"] * 1000.0)
+        actual_mm += wul_mm
+    water_stress = max(0.0, min(1.0, actual_mm / trp_mm_day))
+    return actual_mm, water_stress
 
 
 # Real per-implement tillage data, parsed directly from /tmp/cycles-run/input/till.txt
@@ -1313,6 +1517,25 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         tillage_depth_m, tillage_disturb_rating, tillage_mixing_efficiency = TILLAGE_IMPLEMENTS[tillage_implement]
     tillage_ftx_val = tillage_ftx(tillage_clay_frac)
     tillage_dr = 0.0  # cumulative disturbance state -- see tillage_ft()/tillage_dr_decay() above
+
+    # Real hydraulic-conductance-based transpiration/water-stress (campbell_water_uptake(),
+    # 2026-09-25) is used for any crop whose dict carries all three real fields it needs --
+    # lwp_stress_onset, lwp_wilting_point (both real GenericCrops.crop LWP_STRESS_ONSET/
+    # LWP_WILTING_POINT), and a finite tr_max_mm_day (WUmax -- already a real per-crop field
+    # in this engine, added 2026-09-23 for an unrelated fix, now load-bearing here too). CT is
+    # computed once here, per crop, not per day (only CTc = CT*canopy_cover varies daily).
+    # Any crop dict missing one of the three (e.g. a placeholder species borrowing another
+    # crop's growth parameters but not its LWP thresholds) automatically falls back to the
+    # engine's original root_zone_availability()/water_stress_response()/
+    # extract_transpiration() trio below, byte-identical to this mechanism's own pre-2026-09-25
+    # behavior -- see water_stress_response()'s own docstring for why that trio is kept, not
+    # removed, despite being superseded as the primary path.
+    crop_wumax = crop.get("tr_max_mm_day")
+    crop_ct = (total_root_conductance(crop_wumax, crop["lwp_stress_onset"])
+               if ("lwp_stress_onset" in crop and "lwp_wilting_point" in crop
+                   and crop_wumax is not None and math.isfinite(crop_wumax))
+               else None)
+
     tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
     n_tracking_active = (not crop.get("legume", False)) and (
         n_rate_kg_ha is not None or n_applications or n_credit_kg_ha or manure_n_kg_ha)
@@ -1458,19 +1681,26 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         TRp = (1 + (crop["kc"] - 1) * eie) * eie * eto
         TRp *= temp_factor
 
-        avail_frac = root_zone_availability(layers, root_depth)
-        water_stress = water_stress_response(avail_frac, crop.get("depletion_fraction", 0.5))
+        if crop_ct is not None:
+            # Real hydraulic-conductance mechanism -- see campbell_water_uptake()'s own
+            # docstring above. Mutates layers in place and returns the real, physically-
+            # limited transpiration directly, so no separate extract_transpiration() call
+            # is needed (unlike the fallback branch below).
+            TR_actual, water_stress = campbell_water_uptake(
+                layers, root_depth, TRp, eie, crop_ct, crop["lwp_stress_onset"], crop["lwp_wilting_point"])
+        else:
+            avail_frac = root_zone_availability(layers, root_depth)
+            water_stress = water_stress_response(avail_frac, crop.get("depletion_fraction", 0.5))
+            TR_actual = min(TRp * water_stress, crop.get("tr_max_mm_day", math.inf))
+            extract_transpiration(layers, root_depth, TR_actual)
         # tr_max_mm_day: real, disclosed per-crop TRANSPIRATION_MAX from GenericCrops.crop
         # (corn/silage corn 10, soybean/wheat 8 mm/day), a physical ceiling on daily
-        # transpiration this engine never applied before -- crop.get(...) with an inf
-        # default keeps this a no-op for any crop dict that doesn't set it. Checked before
-        # relying on it: at Rock Springs, computed TRp never exceeds ~7.4mm/day across the
-        # full 37-year record for any validated crop, so this is a genuine no-op there (the
-        # regression suite's own unchanged numbers confirm it) -- kept anyway since it's real
-        # and could matter at a hotter/drier site already used elsewhere in this project
-        # (e.g. Kansas), not because it moves any currently-validated number.
-        TR_actual = min(TRp * water_stress, crop.get("tr_max_mm_day", math.inf))
-        extract_transpiration(layers, root_depth, TR_actual)
+        # transpiration -- for the fallback branch above it's an explicit clamp; for the
+        # Campbell mechanism it's already the real WUmax input CT itself was derived from
+        # (the manual's own point: "any evaporative demand larger than the maximum uptake
+        # rate will only induce stomatal closure"), so this second clamp is now redundant
+        # there but kept as a harmless final safety net either way.
+        TR_actual = min(TR_actual, crop.get("tr_max_mm_day", math.inf))
 
         GT = crop["wue"] / math.sqrt(Da) * TR_actual
         dGB_water_limited = max(0.0, min(GR, GT)) * NET_GROWTH_FRACTION / 1000
