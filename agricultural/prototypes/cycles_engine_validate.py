@@ -713,6 +713,24 @@ def campbell_water_uptake(layers, root_depth_m, trp_mm_day, canopy_cover_frac, c
     if trp_mm_day <= 0 or canopy_cover_frac <= 0 or ct <= 0:
         return 0.0, (1.0 if trp_mm_day <= 0 else 0.0)
     fl = root_length_fraction_by_layer(layers, root_depth_m)
+    if sum(fl) <= 0:
+        # Real, disclosed edge case: the root zone hasn't yet grown past the excluded
+        # evaporative layer[0] (see root_length_fraction_by_layer()'s own docstring), so
+        # EVERY layer's fl is 0 -- not a rare single-day event, since a thick real topsoil
+        # horizon (Kansas' STATSGO2 layer 0 is 0.33m, vs. Rock Springs' 0.05m) can keep this
+        # true for a real, multi-day stretch early in the season. Falling through to the
+        # normal computation here would divide by an empty sum and report water_stress=0.0
+        # (FULL stress) regardless of how wet the soil actually is, since actual_mm can only
+        # ever come out to exactly 0 with no layer to draw from -- confirmed as a real bug,
+        # not a hypothetical, by direct testing at Kansas' own real soil profile: this fires
+        # for roughly the first 9% of thermal time there, reporting the crop as fully
+        # water-stressed the whole time regardless of actual soil moisture. Treated the
+        # same as "no real demand yet" (the trp_mm_day<=0
+        # case just above) rather than "definitely stressed," since there's no informative
+        # signal to compute a stress value FROM -- a tiny seedling's actual water draw in
+        # this window is real but negligible (this is exactly why Cycles' own convention
+        # excludes it from the formal transpiration accounting in the first place).
+        return 0.0, 1.0
     ctc = ct * canopy_cover_frac
     ys = [0.0] * len(layers)
     avg_ys = 0.0

@@ -1077,6 +1077,11 @@ def campbell_water_uptake(layers, root_depth_m, trp_mm_day, canopy_cover_frac, c
     if trp_mm_day <= 0 or canopy_cover_frac <= 0 or ct <= 0:
         return 0.0, (1.0 if trp_mm_day <= 0 else 0.0)
     fl = root_length_fraction_by_layer(layers, root_depth_m)
+    if sum(fl) <= 0:
+        # Real bug fix (2026-09-28): root hasn't grown past the excluded evaporative layer[0]
+        # yet, so every fl is 0 -- falling through would divide 0/trp_mm_day and report FULL
+        # stress regardless of real soil moisture. Treated as "no signal yet," not "stressed."
+        return 0.0, 1.0
     ctc = ct * canopy_cover_frac
     ys = [0.0] * len(layers)
     avg_ys = 0.0

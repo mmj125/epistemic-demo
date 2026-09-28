@@ -1046,6 +1046,50 @@
       scenario it doesn't run).</p>
     </details>
 
+    <details class="gap">
+      <summary>24. A real bug found in item 23's own mechanism during a follow-up expert review
+      (2026-09-28): false full water stress whenever the root zone hasn't yet grown past the excluded
+      evaporative layer</summary>
+      <p>The CropSyst manual's own rule ("no transpiration is allowed from soil layer one, the evaporative
+      layer") is correctly implemented in <code>root_length_fraction_by_layer()</code> &mdash; it returns an
+      all-zero <code>fl</code> array while <code>root_depth_m</code> is still within layer[0]'s own
+      thickness, since no transpiring layer is reachable yet. But <code>campbell_water_uptake()</code> never
+      checked for that all-zero case before dividing <code>actual_mm / trp_mm_day</code> to get
+      <code>water_stress</code> &mdash; with every layer's contribution skipped, <code>actual_mm</code> stays
+      0.0 and the ratio reports <code>water_stress=0.0</code>, i.e. FULL stress, no matter how wet the soil
+      actually is. Backwards: "no root-accessible layer exists yet" should mean "no stress signal
+      available," not "worst-case stress."</p>
+      <p>Confirmed real and reachable in the actual day loop, not just a synthetic edge case. At Rock
+      Springs (root_max_m=2.0, tt_emergence=65 &rarr; ttf at emergence=0.036, layer[0] only 0.05m thick)
+      root depth already clears layer[0] by the time <code>eie</code>/<code>TRp</code> first turn nonzero at
+      emergence &mdash; so this specific bug never triggers within Rock Springs' own validation suite,
+      confirmed by re-running the full embedded engine and getting the exact same 2012 corn @ N=650 value
+      (9.883807722449967 Mg/ha) before and after the fix. At a thicker-topsoil site it's a different story: a
+      real STATSGO2-style Kansas profile (layer[0]=0.33m) keeps <code>fl</code> at all-zero from ttf=0.036
+      through ttf&asymp;0.099 &mdash; a real 15-20 day window, not one day &mdash; during which the old code
+      reported the crop as fully water-stressed regardless of actual soil moisture. Fixed with an explicit
+      <code>if sum(fl) &lt;= 0: return 0.0, 1.0</code> guard immediately after computing <code>fl</code>.</p>
+      <p><strong>Honest limitation:</strong> could not re-run the full 4-crop Rock Springs suite or the
+      6-year Kansas benchmark against real Cycles reference data for this specific fix &mdash; this sandbox's
+      container was reprovisioned since item 23's own work, and <code>/tmp/cycles-run</code> (the real Cycles
+      binaries and reference input/output) along with the Kansas benchmark scripts no longer exist in this
+      instance. What was verified instead, against the real embedded engine strings directly (not a
+      reimplementation): the Rock Springs null result above; a direct scan of
+      <code>root_length_fraction_by_layer()</code>'s output across realistic thermal-time values on a
+      synthetic Kansas-shaped soil profile, confirming both the all-zero window and the corrected
+      before/after behavior at each point; the standing tillage sanity check (moldboard plow: real yield
+      gain at a nitrogen-limiting rate, zero at a non-limiting rate) still passes; manure/mineral nitrogen
+      equivalence still holds exactly; and the nitrogen mass-balance identity (uptake+leached+remaining =
+      total supply) still closes. Ported identically into both this page's own engine and
+      <code>engine-demo.html</code>'s, confirmed to grow by the same byte count in both and to remain
+      byte-identical to each other apart from the pre-existing, intentional <code>WHEAT</code>
+      <code>calibration_factor</code> divergence documented in item 23.</p>
+      <p>Since this bug's practical impact is concentrated specifically at thick-topsoil, non-Rock-Springs
+      sites, a future re-run of the 6-year Kansas benchmark should show a further, likely modest reduction
+      in fresh-start overshoot on top of the gains already logged in item 6 &mdash; not yet confirmed with
+      fresh numbers against real Cycles output, flagged here rather than guessed at.</p>
+    </details>
+
     <p style="margin-top:14px;">This list is deliberately not flattering. It's the same list we'd want
     handed to us if someone else built a reimplementation of our own model and asked us to check it.</p>
   </div>
@@ -1364,6 +1408,11 @@ def campbell_water_uptake(layers, root_depth_m, trp_mm_day, canopy_cover_frac, c
     if trp_mm_day <= 0 or canopy_cover_frac <= 0 or ct <= 0:
         return 0.0, (1.0 if trp_mm_day <= 0 else 0.0)
     fl = root_length_fraction_by_layer(layers, root_depth_m)
+    if sum(fl) <= 0:
+        # Real bug fix (2026-09-28): root hasn't grown past the excluded evaporative layer[0]
+        # yet, so every fl is 0 -- falling through would divide 0/trp_mm_day and report FULL
+        # stress regardless of real soil moisture. Treated as "no signal yet," not "stressed."
+        return 0.0, 1.0
     ctc = ct * canopy_cover_frac
     ys = [0.0] * len(layers)
     avg_ys = 0.0

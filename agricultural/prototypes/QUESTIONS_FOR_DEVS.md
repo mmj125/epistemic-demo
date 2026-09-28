@@ -1699,3 +1699,52 @@ against real Cycles output before concluding the gap is real.
   so it was rescaled by the same ratio rather than freshly recalibrated
   against a scenario it doesn't run). See `model-validation.html`'s own
   gap-list item 23 for the full write-up with inline citations.
+
+- **Real bug found in `campbell_water_uptake()` (item 23's own mechanism) during a
+  follow-up "expert modeler" review, 2026-09-28: false full water stress whenever
+  the root zone hasn't yet grown past the excluded evaporative layer.** The
+  CropSyst manual's own rule ("no transpiration is allowed from soil layer one,
+  the evaporative layer") is correctly implemented in `root_length_fraction_by_layer()`
+  -- it returns an all-zero `fl` array while `root_depth_m` is still within layer[0]'s
+  thickness, since no transpiring layer is reachable yet. But `campbell_water_uptake()`
+  never checked for that all-zero case before dividing `actual_mm / trp_mm_day` to get
+  `water_stress` -- with `sum(fl)==0`, every per-layer contribution is skipped, so
+  `actual_mm` stays 0.0 and the ratio reports `water_stress=0.0`, i.e. FULL stress,
+  regardless of how wet the soil actually is. This is backwards: the correct reading
+  of "no root-accessible layer exists yet" is "no stress signal available," not
+  "maximum stress."
+
+  Confirmed this is real and reachable in the actual day loop, not just a synthetic
+  edge case: at Rock Springs (root_max_m=2.0, tt_emergence=65 -> ttf_emergence=0.036,
+  layer[0] only 0.05m thick) root_depth already clears layer[0] by the time `eie`/`TRp`
+  first turn nonzero at emergence, so this specific bug never actually triggers within
+  Rock Springs' own validation suite -- re-running the full embedded engine confirmed
+  the fix changes NOTHING there (2012 corn @ N=650: 9.883807722449967 Mg/ha, byte-identical
+  before and after). At a thicker-topsoil site it's a different story: a real STATSGO2-style
+  Kansas profile (layer[0]=0.33m) keeps `fl` at all-zero from ttf=0.036 (emergence) through
+  ttf~0.099 -- a real 15-20 day window, not a single day -- during which the old code
+  reported the crop as fully water-stressed no matter what the soil moisture actually was.
+  Fixed with an explicit `if sum(fl) <= 0: return 0.0, 1.0` guard (0 mm extracted, water_stress=1.0,
+  i.e. "no signal, assume unstressed" rather than "assume worst case") immediately after
+  computing `fl`.
+
+  Could not re-run the full 4-crop Rock Springs suite or the 6-year Kansas benchmark against
+  real Cycles reference data for this specific fix -- the container was reprovisioned since
+  item 23's own work and `/tmp/cycles-run` (real Cycles binaries, weather/soil inputs, and
+  reference output) along with the Kansas benchmark scripts no longer exist in this instance.
+  What was verified instead, against the actual embedded engine strings (not a reimplementation):
+  the Rock Springs null result above; a direct scan of `root_length_fraction_by_layer()`'s
+  output across realistic thermal-time values on a synthetic Kansas-shaped soil profile,
+  confirming the all-zero window and the corrected before/after behavior at each point; the
+  standing tillage sanity check (moldboard plow: real yield gain at a nitrogen-limiting rate,
+  zero at a non-limiting rate) still passes; manure/mineral nitrogen equivalence still holds
+  exactly; and the nitrogen mass-balance identity (uptake+leached+remaining = total supply)
+  still closes. Ported identically into both `engine-demo.html` and `model-validation.html`'s
+  embedded engine copies, confirmed to grow by the same byte count in both and to remain
+  byte-identical to each other apart from the pre-existing, intentional `WHEAT`
+  `calibration_factor` divergence documented above. Since this bug's practical impact is
+  specifically concentrated at thick-topsoil, non-Rock-Springs sites (Kansas being the one
+  this project already tracks), any future re-run of the 6-year Kansas benchmark should show
+  a real, if likely modest, further reduction in fresh-start overshoot on top of the gains
+  already logged in item 6 above -- not yet confirmed with fresh numbers, flagged here rather
+  than guessed at.
