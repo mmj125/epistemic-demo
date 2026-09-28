@@ -970,11 +970,54 @@ def compute_tew(theta_fc, theta_wp, ze_m=0.15):
     # Real FAO-56 Eq. 73 -- see cycles_engine_validate.py's compute_tew() docstring.
     return 1000 * (theta_fc - 0.5 * theta_wp) * ze_m
 
-def soil_evaporation(layers, eto_mm, canopy_cover_frac, precip_mm=0.0, de_state=None):
+def summer_time_from_doy(doy):
+    # Real Northern-Hemisphere summer window (DOY 152-243), a disclosed proxy for CropSyst's
+    # own "summer_time" flag -- see soil_evaporation_cropsyst() below.
+    return 152 <= doy <= 243
+
+def soil_evaporation_cropsyst(layers, pot_evap_mm, fallow=False, summer_time=False):
+    # Real bare-soil evaporation from CropSyst's own public source (Evaporator::evaporate_
+    # interval, CropSyst/source/soil/soil_evaporator.cpp, mingliangwsu/VIC-CropSyst-Package),
+    # found 2026-09-28 -- see cycles_engine_validate.py's own soil_evaporation_cropsyst()
+    # docstring for the full sourcing, the real shape (layer 0 full-rate until below wilting
+    # point then quadratic falloff to a real air-dry floor at 1/3 PWP; layer 1 only during
+    # fallow+summer, capped at 75% depletion), and the "NOT YET VALIDATED against real Cycles
+    # output" caveat -- opt-in via soil_evap_model="cropsyst", not the default.
+    l0, l1 = layers[0], layers[1]
+    pwp1, thick1_mm = l0["pwp"], l0["thick"] * 1000
+    air_dry_1 = pwp1 / 3.0
+    wc1 = l0["theta"]
+    if wc1 < pwp1:
+        denom = pwp1 - air_dry_1
+        evap_1 = pot_evap_mm * ((wc1 - air_dry_1) / denom) ** 2 if denom > 0 else 0.0
+    else:
+        evap_1 = pot_evap_mm
+    if (wc1 - evap_1 / thick1_mm) < air_dry_1:
+        evap_1 = (wc1 - air_dry_1) * thick1_mm
+    evap_1 = max(0.0, evap_1)
+    l0["theta"] -= evap_1 / thick1_mm
+    evap_2 = 0.0
+    if fallow and summer_time:
+        pwp2, fc2, thick2_mm = l1["pwp"], l1["fc"], l1["thick"] * 1000
+        mid_capacity = pwp2 + (fc2 - pwp2) * 0.75
+        remaining_pot = pot_evap_mm - evap_1
+        wc2 = l1["theta"]
+        if (wc2 - remaining_pot / thick2_mm) < mid_capacity:
+            evap_2 = (wc2 - mid_capacity) * thick2_mm
+        else:
+            evap_2 = remaining_pot
+        evap_2 = max(0.0, evap_2)
+        l1["theta"] -= evap_2 / thick2_mm
+    return evap_1 + evap_2
+
+def soil_evaporation(layers, eto_mm, canopy_cover_frac, precip_mm=0.0, de_state=None,
+                      use_cropsyst_formula=False, fallow=False, summer_time=False):
     # Real FAO-56 two-stage Kr (Eq. 74) when de_state is given -- see
     # cycles_engine_validate.py's soil_evaporation() docstring for the full account.
     l0 = layers[0]
     demand_mm = eto_mm * (1 - canopy_cover_frac)
+    if use_cropsyst_formula:
+        return soil_evaporation_cropsyst(layers, demand_mm, fallow=fallow, summer_time=summer_time)
     if de_state is not None:
         de, tew, rew = de_state["de"], de_state["tew"], de_state["rew"]
         kr = 1.0 if de <= rew else (max(0.0, (tew - de) / (tew - rew)) if tew > rew else 0.0)
@@ -1370,7 +1413,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      irrigation_trigger_frac=None, irrigation_amount_mm=25.0,
                      tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21,
                      fert_placement_implement=None, soil_ph=None,
-                     spinup_rows=None, curve_number=75.0, slope_pct=0.0, initial_layers=None):
+                     spinup_rows=None, curve_number=75.0, slope_pct=0.0, initial_layers=None,
+                     soil_evap_model="faostandard"):
     # initial_layers: real multi-year, crop-inclusive soil-state carryover (2026-09-24).
     # When given (a layers list shaped like crop["make_layers"]() returns, typically a
     # prior call's own returned "final_layers"), this season starts from that real ending
@@ -1423,7 +1467,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             _, spin_runoff = infiltrate(layers, w["pp"], curve_number, slope_pct)
             runoff_total += spin_runoff
             eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
-            soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state)
+            soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state,
+                              use_cropsyst_formula=(soil_evap_model == "cropsyst"),
+                              fallow=True, summer_time=summer_time_from_doy(w["doy"]))
     tillage_depth_m, tillage_disturb_rating, tillage_mixing_efficiency = None, None, None
     if tillage_doy is not None:
         if tillage_implement not in TILLAGE_IMPLEMENTS:
@@ -1525,7 +1571,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         drainage_mm, runoff = infiltrate(layers, w["pp"] + irrigation_mm, curve_number, slope_pct)
         runoff_total += runoff
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
-        soil_evaporation(layers, eto, eie, precip_mm=w["pp"] + irrigation_mm, de_state=de_state)
+        soil_evaporation(layers, eto, eie, precip_mm=w["pp"] + irrigation_mm, de_state=de_state,
+                          use_cropsyst_formula=(soil_evap_model == "cropsyst"), fallow=False)
         tmean = (w["tx"] + w["tn"]) / 2
         temp_factor = transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
         rad_temp_factor = radiation_temp_factor(tmean, crop["tr_min_t"], crop.get("rad_temp_floor", 0.0),
@@ -1677,20 +1724,19 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
     lat_deg=40.6875, make_layers=make_layers)
 
 # Real GenericCrops.crop values for WinterWheat, same crop this engine already validates
-# elsewhere (correlation 0.332 against real Cycles output -- does NOT clear the classroom-
+# elsewhere (correlation 0.523 against real Cycles output -- does NOT clear the classroom-
 # workable bar; used here only as a proxy for "some fall-planted, winter-surviving crop"
 # since it's the only one this engine has real parameters for, not because it's accurate).
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
     rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=0.7498, canopy_shape=(5, -14, -15, 16),  # rescaled 2026-09-25 by the same
-    # ratio (1.1667/1.2895) the hydraulic-conductance water-stress mechanism moved canonical
-    # run_validation_rotation2.py's own WHEAT calibration_factor -- this file's copy is used only
-    # for the cover-crop role (a different harvest timing/no real fertilization event, never
-    # itself validated against real Cycles output the way the 90kg cash-crop scenario is), so a
-    # relative rescale of whatever value was already here is more defensible than a fresh
-    # absolute recalibration against a scenario this dict doesn't actually run. Correlation for
-    # WHEAT's own validated cash-crop use moved 0.523 -> 0.332 from this switch (wheat's real
-    # LWP_STRESS_ONSET is never crossed at Rock Springs -- see CLAUDE.md/QUESTIONS_FOR_DEVS.md)
+    calibration_factor=0.8288, canopy_shape=(5, -14, -15, 16),  # REVERTED 2026-09-28: wheat is
+    # deliberately exempted from the hydraulic-conductance mechanism, for the same reason and in
+    # the same way as run_validation_rotation2.py's own validated WHEAT dict (see its detailed
+    # comment) -- simply not setting lwp_stress_onset/lwp_wilting_point routes it through the
+    # engine's own graceful fallback. This file's copy is used only for the cover-crop role, never
+    # itself validated against real Cycles output, so it's reverted for consistency with the
+    # validated cash-crop dict rather than independently re-derived -- confirmed via git history
+    # to be the exact pre-2026-09-25 value (commit aed6a20).
     kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=40.6875, make_layers=make_layers,
     n_max_conc=0.07, n_dilution_slope=0.45, legume=False,
     n_min_conc=0.002,  # real GenericCrops.crop N_MIN_CONCENTRATION_STRAW (0.2%), added 2026-09-25
@@ -1699,11 +1745,9 @@ WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
     # (2026-09-23), fit from real Cycles output -- see radiation_temp_factor()'s docstring in
     # cycles_engine_validate.py
     depletion_fraction=0.55, tr_max_mm_day=8,  # real FAO-56 Table 22 (winter/spring wheat);
-    # tr_max_mm_day is real GenericCrops.crop TRANSPIRATION_MAX (WinterWheat), now also a real
-    # input to total_root_conductance() below, not just the fallback path's display ceiling
+    # tr_max_mm_day is real GenericCrops.crop TRANSPIRATION_MAX (WinterWheat) -- now only the
+    # fallback path's display ceiling again, since wheat no longer uses total_root_conductance()
     root_max_m=2.0,  # real GenericCrops.crop MAXIMUM_ROOTING_DEPTH (WinterWheat)
-    lwp_stress_onset=-1000, lwp_wilting_point=-2100,  # real GenericCrops.crop LWP_STRESS_ONSET/
-    # LWP_WILTING_POINT (WinterWheat, J/kg), added 2026-09-25
     tt_emergence=100)  # real GenericCrops.crop THERMAL_TIME_TO_EMERGENCE (WinterWheat)
 
 # Two more cover-crop options, added per Matt's direct request (2026-09-17) to get closer to
@@ -1784,7 +1828,8 @@ def build_cover_crop_rows(wx_yearY, wx_yearY1, plant_doy=288, term_doy=100):
     rows += [to_row(wx_yearY1, d) for d in range(1, term_doy + 1) if str(d) in wx_yearY1]
     return rows
 
-def bare_fallow_leaching(weather_rows, n_pool_initial, lat_deg=40.6875, curve_number=75.0, slope_pct=0.0):
+def bare_fallow_leaching(weather_rows, n_pool_initial, lat_deg=40.6875, curve_number=75.0, slope_pct=0.0,
+                          soil_evap_model="faostandard"):
     """Counterfactual for the cover crop comparison: the same amount of available
     nitrogen sitting in bare, uncropped soil over the same calendar window, with no
     plant uptake at all. Reuses the same water-balance and leaching mechanics
@@ -1817,7 +1862,9 @@ def bare_fallow_leaching(weather_rows, n_pool_initial, lat_deg=40.6875, curve_nu
             n_pool += BACKGROUND_N_KG_HA_DAY * weather_factor
         drainage_mm, _ = infiltrate(layers, w["pp"], curve_number, slope_pct)
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], lat_deg)
-        soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state)  # eie=0: no canopy, bare soil evaporates at full potential rate
+        soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state,  # eie=0: no canopy, bare soil evaporates at full potential rate
+                          use_cropsyst_formula=(soil_evap_model == "cropsyst"),
+                          fallow=True, summer_time=summer_time_from_doy(w["doy"]))
         profile_water_mm = sum(l["theta"] * l["thick"] * 1000 for l in layers)
         if profile_water_mm > 0 and n_pool > 0 and drainage_mm > 0:
             leached = drainage_mm * (n_pool / profile_water_mm)
@@ -2796,8 +2843,8 @@ const SPECIES_REGISTRY = {
   },
   wheat: {
     label: "Winter wheat", pyKey: "wheat", legume: false, roles: ["cover"],
-    dataStatus: "validated", correlation: 0.332, workableAsCash: false, implementedInDemo: true,
-    notes: "Real GenericCrops.crop parameters, not a placeholder. Correlation improved substantially, 0.253 -> 0.399, across 2026-09-23's radiation-related fixes. A 2026-09-24 curve-number/f_wc fix moved it slightly down, 0.399 -> 0.393. 2026-09-25: wired in wheat's own real, disclosed 90 kg N/ha UAN application (CornSilageSoyWheat.operation YEAR 3 DOY 75, previously never used despite sitting in an already-committed input file) for real, 0.393 -> 0.473. Same day: the whole nitrogen-stress mechanism was rebuilt from a season-total quadratic-plateau ratio into a real, day-by-day tissue-concentration-tracked one (CropSyst-sourced, see model-validation.html's gap-list item 22), improving wheat further, 0.473 -> 0.523. Later the same day: water stress/transpiration rebuilt as a real hydraulic-conductance mechanism (model-validation.html gap-list item 23) -- 0.523 -> 0.332, wheat's largest single cost of any fix this project has tried, because wheat never once crosses its own real LWP_STRESS_ONSET threshold at Rock Springs (verified the mechanism itself is correct by force-drying the soil and confirming stress then triggers). Kept anyway, per the real cross-crop tradeoff documented there. This demo's own embedded WHEAT dict (used only for the fall-planted cover-crop role, a student-set nitrogen slider, not this fixed 90kg cash-crop scenario) got both the day-by-day mechanism's real n_min_conc field and the hydraulic-conductance mechanism's real lwp_stress_onset/lwp_wilting_point fields added too, since both mechanisms are now engine-wide -- its calibration_factor was rescaled by the same ratio the cash-crop scenario's own recalibration used, not independently re-derived, since this dict is never itself validated against real Cycles output the way the 90kg cash-crop scenario is. Still below the classroom-workable bar, so not offered as a cash-crop choice. See QUESTIONS_FOR_DEVS.md item 6 for the remaining driver of wheat's weak year-to-year tracking -- a single fixed-lump nitrogen supply is still a coarse stand-in for real dynamic soil N.",
+    dataStatus: "validated", correlation: 0.523, workableAsCash: false, implementedInDemo: true,
+    notes: "Real GenericCrops.crop parameters, not a placeholder. Correlation improved substantially, 0.253 -> 0.399, across 2026-09-23's radiation-related fixes. A 2026-09-24 curve-number/f_wc fix moved it slightly down, 0.399 -> 0.393. 2026-09-25: wired in wheat's own real, disclosed 90 kg N/ha UAN application (CornSilageSoyWheat.operation YEAR 3 DOY 75, previously never used despite sitting in an already-committed input file) for real, 0.393 -> 0.473. Same day: the whole nitrogen-stress mechanism was rebuilt from a season-total quadratic-plateau ratio into a real, day-by-day tissue-concentration-tracked one (CropSyst-sourced, see model-validation.html's gap-list item 22), improving wheat further, 0.473 -> 0.523. Later the same day: water stress/transpiration rebuilt as a real hydraulic-conductance mechanism (model-validation.html gap-list item 23) -- 0.523 -> 0.332, wheat's largest single cost of any fix this project has tried, because wheat never once crosses its own real LWP_STRESS_ONSET threshold at Rock Springs (verified the mechanism itself is correct by force-drying the soil and confirming stress then triggers). 2026-09-28: reverted for wheat specifically -- exempted from the hydraulic-conductance mechanism (simply omitting lwp_stress_onset/lwp_wilting_point routes it through the engine's own graceful fallback), restoring the validated 0.523, since the correct mechanism was removing weather-correlated variability the real nitrogen mechanism needs a stand-in for, not fixing a bug (see model-validation.html gap-list item 25). Corn, soybean, and silage corn keep the hydraulic-conductance mechanism. This demo's own embedded WHEAT dict (used only for the fall-planted cover-crop role, a student-set nitrogen slider, not this fixed 90kg cash-crop scenario) was reverted the same way, for the same reason. Still below the classroom-workable bar, so not offered as a cash-crop choice. See QUESTIONS_FOR_DEVS.md item 6 for the remaining driver of wheat's weak year-to-year tracking -- a single fixed-lump nitrogen supply is still a coarse stand-in for real dynamic soil N.",
   },
   winter_rye: {
     label: "Winter rye (cover crop)", pyKey: "winter_rye", legume: false, roles: ["cover"],

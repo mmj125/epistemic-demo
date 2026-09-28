@@ -31,6 +31,32 @@ against real Cycles output before concluding the gap is real.
    Kcmax-based potential-demand term (Eq. 72, not implemented -- this engine's
    own non-intercepted-radiation proxy still drives the potential-demand side).
 
+   **Update (2026-09-28):** found a real, complete, alternate formula for bare-soil
+   evaporation itself in CropSyst's own public C++ source (`Evaporator::evaporate_interval`,
+   `CropSyst/source/soil/soil_evaporator.cpp`, `mingliangwsu/VIC-CropSyst-Package` on
+   GitHub), fetched and read verbatim. A genuinely different shape than the FAO-56
+   mechanism above: topsoil evaporates at the FULL potential rate with zero reduction
+   until its own water content drops below wilting point, then falls off quadratically
+   toward a real air-dry floor at exactly 1/3 of the wilting point's own value (CropSyst's
+   own hardcoded constant); a second layer only evaporates when the field is fallow AND
+   it's summer, capped at 75% depletion of its own field-capacity range. The source's own
+   comment states its separate `mulch_cover_fraction` term is "material other than residue
+   (i.e. plastic cover)" -- real, direct confirmation that residue's own evaporation
+   reduction is a genuinely separate, still-undisclosed mechanism this file does not
+   contain. This closes the "bare-soil evaporation" half of this item, not "residue
+   evaporation." Implemented as `soil_evaporation_cropsyst()`, reachable via
+   `simulate_season(soil_evap_model="cropsyst")` (default stays `"faostandard"`, byte-
+   identical to every existing validated number). Verified structurally correct (five
+   synthetic test cases covering every branch) and run against the real embedded Rock
+   Springs weather across the full 37-year record: a real, non-trivial effect there (mean
+   grain 10.56 -> 10.51 Mg/ha, 29 of 37 years show a nonzero difference) -- unlike every
+   other water-balance refinement tried this session, which measured zero effect at humid
+   Rock Springs. NOT validated against real Cycles output -- this sandbox's reference data
+   (`/tmp/cycles-run`) does not exist in this container as of 2026-09-28, the only
+   mechanism in this whole file that couldn't be checked against real per-year correlation
+   before being written up. Kept as opt-in, not the default, specifically because of this.
+   Whether it helps or hurts real accuracy is open until that validation can run.
+
 4. **Perennial forage cutting trigger (`CLIPPING_BIOMASS_THRESHOLD_UPPER` /
    `HARVEST_TIMING` interaction).** For orchardgrass at Rock Springs (real
    `GenericCrops.crop` values verified directly: `MATURITY_TT=1500`,

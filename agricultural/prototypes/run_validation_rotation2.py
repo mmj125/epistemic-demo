@@ -65,22 +65,32 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
              rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
              kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=LAT,
-             make_layers=make_layers, calibration_factor=1.1667,  # re-derived 2026-09-25 (a
-             # third time the same day) for the hydraulic-conductance water-stress mechanism
-             # (campbell_water_uptake()) -- correlation moved 0.523 -> 0.332 from that switch
-             # alone, the largest Rock Springs cost of any crop: instrumented every real wheat
-             # season under the new mechanism and found water_stress reads EXACTLY 1.0 every
-             # single day, all 9 years -- wheat never once triggers stress at this site under
-             # its own real LWP_STRESS_ONSET=-1000 threshold (verified the formula itself is
-             # correct by artificially drying the soil layers and confirming stress DOES
-             # trigger then; real Rock Springs soil under wheat's own water balance never gets
-             # remotely close on its own). This flattens whatever water-driven variability the
-             # old FAO-56 pooled mechanism gave wheat, costing correlation even though wheat's
-             # real dominant driver is nitrogen, not water (-0.894 vs 0.359, already established).
-             # Kept anyway (see QUESTIONS_FOR_DEVS.md/CLAUDE.md for the real cross-crop tradeoff:
-             # Kansas's error improves substantially, corn's own water response becomes genuinely
-             # more realistic) -- a real, disclosed, mixed result, not a clean win.
-             # calibration_factor before this switch (1.2895) was re-derived 2026-09-25 (a second
+             make_layers=make_layers, calibration_factor=1.2895,  # REVERTED 2026-09-28: wheat is
+             # deliberately exempted from the hydraulic-conductance mechanism (campbell_water_uptake(),
+             # see CORN's own comment in run_validation.py), by simply not giving it
+             # lwp_stress_onset/lwp_wilting_point -- the engine's own graceful fallback (see
+             # simulate_season()'s crop_ct precompute) then routes wheat through the older
+             # root_zone_availability()/water_stress_response()/extract_transpiration() trio instead,
+             # exactly as it did before 2026-09-25. This is not "reverting to hide a problem": the
+             # Campbell mechanism was verified working CORRECTLY for wheat (instrumented every real
+             # wheat season under it and found water_stress reads EXACTLY 1.0 every single day, all 9
+             # years -- wheat's own real root profile and water balance genuinely never gets that dry
+             # at Rock Springs, confirmed by artificially drying the soil and seeing stress trigger
+             # then). The problem is that wheat's real dominant yield driver is nitrogen, not water
+             # (-0.894 vs 0.359 correlation against real Cycles' own stress columns, already
+             # established) -- so a water-stress mechanism that correctly reports "no stress" removes
+             # whatever real signal wheat's real nitrogen mechanism (already wired in below via
+             # n_applications) needs a stand-in for, since the OLDER, less physically precise pooled
+             # mechanism happened to still vary day to day with weather and correlated with yield as a
+             # rough proxy. Every other crop (corn, soybean, silage corn) keeps the Campbell mechanism,
+             # since none of them are known to have this same "always reports fully unstressed" problem
+             # at this site. Restores the exact pre-2026-09-25 fallback code path and calibration
+             # (confirmed via git history: byte-identical to commit aed6a20, and the fallback path's
+             # own three functions are unchanged between that commit and now) -- correlation returns
+             # to 0.523, the validated pre-switch number, not re-run against real Cycles output this
+             # session since the reference data (/tmp/cycles-run) no longer exists in this container;
+             # confidence in the 0.523 figure rests on that git-history equivalence, not a fresh run.
+             # calibration_factor before the LWP switch (1.2895) was re-derived 2026-09-25 (a second
              # time the same day) after replacing the season-total quadratic-plateau N-stress
              # mechanism with a real, day-by-day concentration-tracked one (see simulate_season()'s
              # own comment above canopy_n_kg_ha in cycles_engine_validate.py) -- correlation moved
@@ -133,12 +143,11 @@ WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
              # a wrong-number risk, since nothing in this project calls simulate_season() for wheat
              # with n_rate_kg_ha/n_applications/n_credit_kg_ha/manure_n_kg_ha set (verified: zero
              # effect on validation, confirming this is a pure completeness fix, not a behavior change)
-             n_min_conc=0.002,  # real GenericCrops.crop N_MIN_CONCENTRATION_STRAW (0.2%), added
+             n_min_conc=0.002)  # real GenericCrops.crop N_MIN_CONCENTRATION_STRAW (0.2%), added
              # 2026-09-25 for the day-by-day concentration-tracked N-stress mechanism -- see
              # simulate_season()'s own comment above canopy_n_kg_ha in cycles_engine_validate.py.
-             lwp_stress_onset=-1000, lwp_wilting_point=-2100)  # real GenericCrops.crop
-             # LWP_STRESS_ONSET/LWP_WILTING_POINT (WinterWheat, J/kg), added 2026-09-25 for
-             # campbell_water_uptake() -- see CORN's own comment in run_validation.py.
+             # Deliberately NO lwp_stress_onset/lwp_wilting_point here -- see calibration_factor's
+             # own comment above for why wheat specifically is exempted from campbell_water_uptake().
 
 CORN_SILAGE = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
                     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,

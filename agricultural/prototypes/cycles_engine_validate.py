@@ -443,7 +443,8 @@ def compute_tew(theta_fc, theta_wp, ze_m=0.15):
     return 1000 * (theta_fc - 0.5 * theta_wp) * ze_m
 
 
-def soil_evaporation(layers, eto_mm, canopy_cover_frac, precip_mm=0.0, de_state=None):
+def soil_evaporation(layers, eto_mm, canopy_cover_frac, precip_mm=0.0, de_state=None,
+                      use_cropsyst_formula=False, fallow=False, summer_time=False):
     """Bare-soil/residue evaporation. When de_state is given (a dict with 'de'/'tew'/'rew'
     keys, mutated in place across calls to track depletion since the surface was last wetted),
     today's potential demand is reduced by the real FAO-56 two-stage evaporation-reduction
@@ -468,9 +469,17 @@ def soil_evaporation(layers, eto_mm, canopy_cover_frac, precip_mm=0.0, de_state=
     coefficient method -- a disclosed, bounded piece of it, not a full replacement.
 
     de_state=None (the default) reproduces the exact prior single-stage, no-memory behavior
-    byte-for-byte -- every existing caller not yet passing de_state is unaffected."""
+    byte-for-byte -- every existing caller not yet passing de_state is unaffected.
+
+    use_cropsyst_formula=True (default False, so every existing validated number is
+    byte-identical) switches to a real, alternate, fully-disclosed formula for this same
+    physical process instead of the FAO-56 Kr mechanism above -- see
+    soil_evaporation_cropsyst()'s own docstring for the source and shape, and its own
+    "NOT YET VALIDATED" note before relying on it for anything real."""
     l0 = layers[0]
     demand_mm = eto_mm * (1 - canopy_cover_frac)
+    if use_cropsyst_formula:
+        return soil_evaporation_cropsyst(layers, demand_mm, fallow=fallow, summer_time=summer_time)
     if de_state is not None:
         de, tew, rew = de_state["de"], de_state["tew"], de_state["rew"]
         kr = 1.0 if de <= rew else (max(0.0, (tew - de) / (tew - rew)) if tew > rew else 0.0)
@@ -481,6 +490,96 @@ def soil_evaporation(layers, eto_mm, canopy_cover_frac, precip_mm=0.0, de_state=
     if de_state is not None:
         de_state["de"] = max(0.0, min(de_state["tew"], de_state["de"] + actual_mm - precip_mm))
     return actual_mm
+
+
+def summer_time_from_doy(doy):
+    """A real day-of-year is either inside or outside a Northern-Hemisphere summer window --
+    a simple, disclosed proxy (DOY 152-243, roughly June 1 - Aug 31) for CropSyst's own
+    'summer_time' flag (see soil_evaporation_cropsyst()) since this engine has no real
+    season-classification concept of its own. Every site this project uses is Northern
+    Hemisphere, so no hemisphere branch is needed."""
+    return 152 <= doy <= 243
+
+
+def soil_evaporation_cropsyst(layers, pot_evap_mm, fallow=False, summer_time=False):
+    """Real bare-soil evaporation, reproduced from CropSyst's own public source
+    (Evaporator::evaporate_interval, CropSyst/source/soil/soil_evaporator.cpp,
+    mingliangwsu/VIC-CropSyst-Package on GitHub -- Cycles shares its biophysical fundamentals
+    with CropSyst per Kemanian et al. 2024, and unlike Cycles this repo ships real .cpp source,
+    not just binaries). This answers QUESTIONS_FOR_DEVS.md item 2's 'bare-soil evaporation'
+    half -- neither the main paper nor its SI gives Cycles' own formula for this anywhere,
+    despite both marking it as 'detailed in this SI' (it isn't). Real, complete, and a
+    genuinely different shape than the FAO-56 Kr mechanism soil_evaporation() implements by
+    default -- these are two different, real, disclosed formulas for the same physical
+    process, not one refined into the other; this one was found later and hasn't replaced the
+    other as the default (see below).
+
+    Layer 1 (topsoil, this engine's layers[0], the same layer excluded from root water uptake
+    elsewhere): evaporates at the FULL potential rate as long as its own volumetric water
+    content stays at or above its own wilting point -- no reduction at all until then, unlike
+    FAO-56's Kr, which starts throttling once cumulative depletion crosses REW, a threshold
+    well above wilting point. Only once WC drops below wilting point does it fall off, and it
+    does so QUADRATICALLY toward a real 'air-dry' floor CropSyst sets at exactly 1/3 of the
+    layer's own wilting-point water content (its own real, hardcoded constant, not derived from
+    anything else in this engine).
+
+    Layer 2 (this engine's layers[1]): only evaporates when fallow AND summer_time are both
+    true (a real, disclosed condition, not this engine's own invention -- CropSyst's own
+    comment states plainly: 'During fallow periods, the soil is assumed to dry deeper... but
+    not as dry as the first layer'), and even then is capped at 75% depletion of its own
+    field-capacity-to-wilting-point range (mid_capacity = pwp + 0.75*(fc-pwp), CropSyst's own
+    real 0.75 constant, reproduced exactly, not approximated).
+
+    Explicitly NOT included: CropSyst's own mulch_cover_fraction term. Its own source comment
+    states outright that this mulch is 'material other than residue (i.e. plastic cover)' --
+    real, direct evidence that residue's own evaporation-reduction effect is a SEPARATE
+    mechanism this file does not contain, still genuinely undisclosed. Finding this file
+    resolves the 'bare-soil evaporation' half of item 2, not the 'residue evaporation' half.
+
+    pot_evap_mm is the day's potential evaporative demand -- this engine's existing
+    eto_mm*(1-canopy_cover_frac) proxy stands in for it here exactly as it already does for the
+    FAO-56 mechanism (item 2 already scoped the demand-side FAO-56 Kcmax refinement out of
+    both mechanisms; that's a separate, still-open question, not resolved by this fix either).
+
+    Mutates layers[0] (and layers[1], only when fallow and summer_time) in place. Returns the
+    actual total mm evaporated across both layers.
+
+    NOT YET VALIDATED against real Cycles output. This sandbox's reference data
+    (/tmp/cycles-run, the real Cycles binaries and per-year harvest/water output every other
+    mechanism in this file was checked against) does not exist in this container as of
+    2026-09-28 -- this formula could not be run through the actual validation suite's
+    correlation check the way every other adopted mechanism here has been. Reachable via
+    soil_evaporation(use_cropsyst_formula=True) and simulate_season(soil_evap_model="cropsyst"),
+    both opt-in and off by default specifically because of this -- do not promote to the
+    default path without first confirming its effect on real per-year correlation once
+    reference data is available again."""
+    l0, l1 = layers[0], layers[1]
+    pwp1, thick1_mm = l0["pwp"], l0["thick"] * 1000
+    air_dry_1 = pwp1 / 3.0
+    wc1 = l0["theta"]
+    if wc1 < pwp1:
+        denom = pwp1 - air_dry_1
+        evap_1 = pot_evap_mm * ((wc1 - air_dry_1) / denom) ** 2 if denom > 0 else 0.0
+    else:
+        evap_1 = pot_evap_mm
+    if (wc1 - evap_1 / thick1_mm) < air_dry_1:
+        evap_1 = (wc1 - air_dry_1) * thick1_mm
+    evap_1 = max(0.0, evap_1)
+    l0["theta"] -= evap_1 / thick1_mm
+
+    evap_2 = 0.0
+    if fallow and summer_time:
+        pwp2, fc2, thick2_mm = l1["pwp"], l1["fc"], l1["thick"] * 1000
+        mid_capacity = pwp2 + (fc2 - pwp2) * 0.75
+        remaining_pot = pot_evap_mm - evap_1
+        wc2 = l1["theta"]
+        if (wc2 - remaining_pot / thick2_mm) < mid_capacity:
+            evap_2 = (wc2 - mid_capacity) * thick2_mm
+        else:
+            evap_2 = remaining_pot
+        evap_2 = max(0.0, evap_2)
+        l1["theta"] -= evap_2 / thick2_mm
+    return evap_1 + evap_2
 
 
 def water_stress_response(avail_frac, depletion_fraction=0.5):
@@ -1321,7 +1420,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      irrigation_trigger_frac=None, irrigation_amount_mm=25.0,
                      tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21,
                      fert_placement_implement=None, soil_ph=None,
-                     spinup_rows=None, curve_number=75.0, slope_pct=0.0, initial_layers=None):
+                     spinup_rows=None, curve_number=75.0, slope_pct=0.0, initial_layers=None,
+                     soil_evap_model="faostandard"):
     """weather_rows: dicts with doy, tx, tn, solar, rhx, rhn, wind, pp, in planting-day order.
     harvest_ttf: fraction of thermal time to maturity that triggers harvest -- 1.0 for grain
     crops (HARVEST_TIMING=-999 in the real crop file), lower for forage/silage crops harvested
@@ -1511,7 +1611,16 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     given, the result dict also carries
     "final_layers" -- the real ending soil state (theta, and any per-layer state a future
     mechanism might add), ready to feed into the next chained call's own initial_layers with
-    no extraction step needed."""
+    no extraction step needed.
+
+    soil_evap_model: "faostandard" (default) keeps the existing FAO-56 Kr-based bare-soil
+    evaporation mechanism (soil_evaporation()'s own default path). "cropsyst" switches to a
+    different, real, fully-disclosed formula found 2026-09-28 (see
+    soil_evaporation_cropsyst()'s own docstring for the full source and shape) -- NOT the
+    default, since this sandbox's reference data doesn't exist in this container and the
+    formula couldn't be checked against real per-year correlation the way every other adopted
+    mechanism here has been. Available to test, not yet validated enough to trust as the
+    default."""
     layers = copy.deepcopy(initial_layers) if initial_layers is not None else crop["make_layers"]()
     root_max_m = crop.get("root_max_m", root_max_m)
     de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
@@ -1527,7 +1636,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             _, spin_runoff = infiltrate(layers, w["pp"], curve_number, slope_pct)
             runoff_total += spin_runoff
             eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
-            soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state)
+            soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state,
+                              use_cropsyst_formula=(soil_evap_model == "cropsyst"),
+                              fallow=True, summer_time=summer_time_from_doy(w["doy"]))
     tillage_depth_m, tillage_mixing_efficiency = None, None
     if tillage_doy is not None:
         if tillage_implement not in TILLAGE_IMPLEMENTS:
@@ -1686,7 +1797,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         drainage_mm, runoff = infiltrate(layers, w["pp"] + irrigation_mm, curve_number, slope_pct)
         runoff_total += runoff
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
-        soil_evaporation(layers, eto, eie, precip_mm=w["pp"] + irrigation_mm, de_state=de_state)
+        soil_evaporation(layers, eto, eie, precip_mm=w["pp"] + irrigation_mm, de_state=de_state,
+                          use_cropsyst_formula=(soil_evap_model == "cropsyst"), fallow=False)
 
         tmean = (w["tx"] + w["tn"]) / 2
         temp_factor = transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
