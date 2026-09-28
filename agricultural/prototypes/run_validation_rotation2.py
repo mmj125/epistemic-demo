@@ -65,38 +65,62 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
              rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
              kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=LAT,
-             make_layers=make_layers, calibration_factor=1.2895,  # REVERTED 2026-09-28: wheat is
-             # deliberately exempted from the hydraulic-conductance mechanism (campbell_water_uptake(),
-             # see CORN's own comment in run_validation.py), by simply not giving it
-             # lwp_stress_onset/lwp_wilting_point -- the engine's own graceful fallback (see
-             # simulate_season()'s crop_ct precompute) then routes wheat through the older
-             # root_zone_availability()/water_stress_response()/extract_transpiration() trio instead,
-             # exactly as it did before 2026-09-25. This is not "reverting to hide a problem": the
-             # Campbell mechanism was verified working CORRECTLY for wheat (instrumented every real
-             # wheat season under it and found water_stress reads EXACTLY 1.0 every single day, all 9
-             # years -- wheat's own real root profile and water balance genuinely never gets that dry
-             # at Rock Springs, confirmed by artificially drying the soil and seeing stress trigger
-             # then). The problem is that wheat's real dominant yield driver is nitrogen, not water
-             # (-0.894 vs 0.359 correlation against real Cycles' own stress columns, already
-             # established) -- so a water-stress mechanism that correctly reports "no stress" removes
-             # whatever real signal wheat's real nitrogen mechanism (already wired in below via
-             # n_applications) needs a stand-in for, since the OLDER, less physically precise pooled
-             # mechanism happened to still vary day to day with weather and correlated with yield as a
-             # rough proxy. Every other crop (corn, soybean, silage corn) keeps the Campbell mechanism,
-             # since none of them are known to have this same "always reports fully unstressed" problem
-             # at this site. Restores the exact pre-2026-09-25 fallback code path and calibration
-             # (confirmed via git history: byte-identical to commit aed6a20, and the fallback path's
-             # own three functions are unchanged between that commit and now) -- correlation returns
-             # to 0.523, the validated pre-switch number, not re-run against real Cycles output this
-             # session since the reference data (/tmp/cycles-run) no longer exists in this container;
-             # confidence in the 0.523 figure rests on that git-history equivalence, not a fresh run.
+             make_layers=make_layers, calibration_factor=0.7506,  # CORRECTED 2026-09-28. Wheat is
+             # still deliberately exempted from the hydraulic-conductance mechanism
+             # (campbell_water_uptake(), see CORN's own comment in run_validation.py), by simply not
+             # giving it lwp_stress_onset/lwp_wilting_point -- the engine's own graceful fallback (see
+             # simulate_season()'s crop_ct precompute) routes wheat through the older
+             # root_zone_availability()/water_stress_response()/extract_transpiration() trio instead.
+             # That part of the reasoning still holds: the Campbell mechanism was verified working
+             # CORRECTLY for wheat (water_stress reads exactly 1.0 every day, all 9 years -- wheat's
+             # real root profile genuinely never gets that dry at Rock Springs), and wheat's real
+             # dominant driver is nitrogen (-0.894 vs 0.359 correlation against real Cycles' own
+             # stress columns), not water.
+             #
+             # The "0.523" figure this comment previously claimed for that state was never actually
+             # reproducible: a real git-bisect against a freshly re-obtained Cycles v1.4.4 reference
+             # (2026-09-28, this exact commit's own real Cycles run, not an assumption) showed every
+             # commit since the day-by-day nitrogen rebuild -- including the exact commit the "0.523"
+             # figure was supposedly measured at -- gives 0.411 against this real data, not 0.523.
+             # The reference data and the crop dict both check out (real mean matches to 2 decimals,
+             # soil/weather files are byte-identical to what's hardcoded here), so this was either a
+             # stale/incorrect historical measurement or came from a container whose own reference
+             # setup differed in some way that can no longer be reconstructed. Rather than chase a
+             # number that may never have been real, this was reported and set aside (see CLAUDE.md,
+             # "not the exception... nail down corn" -- wheat is explicitly the exception here).
+             #
+             # While nailing down CORN's own real N-tracking path (its own DEFAULT validation never
+             # tracks nitrogen, so this was purely a correctness check on an optional path), a real,
+             # separate, and much more consequential bug was found and fixed in simulate_season()'s
+             # shared day-by-day nitrogen mechanism itself: it passed biomass*10 into
+             # n_critical_pct()/n_marginal_demand_pct() (both of which want plain Mg/ha, per their
+             # own docstrings) and then applied the Mg-to-kg/pct conversion factor of 10 a SECOND time
+             # in demand_today_kg_ha, inflating daily nitrogen demand roughly an order of magnitude.
+             # Caught via the standard "does a very-high N rate converge to the no-tracking baseline"
+             # sanity check, which corn's optional N path failed outright (capped at the same yield
+             # and uptake whether given 150 or 2000 kg N/ha) -- see cycles_engine_validate.py's own
+             # comment at the fix site for the full account. Wheat's validation wires nitrogen in by
+             # default (below), so it was running this exact buggy math the whole time too. Fixing it
+             # moves wheat's own number again, in a DIFFERENT direction than the historical "0.523"
+             # claim: real mean 4.33 (old, buggy, still stale) -> uncalibrated 6.74 (fixed math, wheat
+             # is now correctly LESS nitrogen-stressed than the buggy version made it look) ->
+             # recalibrated here to match the real 3.9205414444444444 Mg/ha mean exactly (1.2895 *
+             # 3.9205414444444444 / 6.735047429878611). Correlation with this real bug fixed and the
+             # mean corrected: 0.285 -- worse than the unreproducible 0.523, and also worse than the
+             # 0.411 this exact crop dict gave under the OLD buggy math, confirming the demand-scaling
+             # bug was not itself the reason wheat's number wouldn't reproduce. Wheat's real accuracy
+             # question remains open and is explicitly NOT being chased further right now (the "rule"
+             # being nailed down this session is corn, not wheat) -- this calibration_factor exists so
+             # wheat's own mean stays honestly matched to real output under the corrected, no-longer-
+             # buggy shared engine, not as a claim that 0.285 is wheat's final answer.
+             #
              # calibration_factor before the LWP switch (1.2895) was re-derived 2026-09-25 (a second
              # time the same day) after replacing the season-total quadratic-plateau N-stress
              # mechanism with a real, day-by-day concentration-tracked one (see simulate_season()'s
              # own comment above canopy_n_kg_ha in cycles_engine_validate.py) -- correlation moved
-             # 0.473 -> 0.523 from this fix alone, recalibrated here (1.2075 * 4.328790555555556 /
-             # 4.053449054815334) to keep the mean matching the real 4.328790555555556 Mg/ha exactly
-             # in wheat's own real fertilization event (see n_applications=[(75, 90)] on the
+             # 0.473 -> (claimed 0.523, per the correction above, not reproducible) from this fix
+             # alone, recalibrated at the time to keep the mean matching the real 4.328790555555556
+             # Mg/ha in wheat's own real fertilization event (see n_applications=[(75, 90)] on the
              # validate() call below) -- before this, wheat's validation ran with NO nitrogen
              # tracking at all despite a real, disclosed 90 kg N/ha UAN application sitting in
              # CornSilageSoyWheat.operation (YEAR 3, DOY 75, the spring topdress after fall

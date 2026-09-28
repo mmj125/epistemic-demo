@@ -1601,17 +1601,21 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             if dGB_water_limited > 0:
                 weather_factor = rothc_temp_factor(tmean) * rothc_moisture_factor(layers[0]["theta"], layers[0]["fc"], layers[0]["pwp"])
                 n_pool += BACKGROUND_N_KG_HA_DAY * (1.0 + tillage_ft(tillage_dr, tillage_ftx_val)) * weather_factor
-            biomass_before_mg_ha = biomass * 10
-            n_crit_pct = n_critical_pct(biomass_before_mg_ha, crop)
+            # 2026-09-28 fix: biomass is already Mg/ha (what n_critical_pct/n_marginal_demand_pct
+            # want) -- the old biomass*10 here plus a duplicate *10 in demand_today_kg_ha below
+            # inflated daily N demand ~10x, capping corn's N-tracking path at the same yield
+            # regardless of rate (150 or 2000 kg N/ha gave identical results). See
+            # cycles_engine_validate.py's own comment at this fix for the full account.
+            n_crit_pct = n_critical_pct(biomass, crop)
             n_min_pct = crop.get("n_min_conc", 0.0) * 100
-            n_actual_pct = (canopy_n_kg_ha / (biomass_before_mg_ha * 10) if biomass_before_mg_ha > 1e-6
+            n_actual_pct = (canopy_n_kg_ha / (biomass * 10) if biomass > 1e-6
                             else crop["n_max_conc"] * 100)
             if n_actual_pct >= n_crit_pct or n_crit_pct <= n_min_pct:
                 n_stress = 1.0
             else:
                 n_stress = max(0.0, min(1.0, 1.0 - (n_crit_pct - n_actual_pct) / (n_crit_pct - n_min_pct)))
             dGB_n_limited = dGB_water_limited * n_stress
-            demand_today_kg_ha = dGB_n_limited * 10 * n_marginal_demand_pct(biomass_before_mg_ha, crop) * 10
+            demand_today_kg_ha = dGB_n_limited * 10 * n_marginal_demand_pct(biomass, crop)
             n_uptake_kg_ha = min(n_pool, demand_today_kg_ha)
             n_pool -= n_uptake_kg_ha
             n_uptake_total += n_uptake_kg_ha
@@ -1724,19 +1728,26 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
     lat_deg=40.6875, make_layers=make_layers)
 
 # Real GenericCrops.crop values for WinterWheat, same crop this engine already validates
-# elsewhere (correlation 0.523 against real Cycles output -- does NOT clear the classroom-
-# workable bar; used here only as a proxy for "some fall-planted, winter-surviving crop"
-# since it's the only one this engine has real parameters for, not because it's accurate).
+# elsewhere (correlation 0.285 against real Cycles output, corrected 2026-09-28 -- does NOT
+# clear the classroom-workable bar; used here only as a proxy for "some fall-planted,
+# winter-surviving crop" since it's the only one this engine has real parameters for, not
+# because it's accurate).
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
     rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=0.8288, canopy_shape=(5, -14, -15, 16),  # REVERTED 2026-09-28: wheat is
-    # deliberately exempted from the hydraulic-conductance mechanism, for the same reason and in
-    # the same way as run_validation_rotation2.py's own validated WHEAT dict (see its detailed
-    # comment) -- simply not setting lwp_stress_onset/lwp_wilting_point routes it through the
-    # engine's own graceful fallback. This file's copy is used only for the cover-crop role, never
-    # itself validated against real Cycles output, so it's reverted for consistency with the
-    # validated cash-crop dict rather than independently re-derived -- confirmed via git history
-    # to be the exact pre-2026-09-25 value (commit aed6a20).
+    calibration_factor=0.4824, canopy_shape=(5, -14, -15, 16),  # CORRECTED 2026-09-28, twice in
+    # one pass. Wheat is still deliberately exempted from the hydraulic-conductance mechanism,
+    # for the same reason as run_validation_rotation2.py's own validated WHEAT dict (see its
+    # detailed comment) -- simply not setting lwp_stress_onset/lwp_wilting_point routes it
+    # through the engine's own graceful fallback. But the "0.523" this comment used to claim was
+    # never reproducible against a fresh real Cycles reference (a real git-bisect showed 0.411,
+    # not 0.523, at the exact commit it was supposedly measured at -- see model-validation.html's
+    # gap-list item 26 for the full account), and a real, separate bug in the shared day-by-day
+    # nitrogen mechanism (found while nailing down corn's own optional N-tracking path, fixed the
+    # same day) moved the validated number again, to 0.285. This file's own WHEAT copy is used
+    # only for the cover-crop role, never itself validated against real Cycles output, so its
+    # calibration_factor is rescaled by the exact same ratio the validated dict moved by
+    # (0.8288 * 0.7506/1.2895) rather than independently re-derived against a scenario it
+    # doesn't run.
     kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=40.6875, make_layers=make_layers,
     n_max_conc=0.07, n_dilution_slope=0.45, legume=False,
     n_min_conc=0.002,  # real GenericCrops.crop N_MIN_CONCENTRATION_STRAW (0.2%), added 2026-09-25

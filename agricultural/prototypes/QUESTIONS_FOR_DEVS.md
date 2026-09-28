@@ -1774,3 +1774,49 @@ against real Cycles output before concluding the gap is real.
   a real, if likely modest, further reduction in fresh-start overshoot on top of the gains
   already logged in item 6 above -- not yet confirmed with fresh numbers, flagged here rather
   than guessed at.
+
+- **The wheat "0.523" figure quoted throughout this project since 2026-09-25 was never
+  reproducible, and a real, separate demand-scaling bug was found and fixed in the shared
+  day-by-day nitrogen mechanism (2026-09-28).** Found while deliberately setting wheat aside
+  ("nail down corn, not the exception") and focusing on corn's own optional nitrogen-tracking
+  path, which corn's default validation never exercises at all.
+
+  A real git-bisect against a freshly-obtained, hash-verified Cycles v1.4.4 reference
+  (`ContinuousCorn`'s own output matched the documented historical md5 exactly, confirming
+  the reference setup itself is trustworthy) checked out and ran every commit since the
+  day-by-day nitrogen rebuild, including the exact commit whose own comment names it as the
+  0.523 measurement point. Every one of them gives 0.411 against this real data, not 0.523.
+  The real reference wheat yields match this project's own historical numbers exactly (mean
+  3.92 Mg/ha to two decimals -- an implausible coincidence if the underlying data had changed),
+  the soil file matches `SOIL_LAYERS_RAW` exactly, and the weather file is the same one
+  `ContinuousCorn` already validated byte-for-byte. So this isn't the same kind of
+  data-provenance problem as the earlier corn 0.771-vs-0.540 correction -- the code, run
+  against real data it should reproduce, simply doesn't reproduce the number this project had
+  been quoting. Most likely explanation: 0.523 was measured against a real Cycles reference in
+  an earlier, since-wiped container instance whose own setup differed in some way that can no
+  longer be reconstructed. Not worth chasing further -- the ground truth it would need to be
+  checked against no longer exists.
+
+  Separately, while checking corn's own optional N-tracking path against this same real data:
+  `simulate_season()`'s shared day-by-day nitrogen mechanism had a real bug.
+  `biomass_before_mg_ha = biomass * 10` passed an already-10x-inflated value into
+  `n_critical_pct()`/`n_marginal_demand_pct()` (both want plain Mg/ha, per their own
+  docstrings), and `demand_today_kg_ha` separately applied the Mg-to-kg/percent conversion
+  factor of 10 a *second* time. Together these inflated daily nitrogen demand roughly an order
+  of magnitude. Caught by the standard sanity check every other nitrogen mechanism in this
+  engine has been held to (a very-high nitrogen rate should converge to the exact no-tracking
+  baseline) -- corn's optional path failed it outright: 150 kg N/ha and 2000 kg N/ha gave the
+  identical, badly-undershooting yield, since demand so vastly outstripped any real supply that
+  more fertilizer could never matter. Fixed to use `biomass` directly and apply the conversion
+  factor once; verified N=150 through N=2000 now all correctly converge to the unconstrained
+  baseline for a representative year, and that the standing tillage and manure-equivalence
+  sanity checks both still pass at a genuinely (re-discovered) limiting rate.
+
+  Corn's own validated 0.527 correlation is unaffected (its default validation never executes
+  this code path). Wheat's default validation does wire nitrogen in, so fixing the bug moved
+  its number again: real mean 4.33 (stale, under the old buggy math) -> uncalibrated 6.74 under
+  the fixed math (wheat is genuinely less nitrogen-stressed than the bug made it look) ->
+  recalibrated to the real 3.92 Mg/ha mean exactly -> correlation 0.285, worse than both the
+  unreproducible 0.523 and the 0.411 the same crop dict gave under the old buggy math --
+  confirming the demand-scaling bug was not itself the reason 0.523 couldn't be reproduced.
+  Wheat's real accuracy remains open and was deliberately not chased further this session.

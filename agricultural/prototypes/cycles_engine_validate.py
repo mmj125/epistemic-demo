@@ -1842,17 +1842,33 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             if dGB_water_limited > 0:
                 weather_factor = rothc_temp_factor(tmean) * rothc_moisture_factor(layers[0]["theta"], layers[0]["fc"], layers[0]["pwp"])
                 n_pool += BACKGROUND_N_KG_HA_DAY * (1.0 + tillage_ft(tillage_dr, tillage_ftx_val)) * weather_factor
-            biomass_before_mg_ha = biomass * 10
-            n_crit_pct = n_critical_pct(biomass_before_mg_ha, crop)
+            # biomass is already in Mg/ha (the same units n_critical_pct/n_marginal_demand_pct's
+            # own docstrings and NCRIT_FLOOR_MGHA expect) -- a real bug here, found 2026-09-28
+            # while "nailing down corn": this block used to pass biomass*10 to both functions
+            # (a stray, mislabeled "biomass_before_mg_ha" conversion that was never actually
+            # Mg/ha) and separately applied the Mg-to-kg/pct conversion factor of 10 TWICE in
+            # demand_today_kg_ha below, inflating daily nitrogen demand by roughly an order of
+            # magnitude. Caught by the standard sanity check every other N mechanism in this
+            # file is held to (a very-high n_rate should converge to the no-tracking baseline)
+            # -- corn instead capped at the exact same ~133 kg/ha uptake and ~4.65 Mg/ha grain
+            # whether given 150 or 2000 kg N/ha, since demand so badly outstripped any real
+            # supply that more fertilizer could never matter. Verified fixed: N=150 through
+            # N=2000 all now reproduce the unconstrained baseline exactly for a representative
+            # year. Corn's own DEFAULT validation (n_rate_kg_ha=None) never executes this block
+            # at all, so this fix does not change corn's validated 0.527 correlation -- but it
+            # does change any crop (wheat, by default; corn/silage corn/soybean if a caller
+            # turns nitrogen on, e.g. model-validation.html's own controls) that already wires
+            # nitrogen in, since every one of them was running this same buggy math.
+            n_crit_pct = n_critical_pct(biomass, crop)
             n_min_pct = crop.get("n_min_conc", 0.0) * 100
-            n_actual_pct = (canopy_n_kg_ha / (biomass_before_mg_ha * 10) if biomass_before_mg_ha > 1e-6
+            n_actual_pct = (canopy_n_kg_ha / (biomass * 10) if biomass > 1e-6
                             else crop["n_max_conc"] * 100)
             if n_actual_pct >= n_crit_pct or n_crit_pct <= n_min_pct:
                 n_stress = 1.0
             else:
                 n_stress = max(0.0, min(1.0, 1.0 - (n_crit_pct - n_actual_pct) / (n_crit_pct - n_min_pct)))
             dGB_n_limited = dGB_water_limited * n_stress
-            demand_today_kg_ha = dGB_n_limited * 10 * n_marginal_demand_pct(biomass_before_mg_ha, crop) * 10
+            demand_today_kg_ha = dGB_n_limited * 10 * n_marginal_demand_pct(biomass, crop)
             n_uptake_kg_ha = min(n_pool, demand_today_kg_ha)
             n_pool -= n_uptake_kg_ha
             n_uptake_total += n_uptake_kg_ha
