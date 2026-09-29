@@ -687,38 +687,57 @@ def extract_transpiration(layers, root_depth_m, tr_mm):
 # rather than silently presented as exact.
 # ---------------------------------------------------------------------------
 
-LEAF_WATER_POTENTIAL_AT_FC = -30.0  # J/kg -- the real reference tension the CropSyst manual's
-# own Campbell-curve fit uses for "field capacity" ("estimated from known water content at
-# field capacity [-30 J/kg]... and permanent wilting point [-1,500 J/kg]"). NOT an independent
-# input: by construction of layer_water_potential()'s own per-layer a/b fit below, soil water
-# potential AT field capacity always equals exactly this value, for every layer, regardless of
-# texture -- that's what makes total_root_conductance()'s CT formula (which needs "yfc") work
-# from already-available data with no extra soil input.
+LEAF_WATER_POTENTIAL_AT_FC = -30.0  # J/kg -- the real reference tension the CropSyst manual
+# states for "field capacity" ("estimated from known water content at field capacity
+# [-30 J/kg]... and permanent wilting point [-1,500 J/kg]"), used as "yfc" in
+# total_root_conductance()'s CT formula. Previously true BY CONSTRUCTION of
+# layer_water_potential()'s own per-layer two-point fit (psi(fc) was forced to exactly -30
+# for every layer) -- that fit was replaced 2026-09-29 with the real Campbell (1985)
+# psi_e/theta_sat/b curve (see layer_water_potential()'s own docstring for why and the
+# sourcing), which does NOT generally give exactly -30 J/kg at theta=fc for every soil
+# texture. This constant is now a separate, still-real, still-cited reference value (the
+# manual's own stated yfc), not a guaranteed identity -- kept as-is since it's what the
+# manual itself specifies for this formula, not derived from the soil-potential curve.
 CROP_WATER_POTENTIAL_K_SEC_PER_DAY = 86400.0  # seconds/day -- the manual's own "K", converting
 # between the per-day quantities this engine already tracks (Trpot, WUmax) and the per-second
 # terms the real conductance formulas are stated in.
 
 
-def layer_water_potential(theta, fc, pwp):
-    """Real Campbell (1985) soil-water-potential curve: ysl = -a*WCl^(-b). a/b are fit per
-    LAYER against that layer's own already-computed field capacity (taken as the real -30 J/kg
-    reference tension) and wilting point (-1500 J/kg) -- both already produced by
-    saxton_rawls() for every layer in this engine:
-        b = ln(1500/30) / ln(fc/pwp)
-        a = 30 * fc**b
-    A DIFFERENT, unrelated Campbell-curve parameterization already exists in this file
-    (campbell_khe()'s psi_e_kpa/B, normalized against saturation/air-entry pressure, used for
-    inter-layer drainage) -- this is not that. This fit is normalized directly against each
-    layer's own real fc/pwp points, the specific normalization the manual's own CT/leaf-water-
-    potential formulas are built around (see LEAF_WATER_POTENTIAL_AT_FC above). Returns J/kg,
-    numerically ~equal to kPa for water -- consistent with LWP_STRESS_ONSET/LWP_WILTING_POINT's
-    own real GenericCrops.crop units, so no unit conversion is needed anywhere this is used
-    alongside those crop-file values."""
-    if fc <= pwp or theta <= 0:
-        return -1500.0  # degenerate soil data, or theta at/below zero -- treat as maximally dry
-    b = math.log(1500.0 / 30.0) / math.log(fc / pwp)
-    a = 30.0 * fc ** b
-    return -a * theta ** (-b)
+def layer_water_potential(theta, sat, psi_e_kpa, b):
+    """Real Campbell (1985) soil-water-potential curve: psi = -psi_e*(theta/theta_sat)^(-b) --
+    confirmed directly from a real, precisely-cited source (Stockle, Pickering & Nelson 2019,
+    "Using CropSyst to Evaluate Biochar as a Soil Amendment for Crops," Table 3 footnote,
+    citing Campbell 1985 "Transport models for soil-plant systems" by name; Stockle is
+    CropSyst's own lead developer). Matt supplied this report 2026-09-29 after being pointed
+    at the CropSyst manual/C++ source as the likely place to find it.
+
+    REPLACES an earlier, ad hoc two-point fit (git history: `ysl=-a*WCl^(-b)`, with a/b solved
+    to force psi(fc)=-30 J/kg and psi(pwp)=-1500 J/kg exactly, invented rather than sourced) --
+    that fit was diagnosed as the actual cause of this engine's compressed year-to-year yield
+    variance (corn/silage corn both showed roughly half of real Cycles' own stdev at Rock
+    Springs): for realistic fc/pwp ratios (~2-2.4 here), it made stress onset require depleting
+    soil moisture to within ~5% of wilting point before triggering AT ALL, confirmed directly
+    against a real 26-day zero-rain dry spell (1981, doy 216-241) that drew layer 0 down only
+    ~20% through its available range while `water_stress` stayed pinned at exactly 1.0 the
+    whole time -- real Cycles reports 26-77% stress in several of these exact years.
+
+    This is NOT a new parameterization -- it's the SAME real curve campbell_khe() already
+    implements (`theta(psi) = theta_sat*(psi_e/psi)^(1/b)`, inverted here to solve for psi
+    given theta) using the SAME real Saxton-Rawls-derived psi_e_kpa/B already computed per
+    layer and already verified against Saxton-Rawls' own Table 3. This function and
+    campbell_khe() are now one curve solved for two different things, not two independent
+    parameterizations -- the docstring note below to the contrary is now stale and was true
+    only of the fit this replaces.
+
+    psi_e_kpa is a positive air-entry-pressure magnitude (Saxton-Rawls' own convention,
+    confirmed against their Table 3); psi itself is negative (suction), hence the leading
+    minus sign. Returns J/kg, numerically ~equal to kPa for water -- consistent with
+    LWP_STRESS_ONSET/LWP_WILTING_POINT's own real GenericCrops.crop units, so no unit
+    conversion is needed anywhere this is used alongside those crop-file values."""
+    if theta <= 0 or sat <= 0:
+        return -1.0e6  # degenerate soil data, or theta at/below zero -- treat as maximally dry
+    theta = min(theta, sat)  # the curve is only defined for theta <= saturation
+    return -psi_e_kpa * (theta / sat) ** (-b)
 
 
 def total_root_conductance(wumax_mm_day, lwp_stress_onset):
@@ -836,7 +855,7 @@ def campbell_water_uptake(layers, root_depth_m, trp_mm_day, canopy_cover_frac, c
     for i, l in enumerate(layers):
         if fl[i] <= 0:
             continue
-        ys[i] = layer_water_potential(l["theta"], l["fc"], l["pwp"])
+        ys[i] = layer_water_potential(l["theta"], l["sat"], l["psi_e_kpa"], l["B"])
         avg_ys += fl[i] * ys[i]
     K = CROP_WATER_POTENTIAL_K_SEC_PER_DAY
     trp_m_day = trp_mm_day / 1000.0
