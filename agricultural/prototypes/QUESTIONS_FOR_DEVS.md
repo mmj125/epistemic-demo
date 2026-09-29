@@ -184,6 +184,80 @@ against real Cycles output before concluding the gap is real.
    with the compounding canopy-cover gap). A corn-specific refit (6, -20, -12, 12)
    helps the level bias but not silage corn's underlying correlation problem (item 6).
 
+   **Update, 2026-09-29 -- a much larger version of the same gap found at a real
+   water-limited site, and the paper's own disclosed fix tested and rejected.**
+   While digging into the water-balance/root-uptake mechanism at Kansas (per Matt's
+   direct "Go dig into the water-balance/root-uptake mechanism at low-PAW soils
+   next," following up on the multi-year Kansas ground truth obtained the same
+   day -- see item 6's own 2026-09-29 update), compared real Cycles' own daily
+   FRAC INTERCEP against this engine's thermal-time-only `canopy_cover()` prediction
+   (fed real Cycles' own reported THERMAL_TIME, controlling for any thermal-time
+   accumulation difference) across three real Kansas seasons (1985, 1988, 1996).
+   The gap dwarfs anything seen at Rock Springs: real FRAC_INTERCEP plateaus at
+   0.25-0.48 in every one of the three years, while the prediction climbs to
+   0.94-0.99 as usual -- a 0.5-0.7 absolute gap sustained for weeks, not the ~5%
+   peak-level bias item 5's own corn/wheat findings above describe. The gap tracks
+   closely with real Cycles' own WATER STRESS and N STRESS columns both being
+   substantially elevated (40-100%) during the same weeks -- confirmed absent at
+   Rock Springs by the identical check (gap stays within +-0.05 across two full
+   seasons, including one, 2012, with real stress episodes), so this is specific to
+   a genuinely water-limited site, not a general flaw in the shape constants
+   already covered above.
+
+   Found the paper's own literal, disclosed explanation for a stress-canopy link,
+   but only for nitrogen, not water: Section 2.4's text (not previously read this
+   closely) states outright "The first derivative of Eq. (6) is used to estimate
+   the rate of change of e_i as a function of TTf. The rate is reduced by N
+   stress. Haying, grazing, tillage, and cold damage reduce e_i and TTf,
+   rejuvenating the canopy." No water-stress term is mentioned anywhere near this
+   passage. Implemented literally and tested: replaced the raw thermal-time input
+   to `canopy_cover()` with a second, N-stress-discounted "canopy clock"
+   (`canopy_tt_cum += dtt * n_stress_prev`, using the previous day's already-
+   computed `n_stress` to avoid reordering the existing nitrogen bookkeeping) --
+   an exact, verified no-op whenever nitrogen tracking is inactive (corn/soybean/
+   silage corn's own default validation reproduced byte-for-byte: 0.527/0.799/
+   0.182 respectively, confirmed via `git stash` A/B, not just inspection).
+   Wheat's own default validation DOES track nitrogen, so this was a real test
+   there: correlation moved 0.341 -> 0.301, worse, not better. At Kansas (the
+   actual target): mean relative yield (N=0/N=150) moved from 0.934 to 0.968 --
+   further from real Cycles' 0.779, the wrong direction -- though the year-to-year
+   PATTERN correlation between this engine's and real Cycles' own relative-yield
+   series improved slightly (0.186 -> 0.254). Diagnosed why rather than left
+   unexplained: a smaller, N-stress-throttled canopy also demands less
+   transpiration (`TRp` scales with `eie`), so the crop draws down its own soil
+   moisture more slowly and dodges hard water-stress zeros MORE often, not less --
+   a real second-order feedback that outweighs the direct radiation-limiting
+   effect of a smaller canopy. **Reverted** -- a real, correctly-sourced,
+   correctly-implemented mechanism that nonetheless makes the actual target worse,
+   matching this project's standing discipline of not shipping a fix that costs
+   more than it gains (the same call already made for the reverted power-law
+   water-stress fit and the reverted flat-RUE-discount attempt).
+
+   Also tested, as an unsourced but physically-motivated candidate (real leaf
+   expansion is well known to be turgor/water-potential-sensitive, even though
+   the paper's own text names only N stress): the identical mechanism, discounting
+   the canopy clock by `water_stress` instead of `n_stress`. This one touches
+   EVERY crop's default validation (water stress is always active, unlike N
+   stress), and the result was unambiguously worse across the board -- corn
+   0.527->0.524, soybean 0.799->0.784, wheat 0.341->0.309, silage corn
+   0.182->0.175, all four Rock Springs baselines regressed, AND Kansas's own
+   mean relative yield moved further from target too (0.934->0.942, correlation
+   0.186->0.148). **Reverted.** Both reverts confirmed via `git checkout` back to
+   the exact pre-change file and a full re-run of both validation harnesses.
+
+   Net conclusion: the canopy-cover gap at Kansas is real, large, and precisely
+   quantified, but neither the paper's own disclosed N-stress mechanism nor the
+   plausible-but-undisclosed water-stress analogue explains it -- both make
+   things worse when actually implemented and tested, not better. This rules out
+   the two most obvious candidates rather than leaving them untried, but the
+   canopy gap's real cause is still open. Worth trying next, if this is picked up
+   again: checking whether the gap is better explained by something upstream of
+   canopy entirely (e.g. a real per-hybrid or per-site plant-density factor this
+   engine always leaves at 1.0, Eq. 7's own PDf term, since a lower effective
+   stand density would suppress canopy closure directly without needing any
+   stress-feedback mechanism at all) before trying a third stress-coupling
+   variant.
+
 6. **Silage corn's and winter wheat's weak year-to-year correlation (0.50 and
    0.25) turn out to be two distinct problems, not one, after directly comparing
    our computed water stress against real Cycles' own WATER STRESS output column
@@ -970,6 +1044,45 @@ against real Cycles output before concluding the gap is real.
    Cycles run in this project's history) -- not committed to this repo, and will need
    rebuilding again from the same committed tile data if `/tmp/cycles-run` resets before
    this is revisited.
+
+   **Update, 2026-09-29, same day -- planting date checked and ruled out as the driver
+   too, then the real cause traced to the canopy-cover mechanism (see item 5's own
+   2026-09-29 update for that full account).** Per Matt's direct "Go dig into the
+   water-balance/root-uptake mechanism at low-PAW soils next," first compared this
+   engine's own computed planting date (`find_planting_doy()`, already validated at
+   Rock Springs to 2.65 days mean absolute error) against real Cycles' own real
+   `PLANT_DATE` at Kansas across all 37 years. A real, systematic, much larger gap:
+   this engine plants a mean of 7.6 days EARLIER than real Cycles at Kansas (up to 21
+   days in the worst years -- 1992, 1996, 2012, 2014), almost always stuck at the
+   planting window's earliest allowed day (DOY 110), while real Cycles' own planting
+   date varies meaningfully by year (110-131), tracking real spring-warmth variation
+   the way this engine's mechanism does correctly at Rock Springs but evidently
+   doesn't at Kansas's different soil/climate. Tested directly whether this explained
+   the muted nitrogen response: forced this engine to use real Cycles' own exact
+   planting date instead of its own computed one, at the four worst-gap years and
+   across the full 37-year record. Result: **made things worse, not better** -- mean
+   relative yield moved from 0.935 to 0.958 (further from real Cycles' 0.779), and the
+   already-weak correlation between this engine's and real Cycles' own year-to-year
+   relative-yield pattern dropped from 0.186 to 0.090. Ruled out as the driver, though
+   the planting-date discrepancy itself is real and worth its own fix eventually (a
+   separate question from the nitrogen-response muting this investigation was
+   actually chasing) -- most likely the same generic soil-temperature lag filter
+   (`simulate_soil_temp`, k=0.15) calibrated implicitly via Rock Springs validation
+   doesn't transfer to a different soil's real thermal properties, but not
+   investigated further here since fixing it doesn't address the actual target.
+
+   The investigation then moved to canopy cover (item 5's own 2026-09-29 update has
+   the full account): real Cycles' actual FRAC INTERCEP at Kansas plateaus at 0.25-0.48
+   during real stress episodes across three tested years, vs. this engine's
+   thermal-time-only canopy formula predicting 0.94-0.99 regardless -- a large,
+   consistent, previously-undocumented gap, confirmed absent at Rock Springs. Two
+   real candidate fixes (the paper's own disclosed N-stress-discounted canopy clock,
+   and an unsourced-but-plausible water-stress analogue) were implemented and tested;
+   both made Kansas's relative yield worse, not better, and were reverted. This
+   engine's water-uptake mechanism itself (`campbell_water_uptake()`, already the
+   primary suspect per the entries above) remains the most likely place still worth
+   investigating, but the canopy-cover gap is now a separate, equally real, equally
+   unresolved finding in its own right -- not something either tested fix closes.
 
 7. **The soil water redistribution scheme (Eq. 1-2) -- largely resolved, one piece
    still open.** Originally: the paper gives the real capacitance-weighted flow
