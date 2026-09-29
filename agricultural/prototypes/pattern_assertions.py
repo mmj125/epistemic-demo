@@ -354,6 +354,89 @@ def c_resolved_vs_exact_rock_springs():
     )
 
 
+@check("Corn:soybean yield ratio at a realistic N rate stays within a real-world-plausible band")
+def c_corn_soy_ratio_plausible():
+    # Standing check for the cross-crop-calibration-drift failure mode found 2026-09-29 (see
+    # c_crop_crossover above): that check flags a SPECIFIC claim (a crossover at low N) that
+    # is currently false and may never be restored -- it can't by itself catch a future
+    # engine change that makes the cross-crop relationship WORSE in some other way, since a
+    # check against a already-false claim has nothing further to say once it's failing.
+    # This check is deliberately independent of Cycles entirely, using real USDA NASS
+    # national-average yields as external ground truth (looked up directly this session, not
+    # from memory): 2024 corn 179.3 bu/ac / 2024 soybean 50.7 bu/ac
+    # (https://www.nass.usda.gov/Newsroom/printable/2025/2025_Jan_10_Crop_Production_News_
+    # Release.pdf), converted at each crop's own real bushel weight (56 lb/bu corn, 60 lb/bu
+    # soybean) to 11.25 Mg/ha corn vs. 3.41 Mg/ha soybean -- a real, sourced ratio of ~3.3x.
+    # That figure is a NATIONAL average across all soils/climates/years, not this specific
+    # site/year, so the band below is deliberately wide (2.0-5.0x) -- this is a plausibility
+    # fence, not a point-fit target. As of 2026-09-29 this fails at Iowa (see detail below):
+    # a real, quantified confirmation of the same underlying under-yielding-corn pathology
+    # the vanished crossover already pointed at, now checked against an independent
+    # real-world reference instead of just against soybean's own relative behavior.
+    corn = run_crop_season("iowa", 2012, CORN, n_rate_kg_ha=650)["grain"]
+    soy = run_crop_season("iowa", 2012, SOYBEAN, n_rate_kg_ha=650)["grain"]
+    ratio = corn / soy
+    ok = 2.0 <= ratio <= 5.0
+    return ok, (
+        f"corn {corn:.2f} Mg/ha, soybean {soy:.2f} Mg/ha, ratio {ratio:.2f}x at a "
+        f"well-fertilized rate (N=650) -- real USDA NASS national-average ratio is ~3.3x "
+        f"(2024: corn 11.25 Mg/ha, soybean 3.41 Mg/ha); band is 2.0-5.0x, deliberately wide "
+        f"since this is one site/year against a national average, not a point-fit target"
+    )
+
+
+@check("Corn's unfertilized check-plot yield stays a plausible fraction of its fertilized yield")
+def c_checkplot_relative_yield():
+    # The concrete "option 2" investigation (2026-09-29): is corn's own absolute zero-N
+    # yield defensible, independent of its relationship to soybean? Real N-omission-trial
+    # literature (Frontiers in Env. Science 2022, corn N-omission plots, searched this
+    # session) reports relative yield (check-plot / optimally-fertilized) from ~29% at
+    # low-yielding sites up to ~71% at high-yielding ones -- so a real, defensible band for
+    # this ratio is roughly 0.20-0.80, generous at both ends since site quality varies a lot.
+    # Checked directly against the EXACT validated Rock Springs record (all 37 years, via
+    # /tmp/cycles-run, not the tile-resolved path this file otherwise uses) before writing
+    # this band: mean relative yield there is 0.681 (range 0.605-0.748 across all 37 years)
+    # -- squarely inside the real literature's range, meaning corn's OWN calibration, at the
+    # site it's actually calibrated against, is independently defensible. This check instead
+    # runs the three resolved-tile sites this file already uses, and the result is
+    # different: as of 2026-09-29, Kansas reads 0.99 (essentially zero fertilizer response)
+    # and Iowa reads 0.90 -- both far above the real ceiling, meaning the SAME engine that
+    # behaves plausibly at its one hand-validated site behaves implausibly at resolved-tile
+    # sites. Confirmed the actual mechanism directly (not just inferred) by inspecting
+    # n_uptake_kg_ha at N=0 vs. N=650: at Kansas, N=0 uptake (11.57 kg/ha) is already 91% of
+    # N=650 uptake (12.64) -- not because background credit is unusually large there (15.39
+    # kg/ha total, the smallest of the three sites), but because real N DEMAND has collapsed
+    # along with biomass under severe water stress, so even a small background credit
+    # covers nearly all of a nearly-nonexistent demand. Rock Springs' own uptake ratio here
+    # is a more moderate 71%, consistent with less severe water limitation. This is a
+    # genuine, separate finding from the crossover -- not fixed here, flagged as a standing
+    # check so it's caught immediately if it gets worse, and as a lead for whoever
+    # investigates next: the fix is more likely in how water-limited growth interacts with N
+    # demand (a badly water-stressed crop probably shouldn't look nearly as
+    # nitrogen-satisfied as an unstressed one, real agronomy) than in the background-credit
+    # constant itself (see CLAUDE.md's dated entry for 2026-09-29).
+    bad = []
+    for site in ("rock_springs", "iowa", "kansas"):
+        lo = run_crop_season(site, 2012, CORN, n_rate_kg_ha=0)["grain"]
+        hi = run_crop_season(site, 2012, CORN, n_rate_kg_ha=650)["grain"]
+        rel = lo / hi if hi else float("nan")
+        if not (0.20 <= rel <= 0.80):
+            bad.append((site, rel))
+    detail = ", ".join(
+        f"{s}: {run_crop_season(s, 2012, CORN, n_rate_kg_ha=0)['grain'] / run_crop_season(s, 2012, CORN, n_rate_kg_ha=650)['grain']:.2f}"
+        for s in ("rock_springs", "iowa", "kansas")
+    )
+    return len(bad) == 0, (
+        f"relative yield (N=0/N=650) by site: {detail} -- real N-omission-trial literature "
+        f"puts this at roughly 0.20-0.80; the exact validated Rock Springs record (37 years, "
+        f"/tmp/cycles-run) independently checked at 0.68, inside range -- if any resolved-"
+        f"tile site above is out of range, real N demand has very likely collapsed along "
+        f"with water-stressed biomass at that site, letting even a modest background N "
+        f"credit cover nearly all of it (confirmed directly for Kansas via n_uptake_kg_ha, "
+        f"see this check's own docstring) -- not a soybean-specific problem"
+    )
+
+
 @check("Water stress and canopy cover stay within their physical [0,1] bounds")
 def c_bounds_check():
     r = run_crop_season("kansas", 2012, CORN, n_rate_kg_ha=650, record_history=True)
