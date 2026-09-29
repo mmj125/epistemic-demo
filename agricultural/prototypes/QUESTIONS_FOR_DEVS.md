@@ -820,6 +820,96 @@ against real Cycles output before concluding the gap is real.
    0.73x under, MAE 0.54-0.63 -> 0.35 Mg/ha) -- real progress on the diagnosed confound, not a
    clean resolution into "now correctly calibrated."
 
+   **Update, 2026-09-29 -- a new, previously-undocumented downstream consequence of this
+   same root cause, found while investigating why real classroom nitrogen-response patterns
+   had silently vanished (see CLAUDE.md's dated entries for the full narrative; this is the
+   mechanistic follow-through on that finding).** The pattern-assertion suite's new
+   `c_checkplot_relative_yield` check found corn shows an implausibly small nitrogen response
+   (relative yield 0.82-0.99, vs. a real literature range of 0.20-0.80) at every resolved-tile
+   site tested, and -- more tellingly -- at EVERY year tested at Kansas specifically (11 years
+   spanning 1985-2015, not just the single worst drought year), while Iowa shows a real,
+   sensible response (0.75-0.90, varying plausibly with year) across the same span. Traced the
+   exact mechanism directly, not inferred: `simulate_season()`'s nitrogen demand for a given
+   day is `demand_today_kg_ha = dGB_water_limited * n_stress * 10 * n_marginal_demand_pct(...)`
+   -- i.e. nitrogen demand is gated MULTIPLICATIVELY by the same day's water-limited growth
+   (`dGB_water_limited = max(0, min(GR,GT)) * NET_GROWTH_FRACTION / 1000`). On any day where
+   `campbell_water_uptake()` returns `water_stress=0.0` (GT driven to exactly zero, not just
+   reduced), nitrogen demand for that day is ALSO exactly zero, regardless of fertilizer
+   supply -- nitrogen can never bind as the limiting factor on a day water has already
+   zeroed out. Instrumented `water_stress` day-by-day across the same 11-year span at both
+   sites (via `record_history=True`): Kansas spends 12-58% of every single growing season at
+   `water_stress<0.01`, including relatively wet years by its own standard (2009: 12%, 1997:
+   19%), vs. Iowa's 0-2% in wet years and up to 40% only in its driest tested year (1988).
+   Real Kansas (Manter series) soil is genuinely thin-profiled (127mm total plant-available
+   water across 1.52m, vs. Iowa/Canisteo's 221mm) and semi-arid (130-491mm growing-season
+   precip across the same span vs. Iowa's 293-763mm) -- so SOME real water limitation there
+   is expected and correctly reflects real soil/climate data, not an artifact. What does NOT
+   look defensible is the near-total absence of yield response to fertilizer across an entire
+   30-year span including years that aren't severe droughts by Kansas's own standard -- real
+   western-Kansas dryland corn extension guidance still recommends a real, nonzero N rate
+   specifically because a real, if modest, response persists even under meaningful water
+   limitation, which is also consistent with the real N-omission-trial literature's own
+   20-80% relative-yield range (i.e., even literature's worst, most water-limited sites still
+   show a REAL, substantial response, not near-zero).
+
+   This reframes the diagnosis precisely: the nitrogen-demand coupling ITSELF is not the bug
+   -- tying N demand to water-limited (not potential) growth is defensible in principle, since
+   real nitrogen uptake is itself water-mediated (mass flow/diffusion both require water
+   movement) and a wilted plant genuinely can't take up much N regardless of soil supply. The
+   bug, if there is one, is entirely upstream: `campbell_water_uptake()` (the hydraulic-
+   conductance mechanism from the 2026-09-25 update above) returns an exact, hard zero far
+   more persistently at Kansas's real thin-profile soil than real crops plausibly experience,
+   and because of the coupling above, that hard zero doesn't just distort yield magnitude
+   (already known, see the fresh-start/chained overshoot numbers above) -- it also makes
+   nitrogen look completely irrelevant at that site, for every single year tested, which is a
+   materially worse and more specific classroom risk than "the yield number is a bit high."
+
+   Deliberately NOT patched here: retuning the N-demand formula itself to avoid a literal zero
+   (e.g. flooring `dGB_water_limited` at some small nonzero value on stressed days) would be
+   an invented, unsourced mechanism -- exactly the "tinkering around the edges" this project's
+   own standing discipline rules out, and it would mask the real upstream problem rather than
+   fix it. Six real, sourced fixes have already been tried and failed at closing this same
+   Kansas gap (see the update above and the "Resolved without asking" section) -- none of them
+   touched the N-demand coupling, since this specific downstream consequence (nitrogen looking
+   irrelevant, not just yield running high) wasn't identified until this pass.
+
+   **Recovery-time hypothesis checked directly, ruled out (same day):** instrumented a
+   day-by-day trace of Kansas 2009 (a mild year, only 12% hard-zero days) and found
+   `campbell_water_uptake()` recovers FAST and correctly once real rain actually falls -- a
+   20mm event on doy 171, mid-stretch of consecutive zero days, produces water_stress=0.601
+   the SAME day, and a 30mm event on doy 210 gives 0.753 the same day. The persistent
+   hard-zero stretches line up exactly with real, literal 0mm-precipitation runs in the real
+   NLDAS-2 weather data (doy 168-170, 177-179, 186-197, etc.), not a sluggish or broken
+   recovery mechanism -- so this specific candidate explanation is ruled out, not just
+   unconfirmed.
+
+   A second thing checked and NOT obviously damning on its own: total seasonal nitrogen
+   demand at Kansas (9.5-12.6 kg N/ha across N=0-650 at the 2012 drought year) looks small in
+   absolute terms, but roughly tracks a standard real-world rule of thumb (~20-25 kg N per Mg
+   of grain yield) applied to Kansas's own low ~0.7 Mg/ha grain yield there -- i.e. LOW total N
+   demand at a LOW-yield-potential site isn't obviously wrong in isolation; the open question
+   is whether real Cycles' own Kansas yield potential (and hence N demand) is really this low
+   across a full multi-year span, not just the single 2012 point already checked against real
+   Cycles (where real Cycles shows an EVEN lower yield than this engine does, 0.137 vs. 0.70
+   Mg/ha -- i.e. real Cycles is already known to be more pessimistic than this engine at
+   Kansas, not less, for that one data point).
+
+   This narrows the real open question to one that needs real Cycles ground truth, not more
+   engine-side instrumentation: does real Cycles ALSO show a near-flat nitrogen response
+   across several non-drought Kansas years, or does it show a real, substantial response even
+   at low absolute yield (consistent with the real N-omission-trial literature's 20-80%
+   relative-yield range, which this engine's Kansas numbers currently fall well outside of)?
+   Answering this needs real Kansas `.weather`/`.soil`/`.operation`/`.ctrl` input files run
+   through the actual Cycles binary at 2-3 more years and at least two N rates -- the same
+   real-vs-model comparison already used successfully for the single 2012 point earlier this
+   project, just not yet repeated across multiple years. Not attempted in this pass: this
+   session's `/tmp/cycles-run` no longer has the Kansas input files built for that earlier
+   comparison (this container was reprovisioned since, the same recurring loss this file's
+   CLAUDE.md entry already documents and expects) -- rebuilding them is a real, bounded task
+   (derivable from the already-committed STATSGO2/NLDAS-2 tile data the same way it was built
+   once before), not a new investigation, and is the highest-value next step if this is picked
+   up again.
+
 7. **The soil water redistribution scheme (Eq. 1-2) -- largely resolved, one piece
    still open.** Originally: the paper gives the real capacitance-weighted flow
    equation (khe as a function of saturated hydraulic conductivity ks, air-entry

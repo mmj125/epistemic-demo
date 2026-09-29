@@ -410,11 +410,24 @@ def c_checkplot_relative_yield():
     # covers nearly all of a nearly-nonexistent demand. Rock Springs' own uptake ratio here
     # is a more moderate 71%, consistent with less severe water limitation. This is a
     # genuine, separate finding from the crossover -- not fixed here, flagged as a standing
-    # check so it's caught immediately if it gets worse, and as a lead for whoever
-    # investigates next: the fix is more likely in how water-limited growth interacts with N
-    # demand (a badly water-stressed crop probably shouldn't look nearly as
-    # nitrogen-satisfied as an unstressed one, real agronomy) than in the background-credit
-    # constant itself (see CLAUDE.md's dated entry for 2026-09-29).
+    # check so it's caught immediately if it gets worse.
+    #
+    # Investigated further (2026-09-29, same day): confirmed this ISN'T specific to 2012's
+    # extreme drought -- Kansas shows relative yield 0.92-1.00 at EVERY year checked across
+    # 1985-2015 (11 years), including years that aren't severe droughts by Kansas's own
+    # standard, while Iowa shows a real, sensible 0.75-0.90 varying plausibly with year over
+    # the same span. Ruled out a sluggish-recovery bug directly (not just assumed correct):
+    # campbell_water_uptake() recovers the SAME DAY a real rain event lands (e.g. 20mm on one
+    # day flips water_stress from 0.0 to 0.601 immediately) -- the persistent hard-zero
+    # stretches track real, literal zero-precipitation runs in the actual NLDAS-2 weather
+    # data, not a broken or slow recovery mechanism. The nitrogen-demand coupling itself
+    # (dGB_water_limited * n_stress) is also defensible in principle, not obviously the bug --
+    # real N uptake genuinely is water-mediated. What's still open, and needs real Cycles
+    # ground truth (not more engine-side guessing) to resolve: whether real Cycles ALSO shows
+    # a near-flat N response across several non-drought Kansas years, or a real, substantial
+    # one even at low absolute yield -- see QUESTIONS_FOR_DEVS.md item 6's 2026-09-29 update
+    # for the full account and the concrete next step (real Cycles input files for Kansas at
+    # 2-3 more years, not yet rebuilt since /tmp/cycles-run reset again this session).
     bad = []
     for site in ("rock_springs", "iowa", "kansas"):
         lo = run_crop_season(site, 2012, CORN, n_rate_kg_ha=0)["grain"]
