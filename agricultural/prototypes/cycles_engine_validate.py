@@ -1272,10 +1272,19 @@ BACKGROUND_N_KG_HA_DAY = 0.5
 def rothc_temp_factor(tmean):
     """Real RothC temperature rate-modifier (Coleman & Jenkinson), quoted verbatim from the
     model's own Fortran source: RM_TMP = 0 for T<-5C, else 47.91/(exp(106.06/(T+18.27))+1.0).
-    Ranges from 0 at/below -5C through 1.0 around 30C (its own real behavior, not tuned for
-    this engine) -- used here to scale BACKGROUND_N_KG_HA_DAY's flat rate by how warm a given
-    day actually was, giving real, sourced year-to-year variability the flat constant never
-    had."""
+
+    CORRECTED 2026-09-29: this docstring previously claimed the factor "ranges from 0 at/below
+    -5C through 1.0 around 30C" -- checked directly and that is false. The real curve crosses
+    1.0 around 9.5C (RothC's own real calibration reference, roughly a UK annual mean
+    temperature) and keeps climbing well past it for anything warmer: 1.90 at 15C, 2.82 at
+    20C, 3.80 at 25C, 4.79 at 30C. That's real RothC behavior, not a bug in this function --
+    RothC's own base decomposition rates are calibrated assuming this factor swings from near-0
+    in winter to several-fold-above-1 in summer, averaged back down over a full annual cycle
+    that includes cold months. This engine only ever samples the WARM half of that cycle
+    (background N only accrues on days with actual crop growth, i.e. real growing-season days,
+    never winter), so using the raw, unnormalized value here systematically over-credited
+    background nitrogen by roughly 3x relative to what BACKGROUND_N_KG_HA_DAY was actually
+    calibrated for -- see ROTHC_WEATHER_FACTOR_NORM below for the fix and how it was found."""
     if tmean < -5.0:
         return 0.0
     return 47.91 / (math.exp(106.06 / (tmean + 18.27)) + 1.0)
@@ -1297,6 +1306,45 @@ def rothc_moisture_factor(theta, fc, pwp, min_factor=0.2):
     frac = max(0.0, min(1.0, (theta - pwp) / (fc - pwp)))
     return min_factor + (1.0 - min_factor) * frac
 
+
+ROTHC_WEATHER_FACTOR_NORM = 2.025
+# Real bug found and fixed 2026-09-29, via the pattern-assertion test suite (see
+# pattern_assertions.py): rothc_temp_factor()'s raw output, multiplied directly into
+# BACKGROUND_N_KG_HA_DAY as if it were a 0-1 "how warm was today" dimmer, was in fact
+# averaging around 3x above 1.0 for any real growing season, since real RothC's own
+# temperature curve is not bounded near 1 in warm conditions (see that function's own
+# corrected docstring). Combined with rothc_moisture_factor()'s own real, correctly-bounded
+# behavior, the two together were systematically over-crediting background soil nitrogen
+# by a large, unintended margin -- caught because it made the nitrogen knob show ZERO
+# effect on corn yield at Iowa, Kansas, Maryland, North Dakota, and even a tile-resolved
+# Rock Springs, since background alone already exceeded real crop N demand before any
+# fertilizer was added. The exact, hand-curated Rock Springs validation path still showed
+# a weak-but-real nitrogen response, which is what let this go unnoticed for so long --
+# it was close enough to the edge there that the bug happened not to fully swamp the signal
+# for that one specific site, but any other real location tipped over into "N never
+# matters," exactly the false, harmful classroom pattern this whole audit was built to
+# catch.
+#
+# Fixed by normalizing the raw temp*moisture product against its own empirical average
+# over a real reference record, rather than capping or removing the real temperature
+# variability this mechanism exists to provide. The reference: every real growing day
+# (the same days background actually accrues on: dGB_water_limited > 0) across the full,
+# real, validated 37-year Rock Springs record (1980-2016), instrumented directly by
+# running the real simulate_season() with a hook capturing every rothc_temp_factor()/
+# rothc_moisture_factor() call, not a synthetic guess -- mean rothc_temp_factor 2.818,
+# mean rothc_moisture_factor 0.688, mean combined weather_factor 2.025 (n=4630 real
+# growing-day samples). Dividing by this constant makes a "typical" Rock Springs growing
+# day read ~1.0 (matching what BACKGROUND_N_KG_HA_DAY was actually calibrated to assume
+# in the first place, before this weather scaling was added on 2026-09-24), while
+# preserving every bit of the real day-to-day and year-to-year relative variability the
+# raw RothC shape provides -- a warmer/wetter-than-average day still credits more than a
+# cooler/drier one, just around the right center of mass instead of three times too high.
+#
+# This constant is intentionally tied to ONE reference record (Rock Springs) rather than
+# derived per-site, matching this project's own established practice for similar
+# calibration constants (e.g. tillage_clay_frac's own Rock-Springs-topsoil default) --
+# revisit if a second, independently-validated real-Cycles reference record ever becomes
+# available to check it against.
 
 # ---------------------------------------------------------------------------
 # Tillage's real decomposition-acceleration factor (Kemanian & Stockle 2010,
@@ -1840,7 +1888,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             if w["doy"] in applications_by_doy:
                 n_pool += applications_by_doy[w["doy"]]
             if dGB_water_limited > 0:
-                weather_factor = rothc_temp_factor(tmean) * rothc_moisture_factor(layers[0]["theta"], layers[0]["fc"], layers[0]["pwp"])
+                weather_factor = (rothc_temp_factor(tmean) * rothc_moisture_factor(layers[0]["theta"], layers[0]["fc"], layers[0]["pwp"])
+                                   / ROTHC_WEATHER_FACTOR_NORM)  # see ROTHC_WEATHER_FACTOR_NORM's own docstring -- fixed 2026-09-29
                 n_pool += BACKGROUND_N_KG_HA_DAY * (1.0 + tillage_ft(tillage_dr, tillage_ftx_val)) * weather_factor
             # biomass is already in Mg/ha (the same units n_critical_pct/n_marginal_demand_pct's
             # own docstrings and NCRIT_FLOOR_MGHA expect) -- a real bug here, found 2026-09-28

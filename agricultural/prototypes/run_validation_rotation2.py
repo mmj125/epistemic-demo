@@ -65,8 +65,36 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
              rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
              kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=LAT,
-             make_layers=make_layers, calibration_factor=0.7506,  # CORRECTED 2026-09-28. Wheat is
-             # still deliberately exempted from the hydraulic-conductance mechanism
+             make_layers=make_layers, calibration_factor=0.7528,  # CORRECTED 2026-09-29 (see top of
+             # file's own note below this one) -- was 0.7506 as of 2026-09-28.
+             #
+             # 2026-09-29: a real, previously-undiscovered bug was found and fixed in
+             # cycles_engine_validate.py's rothc_temp_factor() usage, via a new pattern-assertion
+             # test suite (pattern_assertions.py) built to check DIRECTION of classroom-relevant
+             # claims rather than point accuracy -- it found corn showing ZERO nitrogen response
+             # at every multi-site test location, traced to rothc_temp_factor()'s raw output being
+             # multiplied straight into BACKGROUND_N_KG_HA_DAY as if it were a bounded 0-1 "how
+             # warm was today" dimmer. It isn't: real RothC's own curve crosses 1.0 around 9.5C and
+             # keeps climbing (2.82 at 20C, 4.79 at 30C), so any real growing season was getting
+             # background nitrogen credited at roughly 3x the rate BACKGROUND_N_KG_HA_DAY was
+             # actually calibrated for. Fixed by normalizing against the empirical mean of that
+             # same raw weather factor across every real growing day in the full validated 37-year
+             # Rock Springs record (2.025, see ROTHC_WEATHER_FACTOR_NORM's own docstring in
+             # cycles_engine_validate.py for the full derivation) -- this makes a typical Rock
+             # Springs growing day read ~1.0 again, matching the original design intent, while
+             # keeping all the real day-to-day/year-to-year variability the raw RothC shape
+             # provides. Confirmed by direct A/B toggle of the new normalization constant that
+             # soybean and silage corn's own default validation (neither activates nitrogen
+             # tracking) are BYTE-IDENTICAL before and after this fix -- only wheat, the one crop
+             # whose default validation tracks real nitrogen, moved: correlation 0.285 -> 0.341,
+             # mean recalibrated here (0.7506 -> 0.7528) to match the real 3.9205414444444444
+             # Mg/ha mean exactly. A real, separate, pre-existing problem was also found while
+             # doing this A/B check and is NOT fixed here, out of scope for this fix: silage
+             # corn's own correlation is currently 0.182 (real mean 13.22 vs. model 14.81 Mg/ha),
+             # present identically whether today's fix is on or off, so it predates this session's
+             # work and needs its own separate diagnosis pass.
+             #
+             # Wheat is still deliberately exempted from the hydraulic-conductance mechanism
              # (campbell_water_uptake(), see CORN's own comment in run_validation.py), by simply not
              # giving it lwp_stress_onset/lwp_wilting_point -- the engine's own graceful fallback (see
              # simulate_season()'s crop_ct precompute) routes wheat through the older

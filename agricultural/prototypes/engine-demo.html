@@ -1364,6 +1364,16 @@ def rothc_moisture_factor(theta, fc, pwp, min_factor=0.2):
     frac = max(0.0, min(1.0, (theta - pwp) / (fc - pwp)))
     return min_factor + (1.0 - min_factor) * frac
 
+ROTHC_WEATHER_FACTOR_NORM = 2.025
+# Real bug fixed 2026-09-29: rothc_temp_factor()'s raw output is NOT bounded near 1 in warm
+# conditions (real RothC crosses 1.0 around 9.5C and keeps climbing -- 2.82 at 20C, 4.79 at
+# 30C), so multiplying it straight into BACKGROUND_N_KG_HA_DAY was over-crediting background
+# nitrogen by roughly 3x for any real growing season, making the nitrogen knob show zero
+# effect everywhere except the one site (Rock Springs) this was originally tuned against.
+# Normalized against the empirical mean of this same raw factor across every real growing
+# day in the full 37-year Rock Springs record. See cycles_engine_validate.py's
+# ROTHC_WEATHER_FACTOR_NORM for the full derivation.
+
 def tillage_ftx(clay_frac):
     return 1 + 4 * math.exp(-5.5 * clay_frac)
 
@@ -1599,7 +1609,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             if w["doy"] in applications_by_doy:
                 n_pool += applications_by_doy[w["doy"]]
             if dGB_water_limited > 0:
-                weather_factor = rothc_temp_factor(tmean) * rothc_moisture_factor(layers[0]["theta"], layers[0]["fc"], layers[0]["pwp"])
+                weather_factor = (rothc_temp_factor(tmean) * rothc_moisture_factor(layers[0]["theta"], layers[0]["fc"], layers[0]["pwp"])
+                                   / ROTHC_WEATHER_FACTOR_NORM)
                 n_pool += BACKGROUND_N_KG_HA_DAY * (1.0 + tillage_ft(tillage_dr, tillage_ftx_val)) * weather_factor
             # 2026-09-28 fix: biomass is already Mg/ha (what n_critical_pct/n_marginal_demand_pct
             # want) -- the old biomass*10 here plus a duplicate *10 in demand_today_kg_ha below
@@ -1734,7 +1745,9 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
 # because it's accurate).
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
     rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=0.4824, canopy_shape=(5, -14, -15, 16),  # CORRECTED 2026-09-28, twice in
+    calibration_factor=0.4838, canopy_shape=(5, -14, -15, 16),  # CORRECTED 2026-09-29 (was 0.4824
+    # as of 2026-09-28, rescaled by the same ratio the validated dict moved by after the
+    # 2026-09-29 ROTHC_WEATHER_FACTOR_NORM background-nitrogen fix). CORRECTED 2026-09-28, twice in
     # one pass. Wheat is still deliberately exempted from the hydraulic-conductance mechanism,
     # for the same reason as run_validation_rotation2.py's own validated WHEAT dict (see its
     # detailed comment) -- simply not setting lwp_stress_onset/lwp_wilting_point routes it
@@ -1869,7 +1882,8 @@ def bare_fallow_leaching(weather_rows, n_pool_initial, lat_deg=40.6875, curve_nu
     for w in weather_rows:
         tmean = (w["tx"] + w["tn"]) / 2
         if tmean > 0:
-            weather_factor = rothc_temp_factor(tmean) * rothc_moisture_factor(layers[0]["theta"], layers[0]["fc"], layers[0]["pwp"])
+            weather_factor = (rothc_temp_factor(tmean) * rothc_moisture_factor(layers[0]["theta"], layers[0]["fc"], layers[0]["pwp"])
+                               / ROTHC_WEATHER_FACTOR_NORM)
             n_pool += BACKGROUND_N_KG_HA_DAY * weather_factor
         drainage_mm, _ = infiltrate(layers, w["pp"], curve_number, slope_pct)
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], lat_deg)
