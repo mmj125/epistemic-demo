@@ -422,31 +422,52 @@ def c_checkplot_relative_yield():
     # stretches track real, literal zero-precipitation runs in the actual NLDAS-2 weather
     # data, not a broken or slow recovery mechanism. The nitrogen-demand coupling itself
     # (dGB_water_limited * n_stress) is also defensible in principle, not obviously the bug --
-    # real N uptake genuinely is water-mediated. What's still open, and needs real Cycles
-    # ground truth (not more engine-side guessing) to resolve: whether real Cycles ALSO shows
-    # a near-flat N response across several non-drought Kansas years, or a real, substantial
-    # one even at low absolute yield -- see QUESTIONS_FOR_DEVS.md item 6's 2026-09-29 update
-    # for the full account and the concrete next step (real Cycles input files for Kansas at
-    # 2-3 more years, not yet rebuilt since /tmp/cycles-run reset again this session).
+    # real N uptake genuinely is water-mediated.
+    #
+    # RESOLVED with real ground truth (2026-09-29, later the same day): rebuilt real Kansas
+    # `.weather`/`.soil`/`.operation`/`.ctrl` files (from the same committed STATSGO2/NLDAS-2
+    # tile data this check already uses) and ran the actual Cycles v1.4.4 binary for the
+    # FULL 37-year record at N=0/150/300. Real Cycles' own mean relative yield there is
+    # 0.779 -- squarely inside the real literature band, NOT near 1.0 -- and it varies
+    # meaningfully by year (0.344-1.028 across 37 years), splitting into 10 real "FLAT"
+    # years (rel > 0.95, including 2012, real Cycles' own worst drought there) and 27 real
+    # "RESPONSE" years (rel <= 0.95). This engine's own mean relative yield across the same
+    # 37 years is 0.934 -- a genuine, quantified MUTING of nitrogen sensitivity, not (as
+    # first suspected) a complete structural absence of it: this engine does show *some*
+    # response (rel<0.95) in 13 of the 37 years, 11 of which correctly overlap with real
+    # Cycles' own response years, but consistently smaller in magnitude, and it misses most
+    # of real Cycles' milder response years (rel 0.75-0.90) entirely, rendering them flat.
+    # Genuinely good, unexpected news alongside this: at N=150 (the real fertilized rate),
+    # this engine's yield correlates 0.777 against real Cycles across the full 37 years
+    # (MAE 0.656 Mg/ha, only a 12% undershoot on average) -- a new, real Kansas corn
+    # validation number, actually a bit BETTER than corn's own headline Rock Springs
+    # correlation (0.527-0.550). At N=0 correlation drops to 0.551 with a 13% overshoot,
+    # consistent with this engine's own muted nitrogen sensitivity. Full account, including
+    # the year-by-year FLAT/RESPONSE split, in QUESTIONS_FOR_DEVS.md item 6's 2026-09-29
+    # update. Kansas's own test year below was moved from 2012 (a real Cycles FLAT year,
+    # where this engine's flat behavior happens to be correct, making 2012 a poor test of
+    # the muting problem) to 1997 (a real, substantial RESPONSE year per real Cycles,
+    # rel=0.774, cleanly inside the literature band) specifically so this check fails for
+    # the right reason -- real muting, not a coincidence of which year got picked.
     bad = []
-    for site in ("rock_springs", "iowa", "kansas"):
-        lo = run_crop_season(site, 2012, CORN, n_rate_kg_ha=0)["grain"]
-        hi = run_crop_season(site, 2012, CORN, n_rate_kg_ha=650)["grain"]
+    for site, year in (("rock_springs", 2012), ("iowa", 2012), ("kansas", 1997)):
+        lo = run_crop_season(site, year, CORN, n_rate_kg_ha=0)["grain"]
+        hi = run_crop_season(site, year, CORN, n_rate_kg_ha=650)["grain"]
         rel = lo / hi if hi else float("nan")
         if not (0.20 <= rel <= 0.80):
             bad.append((site, rel))
     detail = ", ".join(
-        f"{s}: {run_crop_season(s, 2012, CORN, n_rate_kg_ha=0)['grain'] / run_crop_season(s, 2012, CORN, n_rate_kg_ha=650)['grain']:.2f}"
-        for s in ("rock_springs", "iowa", "kansas")
+        f"{s}({y}): {run_crop_season(s, y, CORN, n_rate_kg_ha=0)['grain'] / run_crop_season(s, y, CORN, n_rate_kg_ha=650)['grain']:.2f}"
+        for s, y in (("rock_springs", 2012), ("iowa", 2012), ("kansas", 1997))
     )
     return len(bad) == 0, (
-        f"relative yield (N=0/N=650) by site: {detail} -- real N-omission-trial literature "
-        f"puts this at roughly 0.20-0.80; the exact validated Rock Springs record (37 years, "
-        f"/tmp/cycles-run) independently checked at 0.68, inside range -- if any resolved-"
-        f"tile site above is out of range, real N demand has very likely collapsed along "
-        f"with water-stressed biomass at that site, letting even a modest background N "
-        f"credit cover nearly all of it (confirmed directly for Kansas via n_uptake_kg_ha, "
-        f"see this check's own docstring) -- not a soybean-specific problem"
+        f"relative yield (N=0/N=650) by site(year): {detail} -- real N-omission-trial "
+        f"literature puts this at roughly 0.20-0.80; the exact validated Rock Springs record "
+        f"(37 years, /tmp/cycles-run) independently checked at 0.68, inside range; real "
+        f"Cycles' own full 37-year Kansas mean is 0.78 (varies 0.34-1.03 by year), also "
+        f"inside range -- this engine's own Kansas mean (0.93) is a genuine, quantified "
+        f"muting of nitrogen sensitivity relative to real Cycles, not a coincidence of "
+        f"which year was picked (see this check's own docstring for the full account)"
     )
 
 

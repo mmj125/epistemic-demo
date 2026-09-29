@@ -910,6 +910,67 @@ against real Cycles output before concluding the gap is real.
    once before), not a new investigation, and is the highest-value next step if this is picked
    up again.
 
+   **Update, 2026-09-29, decisive real ground truth obtained (same day, per Matt's direct
+   "Go rebuild Kansas's real Cycles input files and run it").** Rebuilt real
+   `Kansas.weather`/`Kansas.soil`/`KansasN{0,150,300}.operation`/`KansasN{0,150,300}.ctrl`
+   from the same already-committed STATSGO2/NLDAS-2 tile data this engine's own resolved-
+   tile pathway uses (via `field_data.py`), matching the bundled `ContinuousCorn` sample's
+   own rotation/tillage/planting structure exactly for direct comparability. Ran the real
+   Cycles v1.4.4 binary for the full 37-year record (1980-2016) at N=0/150/300 kg/ha.
+
+   **Real Cycles does NOT show a near-flat nitrogen response at Kansas.** Mean relative
+   yield (N=0/N=150) across all 37 years is 0.779 -- squarely inside, near the top of, the
+   real N-omission-trial literature's 0.20-0.80 range -- and it varies meaningfully by year
+   (0.344 to 1.028), splitting cleanly into 10 real "FLAT" years (relative yield > 0.95:
+   1980, 1984, 1985, 1994, 2000, 2005, 2008, 2009, 2010, 2012 -- 2012, the single point
+   already checked in an earlier session, is one of these, which is why testing this
+   engine's own behavior against 2012 alone was a poor test of the muting problem: even
+   real Cycles is flat there) and 27 real "RESPONSE" years, several with a dramatic real
+   response (1996: 0.344, 1983: 0.480, 1993: 0.478, 1991: 0.485, 1998: 0.474). N=150 and
+   N=300 gave byte-identical yield in every single year in real Cycles (a real, clean
+   saturation at or below 150 kg N/ha at this lower-yield-potential site -- consistent with,
+   not contradicting, this engine's own plateau-by-N=50-ish behavior there).
+
+   This engine's own mean relative yield across the identical 37 years is 0.934 -- confirms
+   this is a real, quantified MUTING of nitrogen sensitivity, not (as the pre-ground-truth
+   framing above suggested) a complete structural absence of it. This engine shows some
+   response (relative yield < 0.95) in 13 of the 37 years; 11 of those correctly overlap
+   with real Cycles' own RESPONSE years (1982, 1986, 1989, 1992, 1996, 2002, 2004, 2006,
+   2011, 2013, 2014), meaning this engine's water-stress mechanism DOES pick out roughly the
+   right subset of stressed years -- it just understates the magnitude in nearly every one
+   of them, and misses entirely the large group of real RESPONSE years where real Cycles'
+   own relative yield sits in the milder 0.75-0.90 band (1988, 1997, 1999, 2003, 2007, 2015,
+   2016 among others) -- this engine renders essentially all of those as flat (rel~1.00).
+
+   A genuinely good, previously-undocumented finding fell out of building this real
+   comparison: at N=150 (the real fertilized rate), this engine's yield correlates **0.777**
+   against real Cycles across the full 37 years (MAE 0.656 Mg/ha, mean 2.265 vs. real 2.569,
+   only a 12% undershoot) -- a new, real Kansas corn validation number, actually somewhat
+   BETTER than corn's own headline Rock Springs correlation (0.527-0.550). At N=0 the
+   correlation drops to 0.551 with a 13% overshoot (mean 2.115 vs. real 1.871), consistent
+   with this engine's own muted sensitivity inflating unfertilized yield specifically. This
+   reframes the Kansas story from "this engine badly overshoots yield there" (the original,
+   single-point 2012 framing) to something more precise: this engine tracks real Cycles'
+   year-to-year *ranking* reasonably well at a realistic fertilized rate (0.777 correlation
+   is genuinely solid), and its remaining gap is concentrated specifically in how much
+   nitrogen matters, not in overall yield magnitude across the full record.
+
+   Confirms the diagnosis from the entry above with real ground truth rather than
+   inference: this is a genuine engine gap (real Cycles clearly produces meaningful,
+   varying multi-year nitrogen sensitivity at a real semi-arid site), not a "Kansas is just
+   like this" site characteristic this engine happens to reflect correctly. The most likely
+   remaining target, per the same reasoning as before, is still the water-balance/root-
+   uptake mechanism's own year-to-year behavior at low-PAW soils (already flagged, still not
+   fully resolved after several real, sourced fixes this session and earlier), not the
+   nitrogen-demand coupling, which the recovery-time and demand-magnitude checks above
+   already found defensible. Real Kansas input files, real Cycles binary output, and this
+   comparison's own scratch analysis scripts live only in `/tmp/cycles-run`/the session
+   scratchpad, per this project's own standing licensing discipline (Cycles' generated
+   output is squarely what its CC BY-NC-ND license restricts, same as every other real
+   Cycles run in this project's history) -- not committed to this repo, and will need
+   rebuilding again from the same committed tile data if `/tmp/cycles-run` resets before
+   this is revisited.
+
 7. **The soil water redistribution scheme (Eq. 1-2) -- largely resolved, one piece
    still open.** Originally: the paper gives the real capacitance-weighted flow
    equation (khe as a function of saturated hydraulic conductivity ks, air-entry
