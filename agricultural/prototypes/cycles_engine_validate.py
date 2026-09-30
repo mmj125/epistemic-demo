@@ -810,15 +810,32 @@ def total_root_conductance(wumax_mm_day, lwp_stress_onset):
     return (1.5 * wumax_m_day) / denom if denom else 0.0
 
 
+EVAPORATIVE_LAYER_DEPTH_M = 0.10  # real, sourced (2026-09-30): Stockle, Martin & Campbell
+# 1994 (cropsyst.pdf, the original CropSyst manual), "Soil evaporation" section -- "soil
+# evaporation is modeled by assuming that the evaporation rate... is equal to potential
+# evaporation (PE) if the water content of the top 10 cm of soil (evaporative layer) is
+# above the permanent wilting point." A fixed PHYSICAL depth, not "whichever layer a given
+# soil's own discretization happens to call layer one" -- the prior treatment (excluding all
+# of layers[0] from root uptake) was diagnosed as wrong at real sites whose own first
+# STATSGO2 horizon doesn't happen to be 10cm: Kansas' layer 0 is 0.33m (walling off 23cm of
+# real root-accessible water), Rock Springs' is only 0.05m (not excluding enough, since its
+# own layer 1, 0.05-0.10m, is also within the real evaporative zone but wasn't excluded
+# before). Found by tracing a real Kansas storm (2012-07-09) that relieved real Cycles' own
+# reported water stress from ~99% to 15.7% while this engine's stayed pinned at 0.000 despite
+# a comparable topsoil moisture rise -- because the WHOLE 0.33m layer, not just its top 10cm,
+# was walled off from the crop.
+
+
 def root_length_fraction_by_layer(layers, root_depth_m):
     """Real FAO-56 depth-quartile root-water-extraction weighting (0.4/0.3/0.2/0.1, surface
     to deepest quarter of the current root zone) -- a real, disclosed substitute for
     CropSyst's own still-undisclosed exponential root-length-density curve (see the module
-    section header above this function). layers[0] (this engine's evaporative surface layer,
-    see soil_evaporation()) is EXCLUDED from root water uptake entirely, per the CropSyst
-    manual's own explicit rule ("No transpiration is allowed from soil layer one, the
-    evaporative layer") -- the remaining layers' weights are renormalized to sum to 1.0 so
-    that exclusion doesn't silently discard part of the crop's total root conductance."""
+    section header above this function). The top EVAPORATIVE_LAYER_DEPTH_M of the PROFILE
+    (not layer index 0 specifically -- see that constant's own docstring) is excluded from
+    root water uptake, per the CropSyst manual's real, disclosed 10cm evaporative-layer rule;
+    a layer straddling that boundary gets partial credit for whatever fraction of itself
+    lies below it. Remaining weights are renormalized to sum to 1.0 so the exclusion doesn't
+    silently discard part of the crop's total root conductance."""
     if root_depth_m <= 0:
         return [0.0] * len(layers)
     qweights = (0.4, 0.3, 0.2, 0.1)
@@ -830,10 +847,11 @@ def root_length_fraction_by_layer(layers, root_depth_m):
         if top >= root_depth_m:
             break
         bot = min(depth + l["thick"], root_depth_m)
-        if i > 0 and qdepth > 0:
+        root_top = max(top, EVAPORATIVE_LAYER_DEPTH_M)
+        if qdepth > 0 and root_top < bot:
             for q in range(4):
                 qtop, qbot = q * qdepth, (q + 1) * qdepth
-                overlap = max(0.0, min(bot, qbot) - max(top, qtop))
+                overlap = max(0.0, min(bot, qbot) - max(root_top, qtop))
                 if overlap > 0:
                     fl[i] += qweights[q] * (overlap / qdepth)
         depth += l["thick"]

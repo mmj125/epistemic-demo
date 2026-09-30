@@ -1568,7 +1568,20 @@ def total_root_conductance(wumax_mm_day, lwp_stress_onset):
     denom = (LEAF_WATER_POTENTIAL_AT_FC - lwp_stress_onset) * CROP_WATER_POTENTIAL_K_SEC_PER_DAY
     return (1.5 * wumax_m_day) / denom if denom else 0.0
 
+EVAPORATIVE_LAYER_DEPTH_M = 0.10  # real, sourced (2026-09-30): Stockle, Martin & Campbell
+# 1994 (cropsyst.pdf), "Soil evaporation": evaporation proceeds at the potential rate "if the
+# water content of the top 10 cm of soil (evaporative layer) is above the permanent wilting
+# point" -- a fixed physical depth, not "whichever layer a soil's own discretization calls
+# layer one." Excluding all of layer[0] (the prior rule) walled off 23cm of real root-
+# accessible water at Kansas (layer 0 = 0.33m there) while under-excluding at Rock Springs
+# (layer 0 = 0.05m). Found by tracing a real Kansas storm that relieved real Cycles' own
+# reported stress (99%->15.7%) while this engine's stayed pinned at 0.000 despite a
+# comparable topsoil moisture rise.
+
 def root_length_fraction_by_layer(layers, root_depth_m):
+    # Excludes the top EVAPORATIVE_LAYER_DEPTH_M of the PROFILE (not layer index 0) from
+    # root uptake -- a layer straddling that boundary gets partial credit for whatever
+    # fraction of itself lies below it.
     if root_depth_m <= 0:
         return [0.0] * len(layers)
     qweights = (0.4, 0.3, 0.2, 0.1)
@@ -1580,10 +1593,11 @@ def root_length_fraction_by_layer(layers, root_depth_m):
         if top >= root_depth_m:
             break
         bot = min(depth + l["thick"], root_depth_m)
-        if i > 0 and qdepth > 0:
+        root_top = max(top, EVAPORATIVE_LAYER_DEPTH_M)
+        if qdepth > 0 and root_top < bot:
             for q in range(4):
                 qtop, qbot = q * qdepth, (q + 1) * qdepth
-                overlap = max(0.0, min(bot, qbot) - max(top, qtop))
+                overlap = max(0.0, min(bot, qbot) - max(root_top, qtop))
                 if overlap > 0:
                     fl[i] += qweights[q] * (overlap / qdepth)
         depth += l["thick"]
