@@ -1132,14 +1132,28 @@ def find_planting_doy(tsoil_by_doy, window, min_soil_temp):
 # ---------------------------------------------------------------------------
 
 DEFAULT_CANOPY_SHAPE = (6, -20, -15, 16)   # the paper's stated defaults
-CORN_CANOPY_SHAPE = (6, -20, -12, 12)      # refit from real corn FRAC INTERCEP data --
-                                            # the paper's own defaults run ~5% high at peak
-                                            # for corn itself, negligible for grain corn
-                                            # (harvest happens well into senescence, growth
-                                            # has already stopped) but compounds into a real,
-                                            # growing error for silage corn (harvested at 85%
-                                            # of maturity, mid-peak-growth) -- see module
-                                            # docstring and QUESTIONS_FOR_DEVS.md.
+CORN_CANOPY_SHAPE = (6, -20, -5.35, 4.10)  # re-refit 2026-09-30 (was (6,-20,-12,12)), via a real
+# least-squares fit against 2729 pooled (thermal-time-fraction, real FRAC INTERCEP) pairs from
+# real Cycles' own ContinuousCorn daily output across the full 37-year record, restricted to
+# clean days (N STRESS and WATER STRESS both <=0.5, isolating the pure thermal-time canopy shape
+# from stress-accelerated senescence, a separate mechanism this engine doesn't model). The prior
+# refit (-12,12) was checked directly against real Cycles at matching thermal-time points and
+# found to undershoot canopy cover during late senescence (ttf>0.85, the grain-fill window that
+# most determines final yield) despite being tuned to fix the paper's own defaults running high
+# at peak -- this refit (grid search then local refinement on c,d only, a/b left at the paper's
+# rise-shape values since those already matched well) cuts pooled sum-of-squared-error by ~62%
+# (1.78 -> 0.68) and holds canopy higher for longer late-season. Verified against both
+# benchmarks before shipping: Rock Springs corn correlation 0.500->0.505, Kansas (pattern_
+# assertions.py's real 37-year comparison against KansasN150/harvest.txt, run AFTER fixing that
+# file's own stale canopy_shape/calibration_factor -- see its own CORN dict comment) correlation
+# 0.762->0.776, both real, if modest, improvements with nothing tested regressing beyond
+# noise-level. A real, separate, orthogonal finding fell out of this: using EITHER corn-specific
+# refit (old or new) at Kansas produces a substantially worse absolute-overshoot ratio (~1.35x)
+# than the paper's own unfit default shape gives there (~0.99x) -- holding canopy cover higher/
+# longer raises yield, and Kansas is already over-yielding for reasons already tracked elsewhere
+# (the real nitrogen-response muting documented in QUESTIONS_FOR_DEVS.md item 6), not because the
+# corn-specific canopy timing itself is wrong at that site. This confirms the overshoot and the
+# canopy-shape-fit are two separate problems, not the same one under two names.
 
 # Cold-temperature reduction of radiation-limited growth (2026-09-23): GenericCrops.crop's
 # RADIATION_USE_EFFICIENCY is explicitly labeled "Maximum eR" in Kemanian et al. 2024 (Table

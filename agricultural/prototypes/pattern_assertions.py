@@ -48,7 +48,7 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from cycles_engine_validate import (
     simulate_season, simulate_soil_temp, find_planting_doy,
-    saxton_rawls, OM_FROM_SOC, INITIAL_MOISTURE_FRACTION,
+    saxton_rawls, OM_FROM_SOC, INITIAL_MOISTURE_FRACTION, CORN_CANOPY_SHAPE,
 )
 import field_data as fd
 
@@ -65,7 +65,12 @@ import field_data as fd
 CORN = dict(
     tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=0.8490, kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0,
+    calibration_factor=1.1082,  # kept in sync w/ run_validation.py 2026-09-30 (real f_G HI fix)
+    canopy_shape=CORN_CANOPY_SHAPE,  # was missing entirely -- this dict had been silently
+    # running Kansas/multi-site checks on the paper's unfit default shape (6,-20,-15,16)
+    # instead of the corn-specific refit run_validation.py actually uses, found 2026-09-30
+    # while sensitivity-testing a canopy-senescence refit.
+    kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0,
     n_max_conc=0.055, n_dilution_slope=0.4, legume=False, n_min_conc=0.002,
     depletion_fraction=0.55, tr_max_mm_day=10, root_max_m=2.0, tt_emergence=65,
     lwp_stress_onset=-1100, lwp_wilting_point=-2000,

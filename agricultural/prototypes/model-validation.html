@@ -1781,7 +1781,7 @@ def find_planting_doy(tsoil_by_doy, window, min_soil_temp):
     return window[1]
 
 DEFAULT_CANOPY_SHAPE = (6, -20, -15, 16)
-CORN_CANOPY_SHAPE = (6, -20, -12, 12)
+CORN_CANOPY_SHAPE = (6, -20, -5.35, 4.10)
 
 def thermal_time_increment(tx, tn, base_t, opt_t, max_t):
     tmean = (tx + tn) / 2
@@ -2184,7 +2184,7 @@ def make_layers():
 
 CORN = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=1.1082, canopy_shape=CORN_CANOPY_SHAPE,  # recalibrated 2026-09-25 for the
+    calibration_factor=1.0977, canopy_shape=CORN_CANOPY_SHAPE,  # recalibrated 2026-09-25 for the
     # hydraulic-conductance water-stress mechanism (campbell_water_uptake(), see below) --
     # correlation moved 0.550 -> 0.527 from that switch alone (see CLAUDE.md/QUESTIONS_FOR_DEVS.md)
     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=40.6875, make_layers=make_layers,

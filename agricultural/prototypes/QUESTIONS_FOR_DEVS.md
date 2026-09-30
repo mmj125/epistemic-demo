@@ -2084,3 +2084,67 @@ against real Cycles output before concluding the gap is real.
   unreproducible 0.523 and the 0.411 the same crop dict gave under the old buggy math --
   confirming the demand-scaling bug was not itself the reason 0.523 couldn't be reproduced.
   Wheat's real accuracy remains open and was deliberately not chased further this session.
+
+* **Corn's canopy-senescence shape, root-density timing, and root-density curvature (2026-09-30,
+  continuing the "focus on corn" session).** Three checks against CropSyst's real public source/
+  manual, following directly from the linear-taper root-density fix's own success earlier this
+  session (see the water-stress-mechanism entry above): two real, sourced dead ends, and one
+  real, shipped improvement.
+
+  Dead end 1, root-density curvature: CropSyst's "Crop parameters: Root" manual page describes a
+  real "curvature of root density distribution" parameter (0-30, 0=the linear taper already
+  shipped, higher=more surface-concentrated). Confirmed directly via grep that Cycles' own real
+  `GenericCrops.crop` has no such field for any of its 45 crop entries -- only
+  `MAXIMUM_ROOTING_DEPTH`. A quick in-memory sensitivity test (never shipped) found a real
+  tradeoff, not a free improvement: higher curvature helps Rock Springs but hurts Kansas. Not
+  pursued further without a real sourced value.
+
+  Dead end 2, root-depth growth timing: CropSyst's real "Simulation crop: Root growth" formula
+  normalizes thermal-time progress from **emergence**, not planting, to a specific
+  `max_root_depth_deg_day` threshold (not necessarily 50% of thermal time to maturity, which is
+  what this engine assumes). Confirmed via grep that Cycles' own crop file has none of the three
+  parameters this would need (`max_root_depth_deg_day`, `start_rooting_depth`,
+  `length_at_emergence`) -- same gap as the curvature parameter. Tested the one real, sourced
+  structural piece anyway (shifting the normalization's start point to the already-real
+  `tt_emergence`, keeping the same 50%-of-maturity threshold): negligible effect at both
+  benchmarks (Rock Springs corn correlation 0.4996->0.4990; Kansas 0.7424->0.7417, overshoot
+  0.986->0.986 unchanged) -- not worth the added complexity for zero measurable benefit. Not
+  shipped.
+
+  Also checked CropSyst's canopy-interception mechanism (a real WebSearch turned up
+  `fPARi = 1-exp(-k*LAI)`, Beer's Law, k=0.45) as a candidate replacement for this engine's
+  direct thermal-time-based double-sigmoid -- same pattern again: LAI growth itself needs a
+  specific-leaf-area parameter Cycles' crop file doesn't carry. This isn't just a fourth dead
+  end, though -- it resolves a real question: it confirms Cycles deliberately abstracted LAI
+  away and uses a direct curve instead, so this engine's existing double-sigmoid approach is the
+  right level of abstraction, not a shortcut around a hidden more-accurate mechanism.
+
+  The real, shipped fix: `CORN_CANOPY_SHAPE`'s decline-shape constants (c,d) were refit via
+  actual least-squares against 2729 pooled (thermal-time-fraction, real FRAC INTERCEP) pairs from
+  real Cycles' own `ContinuousCorn` daily output, restricted to stress-free days to isolate the
+  pure canopy-shape signal. The prior refit (fit with less rigor, apparently) undershot real
+  canopy cover during late senescence (ttf>0.85, the grain-fill window). New shape (6,-20,-5.35,
+  4.10), cutting pooled SSE by ~62%. Also found and fixed a real, separate bug while testing this:
+  `pattern_assertions.py`'s own `CORN` dict had never set `canopy_shape` at all (silently running
+  every Kansas/multi-site check against the paper's unfit default shape, not the corn-specific
+  refit `run_validation.py` actually validates against) and was carrying a stale
+  `calibration_factor` from before this session's harvest-index fix -- both fixed together.
+  Verified: Rock Springs corn correlation 0.500->0.505, Kansas correlation 0.762->0.776 (after
+  the sync fix put Kansas on the real corn canopy shape for the first time), nothing regressing
+  beyond noise. A real, orthogonal finding fell out of this: either corn-specific canopy refit
+  (old or new) makes Kansas's absolute overshoot WORSE (~0.99x with the unfit default up to
+  ~1.35x with either refit) even as correlation improves -- confirms the overshoot and the
+  canopy-shape fit are two separate problems (the overshoot is the already-tracked real
+  nitrogen-response muting, not a canopy-timing issue).
+
+  One more real, not-yet-chased finding surfaced while fixing the sync bug: with `pattern_
+  assertions.py`'s `CORN` dict finally correct, a previously-undetected `c_hybrid_crossover`
+  failure appeared (confirmed via `git stash` to predate this session's canopy work, not caused
+  by it) -- North Dakota's long-season hybrid now beats the short-season one, when the real
+  climate-risk lesson (`agricultural/investigation.html` Tab 1, CLAUDE.md 2026-09-22) says the
+  short-season hybrid should win or tie at a cold site. Same shape of problem as the already-
+  documented vanished corn/soybean crossover: very likely a real consequence of how much the
+  engine has changed since that panel's numbers were last checked (HI fix, root-density fix,
+  water-stress mechanism, and now this canopy refit), not a new regression. Flagged, not chased
+  -- Tab 1's own claim needs its own dedicated look before it's trusted again, same standing
+  caveat already written for Tab 3's crossover.
