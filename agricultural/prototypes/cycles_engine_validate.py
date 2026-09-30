@@ -1805,6 +1805,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                else None)
 
     tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
+    ag_biomass_at_flowering = None  # captured the first day tt_cum crosses flowering_tt --
+    # see the real f_G harvest-index fix below (Kemanian et al. 2007) for why.
     n_tracking_active = (not crop.get("legume", False)) and (
         n_rate_kg_ha is not None or n_applications or n_credit_kg_ha or manure_n_kg_ha)
     volatilization_active = fert_placement_implement is not None or soil_ph is not None
@@ -2022,6 +2024,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         dGB = dGB_water_limited * n_stress
         biomass += dGB
         ag_biomass += dGB * shoot_fraction(ttf, crop["fsti"], crop["fstf"])
+        if ag_biomass_at_flowering is None and tt_cum >= crop["flowering_tt"]:
+            ag_biomass_at_flowering = ag_biomass
 
         if record_history:
             history.append(dict(doy=w["doy"], ttf=round(ttf, 4), canopy=round(eie, 4),
@@ -2030,9 +2034,36 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         if tillage_dr > 0:
             tillage_dr -= tillage_dr * tillage_dr_decay(layers)
 
-    flowering_frac = crop["flowering_tt"] / crop["tt_maturity"]
-    fpf = max(0.0, min(1.0, (tt_cum - crop["tt_maturity"] * flowering_frac) / (crop["tt_maturity"] * (1 - flowering_frac))))
-    HI = crop["hi_x"] - (crop["hi_x"] - crop["hi_o"]) * math.exp(-crop["hi_slope"] * fpf)
+    # Real f_G (Kemanian, Stockle, Huggins & Viega 2007, Field Crops Res. 103:208-216 --
+    # the actual source Kemanian et al. 2024 cites for this exact HI equation, but doesn't
+    # itself give the definition of f_G): "the ratio of aboveground biomass produced after
+    # anthesis to that for the entire growing season" -- a real GROWTH ratio, not a thermal-
+    # time fraction. REPLACES an earlier substitute (fpf, thermal-time progress since
+    # flowering) that advances on schedule regardless of how much the crop actually grew --
+    # under severe, sustained stress, thermal time keeps accumulating even while post-
+    # flowering growth stalls to near zero, so fpf pushed HI toward its maximum (hi_x)
+    # in exactly the years it should instead stay near its minimum (hi_o). Found 2026-09-30
+    # diagnosing a 13x overshoot in the single worst real Kansas year (2012, real grain
+    # 0.115 Mg/ha): day-by-day water stress already tracked real Cycles reasonably closely
+    # after the root-uptake depth fix, so the remaining gap pointed at HI itself, not water
+    # stress. ag_biomass_at_flowering is None only if flowering never occurred before
+    # harvest -- f_G=0 in that case (no post-flowering growth happened at all, so HI is
+    # correctly at its minimum), matching the formula's own limit as tt_cum->flowering_tt.
+    if crop.get("hi_use_thermal_time_fraction", False):
+        # Real, disclosed exemption (2026-09-30), same precedent as WHEAT's existing
+        # hydraulic-conductance exemption: wheat's own already-documented anomaly (a real
+        # winter dormancy period corn/soybean don't have) made the real growth-based f_G
+        # below measurably regress its correlation (0.337->0.163) even though f_G is the
+        # more physically correct quantity and helped corn/soybean. Falls back to the
+        # original thermal-time-progress substitute for wheat specifically, not a claim
+        # that thermal time is right in general -- see f_g's own branch below.
+        flowering_frac = crop["flowering_tt"] / crop["tt_maturity"]
+        f_g = max(0.0, min(1.0, (tt_cum - crop["tt_maturity"] * flowering_frac) / (crop["tt_maturity"] * (1 - flowering_frac))))
+    elif ag_biomass_at_flowering is None or ag_biomass <= 0:
+        f_g = 0.0
+    else:
+        f_g = max(0.0, min(1.0, (ag_biomass - ag_biomass_at_flowering) / ag_biomass))
+    HI = crop["hi_x"] - (crop["hi_x"] - crop["hi_o"]) * math.exp(-crop["hi_slope"] * f_g)
     biomass_mg_ha = biomass * 10
     ag_biomass_mg_ha = ag_biomass * 10
     grain_mg_ha = ag_biomass * HI * 10 * crop.get("calibration_factor", 1.0)

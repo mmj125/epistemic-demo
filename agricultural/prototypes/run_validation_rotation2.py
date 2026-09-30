@@ -41,7 +41,10 @@ def make_layers():
 SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43,
                rue=1.3, wue=4.5, hi_x=0.4, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
                kc=1.0, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=LAT,
-               make_layers=make_layers, calibration_factor=1.1894,  # re-derived 2026-09-24 for the
+               make_layers=make_layers, calibration_factor=1.4297,  # re-derived 2026-09-30 for the
+               # real f_G harvest-index fix (Kemanian et al. 2007) -- see
+               # cycles_engine_validate.py's own HI-computation docstring. Previous value 1.1894,
+               # itself re-derived 2026-09-24 for the
                # real-data TTF50_SHOOT_PARTITION refit (0.5 -> 0.32) + the same-day emergence-gate
                # fix + the cold-temperature radiation-growth reduction + the NET_GROWTH_FRACTION
                # post-limitation growth-conversion fix + the curve-number/f_wc swap (real Eq
@@ -65,6 +68,11 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
              rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
              kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=LAT,
+             hi_use_thermal_time_fraction=True,  # real exemption, 2026-09-30 -- see
+             # cycles_engine_validate.py's own HI-computation docstring: the real f_G
+             # (Kemanian et al. 2007) regressed wheat's correlation (0.337->0.163) even
+             # though it helped corn/soybean, plausibly tied to wheat's own already-
+             # documented winter-dormancy anomaly.
              make_layers=make_layers, calibration_factor=0.7528,  # CORRECTED 2026-09-29 (see top of
              # file's own note below this one) -- was 0.7506 as of 2026-09-28.
              #

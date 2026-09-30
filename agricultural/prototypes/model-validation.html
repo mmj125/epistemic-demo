@@ -1986,6 +1986,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                    and crop_wumax is not None and math.isfinite(crop_wumax))
                else None)
     tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
+    ag_biomass_at_flowering = None
     volatilization_active = fert_placement_implement is not None or soil_ph is not None
     fert_mixing_efficiency = 0.0
     if fert_placement_implement is not None:
@@ -2128,14 +2129,28 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         dGB = dGB_water_limited * n_stress
         biomass += dGB
         ag_biomass += dGB * shoot_fraction(ttf, crop["fsti"], crop["fstf"])
+        if ag_biomass_at_flowering is None and tt_cum >= crop["flowering_tt"]:
+            ag_biomass_at_flowering = ag_biomass
         if record_history:
             history.append(dict(doy=w["doy"], ttf=round(ttf, 4), canopy=round(eie, 4),
                                  water_stress=round(water_stress, 4), ag_mg_ha=round(ag_biomass * 10, 4)))
         if tillage_dr > 0:
             tillage_dr -= tillage_dr * tillage_dr_decay(layers)
-    flowering_frac = crop["flowering_tt"] / crop["tt_maturity"]
-    fpf = max(0.0, min(1.0, (tt_cum - crop["tt_maturity"]*flowering_frac) / (crop["tt_maturity"]*(1-flowering_frac))))
-    HI = crop["hi_x"] - (crop["hi_x"] - crop["hi_o"]) * math.exp(-crop["hi_slope"]*fpf)
+    # Real f_G (Kemanian, Stockle, Huggins & Viega 2007, Field Crops Res. 103:208-216):
+    # ratio of aboveground biomass produced after anthesis to that for the whole season --
+    # a real growth ratio, not a thermal-time fraction. Replaces fpf (thermal-time progress
+    # since flowering), which advanced on schedule even when post-flowering growth stalled
+    # under severe stress, pushing HI toward its max in exactly the years it should stay low.
+    # hi_use_thermal_time_fraction=True (WHEAT only) falls back to the old fpf -- see
+    # cycles_engine_validate.py's own docstring for why (a real regression specific to wheat).
+    if crop.get("hi_use_thermal_time_fraction", False):
+        flowering_frac = crop["flowering_tt"] / crop["tt_maturity"]
+        f_g = max(0.0, min(1.0, (tt_cum - crop["tt_maturity"]*flowering_frac) / (crop["tt_maturity"]*(1-flowering_frac))))
+    elif ag_biomass_at_flowering is None or ag_biomass <= 0:
+        f_g = 0.0
+    else:
+        f_g = max(0.0, min(1.0, (ag_biomass - ag_biomass_at_flowering) / ag_biomass))
+    HI = crop["hi_x"] - (crop["hi_x"] - crop["hi_o"]) * math.exp(-crop["hi_slope"]*f_g)
     biomass_mg_ha = biomass * 10
     ag_biomass_mg_ha = ag_biomass * 10
     grain_mg_ha = ag_biomass * HI * 10 * crop.get("calibration_factor", 1.0)
@@ -2171,7 +2186,7 @@ def make_layers():
 
 CORN = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=0.8490, canopy_shape=CORN_CANOPY_SHAPE,  # recalibrated 2026-09-25 for the
+    calibration_factor=1.1082, canopy_shape=CORN_CANOPY_SHAPE,  # recalibrated 2026-09-25 for the
     # hydraulic-conductance water-stress mechanism (campbell_water_uptake(), see below) --
     # correlation moved 0.550 -> 0.527 from that switch alone (see CLAUDE.md/QUESTIONS_FOR_DEVS.md)
     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=40.6875, make_layers=make_layers,
@@ -2213,7 +2228,7 @@ CORN_LONG_SEASON["flowering_tt"] = 1300
 
 SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43,
     rue=1.3, wue=4.5, hi_x=0.4, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=1.1894,  # recalibrated 2026-09-25 for the hydraulic-conductance
+    calibration_factor=1.4297,  # recalibrated 2026-09-30 for the real f_G harvest-index fix (was 1.1894, itself recalibrated 2026-09-25 for the hydraulic-conductance
     # water-stress mechanism -- correlation moved 0.856 -> 0.802 from that switch alone
     kc=1.0, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0,
     n_max_conc=0.07, n_dilution_slope=0.4, legume=True,
@@ -2234,6 +2249,7 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
 # has real parameters for, not because it's accurate).
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
     rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
+    hi_use_thermal_time_fraction=True,  # real exemption 2026-09-30, see cycles_engine_validate.py
     calibration_factor=0.7528, canopy_shape=(5, -14, -15, 16),  # CORRECTED 2026-09-29 (was
     # 0.7506 as of 2026-09-28) -- see gap-list item 26, and cycles_engine_validate.py's
     # ROTHC_WEATHER_FACTOR_NORM for the 2026-09-29 background-nitrogen fix that moved this. Wheat is still deliberately

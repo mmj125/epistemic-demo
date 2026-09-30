@@ -19,7 +19,9 @@ from cycles_engine_validate import (
 CORN = dict(
     tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=0.8490,  # residual after the AG-biomass fix + corn-specific canopy refit +
+    calibration_factor=1.1082,  # re-derived 2026-09-30 for the real f_G harvest-index fix
+    # (Kemanian et al. 2007) -- see cycles_engine_validate.py's own HI-computation docstring.
+    # Previous value 0.8490, residual after the AG-biomass fix + corn-specific canopy refit +
     # the 2026-09-23 TTF50_SHOOT_PARTITION refit + the emergence-gate fix + the cold-temperature
     # radiation-growth reduction + the NET_GROWTH_FRACTION post-limitation growth-conversion fix +
     # the 2026-09-24 curve-number/f_wc swap (real Eq SI.5-SI.7, see retention_param_mm()) + the
