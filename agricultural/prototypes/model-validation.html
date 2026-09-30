@@ -1306,40 +1306,71 @@ def campbell_khe(theta_s, theta_sfc, theta_sat, ksat, psi_e, b):
 
 OM_FROM_SOC = 1.72
 
-REDISTRIBUTE_SUBSTEPS = 24  # see cycles_engine_validate.py's redistribute() docstring for the convergence check
+REDISTRIBUTE_MAX_STEPS = 200  # safety cap -- real profiles converge in a handful of steps
 
 INITIAL_MOISTURE_FRACTION = 0.5  # real (2026-09-24, measured against actual Cycles output at a
 # semi-arid site), not field capacity -- see cycles_engine_validate.py's own constant docstring
 # and QUESTIONS_FOR_DEVS.md item 6 for the full evidence trail
 
-def redistribute(layers, water_in_mm, n_substeps=REDISTRIBUTE_SUBSTEPS):
-    # Sub-daily integration of campbell_khe() (real Eq. 1-2) when a layer carries the full
-    # Saxton-Rawls parameter set, recomputed each substep since the real rate decays as the
-    # layer drains -- a single full-day step overdrains substantially (see
-    # cycles_engine_validate.py's redistribute() docstring). Falls back to a flat ksat_mm_day
-    # cap, then to the old unlimited-rate behavior, for a layer missing those fields.
+def redistribute(layers, water_in_mm):
+    # First, infiltration fills each layer to saturation, cascading overflow downward.
+    # Second, real Eq. 1-2 (Kemanian et al. 2024) adaptive PROFILE-WIDE gravity drainage
+    # (2026-09-30, replacing the earlier fixed-24-substep-per-layer approximation): each
+    # step's shared dt is set by whichever active (theta>fc) layer has the largest travel
+    # time t=(theta-fc)*thick/khe (the paper's own words: "set as that of the layer with
+    # the slowest travel time in the soil profile at the beginning of the time step"), every
+    # active layer drains flux=min(excess,khe*dt) using that same dt, then the outflow
+    # cascades downward through the profile -- repeating until no excess remains or the
+    # cumulative dt reaches one day. Eq. 2 as printed uses khe in the paper's own native
+    # mass-based units (kg s m^-3); converting to this engine's length-based khe (mm/day,
+    # matching ksat) makes rho_w/g cancel completely, leaving the plain
+    # t=(theta-fc)*thick/khe used here -- see cycles_engine_validate.py's own docstring for
+    # the derivation. A layer missing the full Saxton-Rawls parameter set falls back to a
+    # flat ksat_mm_day cap, then to the old unlimited-rate behavior, unchanged from before.
     remaining = water_in_mm
-    for l in layers:
-        thick_mm = l["thick"] * 1000
-        add = min(remaining, max(0.0, (l["sat"] - l["theta"]) * thick_mm))
-        l["theta"] += add / thick_mm
+    thicks_mm = [l["thick"] * 1000 for l in layers]
+    for i, l in enumerate(layers):
+        add = min(remaining, max(0.0, (l["sat"] - l["theta"]) * thicks_mm[i]))
+        l["theta"] += add / thicks_mm[i]
         remaining -= add
-        if "psi_e_kpa" in l and "B" in l:
-            dt = 1.0 / n_substeps
-            drain = 0.0
-            for _ in range(n_substeps):
-                excess_step = max(0.0, (l["theta"] - l["fc"]) * thick_mm)
-                if excess_step <= 0:
-                    break
-                khe = campbell_khe(l["theta"], l["fc"], l["sat"], l["ksat_mm_day"], l["psi_e_kpa"], l["B"])
-                flux = min(excess_step, khe * dt)
-                l["theta"] -= flux / thick_mm
-                drain += flux
-            remaining += drain
-            continue
-        excess_mm = max(0.0, (l["theta"] - l["fc"]) * thick_mm)
+
+    if layers and all("psi_e_kpa" in l and "B" in l for l in layers):
+        time_left = 1.0
+        for _ in range(REDISTRIBUTE_MAX_STEPS):
+            excesses = [max(0.0, (l["theta"] - l["fc"]) * thicks_mm[i]) for i, l in enumerate(layers)]
+            khes = [campbell_khe(l["theta"], l["fc"], l["sat"], l["ksat_mm_day"], l["psi_e_kpa"], l["B"])
+                    if excesses[i] > 1e-9 else 0.0 for i, l in enumerate(layers)]
+            travel_times = [e / k for e, k in zip(excesses, khes) if k > 0]
+            if not travel_times:
+                break
+            dt = min(max(travel_times), time_left)
+            if dt <= 1e-9:
+                break
+            fluxes = [min(excesses[i], khes[i] * dt) if khes[i] > 0 else 0.0 for i in range(len(layers))]
+            for i, l in enumerate(layers):
+                l["theta"] -= fluxes[i] / thicks_mm[i]
+            carry = 0.0
+            for i, l in enumerate(layers):
+                carry += fluxes[i]
+                if carry <= 0:
+                    continue
+                if i + 1 < len(layers):
+                    nxt = layers[i + 1]
+                    add2 = min(carry, max(0.0, (nxt["sat"] - nxt["theta"]) * thicks_mm[i + 1]))
+                    nxt["theta"] += add2 / thicks_mm[i + 1]
+                    carry -= add2
+                else:
+                    remaining += carry
+                    carry = 0.0
+            time_left -= dt
+            if time_left <= 1e-9:
+                break
+        return remaining
+
+    for i, l in enumerate(layers):
+        excess_mm = max(0.0, (l["theta"] - l["fc"]) * thicks_mm[i])
         drain = min(excess_mm, l.get("ksat_mm_day", float("inf")))
-        l["theta"] -= drain / thick_mm
+        l["theta"] -= drain / thicks_mm[i]
         remaining += drain
     return remaining
 
@@ -1519,12 +1550,18 @@ def extract_transpiration(layers, root_depth_m, tr_mm):
 LEAF_WATER_POTENTIAL_AT_FC = -30.0
 CROP_WATER_POTENTIAL_K_SEC_PER_DAY = 86400.0
 
-def layer_water_potential(theta, fc, pwp):
-    if fc <= pwp or theta <= 0:
-        return -1500.0
-    b = math.log(1500.0 / 30.0) / math.log(fc / pwp)
-    a = 30.0 * fc ** b
-    return -a * theta ** (-b)
+def layer_water_potential(theta, sat, psi_e_kpa, b):
+    # Real Campbell (1985): psi = -psi_e*(theta/theta_sat)^(-b) (Stockle, Pickering & Nelson
+    # 2019, "Using CropSyst to Evaluate Biochar...", Table 3, citing Campbell 1985 by name).
+    # Replaces an earlier ad hoc two-point fc/pwp fit (forced psi(fc)=-30, psi(pwp)=-1500
+    # J/kg) that made water stress require depleting to within ~5% of wilting point before
+    # triggering at all -- see cycles_engine_validate.py's own docstring for the full
+    # diagnosis. Reuses the same real psi_e_kpa/B already computed per layer and already
+    # used by campbell_khe() -- one real curve, not two independent parameterizations.
+    if theta <= 0 or sat <= 0:
+        return -1.0e6
+    theta = min(theta, sat)
+    return -psi_e_kpa * (theta / sat) ** (-b)
 
 def total_root_conductance(wumax_mm_day, lwp_stress_onset):
     wumax_m_day = wumax_mm_day / 1000.0
@@ -1569,7 +1606,7 @@ def campbell_water_uptake(layers, root_depth_m, trp_mm_day, canopy_cover_frac, c
     for i, l in enumerate(layers):
         if fl[i] <= 0:
             continue
-        ys[i] = layer_water_potential(l["theta"], l["fc"], l["pwp"])
+        ys[i] = layer_water_potential(l["theta"], l["sat"], l["psi_e_kpa"], l["B"])
         avg_ys += fl[i] * ys[i]
     K = CROP_WATER_POTENTIAL_K_SEC_PER_DAY
     trp_m_day = trp_mm_day / 1000.0
