@@ -367,7 +367,7 @@ REDISTRIBUTE_MAX_STEPS = 200  # safety cap against a floating-point edge case ev
 # handful of steps (rarely more than the layer count), this is headroom, not a target.
 
 
-def redistribute(layers, water_in_mm, n_substeps=REDISTRIBUTE_SUBSTEPS):
+def redistribute(layers, water_in_mm, n_substeps=REDISTRIBUTE_SUBSTEPS, n_by_layer=None):
     """First, infiltration fills each layer to saturation, cascading any overflow to the
     next layer down -- unconditional, not governed by Eq. 1-2 (this matches the paper's own
     stated first step: "infiltration is allocated to the first soil layer, up to
@@ -414,12 +414,52 @@ def redistribute(layers, water_in_mm, n_substeps=REDISTRIBUTE_SUBSTEPS):
     whole-day drainage, and a layer with neither field falls back to the original
     unlimited-rate behavior -- unchanged from before, and still keyed on ALL layers sharing
     the same tier (every make_layers()-equivalent in this project builds a uniform profile,
-    so a genuinely mixed-tier profile within one call has never actually occurred)."""
+    so a genuinely mixed-tier profile within one call has never actually occurred).
+
+    n_by_layer, when given (a list of kg N/ha, one per layer, mutated in place, built
+    2026-09-30 for the real CropSyst-style min(demand, potential_uptake) mechanism -- see
+    QUESTIONS_FOR_DEVS.md), is transported downward in lockstep with the SAME gravity-
+    drainage fluxes computed above (stage two), at each layer's own current concentration
+    (kg N per mm of that layer's own water) -- solute never modeled separately from the
+    water that carries it. A disclosed simplification: stage ONE (the saturation-fill/
+    cascade at the top of this function, driven by incoming rainfall/irrigation) does NOT
+    move n_by_layer at all, on the assumption that incoming water itself carries no
+    dissolved N -- real rain is close to N-free, and any N sitting in a layer that stage
+    one pushes to or past saturation still gets picked up by stage two's own drainage
+    check on the SAME call (theta>fc includes theta=sat), just possibly capped by that
+    layer's own travel time rather than moving instantly; a layer would only need more
+    than one day to fully clear under an unusually large single-day storm, a small, named
+    approximation rather than an unmodeled gap. Returns (remaining, n_leached) always --
+    n_leached is exactly 0.0 when n_by_layer is None, so a caller passing water-only
+    arguments is completely unaffected by this parameter's existence."""
     remaining = water_in_mm
+    n_leached = 0.0
     thicks_mm = [l["thick"] * 1000 for l in layers]
     for i, l in enumerate(layers):
+        incoming_before = remaining
+        water_before_mm = l["theta"] * thicks_mm[i]
         add = min(remaining, max(0.0, (l["sat"] - l["theta"]) * thicks_mm[i]))
         l["theta"] += add / thicks_mm[i]
+        overflow = incoming_before - add
+        if n_by_layer is not None and overflow > 1e-9:
+            # Well-mixed-reservoir assumption (the same one this project's own original,
+            # whole-profile leaching formula already used) applied per layer: incoming
+            # water is N-free, mixes instantly with the layer's resident N, and whatever
+            # overflows onward carries a share of that mix proportional to how much of
+            # the total (resident + incoming) water it represents. Needed because a thin,
+            # fast-saturating surface layer (where fertilizer actually lands) moves most
+            # of its water through THIS stage, not stage two's slower gravity drainage --
+            # confirmed directly: without this, N applied at the surface never leaves the
+            # top layer at all (0.0 leaching in every tested year), an early real bug this
+            # docstring note exists to keep from recurring.
+            mixed_water = water_before_mm + incoming_before
+            if mixed_water > 1e-9:
+                n_out_overflow = n_by_layer[i] * (overflow / mixed_water)
+                n_by_layer[i] -= n_out_overflow
+                if i + 1 < len(layers):
+                    n_by_layer[i + 1] += n_out_overflow
+                else:
+                    n_leached += n_out_overflow
         remaining -= add
 
     if layers and all("psi_e_kpa" in l and "B" in l for l in layers):
@@ -435,36 +475,59 @@ def redistribute(layers, water_in_mm, n_substeps=REDISTRIBUTE_SUBSTEPS):
             if dt <= 1e-9:
                 break
             fluxes = [min(excesses[i], khes[i] * dt) if khes[i] > 0 else 0.0 for i in range(len(layers))]
+            water_before_mm = [l["theta"] * thicks_mm[i] for i, l in enumerate(layers)]
+            n_out = [0.0] * len(layers)
             for i, l in enumerate(layers):
                 l["theta"] -= fluxes[i] / thicks_mm[i]
+                if n_by_layer is not None and water_before_mm[i] > 1e-9:
+                    n_out[i] = fluxes[i] * (n_by_layer[i] / water_before_mm[i])
+                    n_by_layer[i] -= n_out[i]
             carry = 0.0
+            n_carry = 0.0
             for i, l in enumerate(layers):
                 carry += fluxes[i]
+                if n_by_layer is not None:
+                    n_carry += n_out[i]
                 if carry <= 0:
                     continue
                 if i + 1 < len(layers):
                     nxt = layers[i + 1]
                     add2 = min(carry, max(0.0, (nxt["sat"] - nxt["theta"]) * thicks_mm[i + 1]))
                     nxt["theta"] += add2 / thicks_mm[i + 1]
+                    if n_by_layer is not None and carry > 1e-9:
+                        n_added = n_carry * (add2 / carry)
+                        n_by_layer[i + 1] += n_added
+                        n_carry -= n_added
                     carry -= add2
                 else:
                     remaining += carry
+                    if n_by_layer is not None:
+                        n_leached += n_carry
+                        n_carry = 0.0
                     carry = 0.0
             time_left -= dt
             if time_left <= 1e-9:
                 break
-        return remaining
+        return remaining, n_leached
 
     for i, l in enumerate(layers):
         excess_mm = max(0.0, (l["theta"] - l["fc"]) * thicks_mm[i])
         rate_cap = l.get("ksat_mm_day", math.inf)
         drain = min(excess_mm, rate_cap)
+        water_before_mm = l["theta"] * thicks_mm[i]
         l["theta"] -= drain / thicks_mm[i]
         remaining += drain
-    return remaining
+        if n_by_layer is not None and water_before_mm > 1e-9:
+            n_out_i = drain * (n_by_layer[i] / water_before_mm)
+            n_by_layer[i] -= n_out_i
+            if i + 1 < len(layers):
+                n_by_layer[i + 1] += n_out_i
+            else:
+                n_leached += n_out_i
+    return remaining, n_leached
 
 
-def infiltrate(layers, water_in_mm, curve_number, slope_pct):
+def infiltrate(layers, water_in_mm, curve_number, slope_pct, n_by_layer=None):
     """One day's curve-number runoff (Eq. SI.1-7, sign-corrected) followed by infiltration
     (redistribute()) -- shared by simulate_season()'s main loop and its optional spin-up
     window, so the two can't drift apart. Previously runoff_mm()/moisture_adjusted_cn()
@@ -474,13 +537,19 @@ def infiltrate(layers, water_in_mm, curve_number, slope_pct):
     enters the soil, which retains more water than reality especially in a drier climate.
     Moisture adjustment now goes through retention_param_mm()'s real SWAT formula directly
     (2026-09-23) rather than the earlier compute_fwc()/moisture_adjusted_cn() ad hoc pair --
-    see retention_param_mm()'s own docstring for the source and verification."""
+    see retention_param_mm()'s own docstring for the source and verification.
+
+    n_by_layer, when given, is passed straight through to redistribute() for the real
+    per-layer nitrogen transport it implements -- see that function's own docstring.
+    Always returns a 3-tuple now (drainage_mm, runoff, n_leached); n_leached is 0.0
+    whenever n_by_layer isn't given, so every pre-existing call site just needs to
+    unpack one extra value, not change behavior."""
     if water_in_mm <= 0:
-        return 0.0, 0.0
+        return 0.0, 0.0, 0.0
     s_mm = retention_param_mm(layers, curve_number)
     runoff = runoff_mm(water_in_mm, s_mm, slope_pct)
-    drainage_mm = redistribute(layers, water_in_mm - runoff)
-    return drainage_mm, runoff
+    drainage_mm, n_leached = redistribute(layers, water_in_mm - runoff, n_by_layer=n_by_layer)
+    return drainage_mm, runoff, n_leached
 
 
 REW_DEFAULT_MM = 9.0  # FAO-56 Table 19's real range is 5-12mm by soil texture (confirmed via
@@ -860,6 +929,26 @@ def root_length_fraction_by_layer(layers, root_depth_m):
         depth += l["thick"]
     total = sum(fl)
     return [f / total for f in fl] if total > 0 else fl
+
+
+def layer_depth_fraction_within(layers, max_depth_m):
+    """Plain depth geometry: the fraction of EACH layer's own thickness lying within
+    [0, max_depth_m], no root-uptake weighting and no EVAPORATIVE_LAYER_DEPTH_M
+    exclusion (unlike root_length_fraction_by_layer(), built for water uptake
+    specifically, where a shallow layer's water is deliberately reserved for
+    evaporation). Nitrogen doesn't evaporate, so there's no reason to wall off the
+    topsoil from a root system that can physically reach it -- built 2026-09-30 for
+    the real CropSyst-style min(demand, potential_uptake) mechanism (see
+    QUESTIONS_FOR_DEVS.md), which gates nitrogen ACCESS by root depth, not by this
+    engine's separate evaporative-layer convention."""
+    fracs = []
+    depth = 0.0
+    for l in layers:
+        top, bot = depth, depth + l["thick"]
+        overlap = max(0.0, min(bot, max_depth_m) - top)
+        fracs.append(overlap / l["thick"] if l["thick"] > 0 else 0.0)
+        depth = bot
+    return fracs
 
 
 def campbell_water_uptake(layers, root_depth_m, trp_mm_day, canopy_cover_frac, ct,
@@ -1577,7 +1666,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21,
                      fert_placement_implement=None, soil_ph=None,
                      spinup_rows=None, curve_number=75.0, slope_pct=0.0, initial_layers=None,
-                     soil_evap_model="faostandard"):
+                     soil_evap_model="faostandard", n_root_limited=False):
     """weather_rows: dicts with doy, tx, tn, solar, rhx, rhn, wind, pp, in planting-day order.
     harvest_ttf: fraction of thermal time to maturity that triggers harvest -- 1.0 for grain
     crops (HARVEST_TIMING=-999 in the real crop file), lower for forage/silage crops harvested
@@ -1776,7 +1865,24 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     default, since this sandbox's reference data doesn't exist in this container and the
     formula couldn't be checked against real per-year correlation the way every other adopted
     mechanism here has been. Available to test, not yet validated enough to trust as the
-    default."""
+    default.
+
+    n_root_limited (default False, byte-identical when unused): real CropSyst nitrogen uptake
+    (Stockle, Martin & Campbell 1994, Eq. 26, already on disk as cropsyst.pdf) is "the minimum
+    of crop nitrogen demand and potential nitrogen uptake," not demand alone -- this engine's
+    existing mechanism only ever checked demand against the whole lumped n_pool, with no
+    concept of a supply-side ceiling independent of total pool size. Cycles' own real Umax
+    (max uptake per unit root length) isn't disclosed anywhere available to this project, so
+    rather than invent that number, this builds the real STRUCTURAL insight a different, fully
+    traceable way: nitrogen is tracked per SOIL LAYER (n_pool_by_layer, applications/background
+    credit landing in the surface layer, transported downward in lockstep with real drainage
+    via redistribute()'s own n_by_layer parameter -- see that function's docstring), and a
+    day's potential uptake is capped at however much of the pool currently sits within reach of
+    the crop's own real root_depth trajectory (layer_depth_fraction_within()) -- N that has
+    leached below the roots genuinely can't be taken up that day, exactly the "root discovery"
+    concept already fixed for water this session, applied to nitrogen for the first time. See
+    QUESTIONS_FOR_DEVS.md for the four earlier, real, sourced angles on the Kansas nitrogen-
+    response-muting problem that didn't work, and why this one was built instead."""
     layers = copy.deepcopy(initial_layers) if initial_layers is not None else crop["make_layers"]()
     root_max_m = crop.get("root_max_m", root_max_m)
     de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
@@ -1789,7 +1895,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # assumption having no basis in a dry climate. Uses the SAME infiltrate() (now
         # runoff-aware) and soil_evaporation() the main loop uses, just with canopy_cover=0.
         for w in spinup_rows:
-            _, spin_runoff = infiltrate(layers, w["pp"], curve_number, slope_pct)
+            _, spin_runoff, _ = infiltrate(layers, w["pp"], curve_number, slope_pct)
             runoff_total += spin_runoff
             eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
             soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state,
@@ -1879,6 +1985,15 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         n_pool, total_n_input_kg_ha = None, None
     n_leached_total = 0.0 if n_pool is not None else None
     n_uptake_total = 0.0 if n_pool is not None else None
+    # n_pool_by_layer: the real per-layer tracking n_root_limited needs (see
+    # simulate_season()'s own docstring) -- None whenever n_root_limited is False (the
+    # default) or nitrogen tracking is off entirely, so every existing caller is unaffected.
+    # The day-0 lump (n_pool as already computed above) transfers whole into the surface
+    # layer; dated applications/background credit land there too, in the main loop below.
+    n_pool_by_layer = None
+    if n_pool is not None and n_root_limited:
+        n_pool_by_layer = [0.0] * len(layers)
+        n_pool_by_layer[0] = n_pool
     irrigation_total_mm = 0.0
     history = [] if record_history else None
 
@@ -1952,7 +2067,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 irrigation_mm = irrigation_amount_mm
                 irrigation_total_mm += irrigation_mm
 
-        drainage_mm, runoff = infiltrate(layers, w["pp"] + irrigation_mm, curve_number, slope_pct)
+        drainage_mm, runoff, n_leached_today = infiltrate(layers, w["pp"] + irrigation_mm, curve_number,
+                                                            slope_pct, n_by_layer=n_pool_by_layer)
         runoff_total += runoff
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
         soil_evaporation(layers, eto, eie, precip_mm=w["pp"] + irrigation_mm, de_state=de_state,
@@ -1996,11 +2112,22 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         n_stress = 1.0
         if n_pool is not None:
             if w["doy"] in applications_by_doy:
-                n_pool += applications_by_doy[w["doy"]]
+                if n_pool_by_layer is not None:
+                    n_pool_by_layer[0] += applications_by_doy[w["doy"]]
+                else:
+                    n_pool += applications_by_doy[w["doy"]]
             if dGB_water_limited > 0:
                 weather_factor = (rothc_temp_factor(tmean) * rothc_moisture_factor(layers[0]["theta"], layers[0]["fc"], layers[0]["pwp"])
                                    / ROTHC_WEATHER_FACTOR_NORM)  # see ROTHC_WEATHER_FACTOR_NORM's own docstring -- fixed 2026-09-29
-                n_pool += BACKGROUND_N_KG_HA_DAY * (1.0 + tillage_ft(tillage_dr, tillage_ftx_val)) * weather_factor
+                background_today = BACKGROUND_N_KG_HA_DAY * (1.0 + tillage_ft(tillage_dr, tillage_ftx_val)) * weather_factor
+                if n_pool_by_layer is not None:
+                    n_pool_by_layer[0] += background_today
+                else:
+                    n_pool += background_today
+            if n_pool_by_layer is not None:
+                n_pool = sum(n_pool_by_layer)  # scalar view, kept in sync -- used below for the
+                # demand-capping comparison exactly as before; n_pool_by_layer is the only
+                # authoritative store when active, this is never written back to it
             # biomass is already in Mg/ha (the same units n_critical_pct/n_marginal_demand_pct's
             # own docstrings and NCRIT_FLOOR_MGHA expect) -- a real bug here, found 2026-09-28
             # while "nailing down corn": this block used to pass biomass*10 to both functions
@@ -2028,15 +2155,31 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 n_stress = max(0.0, min(1.0, 1.0 - (n_crit_pct - n_actual_pct) / (n_crit_pct - n_min_pct)))
             dGB_n_limited = dGB_water_limited * n_stress
             demand_today_kg_ha = dGB_n_limited * 10 * n_marginal_demand_pct(biomass, crop)
-            n_uptake_kg_ha = min(n_pool, demand_today_kg_ha)
-            n_pool -= n_uptake_kg_ha
+            if n_pool_by_layer is not None:
+                # Real CropSyst-style min(demand, potential_uptake) (Eq. 26, Stockle/Martin/
+                # Campbell 1994) -- potential_uptake is however much of the pool currently
+                # sits within reach of the crop's own real root_depth, not the whole profile
+                # regardless of root depth. See layer_depth_fraction_within()'s own docstring.
+                access_frac = layer_depth_fraction_within(layers, root_depth)
+                accessible_n = [n_pool_by_layer[i] * access_frac[i] for i in range(len(layers))]
+                potential_uptake_kg_ha = sum(accessible_n)
+                n_uptake_kg_ha = min(n_pool, demand_today_kg_ha, potential_uptake_kg_ha)
+                if potential_uptake_kg_ha > 1e-9:
+                    for i in range(len(layers)):
+                        n_pool_by_layer[i] -= n_uptake_kg_ha * (accessible_n[i] / potential_uptake_kg_ha)
+                n_leached_total += n_leached_today  # already computed by infiltrate() above,
+                # in lockstep with the SAME drainage fluxes this call's water balance used --
+                # replaces the profile-wide ratio formula below for this mechanism only
+            else:
+                n_uptake_kg_ha = min(n_pool, demand_today_kg_ha)
+                n_pool -= n_uptake_kg_ha
+                profile_water_mm = sum(l["theta"] * l["thick"] * 1000 for l in layers)
+                if profile_water_mm > 0 and n_pool > 0 and drainage_mm > 0:
+                    leached_kg_ha = drainage_mm * (n_pool / profile_water_mm)
+                    n_pool = max(0.0, n_pool - leached_kg_ha)
+                    n_leached_total += leached_kg_ha
             n_uptake_total += n_uptake_kg_ha
             canopy_n_kg_ha += n_uptake_kg_ha
-            profile_water_mm = sum(l["theta"] * l["thick"] * 1000 for l in layers)
-            if profile_water_mm > 0 and n_pool > 0 and drainage_mm > 0:
-                leached_kg_ha = drainage_mm * (n_pool / profile_water_mm)
-                n_pool = max(0.0, n_pool - leached_kg_ha)
-                n_leached_total += leached_kg_ha
 
         dGB = dGB_water_limited * n_stress
         biomass += dGB
@@ -2095,7 +2238,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         result["history"] = history
     if n_uptake_total is not None:
         result["n_uptake_kg_ha"] = n_uptake_total
-        result["n_remaining_kg_ha"] = n_pool
+        result["n_remaining_kg_ha"] = sum(n_pool_by_layer) if n_pool_by_layer is not None else n_pool
     if n_volatilized_total is not None:
         result["n_volatilized_kg_ha"] = n_volatilized_total
     if initial_layers is not None:

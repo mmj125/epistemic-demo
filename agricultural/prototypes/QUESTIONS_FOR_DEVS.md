@@ -2245,3 +2245,68 @@ against real Cycles output before concluding the gap is real.
   real and unresolved; the luxury-consumption idea above is the most promising untried angle for
   it too, since raising the uptake ceiling (rather than changing which biomass/units it's keyed
   to) is the one lever not yet tested in either direction.
+
+* **min(demand, potential_uptake), built and tested (2026-09-30, same session, per Matt's
+  direct "Build the min(demand, potential_uptake) mechanism and test it") -- a fifth real angle
+  on the muting problem, this one actually SHIPPED (opt-in, default off) despite a decisive
+  null result, following this session's own standing precedent for real, correctly-verified,
+  zero-effect-so-far mechanisms.** CropSyst's real Eq. 26 (Stockle, Martin & Campbell 1994,
+  already on disk as `cropsyst.pdf`) computes potential uptake per soil layer from root length,
+  soil-N availability, and soil water -- real numbers (Umax, root length density) this project
+  doesn't have and Godwin & Jones (1991), the paper CropSyst itself cites for the exact
+  functional forms, is a book chapter with no equations findable online. Rather than invent
+  those numbers, built the real STRUCTURAL insight a fully traceable way instead: nitrogen is
+  now tracked per soil layer (`n_pool_by_layer`, new, opt-in via `n_root_limited=True`) instead
+  of one lumped pool, transported downward in lockstep with the SAME water fluxes
+  `redistribute()` already computes (both the saturation-fill/cascade stage, using a well-
+  mixed-reservoir assumption -- the same one this project's own original whole-profile leaching
+  formula already relied on -- and the gravity-drainage stage), and a day's uptake is capped at
+  however much of the pool sits within the crop's actual current root depth
+  (`layer_depth_fraction_within()`, plain geometry, deliberately NOT reusing the water-uptake-
+  specific `root_length_fraction_by_layer()`, which excludes the evaporative layer for a reason
+  that doesn't apply to nitrogen). This is the "root discovery" concept already fixed for water
+  earlier this session, applied to nitrogen for the first time.
+
+  A real bug was found and fixed while building this, not just a design choice: the first
+  version only moved N during the gravity-drainage stage, and real Rock Springs fertilizer
+  (applied near-surface, a thin 0.05m layer) simply never left that top layer at all -- 0.0 kg/ha
+  leached across every tested year, because a thin surface layer's water mostly moves via the
+  saturation-fill/cascade stage on a real rain day, not the slower gravity-drainage stage. Fixed
+  by extending the same well-mixed transport to that stage too; verified directly by
+  instrumenting a real run day-by-day (1982) and confirming N now genuinely migrates layer to
+  layer over the season, not frozen in the surface layer.
+
+  Tested against both established benchmarks. Rock Springs' five worst real overshoot years
+  (1982, 1981, 1984, 1985, 1986 -- all real-Cycles N STRESS 44-51%, see the denitrification
+  entry above): grain yield is unchanged to two decimals in every one, confirming corn's real
+  root growth (reaching 2.0m by roughly mid-season) outpaces how far this humid site's real
+  drainage actually moves nitrogen through its shallow 1.4m profile -- access is never really
+  the constraint here, consistent with several other real water-balance mechanisms this session
+  found non-load-bearing at Rock Springs specifically (runoff, spin-up, the Ksat rate cap) for
+  the same underlying reason (humid site, not where the mechanism binds). Kansas's own muting
+  benchmark (relative yield N=0/N=150 at five real years) came back BYTE-IDENTICAL to the
+  existing mechanism's own numbers (0.799, 0.906, 0.812, 0.749, 0.802) -- a different, opposite
+  explanation for the same null result: Kansas is dry enough that real drainage barely moves
+  water at all, so nitrogen applied near the surface never migrates far enough to become
+  inaccessible either. Root access turns out not to be the bottleneck at either site, for
+  opposite reasons -- a genuine, decisive finding, not an inconclusive one.
+
+  Verified safe before shipping: the standing tillage sanity check (re-run at N=30, since post-
+  session-fixes N=50 turns out to already be non-limiting even under the EXISTING mechanism --
+  a stale assumption in this file's own earlier-documented check, not a regression from this
+  change) shows the same real, positive tillage gain under both mechanisms (+0.60 Mg/ha old,
+  +0.49 Mg/ha new, both ~0 at N=650); the manure/mineral 0.5-availability equivalence still
+  matches to six decimal places; the nitrogen mass-balance identity (uptake+leached+remaining =
+  supply) still closes exactly. `n_root_limited=False` (the default) reproduces every existing
+  validated number byte-for-byte -- confirmed via the full Rock Springs 4-crop suite,
+  `pattern_assertions.py` (still 14/16), and both embedded `ENGINE_SOURCE` copies, extracted
+  verbatim and executed directly. Ported into both `engine-demo.html` and
+  `model-validation.html`, confirmed to compile and produce consistent numbers against real
+  weather/soil data; no UI wiring anywhere (engine-only, per this project's established
+  "build the mechanism, verify it, wire up a control only once it's proven to matter" pattern).
+
+  This closes out five real, sourced, decisively-tested angles on the Kansas nitrogen-muting
+  problem across this session (denitrification, two demand-scale corrections, multi-year
+  carryover, and now root-access limiting) without a fix. The luxury-consumption idea (uptake
+  allowed above the critical-dilution ceiling when supply is abundant) remains the one real,
+  sourced candidate not yet built.
