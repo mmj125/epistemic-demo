@@ -2148,3 +2148,86 @@ against real Cycles output before concluding the gap is real.
   water-stress mechanism, and now this canopy refit), not a new regression. Flagged, not chased
   -- Tab 1's own claim needs its own dedicated look before it's trusted again, same standing
   caveat already written for Tab 3's crossover.
+
+* **Denitrification for corn's worst-overshoot years (2026-09-30, same session) -- a real,
+  sourced formula found, but testing left it unshipped.** Corn's 5 worst Rock Springs overshoot
+  years (1982, 1981, 1984, 1985, 1986, all model 10.8-11.8 vs real 7.1-9.6 Mg/ha) all show real
+  Cycles `N STRESS` at 44-51% max, while the model's own default validation tracks no nitrogen
+  at all -- a real, clean pattern (confirmed directly via `awk` against `CornRM.90.txt`) worth
+  chasing, since it's the one lever this session hadn't yet tried for these specific years.
+
+  Traced the real primary source properly rather than guessing: CropSyst's own 1994 paper
+  (Stockle, Martin & Campbell, *Agricultural Systems* 46:335-359, already on disk as
+  `cropsyst.pdf`) cites Stockle & Campbell (1989) for "net mineralization, nitrification and
+  denitrification... simulated using first order kinetics." WebSearch of CropSyst's real
+  "Simulation chemical: Nitrogen" manual page (`sites.bsyse.wsu.edu`, blocked for direct fetch,
+  same as every other CropSyst manual page this session) surfaced the actual formula, reproduced
+  identically across three independent search queries: `DEN = NO3*(1-exp(-DRATE*dt))`, with
+  `DRATE = TF(Ts)*DRATE15*WCCF`, `DRATE15=0.005/day` (a real numeric anchor at 15C), and a
+  piecewise temperature response (`0.67*exp(0.43*(Ts-10))` below 10C, `exp(0.08*(Ts-15))` above
+  -- self-consistent, both give 0.67 at the Ts=10C breakpoint). `WCCF` (the moisture correction)
+  came back with consistently garbled parenthesization across every query (`e^(0.304 + 2.94 *
+  WCsat - WC) - 47 * (WCsat - WC))`) -- reconstructed as the one physically plausible reading,
+  `exp(0.304 + 2.94*(WCsat-WC) - 47*(WCsat-WC)^2)` (a downward quadratic peaking just short of
+  full saturation, matching real denitrification biology -- anaerobic microsites, not literal
+  0% air-filled porosity), but this specific piece is a genuine reconstruction, not a clean
+  quote, and should be treated as lower-confidence than this file's other sourced formulas.
+
+  Built and tested against this engine's real 150 kg N/ha disclosed rate (`ContinuousCorn.
+  operation`) plus the real minimal-disturbance planter tillage event, applied to the whole
+  lumped mineral-N pool (a disclosed simplification -- this engine has no separate NH4/NO3
+  pools to apply DEN to just the nitrate fraction, unlike real CropSyst). Real, non-trivial
+  losses resulted (24-30 kg N/ha denitrified per season, roughly 16-20% of the applied rate) --
+  but yield was completely unchanged in every tested year, including 1982, because 57-84 kg
+  N/ha was STILL sitting unused in the pool at season end even after that loss. The demand
+  side, not the loss side, is the actual bottleneck: this engine's critical-N-dilution demand
+  formula only calls for ~85-100 kg N/ha total season uptake for an 11+ Mg/ha corn crop (~8.5 kg
+  N/Mg grain), while real Cycles' own `TOTAL N` column shows 144.4 kg N/ha for the same 1982
+  crop (~20.3 kg N/Mg grain) -- more than double.
+
+  Chased two real, sourced candidate explanations for that demand gap, both testing WORSE, not
+  better: (1) a genuine internal inconsistency was found where `n_critical_pct()`/`n_marginal_
+  demand_pct()` are called with the raw internal `biomass` variable while their own docstrings
+  and `NCRIT_FLOOR_MGHA` assume real Mg/ha (confirmed via direct instrumentation: `n_crit_pct`
+  stays pinned at the undiluted 5.5% ceiling until real biomass exceeds ~10 Mg/ha, not the
+  intended ~1 Mg/ha) -- correcting the scale (passing `biomass*10`) dropped total uptake to 39.9
+  kg N/ha, further from real Cycles, not closer; (2) the standard agronomic convention (Justes/
+  Lemaire %N-dilution curves are defined on SHOOT dry matter, not total biomass including
+  roots -- confirmed via the real Lemaire et al. 2008 paper already on disk, whose own Fig. 1/2
+  threshold is explicitly "1 t ha-1," matching this engine's `NCRIT_FLOOR_MGHA=1.0` and
+  supporting the real-Mg/ha reading) gave 45.6 kg N/ha using `ag_biomass*10` -- still far
+  short. Every corrected variant moved AWAY from real Cycles' 144.4, while the current,
+  scale-inconsistent code (99.7 kg N/ha) is paradoxically the closest of the four. This suggests
+  the gap isn't a simple units bug at all -- more likely real Cycles allows uptake beyond the
+  critical-dilution curve's minimum-for-max-growth prediction (luxury consumption up to
+  N_MAX_CONCENTRATION when supply is abundant, a real, common feature of N uptake models this
+  engine's marginal-rate formula doesn't represent), which this session didn't have time to
+  build and test.
+
+  Given real N stress correlates only weakly with corn's own yield already (-0.21, vs. wheat's
+  dominant -0.894, already documented above), and every tested angle here produced either no
+  effect or moved the wrong direction, this was deliberately NOT pursued further or shipped --
+  consistent with this session's own standing discipline against chasing a narrow, ambiguous
+  thread past the point of clear returns. Nothing in `cycles_engine_validate.py` was changed by
+  this investigation (confirmed via diff against a pre-investigation backup). Worth revisiting
+  with a real luxury-consumption mechanism (crop takes up available N up to N_MAX_CONCENTRATION,
+  not just the critical-dilution marginal rate, whenever supply allows) if this is picked up
+  again -- that's the one candidate explanation not yet tried.
+
+  One more, decisive check before closing this out: this same scale-correction was also tested
+  directly against the already-documented Kansas nitrogen-response "muting" problem (CLAUDE.md
+  2026-09-29: real Cycles' mean relative yield N=0/N=150 at Kansas is 0.779, varying 0.344-1.028
+  by year; this engine's is a flatter 0.934) -- a different, sensitivity-shaped metric than the
+  absolute-uptake-total comparison above, so worth checking separately rather than assuming the
+  same verdict applies. Result was unambiguous and in the wrong direction: the "corrected"
+  `ag_biomass*10` demand scale pushed Kansas's relative yield to 0.998-1.000 across three tested
+  years (1997, 2012, 1988) -- essentially ZERO nitrogen response at all, since background
+  mineralization alone now fully satisfies the (much lower) demand ceiling even at N=0. The
+  current scale-inconsistent code's own relative yields at the same three years (0.799-0.906)
+  are closer to real Cycles' sensitivity, if still too flat. This decisively confirms the floor-
+  threshold/reference-biomass scaling should NOT be touched -- whatever its aesthetic
+  inconsistency, it is accidentally more realistic than the "textbook-correct" version, which
+  would make nitrogen matter even less than it already does. The muting problem itself remains
+  real and unresolved; the luxury-consumption idea above is the most promising untried angle for
+  it too, since raising the uptake ceiling (rather than changing which biomass/units it's keyed
+  to) is the one lever not yet tested in either direction.
