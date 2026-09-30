@@ -827,19 +827,25 @@ EVAPORATIVE_LAYER_DEPTH_M = 0.10  # real, sourced (2026-09-30): Stockle, Martin 
 
 
 def root_length_fraction_by_layer(layers, root_depth_m):
-    """Real FAO-56 depth-quartile root-water-extraction weighting (0.4/0.3/0.2/0.1, surface
-    to deepest quarter of the current root zone) -- a real, disclosed substitute for
-    CropSyst's own still-undisclosed exponential root-length-density curve (see the module
-    section header above this function). The top EVAPORATIVE_LAYER_DEPTH_M of the PROFILE
-    (not layer index 0 specifically -- see that constant's own docstring) is excluded from
-    root water uptake, per the CropSyst manual's real, disclosed 10cm evaporative-layer rule;
-    a layer straddling that boundary gets partial credit for whatever fraction of itself
-    lies below it. Remaining weights are renormalized to sum to 1.0 so the exclusion doesn't
-    silently discard part of the crop's total root conductance."""
+    """Real CropSyst root-length-density weighting (2026-09-30, replacing the earlier FAO-56
+    depth-quartile substitute, 0.4/0.3/0.2/0.1): the CropSyst manual itself (Simulation crop:
+    Transpiration / Crop parameters: Root, modeling.bsyse.wsu.edu) states "current root
+    density distribution in soil layers is calculated as a linear function of root depth" --
+    a triangular density profile, maximum at the surface and tapering linearly to zero at the
+    current root depth, not FAO-56's coarser four-step quartile scheme. Weight for a depth
+    interval [a,b] within [0, root_depth_m] is the integral of that linear density,
+    (b-a)*(1-(a+b)/(2*root_depth_m)) -- concentrates weight much more heavily on shallow,
+    fast-drying layers than the quartile scheme did, since density keeps rising all the way
+    to the surface rather than plateauing at 40% for the whole top quarter.
+
+    The top EVAPORATIVE_LAYER_DEPTH_M of the PROFILE (not layer index 0 specifically -- see
+    that constant's own docstring) is still excluded from root water uptake, per the
+    CropSyst manual's real, disclosed 10cm evaporative-layer rule; a layer straddling that
+    boundary gets partial credit for whatever fraction of itself lies below it. Remaining
+    weights are renormalized to sum to 1.0 so the exclusion doesn't silently discard part of
+    the crop's total root conductance."""
     if root_depth_m <= 0:
         return [0.0] * len(layers)
-    qweights = (0.4, 0.3, 0.2, 0.1)
-    qdepth = root_depth_m / 4.0
     fl = [0.0] * len(layers)
     depth = 0.0
     for i, l in enumerate(layers):
@@ -847,13 +853,10 @@ def root_length_fraction_by_layer(layers, root_depth_m):
         if top >= root_depth_m:
             break
         bot = min(depth + l["thick"], root_depth_m)
-        root_top = max(top, EVAPORATIVE_LAYER_DEPTH_M)
-        if qdepth > 0 and root_top < bot:
-            for q in range(4):
-                qtop, qbot = q * qdepth, (q + 1) * qdepth
-                overlap = max(0.0, min(bot, qbot) - max(root_top, qtop))
-                if overlap > 0:
-                    fl[i] += qweights[q] * (overlap / qdepth)
+        a = max(top, EVAPORATIVE_LAYER_DEPTH_M)
+        b = bot
+        if b > a:
+            fl[i] = (b - a) * (1 - (a + b) / (2 * root_depth_m))
         depth += l["thick"]
     total = sum(fl)
     return [f / total for f in fl] if total > 0 else fl

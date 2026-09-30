@@ -1141,13 +1141,14 @@ EVAPORATIVE_LAYER_DEPTH_M = 0.10  # real, sourced (2026-09-30): Stockle, Martin 
 # comparable topsoil moisture rise.
 
 def root_length_fraction_by_layer(layers, root_depth_m):
-    # Excludes the top EVAPORATIVE_LAYER_DEPTH_M of the PROFILE (not layer index 0) from
-    # root uptake -- a layer straddling that boundary gets partial credit for whatever
-    # fraction of itself lies below it.
+    # Real CropSyst root-length-density weighting (2026-09-30): the manual states root
+    # density is "a linear function of root depth" -- a triangular profile, max at the
+    # surface, tapering linearly to zero at the current root depth -- replacing the earlier
+    # FAO-56 quartile substitute (0.4/0.3/0.2/0.1). Weight for [a,b] within [0,root_depth_m]
+    # is (b-a)*(1-(a+b)/(2*root_depth_m)). Still excludes the top EVAPORATIVE_LAYER_DEPTH_M
+    # of the PROFILE (not layer index 0) from root uptake.
     if root_depth_m <= 0:
         return [0.0] * len(layers)
-    qweights = (0.4, 0.3, 0.2, 0.1)
-    qdepth = root_depth_m / 4.0
     fl = [0.0] * len(layers)
     depth = 0.0
     for i, l in enumerate(layers):
@@ -1155,13 +1156,10 @@ def root_length_fraction_by_layer(layers, root_depth_m):
         if top >= root_depth_m:
             break
         bot = min(depth + l["thick"], root_depth_m)
-        root_top = max(top, EVAPORATIVE_LAYER_DEPTH_M)
-        if qdepth > 0 and root_top < bot:
-            for q in range(4):
-                qtop, qbot = q * qdepth, (q + 1) * qdepth
-                overlap = max(0.0, min(bot, qbot) - max(root_top, qtop))
-                if overlap > 0:
-                    fl[i] += qweights[q] * (overlap / qdepth)
+        a = max(top, EVAPORATIVE_LAYER_DEPTH_M)
+        b = bot
+        if b > a:
+            fl[i] = (b - a) * (1 - (a + b) / (2 * root_depth_m))
         depth += l["thick"]
     total = sum(fl)
     return [f / total for f in fl] if total > 0 else fl
