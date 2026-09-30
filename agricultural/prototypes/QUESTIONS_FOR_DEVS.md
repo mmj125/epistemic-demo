@@ -2214,6 +2214,20 @@ against real Cycles output before concluding the gap is real.
   not just the critical-dilution marginal rate, whenever supply allows) if this is picked up
   again -- that's the one candidate explanation not yet tried.
 
+  A fourth angle was also tested against the muting problem specifically: real multi-year
+  soil-state carryover (`initial_layers`, already a real engine feature, already documented as
+  an "unambiguous win everywhere tested" for the Kansas yield-LEVEL overshoot -- see the
+  2026-09-24 entries above) was chained 1988->target across 10 real Kansas years and compared
+  against the fresh-start relative yield (N=0/N=150) at three target years. Result was small and
+  mixed, not a fix: 1997 improved marginally (0.799->0.784, slightly more responsive), 1996 was
+  essentially unchanged (0.802->0.811), and 1991 got measurably WORSE (0.749->0.898, notably
+  LESS responsive to nitrogen with real carryover than without). Carryover fixes the absolute
+  yield level (its own already-documented job) but doesn't reliably fix how FLAT the response to
+  nitrogen rate is -- a separate axis of the same real problem. Four real, sourced angles tried
+  on this specific muting problem this session (denitrification, the two demand-scale
+  corrections, and now carryover); none closed it. The luxury-consumption idea remains the one
+  real candidate not yet built and tested.
+
   One more, decisive check before closing this out: this same scale-correction was also tested
   directly against the already-documented Kansas nitrogen-response "muting" problem (CLAUDE.md
   2026-09-29: real Cycles' mean relative yield N=0/N=150 at Kansas is 0.779, varying 0.344-1.028
