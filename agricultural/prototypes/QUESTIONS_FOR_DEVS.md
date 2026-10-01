@@ -2310,3 +2310,88 @@ against real Cycles output before concluding the gap is real.
   carryover, and now root-access limiting) without a fix. The luxury-consumption idea (uptake
   allowed above the critical-dilution ceiling when supply is abundant) remains the one real,
   sourced candidate not yet built.
+
+---
+
+**2026-10-01 — Resolved without asking: a real cold-kill mechanism, the single largest
+correlation jump this project has shipped for corn and soybean.** After the root-access/
+nitrogen-muting investigation above closed out without a fix, redirected (per direct
+instruction: "Onward toward high leverage things to improve the model. No educational modules
+until we fix this") to hunting systematically for whatever actually explains corn's real
+year-to-year yield variance at Rock Springs, since a sensitivity sweep had already shown
+neither nitrogen stress (-0.21 correlation with real yield) nor water stress (-0.22) are strong
+real drivers there. A multi-variable correlation hunt across every real daily/annual Cycles
+output column found `total_actual_tr` (cumulative actual transpiration) as the dominant real
+predictor (+0.824) -- stronger than any stress metric -- which pointed at season LENGTH as the
+real lever: a season cut short transpires less, full stop, regardless of why it was cut short.
+
+Checked real Cycles' own `STAGE` column directly for every one of the 37 validated years and
+found `STAGE=KILLED` in all 37 -- always right around 1818-1833 GDD (essentially
+`tt_maturity=1800`, ordinary maturity) EXCEPT two years: 1982 (killed at 1485.6 GDD, 82.5% of
+normal -- this project's own single worst corn overshoot year, model 11.71 vs real 7.13 Mg/ha)
+and 1997 (1752.7 GDD, 97.3% of normal). Checked the real weather on the exact kill day in both
+years and found a real, disclosed, exact match: corn's own `GenericCrops.crop`
+`THRESHOLD_TEMPERATURE_FOR_COLD_DAMAGE=3C` was crossed by that night's real low temperature in
+BOTH years (1982: 2.91C; 1997: 1.19C) during reproductive growth -- a real, causal, matching
+mechanism, not a correlation found by searching. This engine had no kill mechanism of any kind
+before this fix; it always ran every season to full thermal-time maturity regardless of
+weather.
+
+A naive, ungated implementation (kill the season outright the instant any night drops below
+the threshold, checked from day one) catastrophically failed: collapsed mean grain from 10.56
+to 1.90 Mg/ha and made correlation go NEGATIVE, because ordinary early-season cold nights
+(right after planting, well before flowering) are completely normal and non-lethal in real
+Cycles -- confirmed directly against real weather for non-killed years (1980 hits 1.24C, 1985
+hits 0.90C, within 60 days of planting, neither year killed in reality). Fixed by gating the
+check on `tt_cum >= crop["flowering_tt"]` -- cold-kill only applies during/after reproductive
+growth, matching the real, physically sensible story (a hard freeze during grain fill ends the
+season; one in early vegetative growth does not, in this model's own real behavior).
+
+Implemented in `simulate_season()`'s main day loop as a single `break` triggered by
+`tt_cum >= crop.get("flowering_tt", math.inf) and w["tn"] < crop.get("threshold_temp_cold_damage", -math.inf)`
+(both fields absent by default, so any crop without them is completely unaffected). Real,
+disclosed per-crop `THRESHOLD_TEMPERATURE_FOR_COLD_DAMAGE` values from `GenericCrops.crop`:
+corn (all RM variants) = 3C, soybean (all MG variants) = 2C, winter wheat = -10C, silage corn =
+3C. Wired in for all four validated crops plus `CORN_LONG_SEASON`. Verified the mechanism's
+real, physically-motivated scope rather than treating it as a universal fix: real, substantial
+wins for corn (Rock Springs correlation 0.527 -> 0.691, recalibrated) and soybean (0.871 ->
+0.954, recalibrated) -- the largest single-mechanism correlation jump either crop has gotten
+this session -- and confirmed NULL (genuinely inert, not just untested) for winter wheat
+(threshold -10C essentially never reached that late in a spring-flowering wheat's own season)
+and silage corn (harvested at 85% of thermal-time maturity, well before the late-season
+cold-kill window could ever matter).
+
+A real, unforced side effect: `pattern_assertions.py`'s previously-failing "Hybrid choice"
+check (long-season hybrid should win at a warm site, short-season should win or tie at a cold
+one) flipped to passing from this fix alone, with no retuning aimed at it -- genuine real
+agronomic logic, since a cold-kill mechanism specifically penalizes a longer-season hybrid at
+a cold site (more growing days needed, more exposure to an early-season-ending freeze), exactly
+the real reason farmers in cold climates plant shorter relative-maturity hybrids. Full suite
+now 15/16 passing (only remaining failure: the already-separately-documented, confirmed-
+nonexistent corn/soybean nitrogen crossover that `agricultural/investigation.html` Tab 3 still
+teaches -- a real, known, not-yet-fixed staleness in that tab's own copy, left untouched per the
+standing "no educational modules" instruction).
+
+Re-derived `calibration_factor` for both crops to keep the mean matching real output exactly,
+same discipline as every prior mechanism: corn 1.0977 -> 1.1076, soybean 1.4297 -> 1.4678.
+Ported into both embedded `ENGINE_SOURCE` copies (`engine-demo.html`, `model-validation.html`)
+-- the day-loop check, the two crops' `threshold_temp_cold_damage` fields, and both new
+calibration factors -- confirmed both files compile cleanly, execute correctly against real
+Rock Springs weather (1982 grain dropped from the pre-fix 11.71 to a real, verified 8.64 Mg/ha
+through the actual embedded engine, not just the canonical script), and preserve correct
+`<div>`/`<script>`/`<style>` tag balance. `CORN_LONG_SEASON = dict(CORN)` automatically
+inherits the new threshold field with no separate edit needed.
+
+The combined luxury-N-consumption + real-denitrification mechanism tested just before this
+(explicit instruction: "go build and test it") failed decisively and was NOT kept: despite the
+fertilizer pool genuinely draining under both mechanisms together, yield stayed unchanged to
+three decimals in every tested year, because `BACKGROUND_N_KG_HA_DAY` is a flat, continuous
+daily credit that refills the pool every growing day regardless of applied rate -- an
+inexhaustible backstop no demand- or loss-side nitrogen mechanism can overcome on its own.
+Checked the bundled `.soil`/`.ctrl` files (`GenericHagerstown.soil`, `Kansas.soil`,
+`ContinuousCorn.ctrl`) directly for the six-pool system's undisclosed rate constants per the
+explicit "look elsewhere for those constants" request -- confirmed cleanly that these files
+only ever carry initial conditions (CLAY/SAND/SOC/NO3/NH4/curve number), never kinetic rate
+constants; a fast, clean negative result, not a wasted effort, and part of why the "go hunting"
+redirect toward season-length/cold-kill (rather than more nitrogen-mechanism tuning) proved to
+be the right call.

@@ -65,7 +65,11 @@ import field_data as fd
 CORN = dict(
     tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=1.1082,  # kept in sync w/ run_validation.py 2026-09-30 (real f_G HI fix)
+    calibration_factor=1.1076,  # kept in sync w/ run_validation.py -- re-derived 2026-10-01 for
+    # the real cold-kill mechanism (threshold_temp_cold_damage below); this field had drifted
+    # stale once already (still 1.1082 here when run_validation.py had already moved to 1.0977
+    # for the 2026-09-30 canopy refit) until caught fixing this same kind of staleness again --
+    # worth double-checking this dict after any future run_validation.py CORN change too.
     canopy_shape=CORN_CANOPY_SHAPE,  # was missing entirely -- this dict had been silently
     # running Kansas/multi-site checks on the paper's unfit default shape (6,-20,-15,16)
     # instead of the corn-specific refit run_validation.py actually uses, found 2026-09-30
@@ -74,6 +78,8 @@ CORN = dict(
     n_max_conc=0.055, n_dilution_slope=0.4, legume=False, n_min_conc=0.002,
     depletion_fraction=0.55, tr_max_mm_day=10, root_max_m=2.0, tt_emergence=65,
     lwp_stress_onset=-1100, lwp_wilting_point=-2000,
+    threshold_temp_cold_damage=3,  # real GenericCrops.crop THRESHOLD_TEMPERATURE_FOR_COLD_DAMAGE
+    # (CornRM.90), added 2026-10-01 for the real cold-kill mechanism.
 )
 
 CORN_LONG_SEASON = dict(CORN, tt_maturity=2300, flowering_tt=1300)

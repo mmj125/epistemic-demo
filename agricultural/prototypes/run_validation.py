@@ -19,9 +19,10 @@ from cycles_engine_validate import (
 CORN = dict(
     tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=1.0977,  # re-derived 2026-09-30 again, for the CORN_CANOPY_SHAPE
-    # late-senescence refit (see that constant's own comment in cycles_engine_validate.py) --
-    # previous value 1.1082, itself re-derived the same day for the real f_G harvest-index fix
+    calibration_factor=1.1076,  # re-derived 2026-10-01 for the real cold-kill mechanism (see
+    # threshold_temp_cold_damage below) -- previous value 1.0977, re-derived 2026-09-30 for the
+    # CORN_CANOPY_SHAPE late-senescence refit (see that constant's own comment in
+    # cycles_engine_validate.py), itself re-derived the same day for the real f_G harvest-index fix
     # (Kemanian et al. 2007) -- see cycles_engine_validate.py's own HI-computation docstring.
     # Previous value 0.8490, residual after the AG-biomass fix + corn-specific canopy refit +
     # the 2026-09-23 TTF50_SHOOT_PARTITION refit + the emergence-gate fix + the cold-temperature
@@ -55,6 +56,9 @@ CORN = dict(
     # cycles_engine_validate.py) -- presence of both fields (plus the already-real
     # tr_max_mm_day above) is what selects that mechanism over the older, superseded
     # depletion_fraction/root_zone_availability fallback for this crop.
+    threshold_temp_cold_damage=3,  # real GenericCrops.crop THRESHOLD_TEMPERATURE_FOR_COLD_DAMAGE
+    # (CornRM.90), added 2026-10-01 for the real cold-kill mechanism -- see
+    # cycles_engine_validate.py's own comment at the kill check for the full account.
 )
 
 SOIL_LAYERS_RAW = [

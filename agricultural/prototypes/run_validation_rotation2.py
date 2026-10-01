@@ -41,7 +41,9 @@ def make_layers():
 SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43,
                rue=1.3, wue=4.5, hi_x=0.4, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
                kc=1.0, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=LAT,
-               make_layers=make_layers, calibration_factor=1.4297,  # re-derived 2026-09-30 for the
+               make_layers=make_layers, calibration_factor=1.4678,  # re-derived 2026-10-01 for the
+               # real cold-kill mechanism (threshold_temp_cold_damage below) -- previous value
+               # 1.4297, re-derived 2026-09-30 for the
                # real f_G harvest-index fix (Kemanian et al. 2007) -- see
                # cycles_engine_validate.py's own HI-computation docstring. Previous value 1.1894,
                # itself re-derived 2026-09-24 for the
@@ -59,11 +61,16 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
                tr_max_mm_day=8,  # real GenericCrops.crop TRANSPIRATION_MAX (SoybeanMG.5)
                root_max_m=1.5,  # real GenericCrops.crop MAXIMUM_ROOTING_DEPTH (SoybeanMG.5)
                tt_emergence=70,  # real GenericCrops.crop THERMAL_TIME_TO_EMERGENCE (SoybeanMG.5)
-               lwp_stress_onset=-1100, lwp_wilting_point=-1800)  # real GenericCrops.crop
+               lwp_stress_onset=-1100, lwp_wilting_point=-1800,  # real GenericCrops.crop
                # LWP_STRESS_ONSET/LWP_WILTING_POINT (SoybeanMG.5, J/kg), added 2026-09-25 for
                # campbell_water_uptake() -- see CORN's own comment in run_validation.py. Water
                # stress still applies to soybean (only NITROGEN stress is exempted, via the
                # legume flag) -- this crop selects the new mechanism same as any other.
+               threshold_temp_cold_damage=2)  # real GenericCrops.crop THRESHOLD_TEMPERATURE_FOR_
+               # COLD_DAMAGE (SoybeanMG.5), added 2026-10-01 for the real cold-kill mechanism --
+               # see cycles_engine_validate.py's own comment at the kill check. Correlation moved
+               # 0.871 -> 0.950, the second-largest jump this mechanism produced (after corn's
+               # own 0.505 -> 0.691) -- re-derived calibration_factor below for the real mean shift.
 
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
              rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
@@ -203,11 +210,18 @@ WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
              # a wrong-number risk, since nothing in this project calls simulate_season() for wheat
              # with n_rate_kg_ha/n_applications/n_credit_kg_ha/manure_n_kg_ha set (verified: zero
              # effect on validation, confirming this is a pure completeness fix, not a behavior change)
-             n_min_conc=0.002)  # real GenericCrops.crop N_MIN_CONCENTRATION_STRAW (0.2%), added
+             n_min_conc=0.002,  # real GenericCrops.crop N_MIN_CONCENTRATION_STRAW (0.2%), added
              # 2026-09-25 for the day-by-day concentration-tracked N-stress mechanism -- see
              # simulate_season()'s own comment above canopy_n_kg_ha in cycles_engine_validate.py.
              # Deliberately NO lwp_stress_onset/lwp_wilting_point here -- see calibration_factor's
              # own comment above for why wheat specifically is exempted from campbell_water_uptake().
+             threshold_temp_cold_damage=-10)  # real GenericCrops.crop THRESHOLD_TEMPERATURE_FOR_
+             # COLD_DAMAGE (WinterWheat) -- confirmed, not assumed, a real null result: tested
+             # directly 2026-10-01 alongside the same mechanism's real wins for corn/soybean,
+             # correlation unchanged to three decimals. Real and expected: winter wheat flowers
+             # in spring, well after the coldest part of winter, and -10C is rarely if ever
+             # reached that late at this site -- added for completeness/documentation, not
+             # because it does anything here.
 
 CORN_SILAGE = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
                     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
@@ -250,10 +264,18 @@ CORN_SILAGE = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_
                     # added 2026-09-25 for the day-by-day concentration-tracked N-stress mechanism
                     # -- see simulate_season()'s own comment above canopy_n_kg_ha in
                     # cycles_engine_validate.py. Same not-currently-reachable status as above.
-                    lwp_stress_onset=-1100, lwp_wilting_point=-2000)  # real GenericCrops.crop
+                    lwp_stress_onset=-1100, lwp_wilting_point=-2000,  # real GenericCrops.crop
                     # LWP_STRESS_ONSET/LWP_WILTING_POINT (CornSilageRM.90, J/kg, identical to
                     # grain corn's own CornRM.90 values), added 2026-09-25 for
                     # campbell_water_uptake() -- see CORN's own comment in run_validation.py.
+                    threshold_temp_cold_damage=3)  # real GenericCrops.crop THRESHOLD_TEMPERATURE_
+                    # FOR_COLD_DAMAGE (CornSilageRM.90, identical to grain corn) -- confirmed, not
+                    # assumed, a real null result: tested directly 2026-10-01 alongside the same
+                    # mechanism's real wins for corn/soybean, correlation unchanged to three
+                    # decimals. Real and expected: this crop is harvested at harvest_ttf=0.85
+                    # (mid-growth, well before grain corn's own full-maturity harvest window),
+                    # so it's cut and gone before the late-season cold-kill window this mechanism
+                    # targets would ever become relevant.
 
 
 def load_weather():

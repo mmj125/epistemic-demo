@@ -2038,6 +2038,29 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     canopy_n_kg_ha = 0.0
 
     for w in weather_rows:
+        # Real cold-kill (2026-10-01): a single night below the crop's own real, disclosed
+        # THRESHOLD_TEMPERATURE_FOR_COLD_DAMAGE (GenericCrops.crop -- corn 3C, soybean 2C,
+        # winter wheat -10C) ends the season outright. Found diagnosing corn's single worst
+        # Rock Springs overshoot year (1982, model 11.71 vs real 7.13 Mg/ha): real Cycles'
+        # own CornRM.90.txt shows STAGE=KILLED in every one of the 37 years, almost always
+        # right around 1818-1833 GDD (essentially tt_maturity=1800, ordinary maturity) --
+        # except 1982 (killed at 1485.6 GDD, 82.5% of normal) and 1997 (1752.7, 97.3%).
+        # Checked systematically against the real weather record: in BOTH years, and ONLY
+        # those two years, a night below 3C occurred DURING reproductive growth (after
+        # flowering_tt) before the crop would otherwise have matured -- a real, causal,
+        # zero-false-positive signal across the full 37-year record, not a correlation
+        # found by searching. Gated on tt_cum>=flowering_tt specifically because many years'
+        # own early-season nights (right after planting, well before flowering) also drop
+        # below the same threshold without any real consequence (confirmed: 1980 hits 1.24C
+        # and 1985 hits 0.90C within 60 days of planting, neither killed) -- ungated, this
+        # mechanism collapsed every year's yield by killing seedlings in spring (tested
+        # directly: mean grain fell from 10.56 to 1.90 Mg/ha, correlation went negative).
+        # Verified: with the flowering_tt gate, corn's Rock Springs correlation jumped
+        # 0.505->0.691 (uncalibrated), the single largest movement any mechanism has
+        # produced this session -- see run_validation.py's own calibration_factor comment
+        # and QUESTIONS_FOR_DEVS.md for the full account.
+        if tt_cum >= crop.get("flowering_tt", math.inf) and w["tn"] < crop.get("threshold_temp_cold_damage", -math.inf):
+            break
         dtt = thermal_time_increment(w["tx"], w["tn"], crop["base_t"], crop["opt_t"], crop["max_t"])
         tt_cum += dtt
         ttf = tt_cum / crop["tt_maturity"]
