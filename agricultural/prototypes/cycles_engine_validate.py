@@ -1619,31 +1619,40 @@ def tillage_dr_decay(layers, max_rate_per_day=0.02):
 
 
 # ---------------------------------------------------------------------------
-# STATUS (2026-10-01, right after the first real multi-site test of this
-# mechanism): NOT yet validated as "at least as good" as the RothC path --
-# the opposite, a real over-crediting problem was found and is NOT fixed.
-# At every real site/year tested so far (Rock Springs, Iowa, Kansas, all via
-# this project's own already-resolved STATSGO2/NLDAS-2 data), N=0 and N=650
-# grain came out byte-identical -- background mineralization alone already
-# fully satisfies crop demand, eliminating any fertilizer response at all,
-# which contradicts real Cycles' own documented pattern (relative yield
-# never hits exactly 1.0 at any real tested year, even the flattest one).
-# Root cause, diagnosed not guessed: SIXPOOL_KS (0.00032/day) was back-
-# calculated against real Cycles' own WHOLE-9-LAYER-PROFILE Cs sum (see
-# QUESTIONS_FOR_DEVS.md's own account of that fit), not a single shallow
-# topsoil layer -- applying that same rate to ANY single-layer Cs pool at a
-# realistic topsoil depth (any of 0.05m-0.20m tried) already mineralizes on
-# the order of 100+ kg N/ha over one season from Cs decomposition alone,
-# which turned out to be enough on its own to swamp these specific (mostly
-# water-limited) test years' actual crop N demand. Scoping UP to the full
-# profile would only make this worse (bigger Cs, more mineralization), not
-# better -- the fix isn't a depth constant, it's that ks/eps_c/CN_RATIO_SOM
-# chosen together are collectively too generous for a single-layer scope,
-# and re-deriving a genuinely single-layer-scoped ks from the same real data
-# (if it disaggregates per-layer, unconfirmed) is real follow-up work, not
-# done here. Kept in the codebase as a documented, honest first attempt --
-# do not switch background_n_model to "sixpool" anywhere it would affect a
-# real result until this is resolved.
+# STATUS (2026-10-01, updated after a real fix, not just the first finding):
+# the first multi-site test found N=0 and N=650 grain coming out byte-
+# identical at every site tried (Rock Springs, Iowa, Kansas) -- background
+# mineralization alone fully satisfying crop demand, eliminating any
+# fertilizer response, contradicting real Cycles' own documented pattern
+# (relative yield never hits exactly 1.0 at any real tested year). The
+# INITIAL diagnosis (SIXPOOL_KS fit against a whole-9-layer-profile sum,
+# therefore invalid at single-layer scope) was WRONG -- ks, as a rate
+# constant, is valid to apply to any one layer's own REAL absolute Cs, the
+# actual problem was that this mechanism's computed Cs0 wasn't using that
+# real absolute value. Found and fixed by checking directly against real
+# Cycles' own actual layer-1 SOIL ORG C stock (soilLayersCN.txt, Rock
+# Springs: 11.417 Mg C/ha) -- see SIXPOOL_TOPSOIL_DEPTH_M's own comment and
+# sixpool_init_state()'s docstring for the two further wrong values tried
+# (a 0.20m guess, and layer0["thick"] itself) before landing on the correct
+# fixed 0.05m depth, which matches that real reference almost exactly
+# (11.422 computed) and is the actual real control volume SIXPOOL_KS/
+# SIXPOOL_KRA/SIXPOOL_K_RTZ were all back-calculated against.
+#
+# Result after the fix: Rock Springs (both its hand-curated profile and
+# its own STATSGO2-resolved one) and Kansas now show real, sensible,
+# non-trivial nitrogen responses -- relative yield 0.72/0.75, close to and
+# in Kansas's case slightly better than the RothC path's own 0.74/0.80 at
+# the same site/years, and inside the real literature/Cycles-documented
+# band. Iowa alone still saturates (relative yield 1.00) -- confirmed to be
+# a SEPARATE, genuine, NOT-yet-resolved finding: Iowa's real measured SOC
+# (3.488%) exceeds what sixpool_csx_pct()'s own Csx(clay) formula says its
+# particular texture should be able to hold at saturation (ratio 1.066,
+# computed depth-independently), a real tension in applying a Rock-Springs-
+# derived saturation-capacity formula to a much richer prairie soil, not a
+# depth-scaling artifact. Do not switch background_n_model to "sixpool"
+# anywhere it would affect a real result at a high-SOC site (Iowa-like)
+# until that's resolved; Rock Springs/Kansas-like sites are in better shape
+# but this mechanism is still new and opt-in, not adopted as a default.
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
@@ -1710,12 +1719,18 @@ SIXPOOL_KM = SIXPOOL_EPS_C_KM_PRODUCT / SIXPOOL_EPS_C
 CN_RATIO_SOM = 11.0  # standard, widely-cited C:N ratio for stabilized temperate agricultural
 # soil organic matter -- the flat conversion this mechanism uses from net carbon respired to
 # net nitrogen mineralized. Not a Cycles-specific or site-specific number.
-SIXPOOL_TOPSOIL_DEPTH_M = 0.20  # fixed topsoil-depth convention this mechanism's carbon pools
-# are scaled to -- NOT the caller's own layer0["thick"] (see sixpool_init_state()'s own
-# docstring for the real bug this fixed: resolved-tile soil profiles' first layer thickness
-# is an arbitrary STATSGO2 artifact, not a real signal, and varies 0.05-0.33m+ across this
-# project's already-used sites). 0.20m is a standard "topsoil" convention, close to Rock
-# Springs' own hand-curated profile's first three layers combined (0.05+0.05+0.10=0.20m).
+SIXPOOL_TOPSOIL_DEPTH_M = 0.05  # fixed at Cycles' own REAL layer-1 thickness for Rock Springs
+# (GenericHagerstown.soil, confirmed directly: /tmp/cycles-run/input/GenericHagerstown.soil
+# layer 1 = 0.05m) -- the exact real control volume SIXPOOL_KS/SIXPOOL_KRA/SIXPOOL_K_RTZ were
+# all back-calculated against, not a convention picked for convenience. Two wrong values were
+# tried and rejected first, see sixpool_init_state()'s own docstring for the full account:
+# a 0.20m guess (inflated Rock Springs' own Cs ~4x past its real value, confirmed directly
+# against soilLayersCN.txt's own layer-1 SOIL ORG C, 11.417 Mg C/ha vs. 11.422 computed at
+# 0.05m -- essentially exact); and layer0["thick"] itself (wrong for a different, more
+# precise reason: this project's own STATSGO2-resolved soil profiles use a genuinely
+# different layer-boundary convention than Cycles' own real .soil file, even at the exact
+# same coordinates -- 0.15m vs 0.05m for Rock Springs, 0.33m for Kansas/Iowa -- so "whatever
+# a given lookup's layer0 happens to be" isn't the quantity SIXPOOL_KS was fit against).
 
 
 def sixpool_fe_temp(tmean):
@@ -1793,18 +1808,36 @@ def sixpool_init_state(layer0, clay_pct, soc_pct):
     input for a from-scratch single season is the live crop's own root growth, added day by
     day into crtz inside sixpool_step().
 
-    Uses SIXPOOL_TOPSOIL_DEPTH_M, a FIXED depth convention, rather than layer0["thick"]
-    itself -- a real bug found and fixed while first testing this mechanism against this
-    project's own already-resolved multi-site soil profiles (2026-10-01): layer0's thickness
-    is an arbitrary STATSGO2 layer-boundary artifact, not a real signal, and varies hugely
-    across already-used sites (Rock Springs' own hand-curated profile: 0.05m; Iowa's
-    resolved-tile profile: 0.33m). Scaling Cs/Csx directly by that thickness inflated Iowa's
-    carbon pools roughly 6x relative to Rock Springs for the same soc%/clay% input, pushing
-    Cs to/above its own Csx ceiling and eliminating nitrogen limitation entirely (checked
-    directly: N=0 and N=650 grain came out byte-identical at Iowa and Kansas before this fix,
-    not just close). soc_pct/clay_pct are intensive (concentration) properties, so applying
-    them over one fixed, disclosed topsoil-depth convention instead of whatever depth a given
-    resolved profile's own first layer happens to be is the defensible fix, not a workaround."""
+    Uses SIXPOOL_TOPSOIL_DEPTH_M (0.05m) -- NOT layer0["thick"], and NOT the earlier,
+    wrong 0.20m guess either. Full real history, 2026-10-01: a fixed 0.20m depth was tried
+    first, reasoning that layer0's thickness varying hugely across this project's already-
+    resolved sites (Rock Springs' hand-curated profile: 0.05m; Iowa's resolved-tile profile:
+    0.33m) looked like an arbitrary STATSGO2 artifact that shouldn't drive carbon-pool size.
+    That specific number was wrong -- caught by checking against real Cycles' own actual
+    layer-1 SOIL ORG C stock (soilLayersCN.txt, Rock Springs, 1980-01-01: 11.417 Mg C/ha):
+    using layer0["thick"] (0.05m there) reproduces that real value almost exactly (11.422
+    computed), so 0.20m had inflated it roughly 4x past reality -- exactly why Rock Springs
+    itself (the very site SIXPOOL_KS was back-calculated against) showed complete,
+    byte-identical N=0/N=650 yield after that "fix."
+
+    Reverting to layer0["thick"] directly looked right (it fixed Rock Springs' hand-curated
+    profile) but was ALSO wrong, for a different, more precise reason found testing it
+    against every already-resolved multi-site soil (not just Rock Springs' two versions):
+    this project's two soil-data sources use genuinely different layer-boundary conventions
+    for the SAME real location -- Cycles' own real GenericHagerstown.soil defines Rock
+    Springs' layer 1 at 0.05m, but this project's own STATSGO2 nearest-cell lookup
+    (field_data.py, used by every multi-site panel) resolves the SAME coordinates to a
+    0.15m-thick first layer, and Kansas/Iowa's own resolved layers are 0.33m. SIXPOOL_KS was
+    back-calculated against ONE specific real reference (Cycles' real 0.05m Rock Springs
+    layer), not against "whatever a given lookup's own layer boundary happens to be" -- so
+    layer0["thick"] is the WRONG quantity to scale by whenever a caller's soil didn't come
+    from that exact reference. Confirmed directly: at a correctly-fixed 0.05m depth, Rock
+    Springs (both the hand-curated profile AND the STATSGO2-resolved one), and Kansas, all
+    land at a defensible Cs/Csx ratio (0.60-0.68, matching the real Cycles reference); Iowa
+    alone still sits above 1.0 (1.066) even at this correct depth -- a SEPARATE, genuine
+    finding (Iowa's own real measured SOC, 3.488%, exceeds what the Csx(clay) formula says
+    its particular texture should be able to hold at saturation), not a depth-scaling
+    artifact, and not yet resolved -- see this module's own header comment."""
     bd = sixpool_bulk_density(layer0["sat"])
     csx_pct = sixpool_csx_pct(clay_pct / 100.0)
     csx = bd * SIXPOOL_TOPSOIL_DEPTH_M * 100 * csx_pct

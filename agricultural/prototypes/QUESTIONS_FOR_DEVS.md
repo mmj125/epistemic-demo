@@ -2945,26 +2945,54 @@ byte-identical N=0/N=650 yield (complete elimination of nitrogen limitation). Fi
 introducing `SIXPOOL_TOPSOIL_DEPTH_M=0.20` (a fixed depth convention) in place of the
 caller's own layer boundary.
 
-**Real, NOT-yet-fixed finding, more fundamental than the depth bug**: even after that fix,
-N=0 and N=650 grain came out byte-identical at EVERY real site/year tested (Rock Springs,
-Iowa, Kansas, via this project's own already-resolved STATSGO2/NLDAS-2 data) -- background
-mineralization alone fully satisfies crop demand everywhere checked, which contradicts real
-Cycles' own documented pattern (relative yield never hits exactly 1.0 at any real tested year,
-even the flattest one, per `c_checkplot_relative_yield`'s own account above). Root cause,
-diagnosed directly rather than guessed: `SIXPOOL_KS` (0.00032/day) was back-calculated against
-real Cycles' own WHOLE-9-LAYER-PROFILE Cs sum (`sum over 9 layers of fE*fD*Cs`, see this
-file's own account above), not a single shallow topsoil layer. Applying that same rate to ANY
-single-layer Cs pool at a realistic topsoil depth (0.05m-0.20m both tried) already mineralizes
-on the order of 100+ kg N/ha over one season from Cs decomposition alone -- enough on its own
-to swamp these specific (mostly water-limited) test years' actual crop N demand. Scoping UP to
-match the full profile would make this WORSE (bigger Cs, more mineralization), not better --
-the real fix is either re-deriving a genuinely single-layer-scoped `ks` from real per-layer
-data (unconfirmed whether `soilC.txt`'s own "SOM RESPIRED C" disaggregates by layer at all, or
-whether it's only ever reported as a profile total) or abandoning the single-layer scope for a
-multi-layer one and re-deriving against that instead. Not resolved this session -- documented
-directly in the code (`cycles_engine_validate.py`'s own module-header comment above the
-mechanism, flagged "do not switch background_n_model to sixpool anywhere it would affect a
-real result until this is resolved") and not ported into either embedded `ENGINE_SOURCE` copy
-(`engine-demo.html`, `model-validation.html`) for the same reason -- this is exactly why the
-narrow-first, parallel/opt-in build was the right call rather than committing to a bigger build
-or a default-path swap before testing.
+**The initial diagnosis of why N=0/N=650 came out byte-identical everywhere was WRONG, and
+checking it properly (Matt's direct "try 1 first") found the real cause and a real fix for
+most of it.** The first theory -- `SIXPOOL_KS` was back-calculated against real Cycles' own
+WHOLE-9-LAYER-PROFILE Cs sum, so it's invalid applied to a single shallow layer -- turned out
+not to hold up: `ks`, as a rate constant, is dimensionally fine to apply to any one layer's own
+REAL absolute Cs (the fit's own linear structure means the same `ks` applies uniformly to each
+layer's own term inside that profile sum). The actual bug was that this mechanism's COMPUTED
+`Cs0` wasn't the real absolute value for the layer it was meant to represent.
+
+Checked directly against real Cycles' own actual layer-1 `SOIL ORG C` stock
+(`soilLayersCN.txt`, Rock Springs, 1980-01-01: **11.417 Mg C/ha**) -- three depth choices
+tested in order: the already-tried fixed 0.20m convention gave 45.69 (4x too high, confirming
+it as the first bug); `layers[0]["thick"]` directly gave 11.42 for Rock Springs' own
+hand-curated profile (essentially exact) but a WRONG value at every other site, for a
+different, more precise reason -- this project's own STATSGO2 nearest-cell soil lookup
+(`field_data.py`, used by every multi-site panel) resolves a genuinely different layer-1
+thickness than Cycles' own real `.soil` file even at the EXACT SAME Rock Springs coordinates
+(0.15m vs. 0.05m), and Kansas/Iowa's own resolved layers are 0.33m -- so "whatever a given
+soil lookup's layer0 happens to be" isn't the real quantity `SIXPOOL_KS` was fit against; a
+fixed **0.05m** (Cycles' own real Rock Springs layer-1 thickness, the actual real control
+volume every back-calculated constant in this mechanism traces to) is the correct choice, and
+reproduces the real 11.417 Mg C/ha reference almost exactly (11.422 computed) regardless of
+which soil-lookup pathway supplies the clay%/soc% inputs.
+
+**Result after the fix**: Rock Springs (both its hand-curated profile and its own
+STATSGO2-resolved one) and Kansas now show real, non-trivial nitrogen responses --
+`rock_springs(2012)`: rothc 0.743 vs. sixpool **0.718**; `kansas(1997)`: rothc 0.799 vs.
+sixpool **0.754** -- both inside the real literature/Cycles-documented band, and both
+comparable to (Kansas: slightly better than) the RothC path's own hand-tuned proxy at the
+exact same site/year. The 37-year Rock Springs sweep (hand-curated profile) also recovered a
+sensible, if more N-limited, check-plot pattern (mean grain 6.18 vs. rothc's 7.17 at N=0, both
+converging to the same 10.56 Mg/ha ceiling by N=150).
+
+**Iowa alone still saturates (relative yield exactly 1.00) -- a SEPARATE, genuine, NOT-yet-
+resolved finding, confirmed to be unrelated to the depth bug just fixed.** Iowa's real
+measured SOC (3.488%) exceeds what `sixpool_csx_pct()`'s own `Csx(clay)=2.11+3.75*fclay`
+formula says its particular texture (31% clay) should be able to hold at saturation -- ratio
+1.066, computed DEPTH-INDEPENDENTLY (Cs0/Csx cancels the depth term entirely, so this isn't
+the same bug re-appearing). This is a real tension in applying a formula whose own two
+corroborating sources (the back-calculated Rock Springs values and Kemanian & Stockle 2010's
+published Eq. 3) were both anchored at Rock Springs' own comparatively modest 1.74% SOC --
+not yet tested against, let alone verified for, a much richer prairie soil almost double that.
+Not resolved this session; a real next step if picked up again, not attempted here since it
+wasn't what was asked.
+
+Documented directly in the code (`cycles_engine_validate.py`'s module-header STATUS comment,
+updated to the real, verified fix and the real remaining Iowa-specific gap) and still NOT
+ported into either embedded `ENGINE_SOURCE` copy (`engine-demo.html`, `model-validation.html`)
+-- Rock Springs/Kansas-type sites are now in real working order, but this mechanism is still
+new, opt-in, and unverified at a high-SOC site, not ready to expose anywhere it would affect a
+real shown number.
