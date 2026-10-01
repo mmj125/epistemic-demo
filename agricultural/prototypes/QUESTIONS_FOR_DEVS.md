@@ -2628,3 +2628,57 @@ Kansas, since the Kansas.soil file's own NO3/NH4 columns are already a disclosed
 (tapered from Rock Springs' real values, per `build_kansas.py`'s own comment), not newly real
 data the way Rock Springs' own figure is -- testing a placeholder against a placeholder result
 wouldn't add evidence either way.
+
+**2026-10-01 -- Full SI PDF re-read, now durably available (`agricultural/SI.pdf` on `main`,
+not this feature branch -- access via `git show origin/main:agricultural/SI.pdf`, the same
+read-without-merging pattern already used for every other reference PDF Matt has uploaded to
+`main`'s root this project). Matt re-supplied it after the original docx (and this session's
+own custom OMML-to-text transcription of it) was lost to a mid-session container reprovision.
+Result: no new fixable lever found -- this PDF's content is the exact same 14 equations and
+descriptive sections this project already extracted once and already built into the engine.**
+Read all 24 pages in full (via `pypdf` text extraction, which rendered the italic-unicode math
+cleanly enough to check against, no OCR risk the way a scanned image would carry) and checked
+every equation and numeric table against what's currently implemented:
+
+- Eq. SI.1 (TRp), SI.2-SI.7 (runoff/curve-number, including the SAME two sign-typo'd
+  denominators -- SI.2's `Win-0.8S` and SI.6's `0.4-0.006*CNb` -- already found and corrected
+  in this engine), SI.8 (shoot partitioning), SI.9 (harvest index), and Table SI.2 (RUE/WUE by
+  species, including the already-used C3-grass/C3-legume cover-crop rows and the already-
+  flagged, already-untouched "~20% RUE bonus under diffuse light, no input data to drive it"
+  note) all match this engine's own implementation exactly, equation for equation, number for
+  number. No discrepancy found anywhere.
+- SI Section IX (the real Iowa statewide run) independently re-confirms, word for word, the
+  exact two numbers this engine's manure/previous-crop mechanisms were already built from --
+  `n_credit_kg_ha=60` for maize following soy, and manure N's real 0.5-availability-vs-mineral
+  multiplier -- nothing to change.
+- The six-pool soil carbon/nitrogen system (SI Eq. SI.10-SI.14) is given in full structural
+  form again (the Cm/Cs differential equations, the fH/fD saturation factors with their exact
+  exponents -- fH uses a power of 6, fD uses 4.5 and a power of 3 -- and the CNmbi microbial-
+  biomass C:N formula), plus one number not previously nailed down this precisely: base
+  microbial C-use efficiency (εc) ranges 0.33-0.44 kg/kg depending on the saturation ratio.
+  **Still genuinely missing, confirmed by a direct grep of the full extracted text, not just
+  memory**: numeric values for the turnover-rate constants (k_ra, k_rt, k_rz, k_rm, k_m, k_s)
+  and the saturation capacity Csx -- the system's structure is disclosed, the numbers that run
+  it are not, in this document any more than in the main paper or any input file checked
+  earlier this project. This confirms, rather than changes, the standing decision to keep the
+  full six-pool system out of v1 scope.
+- Grepped the full extracted text for "ammonia," "volatil," "nitrific," "denit," "cold,"
+  "frost," "cutting," "clip," "pasture," "forage," "graz" -- the only hits are incidental
+  (Table SI.2's "crops and forages" header, a passing mention of cold-soil decomposition rates
+  in the Cs/Cm discussion, "crop-pasture rotations" in a reference citation). **Nothing new on
+  cold damage, ammonia volatilization, nitrification/denitrification, or the pasture cutting
+  trigger** -- all four remain exactly as undisclosed as every prior check this session found
+  them.
+- Sections VI-VIII and X (eddy-covariance maize/willow ET, the WA wheat/barley field trial, the
+  soybean Diviner soil-moisture calibration, and the Iowa/Cycles-A crop-sequence outputs) are
+  real validation case studies and figures, not model equations -- Eq. SI.15 in particular is a
+  sensor-calibration formula for interpreting Diviner-probe readings in that one field
+  experiment, not a Cycles model equation, so it's not applicable to this engine regardless.
+
+No code changed as a result of this read. The practical value is narrower but real: the SI is
+now durably re-available on `main` (surviving any future container reprovision the way the
+docx never could), and this pass confirms -- independently, by reading the primary source
+again rather than trusting memory of an earlier, now-gone extraction -- that every equation
+this engine currently implements from the SI is implemented correctly, and that the genuinely
+open gaps (the six-pool rate constants; cold damage; ammonia/nitrification/denitrification; the
+pasture cutting trigger) are correctly still open, not something this read missed.
