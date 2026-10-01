@@ -2018,7 +2018,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      fert_placement_implement=None, soil_ph=None,
                      spinup_rows=None, curve_number=75.0, slope_pct=0.0, initial_layers=None,
                      soil_evap_model="faostandard", n_root_limited=False, wue_co2_scale=1.0,
-                     background_n_model="rothc", sixpool_topsoil_clay_pct=None, sixpool_topsoil_soc_pct=None):
+                     background_n_model="rothc", sixpool_topsoil_clay_pct=None, sixpool_topsoil_soc_pct=None,
+                     sixpool_initial_state=None):
     """weather_rows: dicts with doy, tx, tn, solar, rhx, rhn, wind, pp, in planting-day order.
 
     background_n_model: "rothc" (default, byte-identical to this parameter not existing) keeps
@@ -2029,6 +2030,19 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     placeholder in it. Requires sixpool_topsoil_clay_pct and sixpool_topsoil_soc_pct (the same
     real topsoil texture/SOC inputs a caller's own make_layers() already used to build
     layers[0] -- not re-derivable from the layers dict alone, which doesn't retain them).
+
+    sixpool_initial_state: mirrors initial_layers' own real multi-year carryover pattern, but
+    for the six-pool carbon state specifically rather than soil moisture -- a caller's own
+    prior season's "sixpool_final_state" (from the result dict), fed back in as this season's
+    own starting Cs/Cm/Cra/Crtz instead of always reinitializing fresh from soc%/clay%. None
+    (the default) reproduces the exact existing single-season behavior. Only meaningful when
+    background_n_model="sixpool"; ignored otherwise. Built 2026-10-01 specifically to test
+    whether real multi-year carbon-pool persistence -- already the single most reliable lever
+    this engine has found for soil-moisture state (see initial_layers' own docstring) -- also
+    closes the one gap that's shown up at every site tested for the fresh-start six-pool
+    mechanism: real year-to-year variation in which years are more or less nitrogen-limited is
+    not captured by a pool that resets to the same starting guess every season. See
+    QUESTIONS_FOR_DEVS.md for the actual chained-multi-year test and its result.
 
     wue_co2_scale: a flat multiplier on the crop's water-use efficiency (eps_W in Eq. 5),
     representing rising atmospheric CO2's real effect on stomatal water-use efficiency.
@@ -2432,10 +2446,14 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
 
     sixpool_state = None
     if background_n_model == "sixpool":
-        if sixpool_topsoil_clay_pct is None or sixpool_topsoil_soc_pct is None:
-            raise ValueError("background_n_model='sixpool' requires sixpool_topsoil_clay_pct "
-                              "and sixpool_topsoil_soc_pct -- see simulate_season()'s own docstring.")
-        sixpool_state = sixpool_init_state(layers[0], sixpool_topsoil_clay_pct, sixpool_topsoil_soc_pct)
+        if sixpool_initial_state is not None:
+            sixpool_state = copy.deepcopy(sixpool_initial_state)  # never mutate the caller's own
+            # object -- same discipline initial_layers already uses, see its own docstring.
+        else:
+            if sixpool_topsoil_clay_pct is None or sixpool_topsoil_soc_pct is None:
+                raise ValueError("background_n_model='sixpool' requires sixpool_topsoil_clay_pct "
+                                  "and sixpool_topsoil_soc_pct -- see simulate_season()'s own docstring.")
+            sixpool_state = sixpool_init_state(layers[0], sixpool_topsoil_clay_pct, sixpool_topsoil_soc_pct)
 
     # Real, day-by-day concentration-tracked nitrogen stress (2026-09-25), replacing the
     # season-total quadratic-plateau this engine used from 2026-09-14 through today. Found

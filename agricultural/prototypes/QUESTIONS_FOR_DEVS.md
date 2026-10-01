@@ -3084,3 +3084,87 @@ cover-crop role, never validated the way this fixed cash-crop scenario is) was d
 left on RothC -- a separate decision, not made this round. Both files' `SPECIES_REGISTRY`
 entries and `model-validation.html`'s own static validation table updated to the new 0.490/
 11.0% numbers.
+
+**2026-10-01, continued -- multi-year carryover tested against the six-pool mechanism's own
+carbon state, per Matt's direct "where should we focus" / "yes" to pursuing it. A genuinely
+strong, decision-ready result, with a clear next engineering step identified, not yet built.**
+
+Added `sixpool_initial_state` to `simulate_season()` -- mirrors `initial_layers`' own real
+multi-year carryover pattern (a caller's prior season's `sixpool_final_state` fed back in as
+the next season's starting Cs/Cm/Cra/Crtz, deep-copied so the caller's own object is never
+mutated), `None` by default reproducing the exact existing single-season behavior. Confirmed
+byte-identical across the full regression suite (corn 0.777, soybean 0.947, wheat 0.490,
+silage corn 0.117, pattern-assertions 15/16, all unchanged).
+
+**The actual target metric**: real Cycles' own year-to-year pattern of which years are more or
+less nitrogen-limited, the one gap that showed up at every site tested for the fresh-start
+mechanism (correlation against the real pattern: -0.12 at Iowa, -0.18 for RothC at the same
+site). Tested by chaining BOTH soil-moisture state (`initial_layers`) and six-pool carbon state
+across Iowa's full real 37-year consecutive record (1980-2016), at two fixed nitrogen rates
+(N=0 and N=150) run as two separate full chains, compared against the real ground truth already
+built for Iowa (`IowaN0`/`IowaN150`, see the entry above).
+
+**Result 1, carryover with NO residue return (the mechanism as shipped)**: correlation against
+the real year-to-year pattern improved to **+0.482** -- the best result this whole
+investigation has found at any site, for either mechanism, by a wide margin. But a real,
+new problem surfaced: the chain's own absolute level drifted down hard over the decades (mean
+relative yield 0.586 vs. real 0.946; N=0's own chained mean grain 4.55 Mg/ha vs. real 9.65,
+roughly a 53% undershoot by the end of the record). Diagnosed directly, not assumed: both the
+N=0 AND the N=150 chains decline over 37 years (confirmed by checking N=150's own chained
+yield against real Cycles, which still correlates well, 0.872, but undershoots the mean by
+~23%) -- a real structural gap, not noise. Root cause: this mechanism's v1 scope explicitly
+excluded aboveground residue return ("no previous-crop residue carryover... the only real
+carbon input... is the live crop's own root growth," `sixpool_init_state()`'s own docstring)
+-- a defensible simplification for a single, from-scratch season, but one that breaks down
+exactly when chained: every real season's own stover is a real carbon input to NEXT season's
+soil, and omitting it means the mechanism only ever removes carbon (via decomposition, grain
+harvest, and leaching) with nothing returning it, so of course it drains over decades.
+
+**Result 2, carryover with 100% immediate residue return (AG biomass minus grain, carried
+whole into next season's Cra)**: the opposite failure -- relative yield pinned at exactly
+1.0 every single year, correlation undefined (zero variance). Diagnosed: a naive full-amount,
+zero-delay return massively overshoots, since real stover mostly decomposes over the real
+calendar off-season (confirmed elsewhere in this engine: `kra`'s own ~18-day characteristic
+turnover means most of a season's residue would be gone well before next spring's planting)
+-- this test added it with NO off-season decomposition at all, the wrong end of the same
+depth-scaling-style unit mismatch already caught once this session.
+
+**Result 3, a sensitivity sweep on a flat retention fraction (crude stand-in for "how much
+survives the off-season undecomposed," not a real off-season decomposition model)**: sharply
+sensitive and informative. 10% retention: correlation **0.604** (the single best result this
+whole project has produced, at any site, for any mechanism) and mean relative yield 0.868,
+much closer to real's 0.946 than either extreme. 25% retention: already collapses back to
+~1.0 saturation (correlation undefined) -- confirming the real system sits on a narrow, steep
+transition, not a flat plateau, so pinning the right value needs a real mechanism, not a
+guessed constant.
+
+**What this means, stated plainly**: the hypothesis (multi-year carbon-pool persistence
+captures the real year-to-year nitrogen-response pattern that a fresh-start pool structurally
+cannot) is strongly confirmed -- 0.604 correlation is not a marginal improvement, it's the
+best number this whole investigation has found. But the specific mechanism tested to get
+there (a flat, guessed residue-retention fraction) is explicitly NOT a real formula and
+should not be mistaken for one -- it was built only to characterize the sensitivity, which it
+did. **The real next engineering step, not yet built**: a genuine off-season Cra decomposition
+pathway -- add the season's own real stover (AG biomass minus grain, already computed) to Cra
+at harvest, then run Cra's own real decay (`fE*kra*Cra`, already-implemented, no new formula
+needed) day by day through the real calendar gap between this harvest and next planting,
+using real weather for those days (already available, the same data `spinup_rows` already
+draws from) -- rather than a single flat retention guess applied all at once. This would let
+the real `kra` rate (already back-calculated, already trusted) determine how much residue
+genuinely survives the off-season, instead of an arbitrary stand-in fraction. A real, bounded,
+well-motivated next task if this is picked up again -- not attempted this round, since the
+sensitivity-sweep test that found it was explicitly scoped as "characterize whether this is
+worth building," not "build it."
+
+Two further, real, disclosed humification-fraction formulas exist and were NOT used in this
+round, worth checking against the eventual real mechanism once built: Kemanian & Stockle
+(2010) Eq. 4a/4b give `hca = 0.09+0.11(1-exp(-5.5*fclay))` and `hce = 0.08(1-exp(-5.5*fclay))`
+-- real, sourced humification-efficiency fractions (not retention-survival fractions, a
+different concept from what this round's flat-fraction test modeled, so not directly
+substitutable without more care) that could plausibly inform the real mechanism's own
+efficiency term once the off-season decomposition timing is modeled properly.
+
+Not committed to the engine beyond `sixpool_initial_state` itself (a clean, tested, byte-
+identical-when-unused capability) -- the flat-fraction residue-return test lives only in this
+session's scratch scripts, not the repo, since it was explicitly a sensitivity probe, not a
+real mechanism.
