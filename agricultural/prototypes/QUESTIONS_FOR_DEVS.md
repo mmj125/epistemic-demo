@@ -2682,3 +2682,49 @@ again rather than trusting memory of an earlier, now-gone extraction -- that eve
 this engine currently implements from the SI is implemented correctly, and that the genuinely
 open gaps (the six-pool rate constants; cold damage; ammonia/nitrification/denitrification; the
 pasture cutting trigger) are correctly still open, not something this read missed.
+
+**2026-10-01 -- two more candidate leads for the six-pool rate constants checked directly
+(prompted by a second AI's suggestions, both tested rather than taken on faith), neither
+yields a usable fix.** (1) "Check the bundled `.soil`/`.ctrl` files for exposed default rate
+constants" -- already done, see the 2026-09-29 entry two above: confirmed cleanly those files
+only carry initial conditions, never kinetic rate constants. Not re-tested, since nothing new
+was proposed that would change that finding. (2) "Back-calculate via CropSyst's own legacy
+source, since Cycles shares its lineage" -- a real, legitimate instance of the same technique
+that already resolved the RUE/water-stress/bare-soil-evaporation gaps this session, so worth
+checking properly rather than dismissing on the "shares lineage" framing alone (that framing's
+own claim that Cycles' code was "obfuscated or re-branded" is unevidenced editorializing, not
+something this project has any basis to assert -- Cycles' own README states plainly it ships
+only compiled binaries, which is a licensing/distribution choice, not obfuscation).
+
+Found and read CropSyst's own public source for this directly:
+`CropSyst/source/organic_matter/multiple_pool/` (`OM_pools_multiple.cpp`, `OM_params.cpp`,
+`OM_const.h` -- a directory this project's prior CropSyst dives never opened, since earlier
+sessions went straight for transpiration/crop/soil files, not the organic-matter one). It
+really does carry real, numeric default decomposition rate constants (1/day):
+`default_microbial_decomposition_const=0.005`, `default_labile_active_SOM_decomposition_const
+=0.02`, `default_metastable_active_SOM_decomposition_const=0.0005`,
+`default_passive_SOM_decomposition_const=0.0000185`, plus real default C:N ratios per pool
+(microbial 8.0, labile 25.0, metastable 15.0, passive 11.0) and carbon-fraction constants.
+
+But CropSyst's own multi-pool model here is a different, Century/DSSAT-style THREE-SOM-pool
+structure (labile/metastable/passive, each with its own independent first-order decay rate),
+not Cycles' own TWO-pool (Cm microbial / Cs non-living SOM) saturation-theory structure
+(SI Eq. SI.10-14) -- which modulates decomposition through the fH/fD saturation-ratio factors
+specific to Kemanian & Stöckle (2010)'s own C-Farm lineage, a mechanism CropSyst's multi-pool
+code has no equivalent of at all (confirmed directly: no `fH`/saturation-ratio term anywhere
+in `OM_pools_multiple.cpp`). This is the same category of mismatch already found and rejected
+once this session for CropSyst's canopy-shape and CO2-response files ("a different functional
+form than Cycles' own equation, needs calibration parameters this project doesn't have") --
+not a case where "CropSyst's number" and "Cycles' number" are the same quantity measured twice,
+the way the transpiration/evaporation borrows turned out to be. Plugging CropSyst's three-pool
+rate constants directly into Cycles' own fH/fD-modulated two-pool equations would be inventing
+a numeric correspondence between two structurally different models with no derivation behind
+it -- exactly the unsourced-guess pattern this project's whole discipline exists to avoid.
+
+Not pursued further: building the real six-pool Cm/Cs subsystem to even test whether these
+borrowed numbers behave sensibly inside it would be a genuine new-subsystem undertaking (as
+already stated repeatedly in this file and `CLAUDE.md`), not a quick parameter substitution --
+disproportionate effort to spend testing numbers from the wrong model, especially given Matt's
+own standing decision to keep the full six-pool system out of v1 scope regardless, with the
+RothC-based background-N mineralization proxy already serving its practical role. Logged here
+so this specific lead isn't re-chased blind next time it's suggested.
