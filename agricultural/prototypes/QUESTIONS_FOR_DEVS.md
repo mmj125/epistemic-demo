@@ -3168,3 +3168,75 @@ Not committed to the engine beyond `sixpool_initial_state` itself (a clean, test
 identical-when-unused capability) -- the flat-fraction residue-return test lives only in this
 session's scratch scripts, not the repo, since it was explicitly a sensitivity probe, not a
 real mechanism.
+
+**2026-10-01, continued -- the real off-season decomposition mechanism was built, per Matt's
+direct "yes" to building it rather than leaving the flat-fraction guess in place. Honest,
+mixed result: a genuine, substantial win on absolute yield accuracy, but it does NOT reproduce
+the specific year-to-year nitrogen-response pattern the flat-fraction sweep had found -- that
+0.604 number should now be read as a narrow coincidence of the guessed parameter, not a
+preview of what the real mechanism would do.**
+
+Built two real, additive pieces in `simulate_season()`: (1) at harvest, this season's own
+stover (AG biomass minus grain removed, the same quantity real Cycles' own harvest.txt "AG
+RESIDUE" column represents) is credited into `sixpool_state["cra"]`, unconditional and
+provably inert for any single-season caller (it happens after grain/HI are already finalized,
+so it can only matter to a FUTURE chained call that reads `sixpool_final_state` back in --
+confirmed: wheat's own just-promoted 0.490 correlation, which doesn't chain, reproduced
+byte-identical). (2) A new `sixpool_offseason_decay` parameter (default False, byte-identical
+when unused) that, when True, runs real day-by-day Cra/Crtz/Cm/Cs decomposition during the
+existing `spinup_rows` window -- reusing `sixpool_step()` itself unmodified (zero root-carbon
+input, since no crop is growing), driven by that window's own real weather and this season's
+own evolving topsoil moisture. No new formula was needed; this is the real `kra`/`fE` physics
+already trusted elsewhere in this engine, just run with nothing growing.
+
+**First test, using the window every existing harness already has (Jan1-through-planting
+only)**: relative yield pinned at exactly 1.0 every single year -- the SAME failure mode as
+the original "100% immediate return" test, just reached differently. Diagnosed directly:
+`sixpool_fe_temp()` returns 0 below freezing, and Iowa's Jan-March is mostly frozen, so almost
+no real decomposition happens in that window at all regardless of how long it runs -- the
+window was simply too short and too cold to do anything.
+
+**Second test, building the FULL real off-season window for the first time** (this season's
+own real harvest day, estimated from `record_history`'s last entry, through Dec31, plus Jan1
+through next season's planting -- genuinely spanning the warm post-harvest months the first
+test never reached): a real, substantial, different result. Mean relative yield still sits
+near 1.0 (0.993, real range mostly 0.79-1.00 vs. real Cycles' 0.70-1.00) and the year-to-year
+correlation against the real pattern came back slightly NEGATIVE (-0.11, not an improvement
+on the already-poor fresh-start number) -- so the specific target metric from the carryover
+test two entries above is NOT resolved by the real mechanism. But the ABSOLUTE yield itself,
+at both nitrogen rates independently, now correlates far better against real Cycles than any
+chained test run so far: N=150 0.902 (vs. 0.872 with no off-season decay at all), N=0 0.910
+(vs. 0.822) -- and the mean-level gap shrank substantially too (N=150 chained mean 8.67 vs.
+real 10.25, N=0 chained mean 8.61 vs. real 9.65, both much closer than the no-decay chain's
+7.90/4.55).
+
+**What this means, stated plainly, not softened**: real multi-year carryover, with real
+(not guessed) off-season decomposition, is a genuine improvement for ABSOLUTE yield tracking
+across a multi-year chain -- a real, physically-grounded mechanism, not a hack, and worth
+keeping for that reason alone. It does NOT, as built, solve the specific "which years are
+more nitrogen-limited" puzzle that motivated building it in the first place -- the 0.604
+correlation found with a flat 10% retention guess does not reappear once the guess is
+replaced with real decomposition physics, meaning that number was very likely a coincidence
+of where the guessed constant happened to land, not evidence the underlying mechanism was
+right. This is a real, disclosed negative result on the specific question asked, alongside a
+real, disclosed positive result on a related but different question (absolute multi-year
+yield accuracy) -- both true at once, neither cancels the other out.
+
+**Not yet investigated, a real candidate if this is picked up again**: the two REAL low-
+response points this mechanism DID produce (2007, 2008) don't line up with real Cycles' own
+actual low-response years (2001, 2004, 2009-2010, 2013-2014) at all -- suggesting whatever
+triggers a real dip in this mechanism's own chained trajectory is driven by something
+incidental to THIS mechanism's own state dynamics, not the same real driver behind actual
+Cycles' year-to-year nitrogen variability. Worth a direct day-by-day comparison of this
+mechanism's own Cra/Cm/Cs trajectory against real Cycles' own multi-year `annualSOM.txt`/
+`soilLayersCN.txt` output (both already available for Iowa, see the entry above) before
+guessing at another parameter -- not attempted this round.
+
+Committed: `sixpool_offseason_decay` and the unconditional stover-crediting, both confirmed
+byte-identical to every existing caller via the full regression suite. Not committed: the
+cross-year off-season-window-building logic itself (currently only in this session's scratch
+scripts) -- every existing harness (`run_crop_season()` in `pattern_assertions.py`, `validate()`
+in `run_validation_rotation2.py`) still only ever builds a same-calendar-year, Jan1-to-planting
+`spinup_rows`, so using the real mechanism for a genuine multi-year chain outside this
+session's own test script would need that cross-year window built into a real harness first,
+not assumed to come for free from `sixpool_offseason_decay` alone.

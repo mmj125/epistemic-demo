@@ -2019,7 +2019,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      spinup_rows=None, curve_number=75.0, slope_pct=0.0, initial_layers=None,
                      soil_evap_model="faostandard", n_root_limited=False, wue_co2_scale=1.0,
                      background_n_model="rothc", sixpool_topsoil_clay_pct=None, sixpool_topsoil_soc_pct=None,
-                     sixpool_initial_state=None):
+                     sixpool_initial_state=None, sixpool_offseason_decay=False):
     """weather_rows: dicts with doy, tx, tn, solar, rhx, rhn, wind, pp, in planting-day order.
 
     background_n_model: "rothc" (default, byte-identical to this parameter not existing) keeps
@@ -2043,6 +2043,22 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     mechanism: real year-to-year variation in which years are more or less nitrogen-limited is
     not captured by a pool that resets to the same starting guess every season. See
     QUESTIONS_FOR_DEVS.md for the actual chained-multi-year test and its result.
+
+    sixpool_offseason_decay (default False, byte-identical when unused -- this never changes
+    any already-shipped result, including wheat's own 0.490 validated correlation, which
+    passes spinup_rows but was never asked to carry carbon state across years): when True
+    (and background_n_model="sixpool"), the real spinup_rows window also drives real day-by-
+    day Cra/Crtz/Cm/Cs decomposition (sixpool_step() itself, called with zero root-carbon
+    input, no new formula needed) using that window's own real weather and this season's own
+    evolving topsoil moisture -- the real fix for a problem found testing sixpool_initial_state
+    chained across Iowa's full 37-year record WITHOUT this: with no off-season decomposition
+    at all, a season's own harvested stover (credited into next season's Cra at the end of
+    THIS function, unconditionally, see below) would carry forward completely undecomposed,
+    which overshot the real nitrogen-saturation pattern just as badly as the original fresh-
+    start mechanism undershot it (relative yield pinned at 1.0 every year). Real, disclosed
+    limitation: spinup_rows only ever covers Jan1-through-planting in this project's own
+    harnesses, not the real harvest-to-Dec31 tail of the actual off-season -- so this still
+    underestimates total real decomposition time, a known, stated gap, not a hidden one.
 
     wue_co2_scale: a flat multiplier on the crop's water-use efficiency (eps_W in Eq. 5),
     representing rising atmospheric CO2's real effect on stomatal water-use efficiency.
@@ -2330,6 +2346,21 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     root_max_m = crop.get("root_max_m", root_max_m)
     de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
     runoff_total = 0.0
+
+    sixpool_state = None
+    if background_n_model == "sixpool":
+        if sixpool_initial_state is not None:
+            sixpool_state = copy.deepcopy(sixpool_initial_state)  # never mutate the caller's own
+            # object -- same discipline initial_layers already uses, see its own docstring.
+        else:
+            if sixpool_topsoil_clay_pct is None or sixpool_topsoil_soc_pct is None:
+                raise ValueError("background_n_model='sixpool' requires sixpool_topsoil_clay_pct "
+                                  "and sixpool_topsoil_soc_pct -- see simulate_season()'s own docstring.")
+            sixpool_state = sixpool_init_state(layers[0], sixpool_topsoil_clay_pct, sixpool_topsoil_soc_pct)
+        # Moved ahead of the spinup block above (2026-10-01) specifically so
+        # sixpool_offseason_decay below can run during it -- see that parameter's own
+        # docstring and QUESTIONS_FOR_DEVS.md for why.
+
     if spinup_rows:
         # A bare-soil (no canopy, no transpiration) water balance over real weather from
         # before the tracked season starts, replacing an always-reset-to-field-capacity
@@ -2344,6 +2375,22 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state,
                               use_cropsyst_formula=(soil_evap_model == "cropsyst"),
                               fallow=True, summer_time=summer_time_from_doy(w["doy"]))
+            if sixpool_offseason_decay and sixpool_state is not None:
+                # Real off-season Cra/Crtz/Cm/Cs decomposition -- reuses sixpool_step() itself
+                # unmodified (root_c_input=0.0, no crop growing), the exact same formula the
+                # main loop uses, just driven by real spinup-window weather and the SAME
+                # evolving topsoil moisture this spinup loop is already tracking. Opt-in
+                # (default False) specifically so this never silently changes any already-
+                # shipped single-season result (e.g. wheat's own 0.490 validated correlation,
+                # which passes spinup_rows but was never asked to carry carbon state across
+                # years) -- see this parameter's own docstring for the full account of why it
+                # exists and what it does and doesn't model (the real harvest-to-Dec31 tail of
+                # the off-season isn't covered, only Jan1-to-planting, since that's the only
+                # real weather window spinup_rows itself has ever carried in this project).
+                tmean_spin = (w["tx"] + w["tn"]) / 2
+                relwet_spin = ((layers[0]["theta"] - layers[0]["pwp"]) / (layers[0]["fc"] - layers[0]["pwp"])
+                                if layers[0]["fc"] > layers[0]["pwp"] else 1.0)
+                sixpool_step(sixpool_state, tmean_spin, relwet_spin, 0.0)
     tillage_depth_m, tillage_mixing_efficiency = None, None
     if tillage_doy is not None:
         if tillage_implement not in TILLAGE_IMPLEMENTS:
@@ -2443,17 +2490,6 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         n_pool_by_layer[0] = n_pool
     irrigation_total_mm = 0.0
     history = [] if record_history else None
-
-    sixpool_state = None
-    if background_n_model == "sixpool":
-        if sixpool_initial_state is not None:
-            sixpool_state = copy.deepcopy(sixpool_initial_state)  # never mutate the caller's own
-            # object -- same discipline initial_layers already uses, see its own docstring.
-        else:
-            if sixpool_topsoil_clay_pct is None or sixpool_topsoil_soc_pct is None:
-                raise ValueError("background_n_model='sixpool' requires sixpool_topsoil_clay_pct "
-                                  "and sixpool_topsoil_soc_pct -- see simulate_season()'s own docstring.")
-            sixpool_state = sixpool_init_state(layers[0], sixpool_topsoil_clay_pct, sixpool_topsoil_soc_pct)
 
     # Real, day-by-day concentration-tracked nitrogen stress (2026-09-25), replacing the
     # season-total quadratic-plateau this engine used from 2026-09-14 through today. Found
@@ -2739,6 +2775,21 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     if n_volatilized_total is not None:
         result["n_volatilized_kg_ha"] = n_volatilized_total
     if sixpool_state is not None:
+        # Real stover left in the field after grain harvest -- AG biomass minus grain removed,
+        # a defensible proxy (real Cycles' own harvest.txt "AG RESIDUE" column is conceptually
+        # the same quantity), converted to carbon and credited into Cra right at harvest, i.e.
+        # into the state a caller gets back for a FUTURE chained season -- unconditional, not
+        # gated behind sixpool_offseason_decay, since this can never affect THIS season's own
+        # already-computed result (grain/ag/HI are all finalized above this point); it only
+        # matters if a caller later feeds sixpool_final_state into sixpool_initial_state. Found
+        # testing sixpool_initial_state chained across Iowa's real 37-year record: omitting
+        # this entirely (the original v1 scope) made the chain's own carbon pool -- and
+        # therefore its background-nitrogen supply -- drain unrealistically over decades, since
+        # nothing was ever returning carbon that the live crop's own root growth didn't already
+        # provide. See sixpool_offseason_decay's own docstring for the other half of this fix
+        # (letting it decompose for real before the next season, not carry forward untouched).
+        ag_residue_mg_ha = max(0.0, ag_biomass_mg_ha - grain_mg_ha)
+        sixpool_state["cra"] = sixpool_state.get("cra", 0.0) + ag_residue_mg_ha * CARBON_FRACTION_DM
         result["sixpool_final_state"] = dict(sixpool_state)
     if initial_layers is not None:
         result["final_layers"] = layers
