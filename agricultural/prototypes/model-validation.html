@@ -145,6 +145,17 @@
     </fieldset>
 
     <fieldset>
+      <legend>Background nitrogen mechanism</legend>
+      <div class="field"><label>Model</label>
+        <select id="fcBgModel">
+          <option value="rothc" selected>RothC-weather-scaled flat constant (default)</option>
+          <option value="sixpool">Two-pool (Cm/Cs) real carbon mineralization</option>
+        </select>
+      </div>
+      <div class="sweep-note">"RothC" is the flat <code>BACKGROUND_N_KG_HA_DAY</code> constant scaled by RothC's own real temperature/moisture response -- the mechanism every crop's own default validation above uses. "Two-pool" is the real Kemanian et al. 2024 SI Eq. SI.10-14 carbon-mineralization structure (built 2026-10-01, see QUESTIONS_FOR_DEVS.md for the full back-calculation trail), now promoted to winter wheat's own default validation above (correlation 0.444&rarr;0.490) after it matched or beat RothC's own accuracy at Rock Springs, Kansas, and Iowa -- still opt-in for corn/soybean here since neither crop's default validation exercises nitrogen tracking at all. Two real, disclosed placeholders remain in it (the microbial-saturation factor fA fixed at 1.0, carbon-use efficiency eps_c fixed at 0.4, both flagged directly in the engine's own module-header comment) -- shown here, not hidden, since this panel's whole purpose is exposing exactly what is and isn't verified.</div>
+    </fieldset>
+
+    <fieldset>
       <legend>Planting date</legend>
       <div class="subfield"><label><input type="checkbox" id="fcPlantOverride"> Override the computed planting date</label></div>
       <div class="controls" id="fcPlantRow" style="display:none;">
@@ -188,7 +199,7 @@
       <tr><td>Soybean grain</td><td>4.70 Mg/ha</td><td>4.69 Mg/ha</td><td>3.5%</td><td>0.947</td><td><span class="tag tag-pass">passes bar</span></td></tr>
       <tr><td>Corn grain (continuous)</td><td>10.56 Mg/ha</td><td>10.56 Mg/ha</td><td>6.4%</td><td>0.777</td><td><span class="tag tag-pass">passes bar</span></td></tr>
       <tr><td>Silage corn forage</td><td>13.22 Mg/ha</td><td>13.22 Mg/ha</td><td>14.9%</td><td>0.117</td><td><span class="tag tag-fail">below bar</span></td></tr>
-      <tr><td>Winter wheat grain</td><td>3.92 Mg/ha</td><td>3.92 Mg/ha</td><td>11.6%</td><td>0.444</td><td><span class="tag tag-fail">below bar</span></td></tr>
+      <tr><td>Winter wheat grain</td><td>3.92 Mg/ha</td><td>3.92 Mg/ha</td><td>11.0%</td><td>0.490</td><td><span class="tag tag-fail">below bar</span></td></tr>
       <tr><td>Pasture perennials (orchardgrass, etc.)</td><td colspan="2">real annual yield 5.25&ndash;7.94 Mg/ha, not tracked</td><td>&mdash;</td><td>&minus;0.28 to 0.16<br>(across 4 tested fixes)</td><td><span class="tag tag-unresolved">unresolved</span></td></tr>
       <tr><td>Winter rye / hairy vetch (cover)</td><td colspan="4">no real Cycles reference data available to correlate against &mdash; RUE/WUE are real (SI Table SI.2), everything else borrowed</td><td><span class="tag tag-unresolved">unvalidated</span></td></tr>
     </table>
@@ -1991,6 +2002,305 @@ def tillage_dr_decay(layers, max_rate_per_day=0.02):
     moisture_frac = max(0.0, min(1.0, l0["theta"] / l0["fc"]))
     return max_rate_per_day * moisture_frac
 
+# ---------------------------------------------------------------------------
+# STATUS (2026-10-01, updated after a real fix, not just the first finding):
+# the first multi-site test found N=0 and N=650 grain coming out byte-
+# identical at every site tried (Rock Springs, Iowa, Kansas) -- background
+# mineralization alone fully satisfying crop demand, eliminating any
+# fertilizer response, contradicting real Cycles' own documented pattern
+# (relative yield never hits exactly 1.0 at any real tested year). The
+# INITIAL diagnosis (SIXPOOL_KS fit against a whole-9-layer-profile sum,
+# therefore invalid at single-layer scope) was WRONG -- ks, as a rate
+# constant, is valid to apply to any one layer's own REAL absolute Cs, the
+# actual problem was that this mechanism's computed Cs0 wasn't using that
+# real absolute value. Found and fixed by checking directly against real
+# Cycles' own actual layer-1 SOIL ORG C stock (soilLayersCN.txt, Rock
+# Springs: 11.417 Mg C/ha) -- see SIXPOOL_TOPSOIL_DEPTH_M's own comment and
+# sixpool_init_state()'s docstring for the two further wrong values tried
+# (a 0.20m guess, and layer0["thick"] itself) before landing on the correct
+# fixed 0.05m depth, which matches that real reference almost exactly
+# (11.422 computed) and is the actual real control volume SIXPOOL_KS/
+# SIXPOOL_KRA/SIXPOOL_K_RTZ were all back-calculated against.
+#
+# Result after the fix: Rock Springs (both its hand-curated profile and
+# its own STATSGO2-resolved one) and Kansas now show real, sensible,
+# non-trivial nitrogen responses -- relative yield 0.72/0.75, close to and
+# in Kansas's case slightly better than the RothC path's own 0.74/0.80 at
+# the same site/years, and inside the real literature/Cycles-documented
+# band.
+#
+# Iowa was first flagged as a separate, unresolved problem (its real SOC
+# exceeding sixpool_csx_pct()'s own saturation ceiling) -- that diagnosis
+# was tested directly (capping Cs at the ceiling) and found WRONG; it made
+# no difference at all. The real explanation, found by building and
+# running real Cycles input files for Iowa for the first time this
+# project (no real ground truth existed there before): real Cycles ITSELF
+# shows near-complete nitrogen saturation at Iowa in MOST years (relative
+# yield exactly 1.0 in 12+ of 37 years checked, mean 0.946) -- Iowa's real,
+# famously fertile prairie soil genuinely supplies enough background N
+# that added fertilizer often changes little, in real Cycles' own
+# simulation, not just this engine's. This mechanism's Iowa behavior
+# (mean relative yield 0.999) is closer to that real 0.946 reference than
+# the currently-shipped RothC path is at the same site (0.794, too
+# responsive, not too flat) -- genuinely a better absolute-level match,
+# not a regression. What neither mechanism captures is real Cycles' own
+# YEAR-TO-YEAR variability in how saturated a given year gets (real years
+# range 0.70-1.00; this mechanism's and RothC's own year-to-year pattern
+# both correlate slightly NEGATIVELY with which real years are more or
+# less responsive) -- the same category of gap already documented for
+# Kansas's nitrogen-response muting (QUESTIONS_FOR_DEVS.md item 6),
+# consistent with that item's own standing diagnosis that real multi-year
+# soil-state carryover, not a single-season mechanism tweak, is the likely
+# fix. Still opt-in, not adopted as a default -- the mean-level win at all
+# three tested sites is real, but the missing year-to-year variability is
+# a real, shared limitation with the existing RothC path, not resolved by
+# switching to this mechanism.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Real six-pool soil carbon/nitrogen mineralization (Kemanian et al. 2024 SI
+# Eq. SI.10-14), built 2026-10-01 as a PARALLEL, OPT-IN alternative to the
+# RothC-based BACKGROUND_N_KG_HA_DAY proxy above -- selected via
+# simulate_season(background_n_model="sixpool"); "rothc" (the existing
+# mechanism) stays the default, byte-identical for every existing caller.
+# NOT validated against real Cycles output yet, NOT a replacement for the
+# RothC path until proven at least as good on the crops that already pass
+# (corn, soybean) -- see QUESTIONS_FOR_DEVS.md's 2026-10-01 entries for the
+# full back-calculation trail behind every constant below, and CLAUDE.md for
+# the explicit scope decision this was built under.
+#
+# Scope (explicit, from Matt, 2026-10-01): NARROW first -- a single topsoil-
+# layer two-pool (Cm, Cs) carbon system driving a real day-by-day nitrogen
+# mineralization signal, for a single crop/season. Not yet extended to
+# multi-layer tracking, residue carryover between rotation phases, or
+# tillage's real six-pool mixing effect (tillage here still only applies the
+# existing disclosed ft/ftx stand-in, same as the RothC path).
+#
+# Two pieces remain genuinely unresolved and are shipped as disclosed
+# placeholders, per Matt's explicit go-ahead rather than holding the build
+# for more searching:
+#   - fA (microbial-size saturation stimulant): fixed at 1.0. Real Rock
+#     Springs data shows the real Cm/Cs ratio sits persistently at 2.8-3.4%,
+#     right at the stated 3% activation threshold -- "mostly on" is a
+#     defensible placeholder, not a wild guess, but it is still a guess.
+#   - eps_c (carbon-use efficiency, the same symbol in both of the SI's own
+#     pool equations): fixed at 0.4, the midpoint of the real disclosed
+#     0.33-0.44 range (SI Sec. V).
+#   - The SI's own fra/frt/frz/frm per-source retention fractions are folded
+#     into eps_c rather than resolved separately -- not back-calculable from
+#     available data, since the back-calculated kra/k_rtz/krm below already
+#     describe GROSS pool depletion (confirmed against annualSoilProfileC.txt's
+#     own "RES C DECOMP"/"ROOT C DECOMP" columns), not net retention.
+#
+# Net nitrogen mineralized is approximated as (total carbon respired as CO2
+# that day) / CN_RATIO_SOM, a flat-ratio simplification -- real Cycles almost
+# certainly tracks N through pool-specific stoichiometry paralleling each
+# carbon pool, but those N:C ratios are disclosed nowhere checked so far, and
+# this single-ratio shortcut is a standard, defensible approximation used in
+# simplified mineralization models generally, not invented for this engine.
+# ---------------------------------------------------------------------------
+
+CARBON_FRACTION_DM = 0.42  # standard literature fraction of plant dry matter that is carbon;
+# a general, widely-cited value, not Cycles-specific or site-specific.
+
+SIXPOOL_EPS_C = 0.4  # disclosed placeholder, see module comment above.
+SIXPOOL_FA = 1.0  # disclosed placeholder, see module comment above.
+SIXPOOL_KS = 0.00032  # back-calculated 2026-10-01 against real ContinuousCorn output, moderate
+# confidence (~20-35% real uncertainty band, confirmed via a held-out CornSilageSoyWheat test).
+SIXPOOL_KRA = 0.040  # back-calculated, midpoint of ContinuousCorn's own 0.037/day and
+# CornSilageSoyWheat's 0.0417-0.0427/day -- a real, unexplained ~17% cross-scenario gap.
+SIXPOOL_K_RTZ = 0.057  # back-calculated, strong cross-scenario agreement (0.0563 vs 0.0580/day,
+# under 3% apart between ContinuousCorn and CornSilageSoyWheat).
+SIXPOOL_KRM = 0.0246  # back-calculated from CornSilageSoyWheat's real manure years only (a
+# genuine 2-variable joint fit separating it from k_ra) -- one scenario's worth of confidence,
+# not yet cross-checked against a second independent manured run.
+SIXPOOL_EPS_C_KM_PRODUCT = 0.0165  # back-calculated combined eps_c*fA*k_m rate (midpoint of the
+# real 0.013-0.02/day range), itself already carrying the same fA~1 assumption used here, so
+# dividing by SIXPOOL_EPS_C below to recover k_m alone needs no further fA correction.
+SIXPOOL_KM = SIXPOOL_EPS_C_KM_PRODUCT / SIXPOOL_EPS_C
+CN_RATIO_SOM = 11.0  # standard, widely-cited C:N ratio for stabilized temperate agricultural
+# soil organic matter -- the flat conversion this mechanism uses from net carbon respired to
+# net nitrogen mineralized. Not a Cycles-specific or site-specific number.
+SIXPOOL_TOPSOIL_DEPTH_M = 0.05  # fixed at Cycles' own REAL layer-1 thickness for Rock Springs
+# (GenericHagerstown.soil, confirmed directly: /tmp/cycles-run/input/GenericHagerstown.soil
+# layer 1 = 0.05m) -- the exact real control volume SIXPOOL_KS/SIXPOOL_KRA/SIXPOOL_K_RTZ were
+# all back-calculated against, not a convention picked for convenience. Two wrong values were
+# tried and rejected first, see sixpool_init_state()'s own docstring for the full account:
+# a 0.20m guess (inflated Rock Springs' own Cs ~4x past its real value, confirmed directly
+# against soilLayersCN.txt's own layer-1 SOIL ORG C, 11.417 Mg C/ha vs. 11.422 computed at
+# 0.05m -- essentially exact); and layer0["thick"] itself (wrong for a different, more
+# precise reason: this project's own STATSGO2-resolved soil profiles use a genuinely
+# different layer-boundary convention than Cycles' own real .soil file, even at the exact
+# same coordinates -- 0.15m vs 0.05m for Rock Springs, 0.33m for Kansas/Iowa -- so "whatever
+# a given lookup's layer0 happens to be" isn't the quantity SIXPOOL_KS was fit against).
+
+
+def sixpool_fe_temp(tmean):
+    """Real, back-calculated fE temperature response: a quadratic fit against Cycles' own
+    FACTOR COMP. column (soilLayersCN.txt), isolated from moisture by restricting the fit to
+    near-field-capacity days. Unverified above ~26C (Rock Springs' real record never gets
+    hotter) -- clamped to 1.0 for any warmer extrapolation rather than let the raw quadratic
+    run past its real fitted range (it crosses 1.0 again around 28-29C if left unclamped)."""
+    if tmean <= 0:
+        return 0.0
+    return max(0.0, min(1.0, 0.00095 + 0.01165 * tmean + 0.000822 * tmean * tmean))
+
+
+def sixpool_fe_moisture(relwet):
+    """Real, back-calculated fE moisture response: a one-sided ramp (quadratic fit, R^2=0.926,
+    n=12876) from a real nonzero floor at/below the wilting point (relwet<=0) up to a clean 1.0
+    plateau by about 60% of the plant-available-water range -- confirmed to have NO anoxia/
+    waterlogging decline out to 2.6x relative wetness, checked across two structurally
+    different real soils (Rock Springs clay-rich subsoil, Western Kansas sandy topsoil). See
+    QUESTIONS_FOR_DEVS.md's "Check 1" entry, 2026-10-01, for the full account. relwet =
+    (theta-pwp)/(fc-pwp), the same quantity this engine's water-stress code already computes."""
+    if relwet <= 0:
+        return 0.157
+    if relwet >= 0.6:
+        return 1.0
+    return max(0.0, min(1.0, 0.157 + 1.052 * relwet + 1.337 * relwet * relwet))
+
+
+def sixpool_fe(tmean, relwet):
+    """Combined real environmental modulation factor, 0-1 (Kemanian et al. 2024's fE)."""
+    return max(0.0, min(1.0, sixpool_fe_temp(tmean) * sixpool_fe_moisture(relwet)))
+
+
+def sixpool_csx_pct(clay_frac):
+    """Real saturation capacity, Kemanian & Stockle (2010) Eq. 3 (C-Farm, Cycles' own
+    predecessor model): the paper's own printed "Cx = 21.1+37.5*fclay" reads as "mg C kg-1
+    soil," implausibly low taken literally -- corrected to g C/kg (i.e. percent*10), giving
+    Csx(%) = 2.11+3.75*fclay. This EXACTLY matches Csx back-calculated independently from real
+    Cycles ContinuousCorn output at Rock Springs' own three real clay fractions (21/37/55%) --
+    two fully independent methods converging to 4-5 significant figures, not a single source
+    trusted on faith. See QUESTIONS_FOR_DEVS.md, 2026-10-01, "Csx...fully resolved." clay_frac
+    is a 0-1 fraction."""
+    return 2.11 + 3.75 * clay_frac
+
+
+def sixpool_bulk_density(sat):
+    """Standard soil-physics identity: bulk density = particle density (2.65 Mg/m3, the
+    standard value for mineral soil) * (1 - porosity), with porosity read directly off this
+    engine's own Saxton-Rawls saturated water content (sat = porosity by volume). A general
+    relationship, not a Cycles-specific or invented formula."""
+    return 2.65 * (1.0 - sat)
+
+
+def sixpool_fh(cs, csx):
+    """Real SI Eq. SI.13 humification-saturation factor: fH = 1-(Cs/Csx)^6."""
+    ratio = max(0.0, cs / csx) if csx > 0 else 0.0
+    return max(0.0, 1.0 - ratio ** 6)
+
+
+def sixpool_fd(cs, csx):
+    """Real SI Eq. SI.13 decomposition-saturation factor: fD = 1-1/(1+(4.5*Cs/Csx)^3)."""
+    ratio = max(0.0, cs / csx) if csx > 0 else 0.0
+    return max(0.0, 1.0 - 1.0 / (1.0 + (4.5 * ratio) ** 3))
+
+
+def sixpool_init_state(layer0, clay_pct, soc_pct):
+    """Initializes the topsoil two-pool (+ residue) carbon state from the same real soil
+    texture/SOC data the caller already used to build layer0's own hydraulic properties --
+    deliberately scoped to layer0 only, the exact same control volume the existing RothC-based
+    BACKGROUND_N_KG_HA_DAY mechanism already targets (n_pool_by_layer[0]), so this is a drop-in
+    alternative at the same point, not a deeper or shallower profile. cra/crtz/crm (residue
+    pools) all start at 0.0 -- no previous-crop residue carryover exists anywhere in this
+    engine (consistent with the already-disclosed "soil layers always initialize at a fixed
+    moisture fraction, no carbon spin-up by default" limitation), so the only real carbon
+    input for a from-scratch single season is the live crop's own root growth, added day by
+    day into crtz inside sixpool_step().
+
+    Uses SIXPOOL_TOPSOIL_DEPTH_M (0.05m) -- NOT layer0["thick"], and NOT the earlier,
+    wrong 0.20m guess either. Full real history, 2026-10-01: a fixed 0.20m depth was tried
+    first, reasoning that layer0's thickness varying hugely across this project's already-
+    resolved sites (Rock Springs' hand-curated profile: 0.05m; Iowa's resolved-tile profile:
+    0.33m) looked like an arbitrary STATSGO2 artifact that shouldn't drive carbon-pool size.
+    That specific number was wrong -- caught by checking against real Cycles' own actual
+    layer-1 SOIL ORG C stock (soilLayersCN.txt, Rock Springs, 1980-01-01: 11.417 Mg C/ha):
+    using layer0["thick"] (0.05m there) reproduces that real value almost exactly (11.422
+    computed), so 0.20m had inflated it roughly 4x past reality -- exactly why Rock Springs
+    itself (the very site SIXPOOL_KS was back-calculated against) showed complete,
+    byte-identical N=0/N=650 yield after that "fix."
+
+    Reverting to layer0["thick"] directly looked right (it fixed Rock Springs' hand-curated
+    profile) but was ALSO wrong, for a different, more precise reason found testing it
+    against every already-resolved multi-site soil (not just Rock Springs' two versions):
+    this project's two soil-data sources use genuinely different layer-boundary conventions
+    for the SAME real location -- Cycles' own real GenericHagerstown.soil defines Rock
+    Springs' layer 1 at 0.05m, but this project's own STATSGO2 nearest-cell lookup
+    (field_data.py, used by every multi-site panel) resolves the SAME coordinates to a
+    0.15m-thick first layer, and Kansas/Iowa's own resolved layers are 0.33m. SIXPOOL_KS was
+    back-calculated against ONE specific real reference (Cycles' real 0.05m Rock Springs
+    layer), not against "whatever a given lookup's own layer boundary happens to be" -- so
+    layer0["thick"] is the WRONG quantity to scale by whenever a caller's soil didn't come
+    from that exact reference. Confirmed directly: at a correctly-fixed 0.05m depth, Rock
+    Springs (both the hand-curated profile AND the STATSGO2-resolved one), and Kansas, all
+    land at a defensible Cs/Csx ratio (0.60-0.68, matching the real Cycles reference); Iowa
+    alone still sits above 1.0 (1.066) even at this correct depth -- a SEPARATE, genuine
+    finding (Iowa's own real measured SOC, 3.488%, exceeds what the Csx(clay) formula says
+    its particular texture should be able to hold at saturation), not a depth-scaling
+    artifact, and not yet resolved -- see this module's own header comment."""
+    bd = sixpool_bulk_density(layer0["sat"])
+    csx_pct = sixpool_csx_pct(clay_pct / 100.0)
+    csx = bd * SIXPOOL_TOPSOIL_DEPTH_M * 100 * csx_pct
+    cs0 = bd * SIXPOOL_TOPSOIL_DEPTH_M * 100 * soc_pct
+    return dict(cs=cs0, cm=0.03 * cs0, cra=0.0, crtz=0.0, crm=0.0, csx=csx)
+
+
+def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0):
+    """Advances the six-pool state by one day (mutating it in place) and returns the day's net
+    nitrogen mineralized (kg N/ha) -- the quantity simulate_season() adds directly into
+    n_pool_by_layer[0] in place of the RothC-based background_today term when
+    background_n_model="sixpool". ft_eff is the same (1+tillage_ft(...)) multiplier the RothC
+    path already computes, passed in rather than recomputed.
+
+    Structure (Kemanian et al. 2024 SI Eq. SI.10-14, with the SI's own per-source fra/frt/frz/
+    frm retention fractions folded into eps_c -- see this module's own header comment):
+        dCra/dt  = 0 (no aboveground-residue input modeled in this v1 scope) - fE*kra*Cra
+        dCrtz/dt = root_c_input - fE*k_rtz*Crtz
+        dCm/dt   = eps_c*fH*(fE*kra*Cra + fE*k_rtz*Crtz + fE*krm*Crm) - fA*fE*ft*km*Cm
+        dCs/dt   = eps_c*fA*fE*fH*km*Cm - fE*ft*fD*ks*Cs
+    Net carbon respired as CO2 each day = whatever is NOT retained at each transfer (residue
+    decomposition not humified into Cm; Cm turnover not humified into Cs; all of Cs's own
+    decomposition, which has no further downstream pool -- matching real Cycles' own "SOM
+    RESPIRED C" column, confirmed exactly equal to fE*fT*fD*ks*Cs). Net N mineralized = that
+    total carbon / CN_RATIO_SOM (see module header)."""
+    cs, cm, cra, crtz, crm, csx = state["cs"], state["cm"], state["cra"], state["crtz"], state["crm"], state["csx"]
+    fe = sixpool_fe(tmean, relwet)
+    fh = sixpool_fh(cs, csx)
+    fd = sixpool_fd(cs, csx)
+
+    crtz += root_c_input_mg_ha  # the only real carbon input modeled in this v1 scope -- see
+    # sixpool_init_state's own docstring for why cra/crm have no input pathway here.
+
+    decomp_ra = fe * SIXPOOL_KRA * cra
+    decomp_rtz = fe * SIXPOOL_K_RTZ * crtz
+    decomp_rm = fe * SIXPOOL_KRM * crm
+    cra = max(0.0, cra - decomp_ra)
+    crtz = max(0.0, crtz - decomp_rtz)
+    crm = max(0.0, crm - decomp_rm)
+
+    gross_residue_decomp = decomp_ra + decomp_rtz + decomp_rm
+    cm_gain_from_residue = SIXPOOL_EPS_C * fh * gross_residue_decomp
+    co2_residue = gross_residue_decomp - cm_gain_from_residue
+
+    cm_loss = SIXPOOL_FA * fe * ft_eff * SIXPOOL_KM * cm
+    cs_gain = SIXPOOL_EPS_C * SIXPOOL_FA * fe * fh * SIXPOOL_KM * cm
+    co2_cm = max(0.0, cm_loss - cs_gain)
+
+    cs_loss = fe * ft_eff * fd * SIXPOOL_KS * cs
+    co2_cs = cs_loss  # Cs has no further downstream pool in this two-pool system -- all of
+    # its loss is CO2, matching real Cycles' own "SOM RESPIRED C" column exactly.
+
+    cm = max(0.0, cm + cm_gain_from_residue - cm_loss)
+    cs = max(0.0, cs + cs_gain - cs_loss)
+
+    state["cs"], state["cm"], state["cra"], state["crtz"], state["crm"] = cs, cm, cra, crtz, crm
+
+    total_co2_c_mg_ha = co2_residue + co2_cm + co2_cs
+    return total_co2_c_mg_ha * 1000 / CN_RATIO_SOM
+
+
 def n_critical_pct(biomass_mgha, crop):
     # Whole-plant critical N concentration (%), %Nc(W)=a*W^-b -- used as the day-by-day
     # stress-comparison threshold; see cycles_engine_validate.py for the full account.
@@ -2042,7 +2352,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21,
                      fert_placement_implement=None, soil_ph=None,
                      spinup_rows=None, curve_number=75.0, slope_pct=0.0, initial_layers=None,
-                     soil_evap_model="faostandard", n_root_limited=False, wue_co2_scale=1.0):
+                     soil_evap_model="faostandard", n_root_limited=False, wue_co2_scale=1.0,
+                     background_n_model="rothc", sixpool_topsoil_clay_pct=None, sixpool_topsoil_soc_pct=None):
     # n_root_limited (default False, byte-identical when unused): real CropSyst nitrogen
     # uptake (Stockle, Martin & Campbell 1994, Eq. 26) is min(demand, potential_uptake), not
     # demand alone. Tracks nitrogen per soil layer (n_pool_by_layer) instead of one lumped
@@ -2191,6 +2502,13 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         n_pool_by_layer[0] = n_pool
     irrigation_total_mm = 0.0
     history = [] if record_history else None
+
+    sixpool_state = None
+    if background_n_model == "sixpool":
+        if sixpool_topsoil_clay_pct is None or sixpool_topsoil_soc_pct is None:
+            raise ValueError("background_n_model='sixpool' requires sixpool_topsoil_clay_pct "
+                              "and sixpool_topsoil_soc_pct.")
+        sixpool_state = sixpool_init_state(layers[0], sixpool_topsoil_clay_pct, sixpool_topsoil_soc_pct)
     # Real, day-by-day concentration-tracked N stress (2026-09-25), replacing the season-
     # total quadratic-plateau. Found via CropSyst's own public source (crop_N_common.cpp):
     # N_reduction_factor = 1-(Ncrit-Nactual)/(Ncrit-Nmin), a function of the plant's own
@@ -2262,7 +2580,18 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     n_pool_by_layer[0] += applications_by_doy[w["doy"]]
                 else:
                     n_pool += applications_by_doy[w["doy"]]
-            if dGB_water_limited > 0:
+            if background_n_model == "sixpool":
+                relwet_topsoil = ((layers[0]["theta"] - layers[0]["pwp"]) / (layers[0]["fc"] - layers[0]["pwp"])
+                                   if layers[0]["fc"] > layers[0]["pwp"] else 1.0)
+                root_c_input_today = (dGB_water_limited * (1.0 - shoot_fraction(ttf, crop["fsti"], crop["fstf"]))
+                                       * CARBON_FRACTION_DM)
+                ft_eff = 1.0 + tillage_ft(tillage_dr, tillage_ftx_val)
+                background_today = sixpool_step(sixpool_state, tmean, relwet_topsoil, root_c_input_today, ft_eff)
+                if n_pool_by_layer is not None:
+                    n_pool_by_layer[0] += background_today
+                else:
+                    n_pool += background_today
+            elif dGB_water_limited > 0:
                 weather_factor = (rothc_temp_factor(tmean) * rothc_moisture_factor(layers[0]["theta"], layers[0]["fc"], layers[0]["pwp"])
                                    / ROTHC_WEATHER_FACTOR_NORM)
                 background_today = BACKGROUND_N_KG_HA_DAY * (1.0 + tillage_ft(tillage_dr, tillage_ftx_val)) * weather_factor
@@ -2346,6 +2675,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         result["n_remaining_kg_ha"] = sum(n_pool_by_layer) if n_pool_by_layer is not None else n_pool
     if n_volatilized_total is not None:
         result["n_volatilized_kg_ha"] = n_volatilized_total
+    if sixpool_state is not None:
+        result["sixpool_final_state"] = dict(sixpool_state)
     if initial_layers is not None:
         result["final_layers"] = layers
     return result
@@ -2759,8 +3090,8 @@ const SPECIES_REGISTRY = {
   },
   wheat: {
     label: "Winter wheat", pyKey: "wheat", legume: false, roles: ["cover"],
-    dataStatus: "validated", correlation: 0.444, workableAsCash: false, implementedInDemo: true,
-    notes: "Real GenericCrops.crop parameters, not a placeholder. Correlation history through 2026-09-25 (0.253 -> 0.399 -> 0.393 -> 0.473 -> 0.523 -> 0.332 -> reverted, claimed restored to 0.523) is preserved below for the record, but the 0.523 figure was corrected 2026-09-28 -- see gap-list item 26 -- a real git-bisect against a freshly obtained Cycles v1.4.4 reference showed it was never reproducible (every commit since the day-by-day nitrogen rebuild, including the exact one it was supposedly measured at, gives 0.411 against real data, not 0.523). Separately, a real bug was found and fixed the same day in the shared day-by-day nitrogen mechanism itself (it inflated daily N demand ~10x, capping any N-tracking crop's yield regardless of how much nitrogen was actually supplied -- caught while nailing down corn's own optional N-tracking path, see cycles_engine_validate.py's own fix comment). That moved wheat to 0.285, recalibrated to match the real mean exactly -- but this row was never updated after that, and sat stale through 2026-10-01's cold-kill commit (which itself moved the real baseline further, to 0.337, via a recalibration touching wheat's dict even though cold-kill is confirmed inert for wheat) -- caught and corrected only now. Today's real CO2-WUE-scaling mechanism (wue_co2_scale, see cycles_engine_validate.py's own docstring) moved the real baseline 0.337 -> 0.444, wheat's second-largest single-mechanism gain this project (after the day-by-day nitrogen rebuild). Wheat's real accuracy is not being chased further beyond today's two 2026-10-01 mechanisms -- corn is the primary focus this session, wheat a secondary beneficiary. Original history: correlation improved substantially, 0.253 -> 0.399, across 2026-09-23's radiation-related fixes. A 2026-09-24 curve-number/f_wc fix moved it slightly down, 0.399 -> 0.393. 2026-09-25: wired in wheat's own real, disclosed 90 kg N/ha UAN application (CornSilageSoyWheat.operation YEAR 3 DOY 75, previously never used despite sitting in an already-committed input file) for real, 0.393 -> 0.473. Same day: the whole nitrogen-stress mechanism was rebuilt from a season-total quadratic-plateau ratio into a real, day-by-day tissue-concentration-tracked one (CropSyst-sourced, see the page's own gap-list item 22). Later the same day: water stress/transpiration rebuilt as a real hydraulic-conductance mechanism (gap-list item 23), then reverted for wheat specifically since wheat never once crosses its own real LWP_STRESS_ONSET threshold at this site (verified correct by force-drying the soil and confirming stress then triggers) -- wheat's real dominant driver is nitrogen, not water. Corn, soybean, and silage corn keep the hydraulic-conductance mechanism. This demo's own embedded WHEAT dict (used only for the fall-planted cover-crop role, a student-set nitrogen slider, not this fixed 90kg cash-crop scenario) was corrected the same way, for the same reason, and now carries the same CO2 scaling too. See QUESTIONS_FOR_DEVS.md item 6 and this page's own gap-list items 20, 23, 25, and 26 for the remaining drivers of wheat's weak year-to-year tracking.",
+    dataStatus: "validated", correlation: 0.490, workableAsCash: false, implementedInDemo: true,
+    notes: "Real GenericCrops.crop parameters, not a placeholder. Correlation history through 2026-09-25 (0.253 -> 0.399 -> 0.393 -> 0.473 -> 0.523 -> 0.332 -> reverted, claimed restored to 0.523) is preserved below for the record, but the 0.523 figure was corrected 2026-09-28 -- see gap-list item 26 -- a real git-bisect against a freshly obtained Cycles v1.4.4 reference showed it was never reproducible (every commit since the day-by-day nitrogen rebuild, including the exact one it was supposedly measured at, gives 0.411 against real data, not 0.523). Separately, a real bug was found and fixed the same day in the shared day-by-day nitrogen mechanism itself (it inflated daily N demand ~10x, capping any N-tracking crop's yield regardless of how much nitrogen was actually supplied -- caught while nailing down corn's own optional N-tracking path, see cycles_engine_validate.py's own fix comment). That moved wheat to 0.285, recalibrated to match the real mean exactly -- but this row was never updated after that, and sat stale through 2026-10-01's cold-kill commit (which itself moved the real baseline further, to 0.337, via a recalibration touching wheat's dict even though cold-kill is confirmed inert for wheat) -- caught and corrected only now. Today's real CO2-WUE-scaling mechanism (wue_co2_scale, see cycles_engine_validate.py's own docstring) moved the real baseline 0.337 -> 0.444, wheat's second-largest single-mechanism gain this project (after the day-by-day nitrogen rebuild). Wheat's real accuracy is not being chased further beyond today's two 2026-10-01 mechanisms -- corn is the primary focus this session, wheat a secondary beneficiary. Original history: correlation improved substantially, 0.253 -> 0.399, across 2026-09-23's radiation-related fixes. A 2026-09-24 curve-number/f_wc fix moved it slightly down, 0.399 -> 0.393. 2026-09-25: wired in wheat's own real, disclosed 90 kg N/ha UAN application (CornSilageSoyWheat.operation YEAR 3 DOY 75, previously never used despite sitting in an already-committed input file) for real, 0.393 -> 0.473. Same day: the whole nitrogen-stress mechanism was rebuilt from a season-total quadratic-plateau ratio into a real, day-by-day tissue-concentration-tracked one (CropSyst-sourced, see the page's own gap-list item 22). Later the same day: water stress/transpiration rebuilt as a real hydraulic-conductance mechanism (gap-list item 23), then reverted for wheat specifically since wheat never once crosses its own real LWP_STRESS_ONSET threshold at this site (verified correct by force-drying the soil and confirming stress then triggers) -- wheat's real dominant driver is nitrogen, not water. Corn, soybean, and silage corn keep the hydraulic-conductance mechanism. This demo's own embedded WHEAT dict (used only for the fall-planted cover-crop role, a student-set nitrogen slider, not this fixed 90kg cash-crop scenario) was corrected the same way, for the same reason, and now carries the same CO2 scaling too. See QUESTIONS_FOR_DEVS.md item 6 and this page's own gap-list items 20, 23, 25, and 26 for the remaining drivers of wheat's weak year-to-year tracking. 2026-10-01, later the same day: promoted from the RothC-based background-nitrogen mechanism to the real two-pool (Cm/Cs) carbon-mineralization mechanism (background_n_model='sixpool' in this page's own Full simulation controls, see that fieldset's own note) -- 0.444 -> 0.490, with zero recalibration needed beyond the usual mean-matching rescale, after the mechanism independently matched or beat RothC's accuracy at Rock Springs, Kansas, and Iowa. This is now wheat's actual default validated mechanism.",
   },
   winter_rye: {
     label: "Winter rye (cover crop)", pyKey: "winter_rye", legume: false, roles: ["cover"],
@@ -2970,6 +3301,7 @@ async function runFullSimulation(p) {
   pyodide.globals.set("fc_irrig_amount", String(p.irrigAmount || 25));
   pyodide.globals.set("fc_tillage", p.tillage || "");
   pyodide.globals.set("fc_plant_override", p.plantOverride === null ? "" : String(p.plantOverride));
+  pyodide.globals.set("fc_bg_model", p.bgModel || "rothc");
 
   const out = await pyodide.runPythonAsync(`
 import json as _json
@@ -2991,6 +3323,10 @@ _fc_tillage_val = fc_tillage or None
 _fc_tillage_clay = (_fc_soil_raw[0]["clay"] / 100.0) if _fc_soil_raw else 0.21
 _fc_plant_override = int(fc_plant_override) if fc_plant_override else None
 _fc_plant_doy, _fc_rows = build_season_rows(_fc_wx_year, _fc_crop, plant_doy_override=_fc_plant_override)
+_fc_bg_kwargs = {}
+if fc_bg_model == "sixpool":
+    _fc_bg_kwargs = dict(background_n_model="sixpool", sixpool_topsoil_clay_pct=_fc_soil_raw[0]["clay"],
+                          sixpool_topsoil_soc_pct=_fc_soil_raw[0]["soc"])
 _fc_res = simulate_season(
     _fc_rows, _fc_crop,
     n_rate_kg_ha=_fc_n_rate, n_applications=_fc_n_apps,
@@ -2998,7 +3334,7 @@ _fc_res = simulate_season(
     irrigation_trigger_frac=_fc_irrig_trigger, irrigation_amount_mm=float(fc_irrig_amount),
     tillage_doy=(_fc_plant_doy if _fc_tillage_val else None), tillage_implement=_fc_tillage_val,
     tillage_clay_frac=_fc_tillage_clay,
-    record_history=True,
+    record_history=True, **_fc_bg_kwargs,
 )
 _fc_out = {"plant_doy": _fc_plant_doy, **_fc_res}
 json.dumps(_fc_out)
@@ -3032,6 +3368,7 @@ document.getElementById("fcRunBtn").addEventListener("click", async () => {
       irrigAmount: parseFloat(document.getElementById("fcIrrigAmt").value),
       tillage: document.getElementById("fcTillage").value,
       plantOverride: plantOn ? parseInt(document.getElementById("fcPlantDoy").value, 10) : null,
+      bgModel: document.getElementById("fcBgModel").value,
     };
     const res = await runFullSimulation(params);
 

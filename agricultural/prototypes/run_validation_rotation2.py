@@ -85,7 +85,11 @@ WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
              # (Kemanian et al. 2007) regressed wheat's correlation (0.337->0.163) even
              # though it helped corn/soybean, plausibly tied to wheat's own already-
              # documented winter-dormancy anomaly.
-             make_layers=make_layers, calibration_factor=0.7502,  # re-derived 2026-10-01 for the
+             make_layers=make_layers, calibration_factor=0.7541,  # re-derived 2026-10-01 for
+             # promoting this crop's background-nitrogen mechanism from "rothc" to "sixpool"
+             # (see this file's own validate() call for WHEAT below) -- a pure mean-matching
+             # rescale, doesn't touch correlation (0.444->0.490, unaffected by this number);
+             # previous value 0.7502, itself re-derived 2026-10-01 for the
              # real CO2-WUE-scaling mechanism (wue_co2_scale, see simulate_season()'s own
              # docstring) -- a real, substantial win for wheat specifically (correlation
              # 0.337->0.444, the second-largest single-mechanism gain this crop has gotten,
@@ -325,7 +329,8 @@ def real_harvest(rotation, crop_name):
     return out
 
 
-def validate(rotation, crop_name, crop_params, label, metric="grain", harvest_ttf=1.0, n_applications=None):
+def validate(rotation, crop_name, crop_params, label, metric="grain", harvest_ttf=1.0, n_applications=None,
+             background_n_model="rothc", sixpool_topsoil_clay_pct=None, sixpool_topsoil_soc_pct=None):
     _, weather_flat = load_weather()
     flat_index = {(y, d): i for i, (y, d, r) in enumerate(weather_flat)}
     real = real_harvest(rotation, crop_name)
@@ -352,8 +357,12 @@ def validate(rotation, crop_name, crop_params, label, metric="grain", harvest_tt
         # it's a real win for wheat, negligible for soybean, and a real (disclosed) cost for
         # silage corn, already far below the classroom-workable bar either way.
         wue_co2_scale = CO2_PPM_BY_YEAR.get(info["plant_year"], CO2_REF_PPM) / CO2_REF_PPM
-        result = simulate_season(rows, crop_params, harvest_ttf=harvest_ttf, spinup_rows=spinup_rows,
-                                  n_applications=n_applications, wue_co2_scale=wue_co2_scale)
+        kwargs = dict(harvest_ttf=harvest_ttf, spinup_rows=spinup_rows,
+                      n_applications=n_applications, wue_co2_scale=wue_co2_scale)
+        if background_n_model == "sixpool":
+            kwargs.update(background_n_model="sixpool", sixpool_topsoil_clay_pct=sixpool_topsoil_clay_pct,
+                          sixpool_topsoil_soc_pct=sixpool_topsoil_soc_pct)
+        result = simulate_season(rows, crop_params, **kwargs)
         my_yield[hyear] = result[metric]
 
     years = sorted(my_yield)
@@ -373,7 +382,21 @@ def validate(rotation, crop_name, crop_params, label, metric="grain", harvest_tt
 if __name__ == "__main__":
     validate("CornSilageSoyWheat", "SoybeanMG.5", SOYBEAN, "Soybean")
     validate("CornSilageSoyWheat", "WinterWheat", WHEAT, "Winter Wheat",
-              n_applications=[(75, 90)])  # real UAN topdress, CornSilageSoyWheat.operation
+              n_applications=[(75, 90)],  # real UAN topdress, CornSilageSoyWheat.operation
               # YEAR 3 DOY 75 -- see WHEAT's calibration_factor comment above for why this
               # is now wired in as the default rather than validating with no N tracking
+              background_n_model="sixpool", sixpool_topsoil_clay_pct=SOIL_LAYERS_RAW[0]["clay"],
+              sixpool_topsoil_soc_pct=SOIL_LAYERS_RAW[0]["soc"])
+              # Promoted from "rothc" to the real six-pool mineralization mechanism 2026-10-01,
+              # per Matt's direct "I'm not interested in leaving the path we're making progress
+              # on": the six-pool mechanism, with zero recalibration, already beat RothC's own
+              # hand-tuned number here (correlation 0.444 -> 0.490, MAE 0.44 -> ~0.42, mean
+              # already nearly exact) -- see QUESTIONS_FOR_DEVS.md's 2026-10-01 entries for the
+              # full account (Rock Springs/Kansas/Iowa all independently confirmed this
+              # mechanism matches real Cycles output at least as well as RothC, mostly better).
+              # Safe to promote here specifically because wheat doesn't clear the classroom-
+              # workable bar either way (0.444 or 0.490, both below ~0.6-0.7) -- this doesn't
+              # touch corn/soybean's own already-passing default validation, which still uses
+              # RothC (soybean never activates nitrogen tracking at all; corn's own default
+              # doesn't either, since real N stress correlates only weakly with its yield).
     validate("CornSilageSoyWheat", "CornSilageRM.90", CORN_SILAGE, "Silage Corn", metric="forage", harvest_ttf=0.85)

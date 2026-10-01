@@ -3046,3 +3046,41 @@ fix. Iowa's own real Cycles input files (`Iowa.weather`, `Iowa.soil`, `IowaN0`/`
 standing licensing discipline (Cycles' generated output is squarely what its CC BY-NC-ND
 license restricts) -- not committed here, and will need rebuilding from the same committed
 tile data if `/tmp/cycles-run` resets before this is revisited.
+
+**2026-10-01, continued, wheat promoted to sixpool -- per Matt's direct "I'm not interested in
+leaving the path we're making progress on."** One more real comparison checked first: corn at
+genuinely nitrogen-limiting rates (N=0/10/25, since N=150 turned out to no longer bind at all
+after an earlier fix moved corn's real limiting range down to roughly N=0-10). Sixpool's
+correlation beat RothC's at every one of those rates (0.72 vs. 0.68-0.70), though its absolute
+level undershot more, since RothC's flat constant happens to be hand-tuned to land exactly on
+the real ceiling at N=50 specifically -- a calibration gap, not a ranking gap, and correlation
+(the harder number to earn) was consistently as good or better. Four independent confirmations
+(Rock Springs, Kansas, Iowa, corn's own N-limited rates) made wheat's own already-shipped
+validation the clear next step: it's below the classroom-workable bar either way, so promoting
+it doesn't touch anything currently passing.
+
+Extended `run_validation_rotation2.py`'s `validate()` with `background_n_model`/
+`sixpool_topsoil_clay_pct`/`sixpool_topsoil_soc_pct` (defaulting to the exact old behavior,
+confirmed byte-identical for soybean's/silage corn's own unaffected calls), then switched
+wheat's own call to `background_n_model="sixpool"`. Re-derived `WHEAT["calibration_factor"]`
+(0.7502 -> 0.7541, a pure mean-matching rescale) to keep the mean exactly matching real output.
+**Wheat's validated correlation is now 0.490** (up from 0.444), mean % error 11.0% (down from
+11.6%) -- confirmed via the full regression suite (corn 0.777, soybean 0.947, silage corn
+0.117, pattern-assertions 15/16, all unchanged).
+
+Ported the six-pool mechanism's own code into `model-validation.html`'s embedded
+`ENGINE_SOURCE` -- not `engine-demo.html` -- since that page's "Full simulation controls"
+panel exists specifically to expose every real `simulate_season()` parameter to technical
+reviewers. Added a new "Background nitrogen mechanism" fieldset there (a `<select>` between
+RothC and the two-pool mechanism) wired through `runFullSimulation()`. Verified three ways:
+(1) the exact extracted `ENGINE_SOURCE` string, run against real Rock Springs weather/soil,
+reproduces the canonical script's own sixpool result to full float precision; (2) the literal
+JS-sent Python snippet (`_fc_bg_kwargs` branch) executed directly in CPython for both
+`"rothc"` and `"sixpool"` values, confirming the branch and the `sixpool_final_state` output
+key appear only when selected; (3) headless Chromium confirms the new `<select>` renders both
+options, the page loads with zero new console errors, and HTML tag balance (div/fieldset/
+select) is unchanged. `engine-demo.html`'s own wheat usage (the rotation panel's fall-planted
+cover-crop role, never validated the way this fixed cash-crop scenario is) was deliberately
+left on RothC -- a separate decision, not made this round. Both files' `SPECIES_REGISTRY`
+entries and `model-validation.html`'s own static validation table updated to the new 0.490/
+11.0% numbers.
