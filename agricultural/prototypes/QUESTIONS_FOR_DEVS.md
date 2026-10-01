@@ -2915,3 +2915,56 @@ build this: the parameter-knowledge gap that was the main blocker going into thi
 substantially, genuinely closed -- held-out validation came back encouraging, not circular --
 and what remains is now mostly a real software-scope question (a new, cross-cutting subsystem),
 not an accuracy-of-information question.
+
+**2026-10-01, continued -- Matt decided to build it, scoped explicitly narrow first.** Given
+three choices (full build vs. narrow first; hold for more searching vs. ship disclosed
+placeholders for fA/eps_c; replace the RothC mechanism vs. run parallel/opt-in), Matt chose
+narrow-first, disclosed placeholders, and parallel/opt-in -- build a single-topsoil-layer
+two-pool (Cm, Cs) carbon system as an alternative background-nitrogen mechanism, not the full
+multi-layer/rotation/tillage-aware system, and don't touch the RothC path's own already-passing
+corn/soybean validation while testing it.
+
+**Built**: `sixpool_init_state()`/`sixpool_step()`/`sixpool_fe_temp()`/`sixpool_fe_moisture()`/
+`sixpool_csx_pct()`/`sixpool_bulk_density()`/`sixpool_fh()`/`sixpool_fd()` in
+`cycles_engine_validate.py`, wired into `simulate_season()` via a new
+`background_n_model="sixpool"` parameter (default stays `"rothc"`, byte-identical to every
+existing caller -- confirmed via the full `run_validation.py`/`run_validation_rotation2.py`/
+`pattern_assertions.py` suite, all unchanged: corn 0.777, soybean 0.947, wheat 0.444, silage
+corn 0.117, 15/16 pattern checks). fA=1.0 and eps_c=0.4 are the disclosed placeholders per
+Matt's go-ahead; kra/k_rtz/krm/ks/eps_c*k_m use this session's own back-calculated values
+directly; net N mineralized = (total carbon respired as CO2 that day) / CN_RATIO_SOM=11.0, a
+flat-ratio simplification, not real per-pool N stoichiometry (undisclosed anywhere checked).
+
+**Real bug found and fixed while first testing it**: the carbon pools' absolute size was
+initially scaled by `layers[0]["thick"]` -- the caller's own first soil layer's thickness,
+which turns out to be an arbitrary STATSGO2-resolution artifact, not a real signal (Rock
+Springs' own hand-curated profile: 0.05m; Iowa's resolved-tile profile: 0.33m). Applying the
+same soc%/clay% over wildly different thicknesses inflated Iowa's Cs pool roughly 6x relative
+to Rock Springs for the same inputs, pushing Cs to/above its own Csx ceiling and producing
+byte-identical N=0/N=650 yield (complete elimination of nitrogen limitation). Fixed by
+introducing `SIXPOOL_TOPSOIL_DEPTH_M=0.20` (a fixed depth convention) in place of the
+caller's own layer boundary.
+
+**Real, NOT-yet-fixed finding, more fundamental than the depth bug**: even after that fix,
+N=0 and N=650 grain came out byte-identical at EVERY real site/year tested (Rock Springs,
+Iowa, Kansas, via this project's own already-resolved STATSGO2/NLDAS-2 data) -- background
+mineralization alone fully satisfies crop demand everywhere checked, which contradicts real
+Cycles' own documented pattern (relative yield never hits exactly 1.0 at any real tested year,
+even the flattest one, per `c_checkplot_relative_yield`'s own account above). Root cause,
+diagnosed directly rather than guessed: `SIXPOOL_KS` (0.00032/day) was back-calculated against
+real Cycles' own WHOLE-9-LAYER-PROFILE Cs sum (`sum over 9 layers of fE*fD*Cs`, see this
+file's own account above), not a single shallow topsoil layer. Applying that same rate to ANY
+single-layer Cs pool at a realistic topsoil depth (0.05m-0.20m both tried) already mineralizes
+on the order of 100+ kg N/ha over one season from Cs decomposition alone -- enough on its own
+to swamp these specific (mostly water-limited) test years' actual crop N demand. Scoping UP to
+match the full profile would make this WORSE (bigger Cs, more mineralization), not better --
+the real fix is either re-deriving a genuinely single-layer-scoped `ks` from real per-layer
+data (unconfirmed whether `soilC.txt`'s own "SOM RESPIRED C" disaggregates by layer at all, or
+whether it's only ever reported as a profile total) or abandoning the single-layer scope for a
+multi-layer one and re-deriving against that instead. Not resolved this session -- documented
+directly in the code (`cycles_engine_validate.py`'s own module-header comment above the
+mechanism, flagged "do not switch background_n_model to sixpool anywhere it would affect a
+real result until this is resolved") and not ported into either embedded `ENGINE_SOURCE` copy
+(`engine-demo.html`, `model-validation.html`) for the same reason -- this is exactly why the
+narrow-first, parallel/opt-in build was the right call rather than committing to a bigger build
+or a default-path swap before testing.

@@ -1618,6 +1618,254 @@ def tillage_dr_decay(layers, max_rate_per_day=0.02):
     return max_rate_per_day * moisture_frac
 
 
+# ---------------------------------------------------------------------------
+# STATUS (2026-10-01, right after the first real multi-site test of this
+# mechanism): NOT yet validated as "at least as good" as the RothC path --
+# the opposite, a real over-crediting problem was found and is NOT fixed.
+# At every real site/year tested so far (Rock Springs, Iowa, Kansas, all via
+# this project's own already-resolved STATSGO2/NLDAS-2 data), N=0 and N=650
+# grain came out byte-identical -- background mineralization alone already
+# fully satisfies crop demand, eliminating any fertilizer response at all,
+# which contradicts real Cycles' own documented pattern (relative yield
+# never hits exactly 1.0 at any real tested year, even the flattest one).
+# Root cause, diagnosed not guessed: SIXPOOL_KS (0.00032/day) was back-
+# calculated against real Cycles' own WHOLE-9-LAYER-PROFILE Cs sum (see
+# QUESTIONS_FOR_DEVS.md's own account of that fit), not a single shallow
+# topsoil layer -- applying that same rate to ANY single-layer Cs pool at a
+# realistic topsoil depth (any of 0.05m-0.20m tried) already mineralizes on
+# the order of 100+ kg N/ha over one season from Cs decomposition alone,
+# which turned out to be enough on its own to swamp these specific (mostly
+# water-limited) test years' actual crop N demand. Scoping UP to the full
+# profile would only make this worse (bigger Cs, more mineralization), not
+# better -- the fix isn't a depth constant, it's that ks/eps_c/CN_RATIO_SOM
+# chosen together are collectively too generous for a single-layer scope,
+# and re-deriving a genuinely single-layer-scoped ks from the same real data
+# (if it disaggregates per-layer, unconfirmed) is real follow-up work, not
+# done here. Kept in the codebase as a documented, honest first attempt --
+# do not switch background_n_model to "sixpool" anywhere it would affect a
+# real result until this is resolved.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Real six-pool soil carbon/nitrogen mineralization (Kemanian et al. 2024 SI
+# Eq. SI.10-14), built 2026-10-01 as a PARALLEL, OPT-IN alternative to the
+# RothC-based BACKGROUND_N_KG_HA_DAY proxy above -- selected via
+# simulate_season(background_n_model="sixpool"); "rothc" (the existing
+# mechanism) stays the default, byte-identical for every existing caller.
+# NOT validated against real Cycles output yet, NOT a replacement for the
+# RothC path until proven at least as good on the crops that already pass
+# (corn, soybean) -- see QUESTIONS_FOR_DEVS.md's 2026-10-01 entries for the
+# full back-calculation trail behind every constant below, and CLAUDE.md for
+# the explicit scope decision this was built under.
+#
+# Scope (explicit, from Matt, 2026-10-01): NARROW first -- a single topsoil-
+# layer two-pool (Cm, Cs) carbon system driving a real day-by-day nitrogen
+# mineralization signal, for a single crop/season. Not yet extended to
+# multi-layer tracking, residue carryover between rotation phases, or
+# tillage's real six-pool mixing effect (tillage here still only applies the
+# existing disclosed ft/ftx stand-in, same as the RothC path).
+#
+# Two pieces remain genuinely unresolved and are shipped as disclosed
+# placeholders, per Matt's explicit go-ahead rather than holding the build
+# for more searching:
+#   - fA (microbial-size saturation stimulant): fixed at 1.0. Real Rock
+#     Springs data shows the real Cm/Cs ratio sits persistently at 2.8-3.4%,
+#     right at the stated 3% activation threshold -- "mostly on" is a
+#     defensible placeholder, not a wild guess, but it is still a guess.
+#   - eps_c (carbon-use efficiency, the same symbol in both of the SI's own
+#     pool equations): fixed at 0.4, the midpoint of the real disclosed
+#     0.33-0.44 range (SI Sec. V).
+#   - The SI's own fra/frt/frz/frm per-source retention fractions are folded
+#     into eps_c rather than resolved separately -- not back-calculable from
+#     available data, since the back-calculated kra/k_rtz/krm below already
+#     describe GROSS pool depletion (confirmed against annualSoilProfileC.txt's
+#     own "RES C DECOMP"/"ROOT C DECOMP" columns), not net retention.
+#
+# Net nitrogen mineralized is approximated as (total carbon respired as CO2
+# that day) / CN_RATIO_SOM, a flat-ratio simplification -- real Cycles almost
+# certainly tracks N through pool-specific stoichiometry paralleling each
+# carbon pool, but those N:C ratios are disclosed nowhere checked so far, and
+# this single-ratio shortcut is a standard, defensible approximation used in
+# simplified mineralization models generally, not invented for this engine.
+# ---------------------------------------------------------------------------
+
+CARBON_FRACTION_DM = 0.42  # standard literature fraction of plant dry matter that is carbon;
+# a general, widely-cited value, not Cycles-specific or site-specific.
+
+SIXPOOL_EPS_C = 0.4  # disclosed placeholder, see module comment above.
+SIXPOOL_FA = 1.0  # disclosed placeholder, see module comment above.
+SIXPOOL_KS = 0.00032  # back-calculated 2026-10-01 against real ContinuousCorn output, moderate
+# confidence (~20-35% real uncertainty band, confirmed via a held-out CornSilageSoyWheat test).
+SIXPOOL_KRA = 0.040  # back-calculated, midpoint of ContinuousCorn's own 0.037/day and
+# CornSilageSoyWheat's 0.0417-0.0427/day -- a real, unexplained ~17% cross-scenario gap.
+SIXPOOL_K_RTZ = 0.057  # back-calculated, strong cross-scenario agreement (0.0563 vs 0.0580/day,
+# under 3% apart between ContinuousCorn and CornSilageSoyWheat).
+SIXPOOL_KRM = 0.0246  # back-calculated from CornSilageSoyWheat's real manure years only (a
+# genuine 2-variable joint fit separating it from k_ra) -- one scenario's worth of confidence,
+# not yet cross-checked against a second independent manured run.
+SIXPOOL_EPS_C_KM_PRODUCT = 0.0165  # back-calculated combined eps_c*fA*k_m rate (midpoint of the
+# real 0.013-0.02/day range), itself already carrying the same fA~1 assumption used here, so
+# dividing by SIXPOOL_EPS_C below to recover k_m alone needs no further fA correction.
+SIXPOOL_KM = SIXPOOL_EPS_C_KM_PRODUCT / SIXPOOL_EPS_C
+CN_RATIO_SOM = 11.0  # standard, widely-cited C:N ratio for stabilized temperate agricultural
+# soil organic matter -- the flat conversion this mechanism uses from net carbon respired to
+# net nitrogen mineralized. Not a Cycles-specific or site-specific number.
+SIXPOOL_TOPSOIL_DEPTH_M = 0.20  # fixed topsoil-depth convention this mechanism's carbon pools
+# are scaled to -- NOT the caller's own layer0["thick"] (see sixpool_init_state()'s own
+# docstring for the real bug this fixed: resolved-tile soil profiles' first layer thickness
+# is an arbitrary STATSGO2 artifact, not a real signal, and varies 0.05-0.33m+ across this
+# project's already-used sites). 0.20m is a standard "topsoil" convention, close to Rock
+# Springs' own hand-curated profile's first three layers combined (0.05+0.05+0.10=0.20m).
+
+
+def sixpool_fe_temp(tmean):
+    """Real, back-calculated fE temperature response: a quadratic fit against Cycles' own
+    FACTOR COMP. column (soilLayersCN.txt), isolated from moisture by restricting the fit to
+    near-field-capacity days. Unverified above ~26C (Rock Springs' real record never gets
+    hotter) -- clamped to 1.0 for any warmer extrapolation rather than let the raw quadratic
+    run past its real fitted range (it crosses 1.0 again around 28-29C if left unclamped)."""
+    if tmean <= 0:
+        return 0.0
+    return max(0.0, min(1.0, 0.00095 + 0.01165 * tmean + 0.000822 * tmean * tmean))
+
+
+def sixpool_fe_moisture(relwet):
+    """Real, back-calculated fE moisture response: a one-sided ramp (quadratic fit, R^2=0.926,
+    n=12876) from a real nonzero floor at/below the wilting point (relwet<=0) up to a clean 1.0
+    plateau by about 60% of the plant-available-water range -- confirmed to have NO anoxia/
+    waterlogging decline out to 2.6x relative wetness, checked across two structurally
+    different real soils (Rock Springs clay-rich subsoil, Western Kansas sandy topsoil). See
+    QUESTIONS_FOR_DEVS.md's "Check 1" entry, 2026-10-01, for the full account. relwet =
+    (theta-pwp)/(fc-pwp), the same quantity this engine's water-stress code already computes."""
+    if relwet <= 0:
+        return 0.157
+    if relwet >= 0.6:
+        return 1.0
+    return max(0.0, min(1.0, 0.157 + 1.052 * relwet + 1.337 * relwet * relwet))
+
+
+def sixpool_fe(tmean, relwet):
+    """Combined real environmental modulation factor, 0-1 (Kemanian et al. 2024's fE)."""
+    return max(0.0, min(1.0, sixpool_fe_temp(tmean) * sixpool_fe_moisture(relwet)))
+
+
+def sixpool_csx_pct(clay_frac):
+    """Real saturation capacity, Kemanian & Stockle (2010) Eq. 3 (C-Farm, Cycles' own
+    predecessor model): the paper's own printed "Cx = 21.1+37.5*fclay" reads as "mg C kg-1
+    soil," implausibly low taken literally -- corrected to g C/kg (i.e. percent*10), giving
+    Csx(%) = 2.11+3.75*fclay. This EXACTLY matches Csx back-calculated independently from real
+    Cycles ContinuousCorn output at Rock Springs' own three real clay fractions (21/37/55%) --
+    two fully independent methods converging to 4-5 significant figures, not a single source
+    trusted on faith. See QUESTIONS_FOR_DEVS.md, 2026-10-01, "Csx...fully resolved." clay_frac
+    is a 0-1 fraction."""
+    return 2.11 + 3.75 * clay_frac
+
+
+def sixpool_bulk_density(sat):
+    """Standard soil-physics identity: bulk density = particle density (2.65 Mg/m3, the
+    standard value for mineral soil) * (1 - porosity), with porosity read directly off this
+    engine's own Saxton-Rawls saturated water content (sat = porosity by volume). A general
+    relationship, not a Cycles-specific or invented formula."""
+    return 2.65 * (1.0 - sat)
+
+
+def sixpool_fh(cs, csx):
+    """Real SI Eq. SI.13 humification-saturation factor: fH = 1-(Cs/Csx)^6."""
+    ratio = max(0.0, cs / csx) if csx > 0 else 0.0
+    return max(0.0, 1.0 - ratio ** 6)
+
+
+def sixpool_fd(cs, csx):
+    """Real SI Eq. SI.13 decomposition-saturation factor: fD = 1-1/(1+(4.5*Cs/Csx)^3)."""
+    ratio = max(0.0, cs / csx) if csx > 0 else 0.0
+    return max(0.0, 1.0 - 1.0 / (1.0 + (4.5 * ratio) ** 3))
+
+
+def sixpool_init_state(layer0, clay_pct, soc_pct):
+    """Initializes the topsoil two-pool (+ residue) carbon state from the same real soil
+    texture/SOC data the caller already used to build layer0's own hydraulic properties --
+    deliberately scoped to layer0 only, the exact same control volume the existing RothC-based
+    BACKGROUND_N_KG_HA_DAY mechanism already targets (n_pool_by_layer[0]), so this is a drop-in
+    alternative at the same point, not a deeper or shallower profile. cra/crtz/crm (residue
+    pools) all start at 0.0 -- no previous-crop residue carryover exists anywhere in this
+    engine (consistent with the already-disclosed "soil layers always initialize at a fixed
+    moisture fraction, no carbon spin-up by default" limitation), so the only real carbon
+    input for a from-scratch single season is the live crop's own root growth, added day by
+    day into crtz inside sixpool_step().
+
+    Uses SIXPOOL_TOPSOIL_DEPTH_M, a FIXED depth convention, rather than layer0["thick"]
+    itself -- a real bug found and fixed while first testing this mechanism against this
+    project's own already-resolved multi-site soil profiles (2026-10-01): layer0's thickness
+    is an arbitrary STATSGO2 layer-boundary artifact, not a real signal, and varies hugely
+    across already-used sites (Rock Springs' own hand-curated profile: 0.05m; Iowa's
+    resolved-tile profile: 0.33m). Scaling Cs/Csx directly by that thickness inflated Iowa's
+    carbon pools roughly 6x relative to Rock Springs for the same soc%/clay% input, pushing
+    Cs to/above its own Csx ceiling and eliminating nitrogen limitation entirely (checked
+    directly: N=0 and N=650 grain came out byte-identical at Iowa and Kansas before this fix,
+    not just close). soc_pct/clay_pct are intensive (concentration) properties, so applying
+    them over one fixed, disclosed topsoil-depth convention instead of whatever depth a given
+    resolved profile's own first layer happens to be is the defensible fix, not a workaround."""
+    bd = sixpool_bulk_density(layer0["sat"])
+    csx_pct = sixpool_csx_pct(clay_pct / 100.0)
+    csx = bd * SIXPOOL_TOPSOIL_DEPTH_M * 100 * csx_pct
+    cs0 = bd * SIXPOOL_TOPSOIL_DEPTH_M * 100 * soc_pct
+    return dict(cs=cs0, cm=0.03 * cs0, cra=0.0, crtz=0.0, crm=0.0, csx=csx)
+
+
+def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0):
+    """Advances the six-pool state by one day (mutating it in place) and returns the day's net
+    nitrogen mineralized (kg N/ha) -- the quantity simulate_season() adds directly into
+    n_pool_by_layer[0] in place of the RothC-based background_today term when
+    background_n_model="sixpool". ft_eff is the same (1+tillage_ft(...)) multiplier the RothC
+    path already computes, passed in rather than recomputed.
+
+    Structure (Kemanian et al. 2024 SI Eq. SI.10-14, with the SI's own per-source fra/frt/frz/
+    frm retention fractions folded into eps_c -- see this module's own header comment):
+        dCra/dt  = 0 (no aboveground-residue input modeled in this v1 scope) - fE*kra*Cra
+        dCrtz/dt = root_c_input - fE*k_rtz*Crtz
+        dCm/dt   = eps_c*fH*(fE*kra*Cra + fE*k_rtz*Crtz + fE*krm*Crm) - fA*fE*ft*km*Cm
+        dCs/dt   = eps_c*fA*fE*fH*km*Cm - fE*ft*fD*ks*Cs
+    Net carbon respired as CO2 each day = whatever is NOT retained at each transfer (residue
+    decomposition not humified into Cm; Cm turnover not humified into Cs; all of Cs's own
+    decomposition, which has no further downstream pool -- matching real Cycles' own "SOM
+    RESPIRED C" column, confirmed exactly equal to fE*fT*fD*ks*Cs). Net N mineralized = that
+    total carbon / CN_RATIO_SOM (see module header)."""
+    cs, cm, cra, crtz, crm, csx = state["cs"], state["cm"], state["cra"], state["crtz"], state["crm"], state["csx"]
+    fe = sixpool_fe(tmean, relwet)
+    fh = sixpool_fh(cs, csx)
+    fd = sixpool_fd(cs, csx)
+
+    crtz += root_c_input_mg_ha  # the only real carbon input modeled in this v1 scope -- see
+    # sixpool_init_state's own docstring for why cra/crm have no input pathway here.
+
+    decomp_ra = fe * SIXPOOL_KRA * cra
+    decomp_rtz = fe * SIXPOOL_K_RTZ * crtz
+    decomp_rm = fe * SIXPOOL_KRM * crm
+    cra = max(0.0, cra - decomp_ra)
+    crtz = max(0.0, crtz - decomp_rtz)
+    crm = max(0.0, crm - decomp_rm)
+
+    gross_residue_decomp = decomp_ra + decomp_rtz + decomp_rm
+    cm_gain_from_residue = SIXPOOL_EPS_C * fh * gross_residue_decomp
+    co2_residue = gross_residue_decomp - cm_gain_from_residue
+
+    cm_loss = SIXPOOL_FA * fe * ft_eff * SIXPOOL_KM * cm
+    cs_gain = SIXPOOL_EPS_C * SIXPOOL_FA * fe * fh * SIXPOOL_KM * cm
+    co2_cm = max(0.0, cm_loss - cs_gain)
+
+    cs_loss = fe * ft_eff * fd * SIXPOOL_KS * cs
+    co2_cs = cs_loss  # Cs has no further downstream pool in this two-pool system -- all of
+    # its loss is CO2, matching real Cycles' own "SOM RESPIRED C" column exactly.
+
+    cm = max(0.0, cm + cm_gain_from_residue - cm_loss)
+    cs = max(0.0, cs + cs_gain - cs_loss)
+
+    state["cs"], state["cm"], state["cra"], state["crtz"], state["crm"] = cs, cm, cra, crtz, crm
+
+    total_co2_c_mg_ha = co2_residue + co2_cm + co2_cs
+    return total_co2_c_mg_ha * 1000 / CN_RATIO_SOM
+
+
 def n_critical_pct(biomass_mgha, crop):
     """Whole-plant average/critical N concentration (%) at the given total biomass --
     the standard dilution-curve quantity, %Nc(W) = a*W^-b. Used two ways in
@@ -1718,8 +1966,24 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21,
                      fert_placement_implement=None, soil_ph=None,
                      spinup_rows=None, curve_number=75.0, slope_pct=0.0, initial_layers=None,
-                     soil_evap_model="faostandard", n_root_limited=False, wue_co2_scale=1.0):
+                     soil_evap_model="faostandard", n_root_limited=False, wue_co2_scale=1.0,
+                     background_n_model="rothc", sixpool_topsoil_clay_pct=None, sixpool_topsoil_soc_pct=None):
     """weather_rows: dicts with doy, tx, tn, solar, rhx, rhn, wind, pp, in planting-day order.
+
+    background_n_model: "rothc" (default, byte-identical to this parameter not existing) keeps
+    the existing RothC-weather-scaled flat-constant background-nitrogen mechanism. "sixpool"
+    switches to the real two-pool (Cm, Cs) carbon-mineralization mechanism built 2026-10-01 --
+    see sixpool_step()'s own docstring above for the full structure, and CLAUDE.md/
+    QUESTIONS_FOR_DEVS.md for why it's opt-in, not the default, and what's still a disclosed
+    placeholder in it. Requires sixpool_topsoil_clay_pct and sixpool_topsoil_soc_pct (the same
+    real topsoil texture/SOC inputs a caller's own make_layers() already used to build
+    layers[0] -- not re-derivable from the layers dict alone, which doesn't retain them).
+
+    wue_co2_scale: a flat multiplier on the crop's water-use efficiency (eps_W in Eq. 5),
+    representing rising atmospheric CO2's real effect on stomatal water-use efficiency.
+    Disclosed directly by Kemanian et al. 2024 Sec. 2.5 ("Both eps_R and eps_W should be given
+    for a reference atmospheric CO2 concentration and scaled accordingly as CO2 changes... For
+    a discussion on the implications of optimization theory under changing CO2 see Bassiouni
 
     wue_co2_scale: a flat multiplier on the crop's water-use efficiency (eps_W in Eq. 5),
     representing rising atmospheric CO2's real effect on stomatal water-use efficiency.
@@ -2115,6 +2379,13 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     irrigation_total_mm = 0.0
     history = [] if record_history else None
 
+    sixpool_state = None
+    if background_n_model == "sixpool":
+        if sixpool_topsoil_clay_pct is None or sixpool_topsoil_soc_pct is None:
+            raise ValueError("background_n_model='sixpool' requires sixpool_topsoil_clay_pct "
+                              "and sixpool_topsoil_soc_pct -- see simulate_season()'s own docstring.")
+        sixpool_state = sixpool_init_state(layers[0], sixpool_topsoil_clay_pct, sixpool_topsoil_soc_pct)
+
     # Real, day-by-day concentration-tracked nitrogen stress (2026-09-25), replacing the
     # season-total quadratic-plateau this engine used from 2026-09-14 through today. Found
     # via CropSyst's own real, public source (crop/crop_N_common.cpp -- Cycles shares its
@@ -2257,7 +2528,23 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     n_pool_by_layer[0] += applications_by_doy[w["doy"]]
                 else:
                     n_pool += applications_by_doy[w["doy"]]
-            if dGB_water_limited > 0:
+            if background_n_model == "sixpool":
+                # Real two-pool carbon mineralization, run EVERY day (unlike the RothC path's
+                # dGB_water_limited>0 gate below) -- Cs/Cm decomposition is a soil process, not
+                # conditional on the crop actively growing that day; root_c_input_today is
+                # already naturally 0 on non-growing days via dGB_water_limited itself. See
+                # sixpool_step()'s own docstring for the full structure.
+                relwet_topsoil = ((layers[0]["theta"] - layers[0]["pwp"]) / (layers[0]["fc"] - layers[0]["pwp"])
+                                   if layers[0]["fc"] > layers[0]["pwp"] else 1.0)
+                root_c_input_today = (dGB_water_limited * (1.0 - shoot_fraction(ttf, crop["fsti"], crop["fstf"]))
+                                       * CARBON_FRACTION_DM)
+                ft_eff = 1.0 + tillage_ft(tillage_dr, tillage_ftx_val)
+                background_today = sixpool_step(sixpool_state, tmean, relwet_topsoil, root_c_input_today, ft_eff)
+                if n_pool_by_layer is not None:
+                    n_pool_by_layer[0] += background_today
+                else:
+                    n_pool += background_today
+            elif dGB_water_limited > 0:
                 weather_factor = (rothc_temp_factor(tmean) * rothc_moisture_factor(layers[0]["theta"], layers[0]["fc"], layers[0]["pwp"])
                                    / ROTHC_WEATHER_FACTOR_NORM)  # see ROTHC_WEATHER_FACTOR_NORM's own docstring -- fixed 2026-09-29
                 background_today = BACKGROUND_N_KG_HA_DAY * (1.0 + tillage_ft(tillage_dr, tillage_ftx_val)) * weather_factor
@@ -2382,6 +2669,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         result["n_remaining_kg_ha"] = sum(n_pool_by_layer) if n_pool_by_layer is not None else n_pool
     if n_volatilized_total is not None:
         result["n_volatilized_kg_ha"] = n_volatilized_total
+    if sixpool_state is not None:
+        result["sixpool_final_state"] = dict(sixpool_state)
     if initial_layers is not None:
         result["final_layers"] = layers
     return result
