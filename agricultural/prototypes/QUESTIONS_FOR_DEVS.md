@@ -258,6 +258,20 @@ against real Cycles output before concluding the gap is real.
    stress-feedback mechanism at all) before trying a third stress-coupling
    variant.
 
+   **Update (2026-10-01): the Eq. 7/plant-density candidate above is now ruled out
+   directly, not just left untried.** The real Kansas `.operation` files built for
+   this exact investigation (`KansasN0/150/300.operation`, same `PLANTING` block
+   shape as the bundled `ContinuousCorn.operation` sample) carry a real `DENSITY`
+   field -- almost certainly Eq. 7's own PDf, not a different parameter. Checked
+   directly: both the real Kansas run and the bundled Rock Springs sample use
+   `DENSITY 1.0`, identical. Real Cycles produced the severe 0.25-0.48 canopy
+   plateau at Kansas under the exact same density setting that shows no such gap
+   at Rock Springs, so a per-site density difference cannot be the explanation --
+   real Cycles itself ran this scenario at PDf=1 and still showed the gap. This
+   closes off the one remaining untried candidate above without touching the
+   engine at all: whatever suppresses real Cycles' own canopy at Kansas, it isn't
+   planting density.
+
 6. **Silage corn's and winter wheat's weak year-to-year correlation (0.50 and
    0.25) turn out to be two distinct problems, not one, after directly comparing
    our computed water stress against real Cycles' own WATER STRESS output column
@@ -1083,6 +1097,49 @@ against real Cycles output before concluding the gap is real.
    primary suspect per the entries above) remains the most likely place still worth
    investigating, but the canopy-cover gap is now a separate, equally real, equally
    unresolved finding in its own right -- not something either tested fix closes.
+
+   **Update (2026-10-01): rechecked against the full real 37-year Kansas record
+   (not just 6 spot-checked years) under the current engine, after the same day's
+   cold-kill and CO2-WUE-scaling mechanisms shipped for a different reason (corn's
+   own Rock Springs secular trend).** Re-ran this engine at Kansas N=0 and N=150
+   across all 37 years with both new mechanisms active: mean relative yield
+   (N=0/N=150) moved from the previously-documented 0.934 to **0.853** -- real
+   Cycles' own value is 0.779, so this closes about half the gap (0.155 -> 0.074),
+   a genuine, if incidental, improvement neither mechanism was built to produce.
+   The absolute level comparison moved the other way, though: at N=150, this
+   engine previously undershot real Cycles by 12% (MAE 0.656 Mg/ha); it now
+   OVERSHOOTS by 35% (real mean 2.569, model mean 3.465, MAE 1.025) -- CO2-WUE
+   raises yield uniformly across years while the recalibration that followed it
+   was derived against Rock Springs' own mean, not Kansas's, so the two sites'
+   calibration-factor fit has diverged further. Correlation at N=150 moved
+   0.777 -> 0.758, essentially unchanged. Net: real, partial progress on the
+   actual target (nitrogen-response muting) from an unrelated fix, at the cost of
+   a bigger absolute miss at this one non-calibration site -- expected given this
+   project's calibration_factor is, and has always been, a single global number
+   fit to Rock Springs, not refit per site.
+
+   **Also tested the same day: real multi-year soil-state carryover (`initial_
+   layers`/`final_layers`, shipped 2026-09-24) across the now-complete 37-year
+   Kansas record, not just the earlier 6-year spot check.** Chaining each year's
+   real ending soil moisture into the next (via `initial_layers`, with that year's
+   own Jan-1-to-planting weather still run as `spinup_rows` on top of it) is a
+   genuine win at Kansas under the current engine: ratio 1.349x -> 1.226x,
+   MAE 1.025 -> 0.805 Mg/ha (-21%), correlation 0.758 -> 0.761. This reproduces the
+   same direction of improvement already documented for the 6-year spot check.
+   But re-tested at Rock Springs under the SAME current engine (the 2026-09-22
+   finding of "no meaningful change there" was measured against an older engine,
+   before the hydraulic-conductance water-stress mechanism, cold-kill, and CO2-WUE
+   all shipped) and found it is **no longer neutral**: correlation drops
+   0.777 -> 0.701, MAE grows 0.647 -> 0.807 Mg/ha -- a real cost, and a larger one
+   in absolute terms than Kansas's gain. **Not adopted as a default** for either
+   `run_validation.py` or any pattern check: turning carryover on everywhere would
+   trade a real win at the one site it was tested for against a real, larger loss
+   at the actual calibration site, and the calibration_factor values this whole
+   project relies on were all derived under fresh-start conditions -- switching
+   would need a full recalibration pass, not a flag flip. Worth remembering the
+   shape of this finding: a mechanism's own effect size is not fixed across engine
+   versions -- re-test a previously-"neutral" result after any change to the
+   core growth/water-stress physics before assuming it still holds.
 
 7. **The soil water redistribution scheme (Eq. 1-2) -- largely resolved, one piece
    still open.** Originally: the paper gives the real capacitance-weighted flow
