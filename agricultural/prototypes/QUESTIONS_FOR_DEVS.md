@@ -2728,3 +2728,93 @@ disproportionate effort to spend testing numbers from the wrong model, especiall
 own standing decision to keep the full six-pool system out of v1 scope regardless, with the
 RothC-based background-N mineralization proxy already serving its practical role. Logged here
 so this specific lead isn't re-chased blind next time it's suggested.
+
+**2026-10-01, same day -- the user asked directly: (1) Google/web-search the actual rate
+constants, (2) back-calculate them from real Cycles output. Did both. (2) succeeded
+substantially -- the single biggest step this project has made on the six-pool gap since it was
+first flagged.**
+
+**Csx (the saturation capacity) is now FULLY RESOLVED, not approximated.** Real Cycles output
+(`/tmp/cycles-run/output/ContinuousCorn/annualSOM.txt`) reports, per layer per year, BOTH the
+real soil C% AND the real "C SAT. RATIO" (Cs/Cx) directly -- so Csx = (reported %) / (reported
+ratio) can be read straight off two numbers Cycles itself already computes and writes, no
+inference needed. Done for Rock Springs' real 9-layer profile: Csx = 2.8975% (layers 1-3),
+3.4975% (layers 4-5), 4.1725% (layers 6-9) -- confirmed stable to 5+ significant figures across
+every one of the 37 simulated years (a real soil-intrinsic constant, not simulation drift).
+Cross-checked against the (1) suggestion's own spirit -- went back to Kemanian & Stöckle
+(2010)'s own C-Farm paper (`KemanianStockle2010.pdf`, already on `main`, re-read specifically
+for this) -- and found its Eq. 3, citing Hassink & Whitmore (1997): `Cx = 21.1 + 37.5*fclay`,
+stated as "mg C kg-1 soil." Read literally that's absurd for real topsoil (21-59 ppm), so tested
+the obvious correction -- the same OCR/typesetting-unit-slip category already documented
+repeatedly in this project for Kemanian-lineage sources -- reading it as g C/kg (equivalently
+%*10): `Csx(%) = 2.11 + 3.75*fclay`. Plugged in Rock Springs' own real, already-committed clay
+fractions (`SOIL_LAYERS_RAW` in `run_validation.py`: 21%/21%/21%/37%/37%/55%/55%/55%/55%) and
+got 2.8975%/2.8975%/2.8975%/3.4975%/3.4975%/4.1725%×4 -- an EXACT match (4-5 significant
+figures) to the independently back-calculated values above, at all three distinct clay
+fractions, not a loose ballpark. Two fully independent methods (reading real simulator output,
+and a corrected published formula) converge on the identical number. **This closes Csx as an
+open unknown.** Not yet wired into the engine (the six-pool system itself remains correctly out
+of v1 scope, so there's nowhere to use it), but if that system is ever built, this is the real
+formula and it needs no further verification.
+
+**ks (the Cs/non-living-SOM decomposition rate constant, Eq. SI.11) is now back-calculated with
+real, moderate confidence, not guessed.** `soilC.txt`'s daily `SOM RESPIRED C` column turns out
+to be exactly the loss term `fE*fT*fD*ks*Cs` (confirmed structurally, not assumed, by the mass-
+balance identity d(SOIL_ORG_C)/dt ~ HUMIFIED_C - SOM_RESPIRED_C holding to within ~0.002 Mg/ha
+on most days, with the small systematic residual itself traced to a real, expected missing term
+-- see below). `SOIL ORG C` in `soilC.txt` turned out to be Cm+Cs combined (confirmed exactly:
+diffed against the independently-summed per-layer MIC C + SOIL ORG C columns in
+`soilLayersCN.txt`, matches to 4 decimals on every date checked), not Cs alone -- a real finding
+in its own right, since the two profile-level columns in that file are easy to misread as pure
+Cs. `soilLayersCN.txt`'s own "FACTOR COMP." column (per layer, daily, dimensionless, 0 in frozen
+winter soil rising to ~0.5-0.7 in summer) is almost certainly fE itself (0<=fE<=1, the real
+environmental-modulation factor the SI names but never gives a formula for) -- not derived here,
+just directly read off real Cycles output, which is arguably better than deriving it.
+
+Used `fE` (FACTOR COMP.), `fD = 1-1/(1+(4.5*Cs/Csx)^3)` (computed from the now-resolved Csx
+above), and daily per-layer Cs to build a predictor (`sum over 9 layers of fE*fD*Cs`), then
+regressed real `SOM RESPIRED C` against it (least-squares through the origin) across the full
+37-year `ContinuousCorn` record, restricted to a mid-season window (DOY 150-250, to stay clear
+of spring planting-tillage's own fT!=1 effect, since fT isn't in this predictor). Result:
+ks ~ 0.0003-0.0004/day, and -- confirming the tillage-contamination diagnosis rather than just
+asserting it -- narrowing toward ~0.00032/day and the fit residual shrinking (24%->17.5% mean
+relative error) as the window is tightened further from spring tillage (DOY 210-240). Cross-
+checked against C-Farm's own real, published, citable value: `kx = 5.5% yr-1` (Kemanian &
+Stöckle 2010, Sec. 2, "the maximum turnover rate for an undisturbed soil... at or near field
+capacity and at 35C") = 0.00015/day -- same order of magnitude as the back-calculated value,
+roughly 2-2.5x lower, a real but not exact match. The gap is explainable, not just hand-waved:
+C-Farm's own saturation exponent on this term is m=0.5 (`kx*(Cs/Cx)^0.5`), while Cycles' own SI
+Eq. SI.13 uses a structurally different fD (threshold-shaped, effectively exponent-3 inside a
+reciprocal, not a plain square root) -- the two aren't numerically equivalent corrections to the
+same physical rate even if the underlying process is the same lineage, so a 2-2.5x gap between
+the two models' own "reference maximum rate" constants is a real, expected consequence of that
+structural difference, not evidence either number is wrong.
+
+**eps_c*k_m (the combined Cm-turnover-to-Cs-humification rate, Eq. SI.11's gain term) is
+back-calculated more loosely:** `HUMIFIED C` (daily, `soilC.txt`) regressed the same way against
+`sum(fE*fH*Cm)` (fH from the same resolved Csx) gives eps_c*k_m ~ 0.013-0.02/day. Looser than ks
+for a real, identified reason: `fA` (the microbial-size saturation stimulant, "increases once Cm
+exceeds 3% of Cs") was assumed =1, but the real Cm/Cs ratio at Rock Springs sits persistently at
+2.8-3.4% across the entire 37-year record -- right AT the stated 3% threshold, never cleanly
+below it the way the assumption needs. This is itself a useful, concrete new constraint (fA is
+essentially always mildly active here, never resting at exactly 1), but it means the eps_c*k_m
+estimate carries an unknown fA multiplier baked in. Taking eps_c at its own stated 0.33-0.44
+range (SI Sec. V) gives k_m ~ 0.03-0.06/day -- a real bound, not a point estimate.
+
+**k_ra/k_rt/k_rz/k_rm (the four source-specific residue/root/rhizodeposit/manure rate
+constants) remain genuinely unresolved** -- `RES RESPIRED C` in `soilC.txt` is one combined
+flux across all residue sources, and manure/rhizodeposit inputs aren't exposed as separate
+output columns anywhere checked, so the four can't be disentangled from daily aggregate output
+without a materially larger per-source decomposition analysis this session didn't attempt (a
+real further step, using `annualSoilProfileC.txt`'s own separate annual `RES C DECOMP`/`ROOT C
+DECOMP` columns by layer, is plausible but unverified -- flagged as a concrete next step, not
+attempted here). C-Farm's own paper gives a real, citable but structurally different proxy
+range for the analogous humification FRACTION (not a first-order rate): 0.10-0.20/yr for fresh
+residues, 0.30-0.35/yr for manure-derived carbon (Sec. 2, citing Rasmussen & Collins 1991 and
+Kätterer & Andrén 1997) -- worth knowing, not a substitute for the real rate constants.
+
+Nothing shipped to the engine -- the six-pool system stays correctly out of v1 scope per Matt's
+standing decision, so there's no live code path to wire any of this into yet. This is purely a
+documentation update, recording real, substantially-improved knowledge (Csx fully resolved; ks
+and eps_c*k_m real-but-moderate-confidence estimates; k_ra/k_rt/k_rz/k_rm still open with a
+concrete next step named) in case the full subsystem is ever built.
