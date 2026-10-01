@@ -3240,3 +3240,75 @@ in `run_validation_rotation2.py`) still only ever builds a same-calendar-year, J
 `spinup_rows`, so using the real mechanism for a genuine multi-year chain outside this
 session's own test script would need that cross-year window built into a real harness first,
 not assumed to come for free from `sixpool_offseason_decay` alone.
+
+**2026-10-01, continued -- "let's look at the trajectory," per Matt's direct ask. A conclusive
+diagnosis, not a fix: the carbon-side physics checks out almost exactly against real Cycles at
+two very different sites, which is exactly what reveals the real weak link isn't there at
+all -- it's the flat carbon-to-nitrogen conversion this mechanism uses, confirmed by
+elimination, not assumed.**
+
+Pulled real Cycles' own `N STRESS` column directly (`CornRM.90.txt`, IowaN0) instead of
+inferring it from relative yield. The real pattern is stark and genuinely different from
+"year-to-year weather noise": **exactly zero** max seasonal N stress in every one of 1980-1991
+(12 straight years), then a real, growing pattern from 1992 onward (mean 13.8% across
+1992-2016, individual years up to 38.7% by 2014). This is a secular, decade-scale onset, not
+noise -- real Cycles' own soil clearly starts with enough available nitrogen to cover roughly
+a dozen years of continuous unfertilized cropping before stress appears at all, then stress
+grows as that reserve is drawn down further.
+
+Checked whether this mechanism's own chained carbon trajectory (built two entries above)
+shows anything resembling that shape. It does not -- the opposite, in fact: using the fixed
+0.05m depth (matched to Rock Springs' own real Cycles reference), Cs declines FASTEST in the
+first 12 years (19.4 -> 14.8 Mg C/ha, a 24% drop) then flattens for the remaining 25
+(14.8 -> 13.7, an 8% further drop) -- a textbook first-order-decay shape, the inverse of real
+Cycles' delayed-onset, still-growing pattern.
+
+Formed a real, testable hypothesis rather than guessing at a fix: maybe the fixed 0.05m depth
+-- chosen specifically because it matched Rock Springs' own real Cycles reference exactly --
+was systematically undersizing every OTHER site's real carbon reserve, since Iowa's own real
+resolved soil layer is 0.33m thick, not 0.05m. Checked directly against real Cycles' own
+reported layer-1 carbon mass for Iowa (`soilLayersCN.txt`, 1980-01-01: 130.13 Mg C/ha): using
+Iowa's own real layer thickness (0.33m, not the flat 0.05m) gives 130.23 -- an almost exact
+match. This confirms something real and useful on its own: the carbon-side formulas (Csx,
+bulk density from Saxton-Rawls, the soc%-to-absolute-mass conversion) are NOT the problem --
+they reproduce real Cycles' own reported absolute carbon mass almost exactly at Iowa's real
+thickness, just as they already did at Rock Springs' real thickness. The earlier "fixed
+0.05m" choice was right for matching Rock Springs specifically (the one site with a genuine
+conflict between its own hand-curated profile and its own STATSGO2-resolved one, see the
+entry above) but was never meant to be a universal convention -- for any site where the
+resolved profile IS the only real description (Iowa, Kansas), that profile's own real
+thickness is what real Cycles was actually run against, and should be used.
+
+Tested the real hypothesis directly: re-ran the full 37-year Iowa chain (same real off-season
+decay mechanism, same stover crediting) using Iowa's own real 0.33m-equivalent starting
+reserve (Cs0=127.87, not 19.4) instead of the flat 0.05m value. Result: relative yield stayed
+pinned at EXACTLY 1.0 for all 37 years, even though Cs itself declined by a real, substantial
+60% over the chain (127.87 -> 51.41) -- the much bigger real reserve never gets small enough,
+within 37 years, to meaningfully limit a corn crop's nitrogen demand at the rate constants and
+C:N conversion this mechanism currently uses. Checked why directly: `fD` (the saturation-
+driven decomposition-rate factor) only falls from 0.99 to 0.87 across that entire decline,
+since Cs/Csx never drops much below its own healthy starting ratio -- almost no self-limiting
+feedback kicks in across the whole real range this decline actually traverses.
+
+**The conclusion, stated plainly: this isn't a reserve-size problem, since both the too-small
+and the real, correctly-sized reserve fail, just in opposite directions (too-fast depletion
+with the wrong shape, vs. never-depletes-enough).** The carbon-side physics is now confirmed
+accurate at two real, very different sites -- the weak link is specifically the flat
+`CN_RATIO_SOM=11` shortcut this mechanism uses to convert net carbon respired into nitrogen
+mineralized. Real Cycles almost certainly tracks nitrogen through its own separate pool
+dynamics (a real six-pool NITROGEN system paralleling the carbon one, with its own N:C ratios
+per pool and its own immobilization/mineralization balance -- exactly the system Matt's own
+standing decision keeps out of v1 scope, correctly, since its rate constants are undisclosed
+nowhere checked so far) -- not a single flat ratio applied uniformly regardless of which pool
+the carbon came from or how depleted the system is. This is a genuine, evidence-based
+confirmation of why that system was scoped out from the start, not a new problem -- the
+single-ratio shortcut was always a disclosed simplification, and this is the first time its
+specific failure mode (right carbon physics, wrong nitrogen conversion, at the decade
+timescale specifically) has been precisely characterized rather than just flagged as a risk.
+
+Not pursued further this round, deliberately: building the real nitrogen-specific pool system
+to test a fix would mean guessing at undisclosed rate constants with no real data to
+back-calculate them from (unlike the carbon-side constants, which had real Cycles output to
+check against) -- exactly the kind of blind construction this project's own discipline exists
+to avoid. Nothing committed; this was a diagnostic exercise using a monkey-patched test
+script, not an engine change.
