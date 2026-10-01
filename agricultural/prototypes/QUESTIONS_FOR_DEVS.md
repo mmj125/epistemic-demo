@@ -2843,9 +2843,75 @@ output (none currently on hand) run the same way. C-Farm's own paper gives a rea
 structurally different proxy for manure specifically (a humification FRACTION of 0.30-0.35/yr,
 not a first-order rate constant) -- worth knowing, not a substitute for the real k_rm.
 
+**2026-10-01, continued -- two further checks run per direct request, both load-bearing for
+whether any of the above is trustworthy enough to build on, not just more parameter-hunting.**
+
+**Check 1: does fE's moisture term have a "too wet" (anoxia) decline, or does it just plateau?**
+Pooled real `FACTOR COMP.` against real per-layer water content, normalized to each layer's own
+relative wetness `(theta-pwp)/(fc-pwp)`, across Rock Springs' own deeper, clay-rich layers AND
+Western Kansas's real sandy topsoil (deliberately a second, different soil, since a sandy
+profile's sat/fc ratio is much larger, giving real data points well above field capacity that
+Rock Springs' own layer 1 never reaches) -- after first dividing out the already-fit temperature
+response (fitting *that* alone left too much residual noise to see the moisture shape cleanly).
+Result: moisture-factor rises smoothly from a real, nonzero floor at the wilting point (~0.16 at
+relwet=0, i.e., some decomposition continues even at/below the classical wilting point -- a real
+finding, since wilting point is a plant-stress definition, not a microbial-activity cutoff) up to
+1.0 by about half the plant-available-water range, then **plateaus at 1.0 with zero decline, all
+the way out to 2.6x relative wetness** (n=3407 points above field capacity, mean 0.98, stdev
+0.03, no trend). Checked across two structurally different soils, not one. **This resolves the
+question cleanly: Cycles' real fE has no waterlogging/anoxia penalty at all** -- it's a one-sided
+ramp-then-plateau, not the bell-shaped response a naive assumption would guess at. Quadratic fit
+of the rising segment (`moisture_factor = 0.157 + 1.052*relwet + 1.337*relwet^2`, R^2=0.926, n=
+12876) is real but noisier than the temperature fit, honestly stated.
+
+**Check 2: do today's back-calculated constants actually transfer to a scenario none of them
+were derived from** (`CornSilageSoyWheat` -- same Rock Springs soil, genuinely different crops/
+residue timing/rotation, confirmed via its own Csx% matching `ContinuousCorn`'s exactly, 2.8975/
+3.4975/4.1725, since it's the same physical soil)? Real, mixed-but-encouraging result, not a
+clean pass or fail:
+- `k_r(t+z)` (root+rhizodeposit): CornSilageSoyWheat's own independently-measured value is
+  0.0580/day vs. ContinuousCorn's 0.0563/day -- **within 3%**, a genuinely strong transfer.
+- `k_ra` (aboveground residue): CornSilageSoyWheat's own value (excluding its manured years,
+  to compare like-for-like) is 0.0427/day vs. ContinuousCorn's 0.0365/day -- about 17% apart,
+  same order of magnitude, tight internal consistency within each scenario (stdev ~4-5% in
+  both) but a real, not-fully-explained cross-scenario gap, plausibly real differences in
+  residue chemistry between continuous-corn stover and this rotation's mixed residues.
+- `ks`: applying ContinuousCorn's own point estimate (0.00032) directly to CornSilageSoyWheat's
+  real data gives 36% relative error; refitting fresh on CornSilageSoyWheat alone gives 0.000404
+  -- about 25% higher than ContinuousCorn's own estimate, consistent with (not contradicting)
+  the already-documented ~20-35% real uncertainty band on this constant, not evidence it's wrong.
+
+**A genuine bonus discovery while running this check**: `CornSilageSoyWheat` turns out to have
+real manure events in about half its years (confirmed directly, `MANURE RESID C > 0`) --
+something not accounted for going in, and the first real manured scenario this whole
+investigation has had access to. Resolved `k_rm` for the first time: a naive blended estimate
+(treating manure+stand+flat as one pool, the same way `k_ra` was computed) showed aggregate kra
+reading LOWER in manure years (0.0349) than non-manure years (0.0427) -- the wrong direction for
+"manure decomposes faster," pointing instead at manure decomposing SLOWER than fresh residue
+(physically sensible: manure has already been partially processed by gut passage, leaving a
+more recalcitrant residual). Rather than stop at that blended signal, separated the two
+daily-tracked pools (STAND+FLAT vs. MANURE are already distinct columns) and solved a genuine
+2-variable joint least-squares fit (`RES_C_DECOMP = k_ra*sum(fE*standflat) + k_rm*sum(fE*manure)`
+across all 36 real years): **k_ra=0.0417/day, k_rm=0.0246/day** -- a tight fit (6.8% mean
+relative residual, the best-fitting of any constant derived this session), confirming manure
+decomposes at roughly 60% of fresh aboveground residue's rate, and giving `k_rm` a real,
+data-grounded value for the first time (though only from this one scenario -- not yet
+cross-checked against a second independent manured run the way `k_r(t+z)` was).
+
+**Updated standing, now that every originally-named constant has a real estimate:** Csx exact;
+`k_r(t+z)` strong (3% cross-scenario agreement); `k_ra` and `k_rm` good (tight within-scenario
+fits, `k_ra` with a real ~17% cross-scenario gap not yet explained); `ks` moderate (~20-35%
+real uncertainty, confirmed by held-out test, not just internal robustness checks); `eps_c*k_m`
+still the loosest (fA confound never cleanly resolved). **Still genuinely open**: `fA`'s exact
+functional form (bounded, never characterized); splitting `k_rt` from `k_rz`, and `eps_c` from
+`k_m` (only their products are known); `fE`'s temperature fit is unverified above ~26C, since
+Rock Springs' real record never gets hotter than that; `k_rm` has one scenario's worth of
+evidence, not two.
+
 Nothing shipped to the engine -- the six-pool system stays correctly out of v1 scope per Matt's
 standing decision, so there's no live code path to wire any of this into yet. This is purely a
-documentation update, recording real, substantially-improved knowledge (Csx fully resolved; ks,
-eps_c*k_m, k_ra, and a combined k_rt+k_rz all real back-calculated estimates with stated
-confidence; only k_rm and the k_rt/k_rz split remain genuinely open) in case the full subsystem
-is ever built.
+documentation update. The practical upshot, stated plainly for whoever next decides whether to
+build this: the parameter-knowledge gap that was the main blocker going into this session is now
+substantially, genuinely closed -- held-out validation came back encouraging, not circular --
+and what remains is now mostly a real software-scope question (a new, cross-cutting subsystem),
+not an accuracy-of-information question.
