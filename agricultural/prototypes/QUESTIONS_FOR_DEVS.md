@@ -2599,3 +2599,32 @@ place for it, if picked up, is `model-validation.html`'s own "Full simulation co
 and the manure fields already live in both `engine-demo.html`'s field-comparison/nitrogen-
 sweep panels, the same curated-dropdown pattern already used there for tillage implements and
 soil pH.
+
+**2026-10-01 — Tested and rejected, same day, same "keep looking back" sweep: real initial soil
+mineral N (NO3/NH4), already sitting disclosed in the exact bundled `GenericHagerstown.soil`
+file `SOIL_LAYERS_RAW` was transcribed from, but never carried over.** That file's real
+per-layer NO3 (10/10/7/4/2/1/1/1/1 kg/ha) and NH4 (1 kg/ha each of 9 layers) columns sum to a
+real 46 kg N/ha already present in the soil at day 0, for the exact Rock Springs scenario this
+engine validates against -- a different, additive input from both `n_credit_kg_ha` (a prior-
+crop residual, caller-supplied) and `BACKGROUND_N_KG_HA_DAY` (ongoing organic-matter
+mineralization): this is already-mineralized N sitting in solution from the start, not
+something that accrues over the season. Confirmed `CURVE_NUMBER 75` in the same file already
+exactly matches this engine's own flat `curve_number=75.0` default -- a good independent
+cross-check that `SOIL_LAYERS_RAW` really is a direct transcription of this exact file, just
+missing its NO3/NH4/CURVE_NUMBER/SLOPE columns.
+
+Tested by adding the real 46 kg N/ha total via the already-existing, generic `n_credit_kg_ha`
+parameter (no new mechanism needed) to winter wheat's own validated nitrogen-tracking path --
+the one default-validated crop where this would actually matter, since corn/soybean/silage
+corn don't track nitrogen by default. Result: correlation moved 0.444 -> 0.393, a real
+regression, not an improvement, and not a calibration artifact (correlation is scale-invariant
+to `calibration_factor`, so this is the genuine effect of the extra nitrogen on the season's
+water/N-stress trajectory, not something a mean-matching recalibration could undo). **Not
+shipped** -- `run_validation_rotation2.py`'s own Winter Wheat call site already defaults
+`n_credit_kg_ha=0.0` and was left untouched. Same standing discipline as every other tested-
+and-rejected lever in this file: a real, disclosed, well-sourced number that happens to make
+this specific crop's correlation worse, documented so it isn't re-tried blind. Not tested at
+Kansas, since the Kansas.soil file's own NO3/NH4 columns are already a disclosed placeholder
+(tapered from Rock Springs' real values, per `build_kansas.py`'s own comment), not newly real
+data the way Rock Springs' own figure is -- testing a placeholder against a placeholder result
+wouldn't add evidence either way.
