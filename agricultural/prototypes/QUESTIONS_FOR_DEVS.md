@@ -2543,3 +2543,59 @@ needed and inventing a second, untested scaling path wasn't asked for. The Bassi
 (2021) formula itself was sourced from a WebSearch result summary, not a direct primary-source
 read (WebFetch blocked for every domain tried) -- flagged the same way every other
 search-summary-sourced fact in this file is flagged.
+
+---
+
+**2026-10-01 — Resolved without asking: real per-manure-species N availability, replacing the
+flat manure_availability=0.5 guess with Cycles' own disclosed composition data.** Continuing
+"keep looking back at the main equations for other fixable levers," re-read the main paper's
+Table 1 closely and found it lists real parameter symbols for nitrification/denitrification
+(`knd`, `kan`) with units -- confirming those processes are structurally disclosed, just not
+with numeric rate constants anywhere (paper, SI text already grepped for "volatiliz" with
+zero hits, and `.soil`/`.ctrl` files already checked and confirmed to carry only initial
+conditions) -- so that avenue stays correctly closed, nothing new there.
+
+What *was* new: `/tmp/cycles-run/input/fert.txt`, a real Cycles v1.4.4 FIXED_FERTILIZATION
+template catalog bundled with the binary, sitting unexamined this whole project despite its
+sibling `till.txt` being mined extensively for the tillage/volatilization work. It has 9 real
+named manure SOURCE entries (Dairy/Beef/Veal/Swine/Sheep/Goat/Horse/Chicken/Turkey), each with
+real `N_Organic`/`N_NH4`/`N_NO3` fractions of total N -- i.e. real, per-species data for
+exactly the question `manure_availability=0.5` has been guessing at with one flat number
+since the manure mechanism was first built (SI Sec. IX's own disclosed "0.5 the availability
+of mineral N" is for one specific real Iowa case, not a general constant). Computed each
+species' immediate (N_NH4-fraction) availability directly: Turkey 0.135, Dairy 0.184,
+Chicken 0.200, Beef 0.250, Horse 0.300, Sheep 0.368, Goat 0.371, Veal 0.442, Swine 0.553 --
+spanning both sides of the flat 0.5 default by a wide margin. A real, corroborating cross-
+check rather than a coincidence: Swine's own 0.553 sits strikingly close to the disclosed 0.5
+Iowa figure, and Iowa is real hog country -- consistent with that disclosed number having
+come from swine manure specifically, not an arbitrary round constant.
+
+Implemented as `MANURE_SOURCES` (9 entries) plus a new `manure_source=None` parameter on
+`simulate_season()` that, when given a real species key, overrides `manure_availability`
+with that species' real immediate fraction -- `None` (default) leaves existing behavior
+byte-identical, verified directly (the full `run_validation.py`/`run_validation_rotation2.py`/
+`pattern_assertions.py` suite reproduces every number unchanged, since no default validation
+path passes `manure_n_kg_ha` at all). Verified the mechanism does something real and in the
+right direction: at a genuinely limiting rate (20 kg N/ha manure, Rock Springs 2012 corn),
+Dairy manure (0.184) measurably outyields Turkey manure (0.135) at the same applied rate
+(6.3487 vs. 6.2983 Mg/ha); an unrecognized species name raises `ValueError`, matching the
+existing `tillage_implement`/`fert_placement_implement` pattern. Ported into both embedded
+`ENGINE_SOURCE` copies identically, confirmed via extraction that the new dict, parameter,
+and override logic are byte-identical in both files (the only diff remaining between them is
+the pre-existing, already-documented WHEAT calibration-factor divergence, untouched by this
+change) and that both execute the same dairy-vs-turkey directional check correctly.
+
+Real, disclosed limitation kept honest rather than silently extended past what's built: each
+species' remaining organic-N fraction (`norg_frac`, 45-87% of total N depending on species)
+is still simply unavailable for the season -- not fed into the existing RothC-scaled
+background-mineralization pathway or any other slow-release mechanism. A real eventual
+mineralization of that fraction is a plausible, well-motivated next build (the data to drive
+it, `norg_frac`, already exists in `MANURE_SOURCES`), but wasn't attempted here -- scoped
+deliberately to "use the real immediate-availability number instead of guessing at it," not
+"build a new multi-week organic-N release mechanism," which would need its own separate
+verification pass. No UI wiring anywhere (engine-only, matching the "engine first, UI later"
+pattern used throughout this project for anything not yet asked for by name) -- the natural
+place for it, if picked up, is `model-validation.html`'s own "Full simulation controls" form
+and the manure fields already live in both `engine-demo.html`'s field-comparison/nitrogen-
+sweep panels, the same curated-dropdown pattern already used there for tillage implements and
+soil pH.

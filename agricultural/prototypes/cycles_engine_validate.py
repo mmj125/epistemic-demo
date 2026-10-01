@@ -1664,6 +1664,32 @@ NH3_FRAC_SYNTHETIC = 0.10  # IPCC 2006/2019 Refinement Tier-1 default FracGASF: 
 NH3_FRAC_MANURE = 0.20  # Same source's FracGASM: organic amendments (manure) volatilize at
 # roughly twice the rate of mineral fertilizer, real and disclosed, not an invented multiplier.
 
+MANURE_SOURCES = {
+    # Real per-species manure composition, parsed directly from Cycles v1.4.4's own bundled
+    # fert.txt (a FIXED_FERTILIZATION template catalog, 9 real manure SOURCE entries -- never
+    # checked by this project before 2026-10-01 despite till.txt, its sibling operation-input
+    # file, being mined extensively). nh4_frac is each species' N_NH4 fraction of its own total
+    # N (N_Organic+N_NH4+N_NO3) -- the portion immediately plant-available the same day it's
+    # applied, exactly the quantity manure_availability has stood in for with one flat 0.5
+    # guess since this mechanism was first built. norg_frac is the remainder, kept here for
+    # the record but NOT yet fed into any mineralization pathway (see manure_source's own
+    # docstring below for why) -- a disclosed, not-yet-modeled simplification, same category
+    # as every other "real data exists, only part of it is wired in" gap in this engine.
+    # Real cross-check this data corroborates rather than contradicts: the already-disclosed
+    # SI Sec. IX Iowa case credits manure at "0.5 the availability of mineral N" -- Iowa is
+    # real hog country, and Swine_Manure's own nh4_frac here is 0.553, strikingly close to
+    # that independently-disclosed 0.5 figure for what was very plausibly the same manure type.
+    "dairy": dict(nh4_frac=0.184, norg_frac=0.816),
+    "beef": dict(nh4_frac=0.250, norg_frac=0.750),
+    "veal": dict(nh4_frac=0.442, norg_frac=0.558),
+    "swine": dict(nh4_frac=0.553, norg_frac=0.447),
+    "sheep": dict(nh4_frac=0.368, norg_frac=0.632),
+    "goat": dict(nh4_frac=0.371, norg_frac=0.629),
+    "horse": dict(nh4_frac=0.300, norg_frac=0.700),
+    "chicken": dict(nh4_frac=0.200, norg_frac=0.800),
+    "turkey": dict(nh4_frac=0.135, norg_frac=0.865),
+}
+
 
 def macnack_ammonia_loss_pct(soil_ph, air_temp_c, wind_speed_ms):
     """Macnack, Chim & Raun (2013), "Applied Model for Estimating Potential Ammonia Loss from
@@ -1687,6 +1713,7 @@ def macnack_ammonia_loss_pct(soil_ph, air_temp_c, wind_speed_ms):
 
 def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False,
                      n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
+                     manure_source=None,
                      irrigation_trigger_frac=None, irrigation_amount_mm=25.0,
                      tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21,
                      fert_placement_implement=None, soil_ph=None,
@@ -1761,6 +1788,22 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     day 0 as manure_n_kg_ha * manure_availability. The 0.5 default is a real, disclosed number
     (SI Section IX: manure N "adjusted upward to account for 0.5 availability compared with
     mineral N"), not an invented discount.
+
+    manure_source: optional real manure species key from MANURE_SOURCES (dairy/beef/veal/swine/
+    sheep/goat/horse/chicken/turkey, parsed from Cycles v1.4.4's own bundled fert.txt -- see
+    MANURE_SOURCES' own comment for the full account) -- raises ValueError for an unrecognized
+    name. When given, OVERRIDES manure_availability with that species' real immediate (N_NH4)
+    fraction of total N, rather than the flat 0.5 literature-disclosed default every manure
+    application has used until now regardless of species. None (default) leaves
+    manure_availability exactly as passed, byte-identical to pre-existing behavior -- verified
+    directly. Real, disclosed limitation kept honest rather than quietly extended past what's
+    actually modeled: each species' remaining organic-N fraction (norg_frac in MANURE_SOURCES)
+    is NOT fed into any mineralization pathway here -- it is simply unavailable for the
+    season, the same simplification this engine's flat-0.5 default already made for the whole
+    manure amount, just now applied only to the genuinely slow-release portion instead of half
+    of everything. A real eventual mineralization of that organic fraction (e.g. routed through
+    the existing RothC-scaled background-N pathway) would need its own separate, deliberate
+    build, not assumed free from this change.
 
     irrigation_trigger_frac, irrigation_amount_mm: irrigation is real and disclosed in Cycles
     (operations "can be... conditional to soil temperature, soil moisture, and crop phenology
@@ -2003,6 +2046,10 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     # see the real f_G harvest-index fix below (Kemanian et al. 2007) for why.
     n_tracking_active = (not crop.get("legume", False)) and (
         n_rate_kg_ha is not None or n_applications or n_credit_kg_ha or manure_n_kg_ha)
+    if manure_source is not None:
+        if manure_source not in MANURE_SOURCES:
+            raise ValueError(f"Unknown manure source {manure_source!r} -- see MANURE_SOURCES for the real Cycles v1.4.4 fert.txt manure catalog.")
+        manure_availability = MANURE_SOURCES[manure_source]["nh4_frac"]
     volatilization_active = fert_placement_implement is not None or soil_ph is not None
     fert_mixing_efficiency = 0.0
     if fert_placement_implement is not None:

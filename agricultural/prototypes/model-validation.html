@@ -2013,6 +2013,21 @@ def n_marginal_demand_pct(biomass_mgha, crop):
 NH3_FRAC_SYNTHETIC = 0.10  # real IPCC Tier-1 default (FracGASF); see cycles_engine_validate.py
 NH3_FRAC_MANURE = 0.20  # real IPCC Tier-1 default (FracGASM); see cycles_engine_validate.py
 
+MANURE_SOURCES = {
+    # Real per-species manure composition (fert.txt, Cycles v1.4.4) -- nh4_frac is the
+    # immediately plant-available fraction of total N; see cycles_engine_validate.py for
+    # the full citation and the real-data cross-check against the 0.5 disclosed default.
+    "dairy": dict(nh4_frac=0.184, norg_frac=0.816),
+    "beef": dict(nh4_frac=0.250, norg_frac=0.750),
+    "veal": dict(nh4_frac=0.442, norg_frac=0.558),
+    "swine": dict(nh4_frac=0.553, norg_frac=0.447),
+    "sheep": dict(nh4_frac=0.368, norg_frac=0.632),
+    "goat": dict(nh4_frac=0.371, norg_frac=0.629),
+    "horse": dict(nh4_frac=0.300, norg_frac=0.700),
+    "chicken": dict(nh4_frac=0.200, norg_frac=0.800),
+    "turkey": dict(nh4_frac=0.135, norg_frac=0.865),
+}
+
 def macnack_ammonia_loss_pct(soil_ph, air_temp_c, wind_speed_ms):
     # Macnack, Chim & Raun (2013), real weather/pH-driven alternative to the flat IPCC default,
     # specific to surface-broadcast urea; see cycles_engine_validate.py for the full citation
@@ -2022,6 +2037,7 @@ def macnack_ammonia_loss_pct(soil_ph, air_temp_c, wind_speed_ms):
 
 def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False,
                      n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
+                     manure_source=None,
                      irrigation_trigger_frac=None, irrigation_amount_mm=25.0,
                      tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21,
                      fert_placement_implement=None, soil_ph=None,
@@ -2132,6 +2148,10 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     n_volatilized_total = 0.0 if volatilization_active else None
     n_tracking_active = (not crop.get("legume", False)) and (
         n_rate_kg_ha is not None or n_applications or n_credit_kg_ha or manure_n_kg_ha)
+    if manure_source is not None:
+        if manure_source not in MANURE_SOURCES:
+            raise ValueError(f"Unknown manure source {manure_source!r} -- see MANURE_SOURCES.")
+        manure_availability = MANURE_SOURCES[manure_source]["nh4_frac"]
     applications_by_doy = {}
     if n_tracking_active:
         n_volatilized_mineral = 0.0
