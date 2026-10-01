@@ -2346,7 +2346,7 @@ def make_layers():
 
 CORN = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=1.1076, canopy_shape=CORN_CANOPY_SHAPE,  # re-derived 2026-10-01 for the real
+    calibration_factor=1.1083, canopy_shape=CORN_CANOPY_SHAPE,  # re-derived 2026-10-01 for the real CO2-WUE-scaling mechanism (wue_co2_scale) -- previous value 1.1076, itself re-derived the same day for the real
     # cold-kill mechanism (threshold_temp_cold_damage, see below); previous value 1.0977, recalibrated 2026-09-25 for the
     # hydraulic-conductance water-stress mechanism (campbell_water_uptake(), see below) --
     # correlation moved 0.550 -> 0.527 from that switch alone (see CLAUDE.md/QUESTIONS_FOR_DEVS.md)
@@ -2421,7 +2421,7 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
     rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
     hi_use_thermal_time_fraction=True,  # real exemption 2026-09-30, see cycles_engine_validate.py
-    calibration_factor=0.7528, canopy_shape=(5, -14, -15, 16),  # CORRECTED 2026-09-29 (was
+    calibration_factor=0.7502, canopy_shape=(5, -14, -15, 16),  # re-derived 2026-10-01 for the real CO2-WUE-scaling mechanism (wue_co2_scale) -- previous value 0.7528, itself CORRECTED 2026-09-29 (was
     # 0.7506 as of 2026-09-28) -- see gap-list item 26, and cycles_engine_validate.py's
     # ROTHC_WEATHER_FACTOR_NORM for the 2026-09-29 background-nitrogen fix that moved this. Wheat is still deliberately
     # exempted from the hydraulic-conductance mechanism (wheat's real water stress genuinely
