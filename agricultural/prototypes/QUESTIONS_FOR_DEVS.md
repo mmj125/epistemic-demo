@@ -2801,20 +2801,51 @@ essentially always mildly active here, never resting at exactly 1), but it means
 estimate carries an unknown fA multiplier baked in. Taking eps_c at its own stated 0.33-0.44
 range (SI Sec. V) gives k_m ~ 0.03-0.06/day -- a real bound, not a point estimate.
 
-**k_ra/k_rt/k_rz/k_rm (the four source-specific residue/root/rhizodeposit/manure rate
-constants) remain genuinely unresolved** -- `RES RESPIRED C` in `soilC.txt` is one combined
-flux across all residue sources, and manure/rhizodeposit inputs aren't exposed as separate
-output columns anywhere checked, so the four can't be disentangled from daily aggregate output
-without a materially larger per-source decomposition analysis this session didn't attempt (a
-real further step, using `annualSoilProfileC.txt`'s own separate annual `RES C DECOMP`/`ROOT C
-DECOMP` columns by layer, is plausible but unverified -- flagged as a concrete next step, not
-attempted here). C-Farm's own paper gives a real, citable but structurally different proxy
-range for the analogous humification FRACTION (not a first-order rate): 0.10-0.20/yr for fresh
-residues, 0.30-0.35/yr for manure-derived carbon (Sec. 2, citing Rasmussen & Collins 1991 and
-Kätterer & Andrén 1997) -- worth knowing, not a substitute for the real rate constants.
+**k_ra (aboveground residue) and a combined k_rt+k_rz (root + rhizodeposit) are now ALSO
+back-calculated with real, good confidence -- the concrete next step flagged above was pursued
+the same session, not left sitting.** The key was figuring out `soilLayersCN.txt`'s own column
+structure precisely, by testing rather than assuming: "STAND RESID C" + "FLAT RESID C" +
+"MANURE RESID C" (single values, not per-layer) turned out to be a genuinely DIFFERENT,
+2-4x-larger pool than the separate, per-layer "RESIDUE C" columns (confirmed directly: on
+1981-05-01, STAND+FLAT+MANURE=4.1162 Mg/ha vs. summed per-layer RESIDUE C=1.4788 Mg/ha) --
+the first is the real aboveground residue pool (surface, not distributed with depth; this
+`ContinuousCorn` scenario has no manure, so it's STAND+FLAT only here), the second, distributed
+across all 9 layers matching the paper's own "generalized function of root distribution with
+depth," is almost certainly the root(+exudate) pool. `annualSoilProfileC.txt` independently
+confirms its own "INIT C MASS"/"FINAL C" columns are literally the Cs pool's own year-start/
+year-end value (verified exactly against the daily `soilLayersCN.txt` SOIL ORG C column, e.g.
+1980's FINAL C = 11.3250 matches 1980-12-31's daily value to 4 decimals) -- giving real
+confidence the adjacent "RES C DECOMP"/"ROOT C DECOMP" columns in the same file are what their
+names say: the real annual total carbon that left the aboveground-residue and root(+exudate)
+pools that year via decomposition.
+
+Back-calculated `k_ra = (annual RES C DECOMP) / (sum over days of fE_layer1 * aboveground
+residue C)` and `k_r(t+z) = (annual ROOT C DECOMP, summed over 9 layers) / (sum over days and
+layers of fE_layer * RESIDUE C_layer)`, across all 37 `ContinuousCorn` years. 1980 (the
+simulation's own first year, with no prior-season residue carryover to draw the denominator
+from) is a clear boundary-condition outlier and excluded; the remaining 36 years converge
+tightly: **k_ra ~ 0.037/day (mean, stdev 0.0069, ~18% CV) and k_r(t+z) ~ 0.056/day (mean, stdev
+0.0044, ~8% CV, the tighter of the two)**. Both are physically sensible on their face -- fresh
+residue/root litter decomposing on the order of weeks (27 and 18 days characteristic turnover
+respectively), an order of magnitude faster than the already-resolved `ks~0.0003/day` (soil
+organic matter itself, which decomposes on the order of years), and root material decomposing
+faster than aboveground stover, a real, commonly-reported agronomic pattern (finer tissue, less
+structural lignin).
+
+**Honest limitation, stated precisely rather than glossed**: this is `k_rt` and `k_rz` combined,
+not separated -- Cycles' own SI equation treats root residues and rhizodeposits as two distinct
+terms with potentially different rates, but the real output file exposes only one combined
+"RESIDUE C" pool for both, so there is no way to split them further from this data alone.
+**k_rm (manure) remains fully unresolved** -- this `ContinuousCorn` scenario has no manure
+event in its real operation file at all (`MANURE RESID C` is 0 throughout), so there's no real
+manure-decomposition data to back-calculate from here; would need a real manured scenario's
+output (none currently on hand) run the same way. C-Farm's own paper gives a real, citable but
+structurally different proxy for manure specifically (a humification FRACTION of 0.30-0.35/yr,
+not a first-order rate constant) -- worth knowing, not a substitute for the real k_rm.
 
 Nothing shipped to the engine -- the six-pool system stays correctly out of v1 scope per Matt's
 standing decision, so there's no live code path to wire any of this into yet. This is purely a
-documentation update, recording real, substantially-improved knowledge (Csx fully resolved; ks
-and eps_c*k_m real-but-moderate-confidence estimates; k_ra/k_rt/k_rz/k_rm still open with a
-concrete next step named) in case the full subsystem is ever built.
+documentation update, recording real, substantially-improved knowledge (Csx fully resolved; ks,
+eps_c*k_m, k_ra, and a combined k_rt+k_rz all real back-calculated estimates with stated
+confidence; only k_rm and the k_rt/k_rz split remain genuinely open) in case the full subsystem
+is ever built.
