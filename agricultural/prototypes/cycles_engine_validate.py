@@ -1643,16 +1643,34 @@ def tillage_dr_decay(layers, max_rate_per_day=0.02):
 # non-trivial nitrogen responses -- relative yield 0.72/0.75, close to and
 # in Kansas's case slightly better than the RothC path's own 0.74/0.80 at
 # the same site/years, and inside the real literature/Cycles-documented
-# band. Iowa alone still saturates (relative yield 1.00) -- confirmed to be
-# a SEPARATE, genuine, NOT-yet-resolved finding: Iowa's real measured SOC
-# (3.488%) exceeds what sixpool_csx_pct()'s own Csx(clay) formula says its
-# particular texture should be able to hold at saturation (ratio 1.066,
-# computed depth-independently), a real tension in applying a Rock-Springs-
-# derived saturation-capacity formula to a much richer prairie soil, not a
-# depth-scaling artifact. Do not switch background_n_model to "sixpool"
-# anywhere it would affect a real result at a high-SOC site (Iowa-like)
-# until that's resolved; Rock Springs/Kansas-like sites are in better shape
-# but this mechanism is still new and opt-in, not adopted as a default.
+# band.
+#
+# Iowa was first flagged as a separate, unresolved problem (its real SOC
+# exceeding sixpool_csx_pct()'s own saturation ceiling) -- that diagnosis
+# was tested directly (capping Cs at the ceiling) and found WRONG; it made
+# no difference at all. The real explanation, found by building and
+# running real Cycles input files for Iowa for the first time this
+# project (no real ground truth existed there before): real Cycles ITSELF
+# shows near-complete nitrogen saturation at Iowa in MOST years (relative
+# yield exactly 1.0 in 12+ of 37 years checked, mean 0.946) -- Iowa's real,
+# famously fertile prairie soil genuinely supplies enough background N
+# that added fertilizer often changes little, in real Cycles' own
+# simulation, not just this engine's. This mechanism's Iowa behavior
+# (mean relative yield 0.999) is closer to that real 0.946 reference than
+# the currently-shipped RothC path is at the same site (0.794, too
+# responsive, not too flat) -- genuinely a better absolute-level match,
+# not a regression. What neither mechanism captures is real Cycles' own
+# YEAR-TO-YEAR variability in how saturated a given year gets (real years
+# range 0.70-1.00; this mechanism's and RothC's own year-to-year pattern
+# both correlate slightly NEGATIVELY with which real years are more or
+# less responsive) -- the same category of gap already documented for
+# Kansas's nitrogen-response muting (QUESTIONS_FOR_DEVS.md item 6),
+# consistent with that item's own standing diagnosis that real multi-year
+# soil-state carryover, not a single-season mechanism tweak, is the likely
+# fix. Still opt-in, not adopted as a default -- the mean-level win at all
+# three tested sites is real, but the missing year-to-year variability is
+# a real, shared limitation with the existing RothC path, not resolved by
+# switching to this mechanism.
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------

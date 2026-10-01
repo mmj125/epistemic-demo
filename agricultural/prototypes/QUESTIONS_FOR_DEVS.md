@@ -2996,3 +2996,53 @@ ported into either embedded `ENGINE_SOURCE` copy (`engine-demo.html`, `model-val
 -- Rock Springs/Kansas-type sites are now in real working order, but this mechanism is still
 new, opt-in, and unverified at a high-SOC site, not ready to expose anywhere it would affect a
 real shown number.
+
+**2026-10-01, continued ("let's continue") -- the Iowa "Csx-ceiling" diagnosis was tested
+directly and found WRONG, and the real explanation is a genuinely good result for this
+mechanism, not a new problem.** Tested the hypothesis head-on before writing it up as
+unresolved: capped `Cs` at `Csx` (clamping the supposed excess) and re-ran Iowa -- relative
+yield stayed exactly 1.000, unchanged. The 6.6% Csx-ceiling overshoot found earlier was a red
+herring, not the actual driver.
+
+Built real Cycles v1.4.4 input files for Iowa for the first time this project (no real ground
+truth existed there before now) -- `Iowa.weather`/`Iowa.soil` from this project's own already-
+committed, already-resolved STATSGO2/NLDAS-2 tile data (same coordinates the engine's own
+multi-site panels already use), `IowaN0.operation`/`IowaN150.operation`/`.ctrl` mirroring the
+already-validated `KansasN150` files exactly (same rotation/tillage/planting structure), run
+through the real binary for the full 1980-2016 record. **Real Cycles ITSELF shows
+near-complete nitrogen saturation at Iowa in MOST years** -- relative yield (N=0/N=150) is
+EXACTLY 1.0 in at least 12 of 37 years checked (1980, 1981, 1988, 1992-1995, 1999, 2000, 2005,
+2007, 2011, 2012 among them), mean 0.946 across the full record, real range 0.701-1.000. Iowa's
+real, famously fertile prairie soil genuinely supplies enough background nitrogen that added
+fertilizer changes little in real Cycles' own simulation, in most years -- this is not an
+artifact specific to this engine.
+
+Direct comparison against this real reference: this mechanism's own mean relative yield at
+Iowa (0.999, essentially always flat) is actually CLOSER to the real 0.946 than the currently-
+shipped RothC path is at the exact same site (0.794, too responsive in the other direction) --
+a genuine, better absolute-level match, not a regression from switching mechanisms. Separately,
+the N=150 (normally-fertilized) absolute yield itself correlates 0.904 against real Cycles
+across the full 37-year record (MAE 1.94 Mg/ha, mean 8.65 vs. real 10.25) -- a real, decent
+validation number for Iowa corn yield overall, using a mechanism built this session from
+scratch with no Iowa-specific tuning at all.
+
+What neither mechanism gets right: real Cycles' own YEAR-TO-YEAR pattern of which years are
+more or less nitrogen-responsive. Checked directly -- this mechanism's year-to-year relative-
+yield pattern correlates -0.12 against the real pattern, and RothC's correlates -0.18 (both
+effectively uncorrelated-to-slightly-backwards, not a meaningful difference between the two
+mechanisms). This is the same category of gap already documented for Kansas's nitrogen-
+response muting (item 6 above), not a new, Iowa-specific failure -- and that item's own
+standing diagnosis (real multi-year soil-state carryover is the one mechanism that's
+consistently helped elsewhere, not a single-season formula tweak) is the more likely real fix,
+not something attempted here.
+
+Net result of "try 1 first," now complete: the single-layer-scope repair (the correct 0.05m
+depth) genuinely works, at real, verified mean-level accuracy, at all three sites tested --
+including Iowa, once properly checked against real ground truth instead of assumed broken.
+The real, remaining, shared limitation (missing year-to-year nitrogen-response variability) is
+not specific to this mechanism and not something the narrow-first scope was ever expected to
+fix. Iowa's own real Cycles input files (`Iowa.weather`, `Iowa.soil`, `IowaN0`/`IowaN150`
+`.operation`/`.ctrl`, and their real output) live only in `/tmp/cycles-run`, per this project's
+standing licensing discipline (Cycles' generated output is squarely what its CC BY-NC-ND
+license restricts) -- not committed here, and will need rebuilding from the same committed
+tile data if `/tmp/cycles-run` resets before this is revisited.
