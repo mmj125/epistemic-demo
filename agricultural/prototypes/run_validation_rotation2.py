@@ -14,7 +14,7 @@ import datetime
 sys.path.insert(0, os.path.dirname(__file__))
 from cycles_engine_validate import (
     REFERENCE_DATA_DIR, saxton_rawls, OM_FROM_SOC, simulate_season, CORN_CANOPY_SHAPE,
-    INITIAL_MOISTURE_FRACTION,
+    INITIAL_MOISTURE_FRACTION, CO2_PPM_BY_YEAR, CO2_REF_PPM,
 )
 
 LAT = 40.6875
@@ -41,7 +41,12 @@ def make_layers():
 SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43,
                rue=1.3, wue=4.5, hi_x=0.4, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
                kc=1.0, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=LAT,
-               make_layers=make_layers, calibration_factor=1.4678,  # re-derived 2026-10-01 for the
+               make_layers=make_layers, calibration_factor=1.4678,  # unchanged by the real
+               # CO2-WUE-scaling mechanism added 2026-10-01 (wue_co2_scale, see
+               # simulate_season()'s own docstring) -- model mean moved by <0.001 Mg/ha, a real
+               # but negligible effect here (correlation 0.9545->0.9471, within noise), unlike
+               # corn/wheat's substantial gains from the same mechanism. Re-derived 2026-10-01
+               # (same day) for the
                # real cold-kill mechanism (threshold_temp_cold_damage below) -- previous value
                # 1.4297, re-derived 2026-09-30 for the
                # real f_G harvest-index fix (Kemanian et al. 2007) -- see
@@ -80,7 +85,12 @@ WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
              # (Kemanian et al. 2007) regressed wheat's correlation (0.337->0.163) even
              # though it helped corn/soybean, plausibly tied to wheat's own already-
              # documented winter-dormancy anomaly.
-             make_layers=make_layers, calibration_factor=0.7528,  # CORRECTED 2026-09-29 (see top of
+             make_layers=make_layers, calibration_factor=0.7502,  # re-derived 2026-10-01 for the
+             # real CO2-WUE-scaling mechanism (wue_co2_scale, see simulate_season()'s own
+             # docstring) -- a real, substantial win for wheat specifically (correlation
+             # 0.337->0.444, the second-largest single-mechanism gain this crop has gotten,
+             # after the day-by-day nitrogen rebuild); previous value 0.7528. CORRECTED
+             # 2026-09-29 (see top of
              # file's own note below this one) -- was 0.7506 as of 2026-09-28.
              #
              # 2026-09-29: a real, previously-undiscovered bug was found and fixed in
@@ -226,7 +236,13 @@ WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
 CORN_SILAGE = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
                     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
                     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=LAT,
-                    make_layers=make_layers, forage_fraction=0.95, calibration_factor=0.7911,  # re-derived
+                    make_layers=make_layers, forage_fraction=0.95, calibration_factor=0.7925,  # re-
+                    # derived 2026-10-01 for the real CO2-WUE-scaling mechanism (wue_co2_scale,
+                    # see simulate_season()'s own docstring) -- a real cost here (correlation
+                    # 0.2035->0.1170), kept anyway since the mechanism is physically general
+                    # (not selectively applied only where it helps) and this crop is already far
+                    # below the classroom-workable bar either way; previous value 0.7911,
+                    # re-derived
                     # 2026-09-30 again for the CORN_CANOPY_SHAPE late-senescence refit (this crop
                     # uses CORN_CANOPY_SHAPE too, see below -- was 0.8431), and before that:
                     # 2026-09-24 for the real-data TTF50_SHOOT_PARTITION refit + the same-day
@@ -329,8 +345,15 @@ def validate(rotation, crop_name, crop_params, label, metric="grain", harvest_tt
         # docstring / CLAUDE.md 2026-09-22).
         jan1_idx = flat_index.get((info["plant_year"], 1))
         spinup_rows = [r for (_, _, r) in weather_flat[jan1_idx:start]] if jan1_idx is not None else None
+        # Real rising atmospheric CO2's effect on water-use efficiency -- see
+        # run_validation.py's identical comment / simulate_season()'s own docstring. Applied
+        # uniformly to all three crops in this rotation (the mechanism is general to C3 and C4
+        # alike, per Bassiouni & Vico's own theory), not selectively kept only where it helps --
+        # it's a real win for wheat, negligible for soybean, and a real (disclosed) cost for
+        # silage corn, already far below the classroom-workable bar either way.
+        wue_co2_scale = CO2_PPM_BY_YEAR.get(info["plant_year"], CO2_REF_PPM) / CO2_REF_PPM
         result = simulate_season(rows, crop_params, harvest_ttf=harvest_ttf, spinup_rows=spinup_rows,
-                                  n_applications=n_applications)
+                                  n_applications=n_applications, wue_co2_scale=wue_co2_scale)
         my_yield[hyear] = result[metric]
 
     years = sorted(my_yield)

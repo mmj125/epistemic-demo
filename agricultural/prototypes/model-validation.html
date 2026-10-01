@@ -185,19 +185,47 @@
 
     <table>
       <tr><th>Crop / rotation</th><th>Real mean</th><th>Model mean</th><th>Mean % error</th><th>Correlation</th><th>Status</th></tr>
-      <tr><td>Soybean grain</td><td>4.70 Mg/ha</td><td>4.70 Mg/ha</td><td>3.1%</td><td>0.954</td><td><span class="tag tag-pass">passes bar</span></td></tr>
-      <tr><td>Corn grain (continuous)</td><td>10.56 Mg/ha</td><td>10.56 Mg/ha</td><td>7.8%</td><td>0.691</td><td><span class="tag tag-pass">passes bar</span></td></tr>
-      <tr><td>Silage corn forage</td><td>14.81 Mg/ha</td><td>14.81 Mg/ha</td><td>8.3%</td><td>0.516</td><td><span class="tag tag-fail">below bar</span></td></tr>
-      <tr><td>Winter wheat grain</td><td>3.92 Mg/ha</td><td>3.92 Mg/ha</td><td>11.9%</td><td>0.285</td><td><span class="tag tag-fail">below bar</span></td></tr>
+      <tr><td>Soybean grain</td><td>4.70 Mg/ha</td><td>4.69 Mg/ha</td><td>3.5%</td><td>0.947</td><td><span class="tag tag-pass">passes bar</span></td></tr>
+      <tr><td>Corn grain (continuous)</td><td>10.56 Mg/ha</td><td>10.56 Mg/ha</td><td>6.4%</td><td>0.777</td><td><span class="tag tag-pass">passes bar</span></td></tr>
+      <tr><td>Silage corn forage</td><td>13.22 Mg/ha</td><td>13.22 Mg/ha</td><td>14.9%</td><td>0.117</td><td><span class="tag tag-fail">below bar</span></td></tr>
+      <tr><td>Winter wheat grain</td><td>3.92 Mg/ha</td><td>3.92 Mg/ha</td><td>11.6%</td><td>0.444</td><td><span class="tag tag-fail">below bar</span></td></tr>
       <tr><td>Pasture perennials (orchardgrass, etc.)</td><td colspan="2">real annual yield 5.25&ndash;7.94 Mg/ha, not tracked</td><td>&mdash;</td><td>&minus;0.28 to 0.16<br>(across 4 tested fixes)</td><td><span class="tag tag-unresolved">unresolved</span></td></tr>
       <tr><td>Winter rye / hairy vetch (cover)</td><td colspan="4">no real Cycles reference data available to correlate against &mdash; RUE/WUE are real (SI Table SI.2), everything else borrowed</td><td><span class="tag tag-unresolved">unvalidated</span></td></tr>
     </table>
 
     <div class="note" style="margin-top:12px;">
-      <strong>Numbers above are current for both the canonical validation scripts and this page's own
-      live "Full simulation controls" panel below -- the two are in sync as of 2026-10-01.</strong> The
-      most recent mover, and the single largest correlation jump either crop has gotten this project
-      (see QUESTIONS_FOR_DEVS.md, 2026-10-01): a real cold-kill mechanism. Real Cycles' own daily output
+      <p><strong>Numbers above are current for the canonical validation scripts as of 2026-10-01; this
+      page's own live "Full simulation controls" panel below has NOT yet been ported to match the two
+      fixes described in this note (see the "Not yet done" line further down).</strong> Caught while
+      updating this table for the second time today: wheat and silage corn's own rows had drifted stale
+      at some earlier point (0.285 and 0.516 respectively) well before today's fixes touched either
+      crop -- the actual canonical scripts' own baseline going into today's work was 0.337 (wheat) and
+      0.203 (silage corn), not those older numbers. Corrected here rather than compounding the drift.</p>
+      <p style="margin-top:10px;">
+      The most recent mover: real rising atmospheric CO2's effect on water-use efficiency
+      (<code>wue_co2_scale</code>). Found hunting for why corn's real-minus-model residual correlated
+      0.73 with calendar year even after cold-kill -- Kemanian et al. 2024 Sec. 2.5 states directly that
+      both &epsilon;<sub>R</sub> and &epsilon;<sub>W</sub> "should be given for a reference atmospheric
+      CO2 concentration and scaled accordingly as CO2 changes," citing Bassiouni &amp; Vico (2021) for
+      the theory. Decisively ruled out CO2 as the SOLE explanation first (a real experiment: reran the
+      actual Cycles binary with a flat 1980-level CO2 input -- the real trend barely moved), then traced
+      the actual mechanism: real Rock Springs weather genuinely warmed, got sunnier, AND got drier
+      (rising vapor-pressure deficit) over 1980-2016, and this engine's GT = &epsilon;<sub>W</sub>/&radic;VPD
+      &times; TR_actual ceiling falls as VPD rises even as GR rises with solar -- canceling most of the
+      real trend. Implemented the one piece Bassiouni &amp; Vico's own theory specifically names
+      (transpiration efficiency proportional to CO2 concentration, not &epsilon;<sub>R</sub> -- the
+      well-established C4 literature rules out a meaningful RUE response to CO2 for corn specifically).
+      Real, substantial wins for corn (0.691&rarr;0.777) and winter wheat (0.337&rarr;0.444, its own
+      second-largest single-mechanism gain this project); negligible for soybean (0.954&rarr;0.947); a
+      real cost for silage corn (0.203&rarr;0.117, already far below bar either way). Applied uniformly
+      to all four crops rather than selectively kept where it helps, since the mechanism is physically
+      general. Full account, including the Kansas 37-year cross-check (0.776&rarr;0.758, a small,
+      expected cost since Kansas's own gap is dominated by a different, already-diagnosed problem), in
+      QUESTIONS_FOR_DEVS.md.
+      </p>
+      <p style="margin-top:10px;">
+      Before that, and the single largest correlation jump either crop had gotten until today's CO2 fix
+      topped it for corn: a real cold-kill mechanism. Real Cycles' own daily output
       shows every one of 37 validated years ending at <code>STAGE=KILLED</code>, almost always at ordinary
       maturity -- except two years where a real, disclosed per-crop
       <code>THRESHOLD_TEMPERATURE_FOR_COLD_DAMAGE</code> (corn 3&deg;C, soybean 2&deg;C) was crossed by a
@@ -220,7 +248,7 @@
       (0.276 -> 0.397). A second, immediately following fix (gap-list item 18) resolved the remaining
       warm-day gap too, just not as a discount on grain: it's a real, verified fix to the upstream biomass
       the "Beyond final yield" table below used to flag as a mismatch grain's own calibration factor was
-      masking -- see that table and note for the honest, dramatically-improved result.
+      masking -- see that table and note for the honest, dramatically-improved result.</p>
     </div>
 
     <p style="margin-top:16px;"><strong>Beyond final yield: how the model's other outputs compare</strong>
@@ -228,10 +256,10 @@
     per-crop calibration factor is fitted to match, and a good yield match can hide a worse upstream one.</p>
     <table>
       <tr><th>Variable</th><th>Real mean</th><th>Model mean</th><th>Mean % error</th><th>Correlation</th><th>What this shows</th></tr>
-      <tr><td>Grain yield</td><td>10.56 Mg/ha</td><td>10.56 Mg/ha</td><td>7.8%</td><td>0.691</td><td>the calibrated, reported number, now including the 2026-10-01 cold-kill mechanism</td></tr>
-      <tr><td>Total biomass</td><td>23.98 Mg/ha</td><td>24.74 Mg/ha</td><td>7.0%</td><td>0.550</td><td>uncalibrated, and now genuinely close &mdash; the 2026-09-23 NET_GROWTH_FRACTION fix (gap-list item 18) cut this error from 32.2% to 7.0% with zero effect on grain's own correlation, exactly as its derivation predicted. NOT yet re-checked against the 2026-09-24 curve-number/f_wc fix (gap-list item 1), the 2026-09-25 hydraulic-conductance water-stress mechanism (gap-list item 23), or the 2026-10-01 cold-kill mechanism (which moved grain's own correlation 0.527&rarr;0.691) &mdash; this row's correlation is left at its last-verified 0.550 rather than silently implied to have moved with grain's, since it wasn't independently re-run.</td></tr>
-      <tr><td>Aboveground biomass</td><td>20.71 Mg/ha</td><td>21.43 Mg/ha</td><td>7.6%</td><td>0.531</td><td>same fix, same result &mdash; down from 32.7% error. Same caveat as Total biomass above: not yet re-checked against the 2026-09-24 curve-number/f_wc fix, the 2026-09-25 water-stress mechanism, or the 2026-10-01 cold-kill mechanism.</td></tr>
-      <tr><td>Harvest index (grain &divide; AG biomass)</td><td colspan="4">not yet re-checked against the 2026-09-23 radiation-temperature/growth-conversion fixes, the 2026-09-24 curve-number/f_wc fix, the 2026-09-25 hydraulic-conductance water-stress mechanism, or the 2026-10-01 cold-kill mechanism &mdash; flagged rather than left to silently imply the older number still holds</td></tr>
+      <tr><td>Grain yield</td><td>10.56 Mg/ha</td><td>10.56 Mg/ha</td><td>6.4%</td><td>0.777</td><td>the calibrated, reported number, now including both of 2026-10-01's mechanisms (cold-kill, CO2-WUE scaling)</td></tr>
+      <tr><td>Total biomass</td><td>23.98 Mg/ha</td><td>24.74 Mg/ha</td><td>7.0%</td><td>0.550</td><td>uncalibrated, and now genuinely close &mdash; the 2026-09-23 NET_GROWTH_FRACTION fix (gap-list item 18) cut this error from 32.2% to 7.0% with zero effect on grain's own correlation, exactly as its derivation predicted. NOT yet re-checked against the 2026-09-24 curve-number/f_wc fix (gap-list item 1), the 2026-09-25 hydraulic-conductance water-stress mechanism (gap-list item 23), or either of 2026-10-01's mechanisms (which together moved grain's own correlation 0.527&rarr;0.777) &mdash; this row's correlation is left at its last-verified 0.550 rather than silently implied to have moved with grain's, since it wasn't independently re-run.</td></tr>
+      <tr><td>Aboveground biomass</td><td>20.71 Mg/ha</td><td>21.43 Mg/ha</td><td>7.6%</td><td>0.531</td><td>same fix, same result &mdash; down from 32.7% error. Same caveat as Total biomass above: not yet re-checked against the 2026-09-24 curve-number/f_wc fix, the 2026-09-25 water-stress mechanism, or either of 2026-10-01's mechanisms.</td></tr>
+      <tr><td>Harvest index (grain &divide; AG biomass)</td><td colspan="4">not yet re-checked against the 2026-09-23 radiation-temperature/growth-conversion fixes, the 2026-09-24 curve-number/f_wc fix, the 2026-09-25 hydraulic-conductance water-stress mechanism, or either of 2026-10-01's mechanisms (cold-kill, CO2-WUE scaling) &mdash; flagged rather than left to silently imply the older number still holds</td></tr>
       <tr><td>Planting date (day of year)</td><td>121.7</td><td>119.2</td><td>2.1%</td><td>0.824</td><td>unaffected by either fix (the soil-temperature-trigger proxy doesn't touch radiation/GR at all)</td></tr>
       <tr><td>Reference ET (day-by-day, 2012)</td><td>2.81 mm/day</td><td>2.82 mm/day</td><td>0.4%</td><td>1.000</td><td>unaffected (a standard external formula, FAO-56, unrelated to GR)</td></tr>
     </table>
@@ -1894,6 +1922,22 @@ def radiation_temp_factor(tmean, min_t, floor, plateau_t):
 TTF50_SHOOT_PARTITION = 0.32  # real-data fit against real Cycles daily output (2026-09-23); see cycles_engine_validate.py
 NET_GROWTH_FRACTION = 0.785  # real, measured post-limitation growth-conversion loss (2026-09-23); see cycles_engine_validate.py
 
+# Real NOAA Mauna Loa annual mean CO2 (ppm), 1980-2016 -- see cycles_engine_validate.py's
+# wue_co2_scale docstring for the full account (Kemanian et al. 2024 Sec. 2.5 + Bassiouni &
+# Vico 2021). CO2_REF_PPM is this engine's own calibration-period mean, a disclosed modeling
+# choice, not a value either source specifies.
+CO2_PPM_BY_YEAR = {
+    1980: 338.76, 1981: 340.12, 1982: 341.48, 1983: 343.15, 1984: 344.87,
+    1985: 346.35, 1986: 347.61, 1987: 349.31, 1988: 351.69, 1989: 353.20,
+    1990: 354.45, 1991: 355.70, 1992: 356.54, 1993: 357.21, 1994: 358.96,
+    1995: 360.97, 1996: 362.74, 1997: 363.88, 1998: 366.84, 1999: 368.54,
+    2000: 369.71, 2001: 371.32, 2002: 373.45, 2003: 375.98, 2004: 377.70,
+    2005: 379.98, 2006: 382.09, 2007: 384.02, 2008: 385.83, 2009: 387.64,
+    2010: 390.10, 2011: 391.85, 2012: 394.06, 2013: 396.74, 2014: 398.81,
+    2015: 401.01, 2016: 404.41,
+}
+CO2_REF_PPM = 368.299
+
 def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
     ttf = max(1e-6, ttf)
     return fsti + (fstf - fsti) / (1 + (ttf50/ttf)**4)
@@ -1982,7 +2026,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21,
                      fert_placement_implement=None, soil_ph=None,
                      spinup_rows=None, curve_number=75.0, slope_pct=0.0, initial_layers=None,
-                     soil_evap_model="faostandard", n_root_limited=False):
+                     soil_evap_model="faostandard", n_root_limited=False, wue_co2_scale=1.0):
     # n_root_limited (default False, byte-identical when unused): real CropSyst nitrogen
     # uptake (Stockle, Martin & Campbell 1994, Eq. 26) is min(demand, potential_uptake), not
     # demand alone. Tracks nitrogen per soil layer (n_pool_by_layer) instead of one lumped
@@ -2189,7 +2233,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             TR_actual = min(TRp * water_stress, crop.get("tr_max_mm_day", math.inf))
             extract_transpiration(layers, root_depth, TR_actual)
         TR_actual = min(TR_actual, crop.get("tr_max_mm_day", math.inf))
-        GT = crop["wue"]/math.sqrt(Da) * TR_actual
+        GT = crop["wue"] * wue_co2_scale / math.sqrt(Da) * TR_actual  # wue_co2_scale: real rising-CO2 WUE effect, see cycles_engine_validate.py
         dGB_water_limited = max(0.0, min(GR, GT)) * NET_GROWTH_FRACTION / 1000
         n_stress = 1.0
         if n_pool is not None:
@@ -2680,8 +2724,8 @@ async function resolveSiteAt(centroid) {
 const SPECIES_REGISTRY = {
   corn: {
     label: "Corn (grain)", pyKey: "corn", legume: false, roles: ["cash"],
-    dataStatus: "validated", correlation: 0.691, workableAsCash: true, implementedInDemo: true,
-    notes: "Real correlation is 0.691 (mean 10.56 Mg/ha), now CLEARS the classroom-workable bar (~0.6-0.7) for the first time, as of 2026-10-01's real cold-kill mechanism (was 0.527 -- a single real, disclosed cold night during reproductive growth, below corn's own THRESHOLD_TEMPERATURE_FOR_COLD_DAMAGE=3C, ends the season early in two of the 37 validated years; this engine had no such mechanism before -- see QUESTIONS_FOR_DEVS.md). Earlier history: corrected 2026-09-22 from a since-corrupted reference (was wrongly documented as 0.771/10.93); improved 2026-09-23 via a cold-temperature reduction on radiation-limited growth (0.540->0.547); 2026-09-24 the curve-number runoff f_wc factor was resolved from a real external formula (0.547->0.550, gap-list item 1); 2026-09-25 water stress/transpiration rebuilt as a real hydraulic-conductance mechanism (Campbell 1985/CropSyst, see gap-list item 23) -- 0.550->0.527, kept because it replaces a mechanism already known to be structurally wrong. Matches the real GenericCrops.crop CornRM.90 (short-season) hybrid exactly.",
+    dataStatus: "validated", correlation: 0.777, workableAsCash: true, implementedInDemo: true,
+    notes: "Real correlation is 0.777 (mean 10.56 Mg/ha), comfortably clearing the classroom-workable bar (~0.6-0.7), as of 2026-10-01's real CO2-WUE-scaling mechanism (was 0.691, after the same day's cold-kill mechanism moved it from 0.527 -- see QUESTIONS_FOR_DEVS.md for both). Earlier history: corrected 2026-09-22 from a since-corrupted reference (was wrongly documented as 0.771/10.93); improved 2026-09-23 via a cold-temperature reduction on radiation-limited growth (0.540->0.547); 2026-09-24 the curve-number runoff f_wc factor was resolved from a real external formula (0.547->0.550, gap-list item 1); 2026-09-25 water stress/transpiration rebuilt as a real hydraulic-conductance mechanism (Campbell 1985/CropSyst, see gap-list item 23) -- 0.550->0.527, kept because it replaces a mechanism already known to be structurally wrong. Matches the real GenericCrops.crop CornRM.90 (short-season) hybrid exactly.",
   },
   corn_long_season: {
     label: "Corn (long-season hybrid)", pyKey: "corn_long_season", legume: false, roles: ["cash"],
@@ -2690,13 +2734,13 @@ const SPECIES_REGISTRY = {
   },
   soybean: {
     label: "Soybean", pyKey: "soybean", legume: true, roles: ["cash"],
-    dataStatus: "validated", correlation: 0.954, workableAsCash: true, implementedInDemo: true,
-    notes: "Validated, 0.954 correlation -- the single largest correlation jump this project has shipped for any crop, from 2026-10-01's real cold-kill mechanism (was 0.802; a real, disclosed cold night during reproductive growth below soybean's own THRESHOLD_TEMPERATURE_FOR_COLD_DAMAGE=2C ends the season early in some years, previously unmodeled -- see QUESTIONS_FOR_DEVS.md). Earlier history: 0.846 before 2026-09-23's cold-temperature reduction on radiation-limited growth (see gap-list item 17); a real curve-number/f_wc fix on 2026-09-24 moved it slightly the other way, 0.858->0.856 (gap-list item 1); 2026-09-25 water stress/transpiration rebuilt as a real hydraulic-conductance mechanism (gap-list item 23) moved it 0.856->0.802. Legume -- nitrogen rate has no effect on yield, by design (real rhizobia N fixation, not a modeled nodulation submodel).",
+    dataStatus: "validated", correlation: 0.947, workableAsCash: true, implementedInDemo: true,
+    notes: "Validated, 0.947 correlation. 2026-10-01's real CO2-WUE-scaling mechanism cost a negligible 0.954->0.947 here (unlike corn/wheat, which it substantially helped) -- applied anyway since the mechanism is physically general, not selectively kept only where it helps (see QUESTIONS_FOR_DEVS.md). The same day's cold-kill mechanism was the single largest correlation jump this project has shipped for any crop (0.802->0.954; a real, disclosed cold night during reproductive growth below soybean's own THRESHOLD_TEMPERATURE_FOR_COLD_DAMAGE=2C ends the season early in some years, previously unmodeled). Earlier history: 0.846 before 2026-09-23's cold-temperature reduction on radiation-limited growth (see gap-list item 17); a real curve-number/f_wc fix on 2026-09-24 moved it slightly the other way, 0.858->0.856 (gap-list item 1); 2026-09-25 water stress/transpiration rebuilt as a real hydraulic-conductance mechanism (gap-list item 23) moved it 0.856->0.802. Legume -- nitrogen rate has no effect on yield, by design (real rhizobia N fixation, not a modeled nodulation submodel).",
   },
   wheat: {
     label: "Winter wheat", pyKey: "wheat", legume: false, roles: ["cover"],
-    dataStatus: "validated", correlation: 0.285, workableAsCash: false, implementedInDemo: true,
-    notes: "Real GenericCrops.crop parameters, not a placeholder. Correlation history through 2026-09-25 (0.253 -> 0.399 -> 0.393 -> 0.473 -> 0.523 -> 0.332 -> reverted, claimed restored to 0.523) is preserved below for the record, but the 0.523 figure was corrected 2026-09-28 -- see gap-list item 26 -- a real git-bisect against a freshly obtained Cycles v1.4.4 reference showed it was never reproducible (every commit since the day-by-day nitrogen rebuild, including the exact one it was supposedly measured at, gives 0.411 against real data, not 0.523). Separately, a real bug was found and fixed the same day in the shared day-by-day nitrogen mechanism itself (it inflated daily N demand ~10x, capping any N-tracking crop's yield regardless of how much nitrogen was actually supplied -- caught while nailing down corn's own optional N-tracking path, see cycles_engine_validate.py's own fix comment). Wheat's validation wires nitrogen in by default, so fixing this bug moved its number again, to the current 0.285, recalibrated to match the real mean exactly. Wheat's real accuracy is not being chased further this session -- corn is the focus, wheat is the explicitly-acknowledged exception. Original history: correlation improved substantially, 0.253 -> 0.399, across 2026-09-23's radiation-related fixes. A 2026-09-24 curve-number/f_wc fix moved it slightly down, 0.399 -> 0.393. 2026-09-25: wired in wheat's own real, disclosed 90 kg N/ha UAN application (CornSilageSoyWheat.operation YEAR 3 DOY 75, previously never used despite sitting in an already-committed input file) for real, 0.393 -> 0.473. Same day: the whole nitrogen-stress mechanism was rebuilt from a season-total quadratic-plateau ratio into a real, day-by-day tissue-concentration-tracked one (CropSyst-sourced, see the page's own gap-list item 22). Later the same day: water stress/transpiration rebuilt as a real hydraulic-conductance mechanism (gap-list item 23), then reverted for wheat specifically since wheat never once crosses its own real LWP_STRESS_ONSET threshold at this site (verified correct by force-drying the soil and confirming stress then triggers) -- wheat's real dominant driver is nitrogen, not water. Corn, soybean, and silage corn keep the hydraulic-conductance mechanism. This demo's own embedded WHEAT dict (used only for the fall-planted cover-crop role, a student-set nitrogen slider, not this fixed 90kg cash-crop scenario) was corrected the same way, for the same reason. Still below the classroom-workable bar, so not offered as a cash-crop choice. See QUESTIONS_FOR_DEVS.md item 6 and this page's own gap-list items 20, 23, 25, and 26 for the remaining drivers of wheat's weak year-to-year tracking.",
+    dataStatus: "validated", correlation: 0.444, workableAsCash: false, implementedInDemo: true,
+    notes: "Real GenericCrops.crop parameters, not a placeholder. Correlation history through 2026-09-25 (0.253 -> 0.399 -> 0.393 -> 0.473 -> 0.523 -> 0.332 -> reverted, claimed restored to 0.523) is preserved below for the record, but the 0.523 figure was corrected 2026-09-28 -- see gap-list item 26 -- a real git-bisect against a freshly obtained Cycles v1.4.4 reference showed it was never reproducible (every commit since the day-by-day nitrogen rebuild, including the exact one it was supposedly measured at, gives 0.411 against real data, not 0.523). Separately, a real bug was found and fixed the same day in the shared day-by-day nitrogen mechanism itself (it inflated daily N demand ~10x, capping any N-tracking crop's yield regardless of how much nitrogen was actually supplied -- caught while nailing down corn's own optional N-tracking path, see cycles_engine_validate.py's own fix comment). That moved wheat to 0.285, recalibrated to match the real mean exactly -- but this row was never updated after that, and sat stale through 2026-10-01's cold-kill commit (which itself moved the real baseline further, to 0.337, via a recalibration touching wheat's dict even though cold-kill is confirmed inert for wheat) -- caught and corrected only now. Today's real CO2-WUE-scaling mechanism (wue_co2_scale, see cycles_engine_validate.py's own docstring) moved the real baseline 0.337 -> 0.444, wheat's second-largest single-mechanism gain this project (after the day-by-day nitrogen rebuild). Wheat's real accuracy is not being chased further beyond today's two 2026-10-01 mechanisms -- corn is the primary focus this session, wheat a secondary beneficiary. Original history: correlation improved substantially, 0.253 -> 0.399, across 2026-09-23's radiation-related fixes. A 2026-09-24 curve-number/f_wc fix moved it slightly down, 0.399 -> 0.393. 2026-09-25: wired in wheat's own real, disclosed 90 kg N/ha UAN application (CornSilageSoyWheat.operation YEAR 3 DOY 75, previously never used despite sitting in an already-committed input file) for real, 0.393 -> 0.473. Same day: the whole nitrogen-stress mechanism was rebuilt from a season-total quadratic-plateau ratio into a real, day-by-day tissue-concentration-tracked one (CropSyst-sourced, see the page's own gap-list item 22). Later the same day: water stress/transpiration rebuilt as a real hydraulic-conductance mechanism (gap-list item 23), then reverted for wheat specifically since wheat never once crosses its own real LWP_STRESS_ONSET threshold at this site (verified correct by force-drying the soil and confirming stress then triggers) -- wheat's real dominant driver is nitrogen, not water. Corn, soybean, and silage corn keep the hydraulic-conductance mechanism. This demo's own embedded WHEAT dict (used only for the fall-planted cover-crop role, a student-set nitrogen slider, not this fixed 90kg cash-crop scenario) was corrected the same way, for the same reason, and now carries the same CO2 scaling too. See QUESTIONS_FOR_DEVS.md item 6 and this page's own gap-list items 20, 23, 25, and 26 for the remaining drivers of wheat's weak year-to-year tracking.",
   },
   winter_rye: {
     label: "Winter rye (cover crop)", pyKey: "winter_rye", legume: false, roles: ["cover"],
@@ -2710,8 +2754,8 @@ const SPECIES_REGISTRY = {
   },
   corn_silage: {
     label: "Corn (silage)", pyKey: null, legume: false, roles: ["cash"],
-    dataStatus: "validated-not-workable", correlation: 0.516, workableAsCash: false, implementedInDemo: false,
-    notes: "Validated only in the standalone run_validation_rotation2.py harness, never ported into this interactive engine. 0.516 correlation (up from 0.501 on 2026-09-23's radiation-temperature fix, then 0.512 -> 0.518 on 2026-09-24's curve-number/f_wc fix, then 0.518 -> 0.516 on 2026-09-25's hydraulic-conductance water-stress mechanism, essentially unchanged -- see gap-list item 1 and item 23), still below the classroom-workable bar -- the underlying water-stress-timing gap (about an 11-day onset mismatch against real Cycles output) is unresolved, see QUESTIONS_FOR_DEVS.md item 6.",
+    dataStatus: "validated-not-workable", correlation: 0.117, workableAsCash: false, implementedInDemo: false,
+    notes: "Validated only in the standalone run_validation_rotation2.py harness, never ported into this interactive engine. This row's own 0.516 claim had drifted stale -- the real baseline just before 2026-10-01's work was 0.203 (up from 0.501 on 2026-09-23's radiation-temperature fix, then 0.512 -> 0.518 on 2026-09-24's curve-number/f_wc fix, then 0.518 -> 0.516 -> ... -> 0.203 at some undocumented later point, likely the cold-kill commit's own recalibration -- not individually traced, same drift pattern caught in wheat's own row the same day). Today's real CO2-WUE-scaling mechanism (wue_co2_scale) cost this crop a real 0.203->0.117, applied anyway since the mechanism is physically general and not selectively kept only where it helps -- corn and wheat both benefited substantially from the same mechanism. Still below the classroom-workable bar either way, on an already-small 13-point sample -- the underlying water-stress-timing gap (about an 11-day onset mismatch against real Cycles output) is unresolved, see QUESTIONS_FOR_DEVS.md item 6.",
   },
   orchardgrass: {
     label: "Orchardgrass (pasture)", pyKey: null, legume: false, roles: ["cash"],

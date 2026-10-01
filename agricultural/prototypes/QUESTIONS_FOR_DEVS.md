@@ -2395,3 +2395,94 @@ only ever carry initial conditions (CLAY/SAND/SOC/NO3/NH4/curve number), never k
 constants; a fast, clean negative result, not a wasted effort, and part of why the "go hunting"
 redirect toward season-length/cold-kill (rather than more nitrogen-mechanism tuning) proved to
 be the right call.
+
+---
+
+**2026-10-01 — Resolved without asking, the second major correlation lever this day: real
+CO2-driven water-use-efficiency scaling (wue_co2_scale).** After shipping the cold-kill
+mechanism above, went looking for why corn's remaining real-minus-model residual still
+correlated 0.73 with calendar year -- a secular bias, not noise. Checked the hypothesis
+directly against the wrong candidate first, per instruction ("keep looking back at the main
+equations for other fixable levers"): rising atmospheric CO2 is a real Cycles input
+(`CO2_LEVEL -999` in `.ctrl` files reads real year-by-year CO2 from `input/co2.txt`, real
+NOAA Mauna Loa data, 338.76 ppm in 1980 to 404.41 ppm in 2016). Tested directly with the real
+Cycles binary: reran `ContinuousCorn` with a flat, 1980-level CO2 input substituted for the
+real rising series. The real yield trend barely moved (0.0614 -> 0.0554 Mg/ha/yr) --
+decisively ruling out CO2 itself as more than ~10% of the trend, before guessing at any
+scaling mechanism.
+
+Traced the actual cause by instrumenting this engine's own GR/GT (radiation-limited/
+water-limited growth) day by day: real Rock Springs weather genuinely warmed, got sunnier,
+AND got drier (relative humidity falling, so vapor-pressure deficit rising) over 1980-2016 --
+confirmed in the real weather file, not an artifact. GR (= eps_R * eie * solar) correctly
+rises with solar. GT (= eps_W/sqrt(Da) * TR_actual, Eq. 5) falls as VPD (Da) rises, since
+TR_actual only rises modestly while sqrt(Da) rises faster -- and `min(GR,GT)` increasingly
+lets GT cap growth as the decades pass, canceling GR's rise almost entirely in this engine.
+Confirmed real Cycles' own water stress at this site is negligible (1.64% average, barely
+trending) -- its growth is almost always purely radiation-limited there, so this ceiling
+essentially never binds for it. Checked and ruled out two candidate explanations before
+looking at the paper itself: using Tmax instead of Tmean for VPD (days warm faster than
+nights here, makes it worse, not better); multi-year soil-state carryover (already tested
+earlier this session at Rock Springs specifically, no effect there).
+
+Went back to Kemanian et al. 2024 Sec. 2.5 directly (re-extracted via pdfminer, pdftotext not
+available in this container) and found the real, disclosed answer sitting in plain text,
+previously missed: "Both eps_R and eps_W should be given for a reference atmospheric CO2
+concentration and scaled accordingly as CO2 changes. For a discussion on the implications of
+optimization theory under changing CO2 see Bassiouni and Vico (2021)." This directly
+contradicts this file's own earlier assumption ("CO2 scaling of radiation-use-efficiency is
+undisclosed in both sources and implausible to be large for a C4 crop like corn") -- the
+paper explicitly names BOTH efficiencies as CO2-scaled, it was just never read carefully
+enough in this specific section before. WebSearch (WebFetch is blocked for every domain tried
+this session, same standing limitation) surfaced the real Bassiouni & Vico (2021, New
+Phytologist) result: "instantaneous transpiration efficiency should be proportional to
+atmospheric CO2 concentration (Ca)... approximately inversely proportional to the square root
+of leaf-to-air vapor pressure deficit" -- a real, citable, linear-in-CO2 scaling law for
+exactly eps_W, from stomatal optimization theory, general to C3 and C4 plants alike (the
+theory is about stomatal regulation, not photosynthetic pathway).
+
+Implemented ONLY the eps_W (WUE) side of this, not eps_R -- the well-established C4 literature
+(e.g. Leakey 2009, "Photosynthesis, Productivity, and Yield of Maize Are Not Affected by
+Open-Air Elevation of CO2...") shows negligible photosynthetic/RUE response to CO2 for C4
+crops like corn under non-drought conditions, since C4 photosynthesis is already
+CO2-saturated -- scaling eps_R too would have no sourced justification for corn specifically
+and risked an unearned win. `wue_co2_scale` (default 1.0, fully backward compatible) multiplies
+`crop["wue"]` in the GT formula. `CO2_PPM_BY_YEAR` (real NOAA Mauna Loa annual means,
+1980-2016) and `CO2_REF_PPM` (368.299, this engine's own 1980-2016 Rock Springs calibration-
+period mean -- a disclosed modeling choice, not a value either source specifies, chosen so
+the scaling nets to ~1.0 averaged over the validation record) were added to
+`cycles_engine_validate.py`.
+
+Tested against all four validated crops plus the Kansas benchmark before shipping, applied
+UNIFORMLY (not selectively kept only where it helps, since the mechanism is physically
+general): corn 0.691->0.777 (real win, on top of the same day's cold-kill fix); winter wheat
+0.337->0.444 (real win, its own second-largest single-mechanism gain this project, after the
+day-by-day nitrogen rebuild); soybean 0.954->0.947 (negligible, within noise); silage corn
+0.203->0.117 (a real cost, but already far below the classroom-workable bar either way, on an
+already-small 13-point sample). Kansas 37-year corn benchmark (real Cycles output,
+`/tmp/cycles-run/output/KansasN150`): 0.776->0.758, a small cost, consistent with Kansas's own
+accuracy gap being dominated by a different, already-diagnosed problem (root-zone water
+access via `campbell_water_uptake()`'s layer-discovery behavior), not this secular-trend issue.
+`wue_co2_scale=1.0` reproduces every existing validated number byte-for-byte, confirmed
+directly before any harness was changed to pass a real value.
+
+Real documentation drift caught and fixed while updating these numbers, worth flagging for
+its own sake: `model-validation.html`'s and `engine-demo.html`'s own SPECIES_REGISTRY notes
+for winter wheat and silage corn had BOTH drifted stale at some earlier point, independently
+of today's work -- engine-demo.html still claimed wheat's long-debunked 0.523 figure
+(model-validation.html itself had already corrected this to 0.285 via a real git-bisect on
+2026-09-28, but engine-demo.html's own copy was never updated to match), and both files
+claimed silage corn at 0.516 when the actual current baseline going into today's work was
+0.203. Neither drift was caused by today's fixes -- both predate this session's start and were
+only caught because today's work required re-measuring every crop's baseline precisely before
+computing a new calibration factor. Corrected in both files with the real numbers and an
+honest account of the drift itself, rather than silently overwritten.
+
+Not yet done: `eps_R`'s own CO2 scaling for soybean (C3) specifically -- Bassiouni & Vico's
+theory doesn't rule it out the way it does for C4 corn, and soybean's own photosynthesis could
+plausibly show a small positive CO2-RUE response unlike corn's, but this wasn't tested or
+built, since the WUE-only mechanism already covers what the immediate correlation problem
+needed and inventing a second, untested scaling path wasn't asked for. The Bassiouni & Vico
+(2021) formula itself was sourced from a WebSearch result summary, not a direct primary-source
+read (WebFetch blocked for every domain tried) -- flagged the same way every other
+search-summary-sourced fact in this file is flagged.

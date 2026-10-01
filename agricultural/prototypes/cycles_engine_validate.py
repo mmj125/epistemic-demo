@@ -1306,6 +1306,31 @@ CORN_CANOPY_SHAPE = (6, -20, -5.35, 4.10)  # re-refit 2026-09-30 (was (6,-20,-12
 # disclosed problem, not a cosmetic change to a number nobody was checking.
 NET_GROWTH_FRACTION = 0.785
 
+# Real NOAA Mauna Loa/Scripps annual mean atmospheric CO2 (ppm), 1980-2016 -- the exact years
+# this engine's validation harnesses use. Source: NOAA Global Monitoring Laboratory
+# (gml.noaa.gov/ccgg/trends/), the same real public-domain record ("made freely available to
+# the public... no license needed") Matt's own Cycles v1.4.4 sample files bundle as
+# input/co2.txt for the real CO2_LEVEL=-999 "use annual CO2 concentrations" control option --
+# a real, disclosed Cycles input, not an invented one. Used by wue_co2_scale (see
+# simulate_season()'s own docstring) to scale water-use efficiency with rising CO2, per
+# Kemanian et al. 2024 Sec. 2.5's explicit statement that eps_W should scale with CO2.
+CO2_PPM_BY_YEAR = {
+    1980: 338.76, 1981: 340.12, 1982: 341.48, 1983: 343.15, 1984: 344.87,
+    1985: 346.35, 1986: 347.61, 1987: 349.31, 1988: 351.69, 1989: 353.20,
+    1990: 354.45, 1991: 355.70, 1992: 356.54, 1993: 357.21, 1994: 358.96,
+    1995: 360.97, 1996: 362.74, 1997: 363.88, 1998: 366.84, 1999: 368.54,
+    2000: 369.71, 2001: 371.32, 2002: 373.45, 2003: 375.98, 2004: 377.70,
+    2005: 379.98, 2006: 382.09, 2007: 384.02, 2008: 385.83, 2009: 387.64,
+    2010: 390.10, 2011: 391.85, 2012: 394.06, 2013: 396.74, 2014: 398.81,
+    2015: 401.01, 2016: 404.41,
+}
+# This engine's own calibration-period mean (1980-2016 at Rock Springs), not a value either
+# paper specifies -- a disclosed modeling choice (see simulate_season()'s docstring) so the
+# scaling nets to ~1.0 averaged over the validation record, letting each crop's own
+# calibration_factor keep doing its usual job (matching the mean) rather than absorbing a
+# biased shift from an arbitrarily-picked reference year.
+CO2_REF_PPM = 368.299
+
 
 def thermal_time_increment(tx, tn, base_t, opt_t, max_t):
     tmean = (tx + tn) / 2
@@ -1666,8 +1691,54 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21,
                      fert_placement_implement=None, soil_ph=None,
                      spinup_rows=None, curve_number=75.0, slope_pct=0.0, initial_layers=None,
-                     soil_evap_model="faostandard", n_root_limited=False):
+                     soil_evap_model="faostandard", n_root_limited=False, wue_co2_scale=1.0):
     """weather_rows: dicts with doy, tx, tn, solar, rhx, rhn, wind, pp, in planting-day order.
+
+    wue_co2_scale: a flat multiplier on the crop's water-use efficiency (eps_W in Eq. 5),
+    representing rising atmospheric CO2's real effect on stomatal water-use efficiency.
+    Disclosed directly by Kemanian et al. 2024 Sec. 2.5 ("Both eps_R and eps_W should be given
+    for a reference atmospheric CO2 concentration and scaled accordingly as CO2 changes... For
+    a discussion on the implications of optimization theory under changing CO2 see Bassiouni
+    and Vico (2021)"), but the paper gives no exact scaling formula itself -- found 2026-10-01
+    hunting for why real Cycles' own 37-year corn record shows a real, substantial rising yield
+    trend (verified independent of CO2 itself via a real experiment: reran the actual Cycles
+    binary with a flat 1980-level CO2 input, the trend barely moved) that this engine's GR/GT
+    growth minimum didn't reproduce at all (model's own biomass trend ~0 vs real +0.10 Mg/ha/
+    year) -- real Rock Springs weather genuinely warmed, got sunnier, AND got drier (rising
+    VPD) over 1980-2016, and GT = eps_W/sqrt(Da)*TR_actual falls as VPD rises even as GR rises
+    with solar, canceling most of the real trend in this engine specifically.
+
+    The exact functional form (WUE proportional to CO2, not eps_R) comes from Bassiouni & Vico
+    (2021, New Phytologist) itself, per a search-result summary of their stomatal-optimization
+    result ("instantaneous transpiration efficiency should be proportional to atmospheric CO2
+    concentration... approximately inversely proportional to the square root of leaf-to-air
+    VPD") -- not a direct primary-source read (WebFetch is blocked for this sandbox's egress
+    policy the same way it's blocked everywhere else in this project), flagged as such. eps_R
+    (radiation use efficiency) is deliberately NOT scaled with CO2 here -- the well-established
+    C4 literature (e.g. Leakey 2009) shows negligible photosynthetic/RUE response to CO2 for
+    C4 crops like corn under non-drought conditions, since C4 photosynthesis is already CO2-
+    saturated; only the stomatal/WUE pathway (general to C3 and C4 alike, per Bassiouni & Vico's
+    own theory) is implemented.
+
+    The reference CO2 concentration this scale is computed AGAINST (CO2_REF_PPM below) is this
+    project's own calibration choice, not a value either source specifies -- chosen as this
+    engine's own 1980-2016 Rock Springs validation-period mean (368.3 ppm) so that, averaged
+    over the calibration record, the scaling nets to ~1.0 and each crop's existing
+    calibration_factor still does its usual job of matching the mean, not absorbing a biased
+    shift from an arbitrarily-chosen reference year.
+
+    Verified against all four validated crops before shipping (corn's own real cold-kill-era
+    baseline, see run_validation.py's calibration_factor comment, for exact before/after
+    numbers): corn 0.691->0.777 and winter wheat 0.337->0.458 (real, substantial wins -- the
+    second-largest single-mechanism correlation gain either crop has gotten this project, after
+    cold-kill); soybean 0.9545->0.9471 (negligible, within noise); silage corn 0.2035->0.1170
+    (a real cost, but silage corn's correlation is unreliable either way, both numbers far below
+    the classroom-workable bar on an already-small 13-point sample). Also checked against the
+    independent Kansas 37-year corn benchmark (real Cycles output, /tmp/cycles-run/output/
+    KansasN150): 0.7757->0.7577, a small cost, consistent with Kansas's own accuracy gap being
+    dominated by a different, already-diagnosed problem (root-zone water access), not this
+    secular-trend issue. wue_co2_scale=1.0 (the default) reproduces every existing validated
+    number byte-for-byte -- confirmed directly before any harness was changed to pass it.
     harvest_ttf: fraction of thermal time to maturity that triggers harvest -- 1.0 for grain
     crops (HARVEST_TIMING=-999 in the real crop file), lower for forage/silage crops harvested
     before full maturity (e.g. 0.85 for CornSilageRM.90's real HARVEST_TIMING=85).
@@ -2129,7 +2200,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # there but kept as a harmless final safety net either way.
         TR_actual = min(TR_actual, crop.get("tr_max_mm_day", math.inf))
 
-        GT = crop["wue"] / math.sqrt(Da) * TR_actual
+        GT = crop["wue"] * wue_co2_scale / math.sqrt(Da) * TR_actual
         dGB_water_limited = max(0.0, min(GR, GT)) * NET_GROWTH_FRACTION / 1000
 
         n_stress = 1.0

@@ -14,13 +14,17 @@ sys.path.insert(0, os.path.dirname(__file__))
 from cycles_engine_validate import (
     REFERENCE_DATA_DIR, saxton_rawls, OM_FROM_SOC, simulate_soil_temp,
     find_planting_doy, simulate_season, CORN_CANOPY_SHAPE, INITIAL_MOISTURE_FRACTION,
+    CO2_PPM_BY_YEAR, CO2_REF_PPM,
 )
 
 CORN = dict(
     tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=1.1076,  # re-derived 2026-10-01 for the real cold-kill mechanism (see
-    # threshold_temp_cold_damage below) -- previous value 1.0977, re-derived 2026-09-30 for the
+    calibration_factor=1.1083,  # re-derived 2026-10-01 for the real CO2-WUE-scaling mechanism
+    # (wue_co2_scale, see simulate_season()'s own docstring) -- correlation moved 0.691->0.777
+    # from that mechanism alone; previous value 1.1076, re-derived the same day for the real
+    # cold-kill mechanism (see threshold_temp_cold_damage below) -- itself replacing 1.0977,
+    # re-derived 2026-09-30 for the
     # CORN_CANOPY_SHAPE late-senescence refit (see that constant's own comment in
     # cycles_engine_validate.py), itself re-derived the same day for the real f_G harvest-index fix
     # (Kemanian et al. 2007) -- see cycles_engine_validate.py's own HI-computation docstring.
@@ -130,7 +134,12 @@ def main():
         # no new data needed), run as bare fallow. See simulate_season()'s spinup_rows
         # docstring / CLAUDE.md 2026-09-22 for why this replaced always starting full.
         spinup_rows = [daily[year][d] for d in range(1, plant_doy) if d in daily[year]]
-        result = simulate_season(rows, CORN, spinup_rows=spinup_rows)
+        # Real rising atmospheric CO2's effect on water-use efficiency (wue_co2_scale -- see
+        # simulate_season()'s own docstring) -- added 2026-10-01 after finding corn's own
+        # 37-year real-minus-model residual correlates 0.73 with calendar year, a real
+        # secular bias this mechanism substantially (not fully) corrects.
+        wue_co2_scale = CO2_PPM_BY_YEAR.get(year, CO2_REF_PPM) / CO2_REF_PPM
+        result = simulate_season(rows, CORN, spinup_rows=spinup_rows, wue_co2_scale=wue_co2_scale)
         results[year] = result["grain"]
 
     years = sorted(results)
