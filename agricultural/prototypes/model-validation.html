@@ -1639,6 +1639,27 @@ def soil_evaporation(layers, eto_mm, canopy_cover_frac, precip_mm=0.0, de_state=
         de_state["de"] = max(0.0, min(de_state["tew"], de_state["de"] + actual_mm - precip_mm))
     return actual_mm
 
+def run_bare_fallow_window(layers, rows, curve_number=75.0, slope_pct=0.0, lat_deg=40.6875, de_state=None):
+    # Real, standalone bare-soil water balance over an arbitrary window -- the same
+    # infiltrate()/soil_evaporation() pair the spinup block above already runs inline, factored
+    # out here so a caller can ALSO bridge a season's harvest day through year-end (not just
+    # Jan-1-to-planting), closing a real gap found 2026-10-02: every validated run in this
+    # engine resets soil moisture every calendar year and only ever carries a partial spinup
+    # forward, so deep layers never get the chance real Cycles' own continuous 1980-2016 run
+    # gives them to reach/exceed field capacity. See cycles_engine_validate.py's own copy of
+    # this function for the full account and the real before/after numbers (gross 2012 Rock
+    # Springs drainage: 28mm fresh-start vs 196.8mm chained vs 208.5mm real Cycles -- within
+    # ~6%; nitrogen leaching/volatilization/denitrification correlation and magnitude are each
+    # essentially unmoved by this fix, a real negative result on that specific question).
+    total_drainage = 0.0
+    for w in rows:
+        drainage_mm, _, _ = infiltrate(layers, w["pp"], curve_number, slope_pct)
+        total_drainage += drainage_mm
+        eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], lat_deg)
+        soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state,
+                          fallow=True, summer_time=summer_time_from_doy(w["doy"]))
+    return total_drainage
+
 def root_zone_availability(layers, root_depth_m):
     depth, avail, capacity = 0.0, 0.0, 0.0
     for l in layers:

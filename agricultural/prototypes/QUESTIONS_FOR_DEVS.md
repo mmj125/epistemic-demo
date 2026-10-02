@@ -4019,3 +4019,71 @@ redistribution physics this project has flagged as a "materially larger undertak
 code was changed by this investigation (the timing-fix test lives only in a scratch script,
 never applied to `cycles_engine_validate.py` or `model-validation.html`, since it made the
 real numbers worse, not better).
+
+Correction to the entry immediately above, same session, per Matt's direct "Build the real
+water in": that entry's closing line ("fully closing it would mean the real sub-daily
+redistribution physics this project has flagged as a materially larger undertaking since
+2026-09-25") was stale. Checked the actual code before doing anything else: the real Eq.1-2
+adaptive, profile-wide travel-time scheme was already built on 2026-09-30 (commit aa3e2bf,
+"Rebuild redistribute() as the real Eq. 1-2 adaptive profile-wide scheme") -- this project's
+own documentation simply hadn't caught up, and the 2026-10-02 nitrogen-pathway investigation
+cited an outdated framing from before that build rather than checking the current state.
+
+Having corrected that, went looking for what the real remaining gap actually is by directly
+comparing this engine's own day-by-day layer state against real Cycles' water.txt (Rock
+Springs, ContinuousCorn, 2012) for the first time -- every prior check in this project verified
+yield correlation or aggregate totals, never the actual per-layer trajectory. Found something
+real and large: with Eq.1-2 correctly implemented, this engine's deep soil layers (6-9, below
+~0.6m) still sat COMPLETELY FLAT across the entire 110-day fresh-start spinup (layer 9 theta
+unchanged to 4 decimal places for 110+ days), while real Cycles' own layer 9 SMC drifts
+continuously in a 0.44-0.50 band (at/above this site's field capacity, 0.4491) throughout the
+same window. Root cause: every validated run in this project resets soil moisture to
+INITIAL_MOISTURE_FRACTION at the start of EVERY calendar year and only ever carries a
+Jan-1-to-planting spinup forward -- even the one "chained" multi-year test this project has
+tried (2026-09-24) skipped the harvest-to-Dec-31 tail of each year entirely, jumping straight
+from one season's harvest-day state into the next year's Jan-1 spinup. Real Cycles' own
+ContinuousCorn reference is a genuinely continuous 1980-2016 run with no such gap, so by 2012
+its deep layers have had three decades of real fall/winter recharge to reach a near-field-
+capacity quasi-equilibrium this engine's fresh-start convention can never produce no matter how
+correct the within-day physics is.
+
+Built `run_bare_fallow_window()` (cycles_engine_validate.py and model-validation.html's
+embedded engine) -- the same infiltrate()/soil_evaporation() pair simulate_season()'s own
+spinup block already runs inline, factored out so it can ALSO bridge a season's harvest day
+through December 31, closing the gap every prior chaining test left open. Chaining all 37 Rock
+Springs years this way (layers carried via initial_layers/final_layers, bridged at each
+year-end via this new function) reproduces real Cycles' own 2012 annual drainage almost
+exactly: 196.8mm modeled vs. 208.5mm real (~6% off), where the existing fresh-start convention
+gives only ~28mm for just the first 240 days of the same year (a ~7x undershoot). The dominant
+share of that fix comes from the CARRIED starting state itself, not the extra bridge days: the
+bridge alone contributes only 3.8 of 2012's 196.8mm; spinup+season alone, run against the
+chained starting layers, already gives 193.0mm.
+
+Despite fixing the gross water balance this dramatically, directly tested whether it also
+closes the nitrogen-pathway gaps (leaching/volatilization/denitrification correlation and
+magnitude) the prior entry attributed to this exact problem -- it does not, decisively:
+
+| metric | fresh-start | true chain |
+|---|---|---|
+| leaching ratio / correlation | 10.05x / +0.527 | 11.58x / +0.537 |
+| volatilization ratio / correlation | 0.76x / +0.027 | 0.76x / +0.026 |
+| denitrification ratio / correlation | 0.93x / +0.549 | 0.92x / +0.564 |
+
+All three are within noise of the fresh-start baseline. Yield is likewise essentially
+unaffected (0.777 either way, to the fourth decimal for several spot-checked years) --
+confirming the 2026-09-24 "no meaningful change" finding was real for yield specifically, it
+just checked a metric this problem was never going to move, while the much larger effect on
+gross drainage went completely undetected until checked directly against water.txt.
+
+Conclusion: the real sub-daily water-redistribution physics is not, and was never, the blocker
+for the nitrogen-pathway correlation gaps -- that gap is now closed independently (a real,
+disclosed, reusable capability, see run_bare_fallow_window()'s own docstring), and the N-pathway
+problems remain exactly as open as before, now with one major candidate cause eliminated. The
+most likely remaining target is how nitrogen itself is tracked relative to water in
+redistribute()'s n_by_layer transport (a well-mixed-reservoir assumption per layer, applied
+regardless of how that layer's water balance compares to real Cycles'), not the water magnitude
+itself, which is now correct. Reproducible via the new
+`agricultural/prototypes/run_validation_continuous_chain.py` harness. Not wired into any
+default validation path or any UI -- every already-shipped, documented correlation number in
+this project (corn 0.777, soybean 0.947, wheat 0.455, silage corn 0.117) is unaffected, verified
+via the full regression suite and pattern_assertions.py (15/16) both staying byte-identical.

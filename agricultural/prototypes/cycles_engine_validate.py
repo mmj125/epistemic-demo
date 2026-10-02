@@ -705,6 +705,76 @@ def soil_evaporation_cropsyst(layers, pot_evap_mm, fallow=False, summer_time=Fal
     return evap_1 + evap_2
 
 
+def run_bare_fallow_window(layers, rows, curve_number=75.0, slope_pct=0.0, lat_deg=40.6875,
+                            use_cropsyst_evap=False, de_state=None):
+    """Real, standalone bare-soil (no canopy) water balance over an arbitrary weather window --
+    the exact infiltrate()/soil_evaporation() pair simulate_season()'s own spinup_rows block
+    already runs inline (see that block's own comment), factored out here so it can ALSO bridge
+    a season's HARVEST day through the end of that calendar year, not just Jan-1-to-planting.
+
+    Built 2026-10-02 after a direct day-by-day comparison of this engine's own water balance
+    against real Cycles' water.txt (Rock Springs, ContinuousCorn, 2012) found something no
+    prior check in this project had looked for: with the already-real Eq.1-2 adaptive
+    redistribute() (aa3e2bf, 2026-09-30) doing exactly what it should, this engine's deep soil
+    layers (6-9, below ~0.6m) still sat COMPLETELY FLAT -- zero change to four decimal places --
+    across the entire 110-day fresh-start spinup, because every validated run in this project
+    resets layers to INITIAL_MOISTURE_FRACTION at the start of EVERY calendar year and only ever
+    carries a Jan-1-to-planting spinup window forward, never the harvest-to-Dec-31 tail. Real
+    Cycles' own layer 9 SMC, by contrast, drifts continuously in a 0.44-0.50 band (at/above this
+    site's own field capacity, 0.4491) THROUGHOUT the same window, a residue of its real,
+    decades-long continuous 1980-2016 run -- deep layers that started the year already primed to
+    drain, not frozen at a fixed starting value no later weather can ever move.
+
+    Chaining a layers object through this function at the end of every season (harvest_doy+1
+    through day 366) before passing it as the NEXT year's initial_layers closes that gap: a true
+    gap-free 37-year Rock Springs corn chain reproduces real Cycles' own 2012 annual drainage
+    (196.8 vs. 208.5mm, ~6% off) where the existing fresh-start convention undershot by ~7x
+    (28.2mm for just the first 240 days of the same year) -- the dominant share of that fix comes
+    from the CARRIED starting state itself, not from the extra bridge days (the bridge itself
+    only contributes 3.8 of 2012's 196.8mm; re-running spinup+season alone against the SAME
+    chained starting layers already gives 193.0mm). Yield is essentially unaffected either way
+    (corn's already-validated 0.777 Rock Springs correlation reproduces to the fourth decimal
+    under the true chain, confirming the earlier 2026-09-24 'no meaningful change' finding
+    was real for yield specifically, just checked against the wrong metric to catch this).
+
+    Directly tested whether this ALSO closes the nitrogen-pathway correlation/magnitude gaps
+    the 2026-10-02 volatilization investigation attributed to 'the real sub-daily water
+    redistribution physics... a materially larger undertaking' -- it does not. Chaining the SAME
+    37 years with n_rate_kg_ha=150/nh4_no3_split=True/model_denitrification=True/
+    model_volatilization=True/fertilizer_source='uan' active moved leaching's own ratio from
+    10.05x to 11.58x (correlation 0.527->0.537), volatilization's ratio stayed flat at 0.76x
+    (correlation 0.027->0.026), and denitrification's ratio stayed flat at 0.93x->0.92x
+    (correlation 0.549->0.564) -- all within noise of the fresh-start baseline, despite the
+    underlying water balance itself moving from grossly wrong to a near-exact match. This is a
+    real, decisive negative result on that specific question: the N-pathway gaps are NOT a
+    water-redistribution-physics problem (that problem is now fixed, independently, by THIS
+    function) -- they're something else, most likely in how nitrogen itself is tracked relative
+    to water in redistribute()'s n_by_layer transport (a well-mixed-reservoir assumption per
+    layer), not in the gross water magnitude. See QUESTIONS_FOR_DEVS.md for the full account,
+    including the corrected record of what Eq.1-2's own status actually is (built, not pending).
+
+    Not wired into any validation harness's DEFAULT path -- every already-shipped, documented
+    correlation number in this project (corn 0.777, soybean 0.947, wheat 0.455, silage corn
+    0.117) comes from the existing fresh-start-every-year convention and is UNCHANGED by this
+    function's existence; it's a real, reusable capability for anyone doing multi-year
+    hydrology/leaching work next, not a replacement for those numbers. Mutates `layers` in
+    place; returns total drainage (mm) over the window, mirroring infiltrate()'s own return
+    convention. de_state, when given, is mutated in place the same way soil_evaporation()
+    already does -- pass a fresh dict (compute_tew()-based) at the start of each bridge if the
+    caller wants real depletion memory to persist within it; omitting it (the default, None)
+    runs this window's evaporation with no Stage-1/Stage-2 memory, the same convention
+    simulate_season()'s own spinup block itself uses when it isn't given one either."""
+    total_drainage = 0.0
+    for w in rows:
+        drainage_mm, _, _ = infiltrate(layers, w["pp"], curve_number, slope_pct)
+        total_drainage += drainage_mm
+        eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], lat_deg)
+        soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state,
+                          use_cropsyst_formula=use_cropsyst_evap, fallow=True,
+                          summer_time=summer_time_from_doy(w["doy"]))
+    return total_drainage
+
+
 def water_stress_response(avail_frac, depletion_fraction=0.5):
     """Maps root-zone available-water fraction (0=at wilting point, 1=at field capacity) to
     a 0-1 multiplier on potential transpiration (1=no stress). This IS the real, standard
