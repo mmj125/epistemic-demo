@@ -1467,6 +1467,8 @@ def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
     ttf = max(1e-6, ttf)
     return fsti + (fstf - fsti) / (1 + (ttf50/ttf)**4)
 
+N_STRESS_FULL_RATIO = 0.06
+N_STRESS_ZERO_RATIO = 0.62
 NCRIT_FLOOR_MGHA = 1.0
 
 # Real unfertilized corn draws roughly 60-120 kg N/ha of soil-supplied N over a season
@@ -1802,16 +1804,14 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             # inflated daily N demand ~10x, capping corn's N-tracking path at the same yield
             # regardless of rate (150 or 2000 kg N/ha gave identical results). See
             # cycles_engine_validate.py's own comment at this fix for the full account.
-            n_crit_pct = n_critical_pct(biomass, crop)
+            n_crit_pct = n_critical_pct(biomass * 10, crop)
             n_min_pct = crop.get("n_min_conc", 0.0) * 100
-            n_actual_pct = (canopy_n_kg_ha / (biomass * 10) if biomass > 1e-6
+            n_actual_pct = (canopy_n_kg_ha / (biomass * 100) if biomass > 1e-6
                             else crop["n_max_conc"] * 100)
-            if n_actual_pct >= n_crit_pct or n_crit_pct <= n_min_pct:
-                n_stress = 1.0
-            else:
-                n_stress = max(0.0, min(1.0, 1.0 - (n_crit_pct - n_actual_pct) / (n_crit_pct - n_min_pct)))
+            _ratio = n_actual_pct / n_crit_pct if n_crit_pct > 0 else 1.0
+            n_stress = max(0.0, min(1.0, (_ratio - N_STRESS_FULL_RATIO) / (N_STRESS_ZERO_RATIO - N_STRESS_FULL_RATIO)))
             dGB_n_limited = dGB_water_limited * n_stress
-            demand_today_kg_ha = dGB_n_limited * 10 * n_marginal_demand_pct(biomass, crop)
+            demand_today_kg_ha = dGB_n_limited * 100 * n_marginal_demand_pct(biomass * 10, crop)
             if n_pool_by_layer is not None:
                 access_frac = layer_depth_fraction_within(layers, root_depth)
                 accessible_n = [n_pool_by_layer[i] * access_frac[i] for i in range(len(layers))]

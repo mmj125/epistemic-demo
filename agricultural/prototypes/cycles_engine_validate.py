@@ -1517,6 +1517,8 @@ def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
 # When n_rate_kg_ha is left as None (the default), none of this runs and
 # behavior is byte-identical to before this feature existed -- verified by
 # re-running run_validation.py / run_validation_rotation2.py unchanged.
+N_STRESS_FULL_RATIO = 0.06
+N_STRESS_ZERO_RATIO = 0.62
 NCRIT_FLOOR_MGHA = 1.0  # dilution curve is flat (at N_MAX_CONCENTRATION) below this biomass; standard convention
 
 # Background soil-supplied nitrogen from organic matter mineralization -- a real,
@@ -3215,16 +3217,14 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             # does change any crop (wheat, by default; corn/silage corn/soybean if a caller
             # turns nitrogen on, e.g. model-validation.html's own controls) that already wires
             # nitrogen in, since every one of them was running this same buggy math.
-            n_crit_pct = n_critical_pct(biomass, crop)
+            n_crit_pct = n_critical_pct(biomass * 10, crop)
             n_min_pct = crop.get("n_min_conc", 0.0) * 100
-            n_actual_pct = (canopy_n_kg_ha / (biomass * 10) if biomass > 1e-6
+            n_actual_pct = (canopy_n_kg_ha / (biomass * 100) if biomass > 1e-6
                             else crop["n_max_conc"] * 100)
-            if n_actual_pct >= n_crit_pct or n_crit_pct <= n_min_pct:
-                n_stress = 1.0
-            else:
-                n_stress = max(0.0, min(1.0, 1.0 - (n_crit_pct - n_actual_pct) / (n_crit_pct - n_min_pct)))
+            _ratio = n_actual_pct / n_crit_pct if n_crit_pct > 0 else 1.0
+            n_stress = max(0.0, min(1.0, (_ratio - N_STRESS_FULL_RATIO) / (N_STRESS_ZERO_RATIO - N_STRESS_FULL_RATIO)))
             dGB_n_limited = dGB_water_limited * n_stress
-            demand_today_kg_ha = dGB_n_limited * 10 * n_marginal_demand_pct(biomass, crop)
+            demand_today_kg_ha = dGB_n_limited * 100 * n_marginal_demand_pct(biomass * 10, crop)
             if n_pool_by_layer is not None:
                 # Real CropSyst-style min(demand, potential_uptake) (Eq. 26, Stockle/Martin/
                 # Campbell 1994) -- potential_uptake is however much of the pool currently
