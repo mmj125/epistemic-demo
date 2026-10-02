@@ -2589,6 +2589,27 @@ def volatilization_rate(tsoil, nh4_kg_ha):
         VOLATILIZATION_RATE_B * tsoil + VOLATILIZATION_RATE_C * nh4_capped)))
 
 
+
+# Nitrous oxide emission (2026-10-02), back-calculated from Cycles' N.txt (16 sites, 40,268 denitrification days):
+# N2O FROM NITRIF = 0.0025 x NH4 NITRIFICAT (daily median 0.0025 at every site; means 0.0025-0.005 where a few wet
+# days run higher), and N2O FROM DENIT / NO3 DENITRIF = 0.00121 x (profile NO3 kg N/ha)^0.887 (ln R^2 0.69, rms 0.58;
+# 0.017 at ~1 kg N/ha to 0.17 at ~195), capped at 0.5. Cycles reports N2O only; it has no nitric oxide (NO) output.
+N2O_NITRIF_FRAC = 0.0025
+N2O_DENIT_A = 0.00121
+N2O_DENIT_B = 0.887
+N2O_DENIT_CAP = 0.5
+
+
+def n2o_from_nitrification(nitrified_kg_ha):
+    return N2O_NITRIF_FRAC * nitrified_kg_ha
+
+
+def n2o_from_denitrification(denitrified_kg_ha, no3_before_kg_ha):
+    if denitrified_kg_ha <= 0 or no3_before_kg_ha <= 0:
+        return 0.0
+    return denitrified_kg_ha * min(N2O_DENIT_CAP, N2O_DENIT_A * no3_before_kg_ha ** N2O_DENIT_B)
+
+
 def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=75.0, slope_pct=0.0,
                         lat_deg=40.6875, de_state=None, model_denitrification=True, model_volatilization=True):
     """Bare-soil water balance PLUS the nitrogen dynamics that keep running with no crop: sixpool
@@ -2628,6 +2649,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
         nstate["n_no3"] += nit
         if no3_layers is not None:
             no3_layers[0] += nit
+        nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_nitrification(nit)
         volat += vol
         profile_water_mm = sum(l["theta"] * l["thick"] * 1000 for l in layers)
         if no3_layers is None and profile_water_mm > 0 and nstate["n_no3"] > 0 and drainage_mm > 0:
@@ -2635,7 +2657,9 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             nstate["n_no3"] -= lost
             leached += lost
         if model_denitrification:
+            _no3_pre = nstate["n_no3"]
             d = nstate["n_no3"] * denitrification_rate_rel(layers[0]["theta"] / layers[0]["sat"], nstate["tsoil_lag"])
+            nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_denitrification(d, _no3_pre)
             nstate["n_no3"] = max(0.0, nstate["n_no3"] - d)
             if no3_layers is not None:
                 f_d = d / (nstate["n_no3"] + d) if (nstate["n_no3"] + d) > 0 else 0.0
@@ -2692,6 +2716,7 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
                                               model_denitrification=kw.get("model_denitrification", True),
                                               model_volatilization=kw.get("model_volatilization", True))
             fallow_tot = [lch, dn, vl]
+            n2o_pre = nstate.pop("n2o", 0.0)
             kw["initial_n_state"] = dict(nstate)
             if sixpool_state is not None:
                 kw["sixpool_initial_state"] = sixpool_state
@@ -2712,6 +2737,7 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
                                               model_volatilization=kw.get("model_volatilization", True))
             fallow_tot = [fallow_tot[0] + lch, fallow_tot[1] + dn, fallow_tot[2] + vl]
             result["fallow_n_leached"], result["fallow_n_denitrified"], result["fallow_n_volatilized"] = fallow_tot
+            result["fallow_n2o"] = n2o_pre + nstate.pop("n2o", 0.0)
             result["end_n_state"] = dict(nstate)
         else:
             run_bare_fallow_window(layers, bridge, lat_deg=crop["lat_deg"], de_state=de_state)
@@ -3282,6 +3308,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         n_pool, total_n_input_kg_ha = None, None
     n_leached_total = 0.0 if n_pool is not None else None
     n_denitrified_total = 0.0 if (n_pool is not None and model_denitrification) else None
+    n2o_total = 0.0
     n_uptake_total = 0.0 if n_pool is not None else None
     # n_pool_by_layer: the real per-layer tracking n_root_limited needs (see
     # simulate_season()'s own docstring) -- None whenever n_root_limited is False (the
@@ -3465,6 +3492,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             volat_amt_today = n_nh4 * volatilization_rate(tsoil_lag, n_nh4) if model_volatilization else 0.0
             n_nh4 = max(0.0, n_nh4 - nitrif_amt_today - volat_amt_today)
             n_no3 += nitrif_amt_today
+            n2o_total += n2o_from_nitrification(nitrif_amt_today)
             if no3_layers is not None:
                 no3_layers[0] += nitrif_amt_today
             if n_volatilized_pool_total is not None:
@@ -3488,6 +3516,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                         n_pool_by_layer[i] -= denitrif_today * (n_pool_by_layer[i] / pool_sum)
             elif n_no3 is not None:
                 denitrif_today = n_no3 * denitrif_frac_today
+                n2o_total += n2o_from_denitrification(denitrif_today, n_no3)
                 n_no3 = max(0.0, n_no3 - denitrif_today)
                 if no3_layers is not None:
                     for i in range(len(no3_layers)):
@@ -3741,6 +3770,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         result["n_volatilized_pool_kg_ha"] = n_volatilized_pool_total
     if n_denitrified_total is not None:
         result["n_denitrified_kg_ha"] = n_denitrified_total
+    if n_nh4 is not None:
+        result["n2o_emitted_kg_ha"] = n2o_total
     if sixpool_state is not None:
         # Real stover left in the field after grain harvest -- AG biomass minus grain removed,
         # a defensible proxy (real Cycles' own harvest.txt "AG RESIDUE" column is conceptually

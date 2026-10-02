@@ -4156,3 +4156,16 @@ error of 1 Mg C moves it by 100-250 kg N. Tried a 1.7x root-carbon multiplier (e
 Cycles' 2.2 Mg C/yr): it helped little and drove low-SOC sites negative, so it was dropped. Unfertilized corn is
 still too productive (N0 grain MAE 3.1). Next: net-N accuracy at high-SOC sites (humified C and Cs respiration
 there), then N0 yield.
+
+### 2026-10-02 (night): nitrous oxide emission (Cycles has no nitric oxide output)
+
+Cycles' N.txt/annualN.txt report N2O only (N2O FROM NITRIF, N2O FROM DENIT); there is no NO column, so nitric oxide
+cannot be validated against it. Back-calculated from 16 sites: N2O from nitrification = 0.0025 x nitrified N (daily
+median 0.0025 at every site); N2O from denitrification / denitrified N = 0.00121 x (profile NO3 kg N/ha)^0.887, capped
+at 0.5 (40,268 days, ln R^2 0.69, rms 0.58; 0.017 at ~1 kg N/ha rising to 0.17 at ~195). Implemented as
+n2o_from_nitrification()/n2o_from_denitrification(); result key n2o_emitted_kg_ha (in-season) and fallow_n2o in the
+lead-in wrapper; harness compares annualN.txt N2O EMISSION. 16-site N=150 (per-layer mode): rms log error 1.46,
+good where nitrate supply is realistic (Rock Springs 0.6 vs 1.1, Maryland 0.9 vs 1.4, Ohio 1.4 vs 2.0, Georgia 0.8 vs
+0.6, Texas 4.9 vs 3.0) and 5-18x high where denitrification is already over (Iowa 144 vs 8, Illinois 30 vs 2,
+Arkansas 24 vs 2, Minnesota 46 vs 8): the emission term inherits the mineral-N supply error. Opt-in path only
+(requires nh4_no3_split); defaults unchanged.
