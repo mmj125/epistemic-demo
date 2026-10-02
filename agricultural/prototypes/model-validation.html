@@ -168,6 +168,12 @@
     </fieldset>
 
     <fieldset>
+      <legend>Ammonia volatilization (continuous, NH4-pool-based)</legend>
+      <div class="subfield"><label><input type="checkbox" id="fcVolatPool"> Model continuous volatilization from the NH4 pool (requires the NH4/NO3 split above)</label></div>
+      <div class="sweep-note">Replaces, as the better-grounded mechanism, the two approximations under "Fertilizer placement / volatilization" below (a flat IPCC 10% default, and the Macnack et al. 2013 weather-driven one-time estimate) -- both were checked against Cycles' own real annualN.txt VOLATILIZATION column (2026-10-02) and found to overestimate real seasonal loss (4.4% mean, 0.1-8.1% range, 150 kg N/ha broadcast UAN at Rock Springs across 37 years) by 2-8x; Macnack specifically predicted ~37% at Rock Springs' real 2012 planting-day weather. The real process turns out to be structurally different from a one-time percentage lost at the moment of application: it's a slow, continuous, temperature-gated daily draw on the standing NH4 pool that competes with nitrification for the same pool (once NH4 nitrifies to NO3 it's no longer exposed to this loss pathway at all) -- back-calculated the same way as nitrification/denitrification (NH3 VOLATILIZ &divide; PROF SOIL NH4, binned by topsoil temperature, n=13410 real day-samples, R&sup2;=0.994 as a plain exponential, no sign of nitrification's own high-temperature plateau). Honest result: this real mechanism lands at 2.0-2.8% of applied N across the full 37-year record -- a real, order-of-magnitude improvement on both prior mechanisms' overestimate, but still roughly half of Cycles' own 4.4% mean, and with a narrower year-to-year range than Cycles' real 0.1-8.1% -- not a perfect match, a disclosed, much-better-grounded approximation. Does nothing (both checkboxes compose to a no-op) unless the NH4/NO3 split above is also checked. See QUESTIONS_FOR_DEVS.md's 2026-10-02 entry for the full derivation.</div>
+    </fieldset>
+
+    <fieldset>
       <legend>Planting date</legend>
       <div class="subfield"><label><input type="checkbox" id="fcPlantOverride"> Override the computed planting date</label></div>
       <div class="controls" id="fcPlantRow" style="display:none;">
@@ -2490,6 +2496,18 @@ SOIL_TEMP_LAG_K = 0.15
 def nitrification_rate(tsoil):
     return max(0.0, min(1.0, NITRIF_RMAX / (1.0 + math.exp(-NITRIF_K * (tsoil - NITRIF_T0)))))
 
+# Real, back-calculated 2026-10-02 (same session, per Matt's "Ammonia volatilization" ask) from
+# the same N.txt (NH3 VOLATILIZ / PROF SOIL NH4, binned by topsoil temperature) -- see
+# cycles_engine_validate.py's own VOLATILIZATION_RATE_A docstring for the full derivation,
+# including why this replaces, as the better-grounded mechanism, this engine's two prior
+# volatilization approximations (fert_placement_implement/soil_ph below), which overestimated
+# real Cycles' own seasonal volatilization (4.4% mean, 0.1-8.1% range) by 2-8x.
+VOLATILIZATION_RATE_A = 7.875717e-05
+VOLATILIZATION_RATE_B = 0.17662
+
+def volatilization_rate(tsoil):
+    return max(0.0, min(1.0, VOLATILIZATION_RATE_A * math.exp(VOLATILIZATION_RATE_B * tsoil)))
+
 def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False,
                      n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
                      manure_source=None,
@@ -2499,7 +2517,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      spinup_rows=None, curve_number=75.0, slope_pct=0.0, initial_layers=None,
                      soil_evap_model="faostandard", n_root_limited=False, wue_co2_scale=1.0,
                      background_n_model="rothc", sixpool_topsoil_clay_pct=None, sixpool_topsoil_soc_pct=None,
-                     model_denitrification=False, nh4_no3_split=False):
+                     model_denitrification=False, nh4_no3_split=False, model_volatilization=False):
     # n_root_limited (default False, byte-identical when unused): real CropSyst nitrogen
     # uptake (Stockle, Martin & Campbell 1994, Eq. 26) is min(demand, potential_uptake), not
     # demand alone. Tracks nitrogen per soil layer (n_pool_by_layer) instead of one lumped
@@ -2653,6 +2671,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     n_no3 = 0.0 if n_nh4 is not None else None
     tsoil_lag = ((weather_rows[0]["tx"] + weather_rows[0]["tn"]) / 2.0
                  if (n_nh4 is not None and weather_rows) else None)
+    # Real, continuous NH4-pool ammonia volatilization (2026-10-02) -- see
+    # cycles_engine_validate.py's own VOLATILIZATION_RATE_A docstring for the full derivation.
+    n_volatilized_pool_total = 0.0 if (n_nh4 is not None and model_volatilization) else None
     irrigation_total_mm = 0.0
     history = [] if record_history else None
 
@@ -2707,8 +2728,11 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             _tmean_today = (w["tx"] + w["tn"]) / 2.0
             tsoil_lag = tsoil_lag + SOIL_TEMP_LAG_K * (_tmean_today - tsoil_lag)
             nitrif_amt_today = n_nh4 * nitrification_rate(tsoil_lag)
-            n_nh4 -= nitrif_amt_today
+            volat_amt_today = n_nh4 * volatilization_rate(tsoil_lag) if model_volatilization else 0.0
+            n_nh4 = max(0.0, n_nh4 - nitrif_amt_today - volat_amt_today)
             n_no3 += nitrif_amt_today
+            if n_volatilized_pool_total is not None:
+                n_volatilized_pool_total += volat_amt_today
 
         if model_denitrification and n_pool is not None:
             denitrif_theta = layers[1]["theta"] if len(layers) > 1 else layers[0]["theta"]
@@ -2881,6 +2905,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             result["n_no3_remaining_kg_ha"] = n_no3
     if n_volatilized_total is not None:
         result["n_volatilized_kg_ha"] = n_volatilized_total
+    if n_volatilized_pool_total is not None:
+        result["n_volatilized_pool_kg_ha"] = n_volatilized_pool_total
     if sixpool_state is not None:
         result["sixpool_final_state"] = dict(sixpool_state)
     if initial_layers is not None:
@@ -3510,6 +3536,7 @@ async function runFullSimulation(p) {
   pyodide.globals.set("fc_bg_model", p.bgModel || "rothc");
   pyodide.globals.set("fc_denitrif", p.denitrif ? "1" : "");
   pyodide.globals.set("fc_nh4no3", p.nh4no3 ? "1" : "");
+  pyodide.globals.set("fc_volatpool", p.volatPool ? "1" : "");
 
   const out = await pyodide.runPythonAsync(`
 import json as _json
@@ -3543,6 +3570,7 @@ _fc_res = simulate_season(
     tillage_doy=(_fc_plant_doy if _fc_tillage_val else None), tillage_implement=_fc_tillage_val,
     tillage_clay_frac=_fc_tillage_clay,
     model_denitrification=bool(fc_denitrif), nh4_no3_split=bool(fc_nh4no3),
+    model_volatilization=bool(fc_volatpool),
     record_history=True, **_fc_bg_kwargs,
 )
 _fc_out = {"plant_doy": _fc_plant_doy, **_fc_res}
@@ -3569,6 +3597,7 @@ document.getElementById("fcRunBtn").addEventListener("click", async () => {
     const plantOn = document.getElementById("fcPlantOverride").checked;
     const denitrifOn = document.getElementById("fcDenitrif").checked;
     const nh4no3On = document.getElementById("fcNh4No3").checked;
+    const volatPoolOn = document.getElementById("fcVolatPool").checked;
 
     const params = {
       wxYear, soilLayers: currentSite.layers, cropKey: cropSelect.value,
@@ -3582,6 +3611,7 @@ document.getElementById("fcRunBtn").addEventListener("click", async () => {
       bgModel: document.getElementById("fcBgModel").value,
       denitrif: denitrifOn,
       nh4no3: nh4no3On,
+      volatPool: volatPoolOn,
     };
     const res = await runFullSimulation(params);
 
@@ -3596,6 +3626,7 @@ document.getElementById("fcRunBtn").addEventListener("click", async () => {
       if ("n_denitrified_kg_ha" in res) nbal += ` &middot; denitrified ${res.n_denitrified_kg_ha.toFixed(1)} kg/ha`;
       nbal += ` &middot; remaining in soil ${res.n_remaining_kg_ha.toFixed(1)} kg/ha (should sum to total supply: applied + credit + manure*0.5 + background mineralization).`;
       if ("n_nh4_remaining_kg_ha" in res) nbal += ` Remaining split: NH4 ${res.n_nh4_remaining_kg_ha.toFixed(1)}, NO3 ${res.n_no3_remaining_kg_ha.toFixed(1)} kg/ha.`;
+      if ("n_volatilized_pool_kg_ha" in res) nbal += ` Volatilized (continuous NH4-pool): ${res.n_volatilized_pool_kg_ha.toFixed(2)} kg/ha.`;
       massBalance.innerHTML = nbal;
     } else {
       massBalance.textContent = "No nitrogen tracked for this run (legume, or no rate/credit/manure set).";

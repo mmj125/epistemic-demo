@@ -2168,6 +2168,47 @@ def nitrification_rate(tsoil):
     return max(0.0, min(1.0, NITRIF_RMAX / (1.0 + math.exp(-NITRIF_K * (tsoil - NITRIF_T0)))))
 
 
+VOLATILIZATION_RATE_A = 7.875717e-05  # back-calculated 2026-10-02 (same session as nitrification
+# and denitrification, same discipline, per Matt's "Ammonia volatilization" ask) from the same
+# N.txt (ContinuousCorn, Rock Springs, 150 kg N/ha broadcast UAN at DOY 110, 37 years). Computed
+# a daily implied fractional volatilization rate (NH3 VOLATILIZ today / PROF SOIL NH4 the day
+# before, n=13410 real day-samples with a non-trivial NH4 pool) and binned by topsoil soil
+# temperature (environ.txt's own shallowest SOIL TMP column -- volatilization is a surface-
+# exposure process, so topsoil rather than nitrification's own already-adequate choice was
+# checked specifically and fit better: R^2=0.994 vs 0.986 against air tmean). Unlike
+# nitrification, a plain exponential (not a saturating logistic) fits this real relationship
+# cleanly across the whole observed range (-9C to 27C, 13 bins each with >=30 real samples,
+# every bin within 25% of the fitted curve) -- there's no sign of a plateau in the real data,
+# consistent with volatilization being closer to a simple Arrhenius-type temperature response
+# than nitrification's own optimum-temperature microbial kinetics.
+#
+# This replaces, as the now-better-grounded mechanism, this engine's two prior volatilization
+# approximations: a flat IPCC Tier-1 default (NH3_FRAC_SYNTHETIC/NH3_FRAC_MANURE, a single
+# number regardless of weather) and the Macnack et al. 2013 per-application-day estimate
+# (soil_ph parameter), which was found, when checked against this same real Cycles record
+# (see QUESTIONS_FOR_DEVS.md), to predict roughly 37% loss at Rock Springs' real 2012
+# planting-day weather -- a 2-8x overestimate against real Cycles' own actual seasonal total
+# (4.4% of applied N, range 0.1-8.1%, across the full 37-year record). The real mechanism
+# turns out to be structurally different from either prior approximation: volatilization is
+# not a single event-day percentage lost at the moment of application, it's a slow, continuous,
+# temperature-gated daily draw on the standing NH4 pool that competes with nitrification for
+# the same pool (once NH4 nitrifies to NO3, it's no longer exposed to this loss pathway at
+# all) -- exactly why compressing it into one number applied once, at any single moment,
+# was never going to match the real multi-week dynamic. See fert_placement_implement/soil_ph
+# in simulate_season()'s own docstring: they're kept, not removed, as the documented, simpler
+# fallback for a caller running the lumped (non-split) mineral-N pool, where no real NH4 state
+# exists for this continuous mechanism to act on.
+VOLATILIZATION_RATE_B = 0.17662
+
+
+def volatilization_rate(tsoil):
+    """Real, back-calculated daily fraction of the NH4 pool volatilized as ammonia, as a
+    function of topsoil temperature -- see VOLATILIZATION_RATE_A's own docstring for the full
+    derivation. Clamped to [0, 1] defensively; the real fitted/observed range never exceeds
+    ~0.044/day, so the clamp should never actually bind within realistic weather."""
+    return max(0.0, min(1.0, VOLATILIZATION_RATE_A * math.exp(VOLATILIZATION_RATE_B * tsoil)))
+
+
 def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False,
                      n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
                      manure_source=None,
@@ -2178,7 +2219,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      soil_evap_model="faostandard", n_root_limited=False, wue_co2_scale=1.0,
                      background_n_model="rothc", sixpool_topsoil_clay_pct=None, sixpool_topsoil_soc_pct=None,
                      sixpool_initial_state=None, sixpool_offseason_decay=False,
-                     model_denitrification=False, nh4_no3_split=False):
+                     model_denitrification=False, nh4_no3_split=False, model_volatilization=False):
     """weather_rows: dicts with doy, tx, tn, solar, rhx, rhn, wind, pp, in planting-day order.
 
     model_denitrification: False by default (byte-identical to this parameter not existing --
@@ -2211,6 +2252,23 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     is itself a separate, already-opt-in, not-default-validated mechanism not worth compounding
     two large changes into at once. See QUESTIONS_FOR_DEVS.md's 2026-10-02 entry for the full
     derivation and the real leaching-split evidence.
+
+    model_volatilization: False by default (byte-identical to this parameter not existing).
+    When True and nh4_no3_split is also active (it does nothing otherwise -- there's no real
+    NH4 pool for it to act on without the split), applies volatilization_rate()'s real,
+    back-calculated daily ammonia loss directly to the standing NH4 pool each day, driven by
+    that day's own topsoil temperature (the same tsoil_lag state nitrification already tracks).
+    This is a different, better-grounded mechanism than fert_placement_implement/soil_ph above:
+    those model volatilization as a one-time percentage lost at the single moment of
+    application; this models it as the real, continuous, temperature-gated process it actually
+    is, competing day by day with nitrification for the same NH4 pool (nitrified NH4 becomes
+    NO3 and is no longer exposed to this loss pathway at all). See VOLATILIZATION_RATE_A's own
+    docstring for the full derivation against real Cycles output, and QUESTIONS_FOR_DEVS.md's
+    2026-10-02 entry for the comparison against the two prior mechanisms' real overestimate.
+    Not mutually exclusive with fert_placement_implement/soil_ph in code (nothing stops a
+    caller from setting both), but doing so would double-count the same real loss against two
+    different approximations of it -- documented here as a real risk to avoid, not guarded by
+    an exception, matching this engine's existing pattern for its other opt-in combinations.
 
     background_n_model: "rothc" (default, byte-identical to this parameter not existing) keeps
     the existing RothC-weather-scaled flat-constant background-nitrogen mechanism. "sixpool"
@@ -2691,6 +2749,10 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     n_no3 = 0.0 if n_nh4 is not None else None
     tsoil_lag = ((weather_rows[0]["tx"] + weather_rows[0]["tn"]) / 2.0
                  if (n_nh4 is not None and weather_rows) else None)
+    # Real, continuous NH4-pool ammonia volatilization (2026-10-02, see volatilization_rate()'s
+    # own docstring) -- only meaningful alongside the NH4/NO3 split above, since it drains the
+    # real NH4 sub-pool directly rather than approximating a one-time loss at application time.
+    n_volatilized_pool_total = 0.0 if (n_nh4 is not None and model_volatilization) else None
     irrigation_total_mm = 0.0
     history = [] if record_history else None
 
@@ -2801,9 +2863,17 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         if n_nh4 is not None:
             _tmean_today = (w["tx"] + w["tn"]) / 2.0
             tsoil_lag = tsoil_lag + SOIL_TEMP_LAG_K * (_tmean_today - tsoil_lag)
+            # Both draws computed off the same starting n_nh4 (not sequentially, which would
+            # bias whichever ran second) -- real daily rates here are small enough (nitrification
+            # up to ~0.145/day, volatilization up to ~0.044/day observed) that this is a safe
+            # explicit-Euler approximation, the same one already used for every other daily
+            # rate in this engine.
             nitrif_amt_today = n_nh4 * nitrification_rate(tsoil_lag)
-            n_nh4 -= nitrif_amt_today
+            volat_amt_today = n_nh4 * volatilization_rate(tsoil_lag) if model_volatilization else 0.0
+            n_nh4 = max(0.0, n_nh4 - nitrif_amt_today - volat_amt_today)
             n_no3 += nitrif_amt_today
+            if n_volatilized_pool_total is not None:
+                n_volatilized_pool_total += volat_amt_today
 
         # Real denitrification (2026-10-02, see denitrification_rate()'s own docstring) --
         # applied right after today's water balance/leaching, using the moisture state
@@ -3049,6 +3119,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             result["n_no3_remaining_kg_ha"] = n_no3
     if n_volatilized_total is not None:
         result["n_volatilized_kg_ha"] = n_volatilized_total
+    if n_volatilized_pool_total is not None:
+        result["n_volatilized_pool_kg_ha"] = n_volatilized_pool_total
     if n_denitrified_total is not None:
         result["n_denitrified_kg_ha"] = n_denitrified_total
     if sixpool_state is not None:

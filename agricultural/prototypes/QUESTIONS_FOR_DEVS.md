@@ -3593,3 +3593,69 @@ path (deliberately scoped out, to keep this change bounded); any attempt to reca
 existing ammonia-volatilization mechanisms (the flat IPCC default, the Macnack weather-driven
 model) against the real 4.4%-mean volatilization finding already logged above -- still flagged
 there, not acted on this round either.
+
+Resolved without asking, 2026-10-02, same day, per Matt's direct selection ("Ammonia
+volatilization") of this exact flagged item: built a real, continuous, NH4-pool-based
+ammonia-volatilization mechanism, replacing (as the better-grounded alternative, not literally
+removing) this engine's two prior one-time-at-application approximations (the flat IPCC
+Tier-1 default, NH3_FRAC_SYNTHETIC=0.10; and the Macnack et al. 2013 weather/pH-driven model),
+both already found to overestimate real Cycles' own seasonal volatilization by 2-8x.
+
+Read N.txt's own NH3 VOLATILIZ column against the prior day's PROF SOIL NH4 (the same
+technique already used for nitrification/denitrification) and found a real, clean,
+temperature-driven relationship: binning the daily implied fractional rate by topsoil
+temperature (environ.txt's own shallowest SOIL TMP column -- checked directly against air
+tmean too, and topsoil fit meaningfully better, R^2=0.994 vs 0.986, physically sensible since
+volatilization is a surface-exposure process) gives a clean exponential across the full
+observed range (-9C to 27C, 13 bins of >=30 real samples each, every bin within 25% of the
+fitted curve) with no sign of nitrification's own high-temperature plateau -- consistent with
+volatilization being closer to simple Arrhenius kinetics than nitrification's own
+optimum-temperature microbial response. Fit: `rate = 7.875717e-05 * exp(0.17662 * Tsoil)`.
+
+This also explains, structurally, why both prior mechanisms missed so badly: real
+volatilization isn't a single percentage lost at the moment of application, it's a slow,
+continuous process that competes day by day with nitrification for the same standing NH4 pool
+(once NH4 nitrifies to NO3 it's no longer exposed to this loss pathway at all) -- compressing
+a multi-week race into one number applied once was never going to track the real dynamic.
+Only meaningful once the NH4/NO3 split (this file's own prior entry, same session) is active,
+since there's no real NH4 state to act on otherwise.
+
+Implemented as `volatilization_rate(tsoil)` plus a new opt-in `model_volatilization=False`
+parameter on `simulate_season()`, applied inside the same day-loop block that already runs
+nitrification (both draws computed off the same starting NH4 pool, not sequentially, to avoid
+order bias). Verified: the full regression suite and `pattern_assertions.py` (15/16, unchanged)
+are byte-identical with the new parameter unused (confirmed for all four crops: corn 0.777,
+soybean 0.947, wheat 0.455, silage corn 0.117); the standing tillage sanity check (real yield
+gain at N=10, the post-2026-09-28 real limiting rate; ~zero at N=650) and the manure/mineral
+0.5-availability equivalence both re-verified to hold exactly under the new mechanism; the
+nitrogen mass-balance identity (uptake + leached + volatilized + remaining = total supply)
+closes to within float precision.
+
+Honest result, not oversold: tested across the full 37-year Rock Springs record at 150 kg N/ha
+broadcast (the exact scenario the real 4.4%-mean/0.1-8.1%-range ground truth was measured
+against), this mechanism lands at 2.0-2.8% of applied N -- a real, order-of-magnitude
+improvement over both prior mechanisms' 2-8x overestimate (now roughly a 2x underestimate of
+the mean), but with a visibly narrower year-to-year range than real Cycles' own 0.1-8.1%.
+Likely cause, not chased further this round: the fit fed into the engine via `tsoil_lag` (the
+same lag-filtered soil-temperature proxy nitrification already uses, reused here rather than
+tracking a second, unlagged state variable), which necessarily smooths out some of the
+day-to-day and event-to-event temperature variability the real fit itself was measured
+against using Cycles' own unlagged topsoil temperature -- a real, disclosed basis mismatch,
+not a wrong rate law. A further round, if picked up again: refit directly against a lag-
+filtered proxy (built the same way) instead of real Cycles' own unlagged topsoil temperature,
+to remove this mismatch rather than compare two different temperature definitions.
+
+Ported into `model-validation.html`'s embedded `ENGINE_SOURCE` (the same file that already
+carries denitrification and the NH4/NO3 split, following this project's established "engine
+first, UI later... except where the developer-facing validation page is the natural home"
+pattern) with a new "Ammonia volatilization (continuous, NH4-pool-based)" checkbox fieldset,
+gated in its own copy on requiring the NH4/NO3 split to be checked too (documented in the UI
+copy, not enforced by a disabled-state guard). `engine-demo.html` was deliberately left
+untouched, matching how denitrification and the NH4/NO3 split were handled. Verified the
+embedded copy end to end: extracted `ENGINE_SOURCE` verbatim, confirmed it compiles cleanly in
+plain CPython, and reproduced the canonical script's exact numbers (grain 8.977969 Mg/ha,
+volat_pool 3.368 kg/ha / 2.25% at Rock Springs 2012, N=150) to full float precision -- both
+engines agree exactly. Confirmed via headless Chromium that the page still loads cleanly (div
+62/62, fieldset 9/9, title and checkbox present) with no new console errors beyond the two
+already-documented pre-existing ones (a CDN-unreachable network error and an "Unexpected
+number" PAGEERROR, both confirmed via `git stash` to predate this change).
