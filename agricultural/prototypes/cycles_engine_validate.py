@@ -2168,37 +2168,51 @@ def nitrification_rate(tsoil):
     return max(0.0, min(1.0, NITRIF_RMAX / (1.0 + math.exp(-NITRIF_K * (tsoil - NITRIF_T0)))))
 
 
-VOLATILIZATION_RATE_A = 7.875717e-05  # back-calculated 2026-10-02 (same session as nitrification
+VOLATILIZATION_RATE_A = 9.072474e-05  # back-calculated 2026-10-02 (same session as nitrification
 # and denitrification, same discipline, per Matt's "Ammonia volatilization" ask) from the same
 # N.txt (ContinuousCorn, Rock Springs, 150 kg N/ha broadcast UAN at DOY 110, 37 years). Computed
 # a daily implied fractional volatilization rate (NH3 VOLATILIZ today / PROF SOIL NH4 the day
 # before, n=13410 real day-samples with a non-trivial NH4 pool) and binned by topsoil soil
-# temperature (environ.txt's own shallowest SOIL TMP column -- volatilization is a surface-
-# exposure process, so topsoil rather than nitrification's own already-adequate choice was
-# checked specifically and fit better: R^2=0.994 vs 0.986 against air tmean). Unlike
-# nitrification, a plain exponential (not a saturating logistic) fits this real relationship
-# cleanly across the whole observed range (-9C to 27C, 13 bins each with >=30 real samples,
-# every bin within 25% of the fitted curve) -- there's no sign of a plateau in the real data,
-# consistent with volatilization being closer to a simple Arrhenius-type temperature response
-# than nitrification's own optimum-temperature microbial kinetics.
+# temperature. Unlike nitrification, a plain exponential (not a saturating logistic) fits this
+# real relationship cleanly across the whole observed range -- there's no sign of a plateau in
+# the real data, consistent with volatilization being closer to a simple Arrhenius-type
+# temperature response than nitrification's own optimum-temperature microbial kinetics.
+#
+# Refit against tsoil_lag (this engine's own lag-filtered soil-temperature proxy, the same one
+# nitrification already uses) rather than real Cycles' own unlagged topsoil SOIL TMP column --
+# the first version was fit against the real unlagged column, a real, disclosed basis mismatch
+# against what the engine actually evaluates the rate at. Tested directly whether closing that
+# mismatch would close the gap between this mechanism's own output (2.0-2.8% of applied N
+# across the full 37-year Rock Springs record) and real Cycles' own actual total (4.4% mean,
+# range 0.1-8.1%): it does not, meaningfully -- the lagged-proxy refit (R^2=0.991 vs the
+# unlagged fit's 0.994, essentially as good a fit) moves the engine's own output only to
+# 2.1-2.9%, barely closing a tenth of the gap. The basis mismatch was a real, testable
+# hypothesis for the shortfall; it's now ruled out as the primary cause, not confirmed as it.
+# The real remaining gap (why this mechanism's output runs roughly half of real Cycles' mean,
+# with a narrower year-to-year range than real Cycles' own 81x spread) is still open --
+# plausibly the engine's own NH4-pool trajectory (shaped by this engine's nitrification/
+# background-mineralization dynamics, not real Cycles' own) differs from real Cycles' actual
+# NH4 trajectory in a way that limits how much mass is ever exposed to volatilization, not a
+# wrong rate law for a given (NH4, temperature) pair. Kept as the refit anyway since it's the
+# more consistent choice (evaluated against the same proxy it fits), real, and at least as
+# good a fit as the version it replaces -- not reverted for a negligible-but-real improvement.
 #
 # This replaces, as the now-better-grounded mechanism, this engine's two prior volatilization
 # approximations: a flat IPCC Tier-1 default (NH3_FRAC_SYNTHETIC/NH3_FRAC_MANURE, a single
 # number regardless of weather) and the Macnack et al. 2013 per-application-day estimate
 # (soil_ph parameter), which was found, when checked against this same real Cycles record
 # (see QUESTIONS_FOR_DEVS.md), to predict roughly 37% loss at Rock Springs' real 2012
-# planting-day weather -- a 2-8x overestimate against real Cycles' own actual seasonal total
-# (4.4% of applied N, range 0.1-8.1%, across the full 37-year record). The real mechanism
-# turns out to be structurally different from either prior approximation: volatilization is
-# not a single event-day percentage lost at the moment of application, it's a slow, continuous,
-# temperature-gated daily draw on the standing NH4 pool that competes with nitrification for
-# the same pool (once NH4 nitrifies to NO3, it's no longer exposed to this loss pathway at
-# all) -- exactly why compressing it into one number applied once, at any single moment,
-# was never going to match the real multi-week dynamic. See fert_placement_implement/soil_ph
-# in simulate_season()'s own docstring: they're kept, not removed, as the documented, simpler
-# fallback for a caller running the lumped (non-split) mineral-N pool, where no real NH4 state
-# exists for this continuous mechanism to act on.
-VOLATILIZATION_RATE_B = 0.17662
+# planting-day weather -- a 2-8x overestimate against real Cycles' own actual seasonal total.
+# The real mechanism turns out to be structurally different from either prior approximation:
+# volatilization is not a single event-day percentage lost at the moment of application, it's
+# a slow, continuous, temperature-gated daily draw on the standing NH4 pool that competes with
+# nitrification for the same pool (once NH4 nitrifies to NO3, it's no longer exposed to this
+# loss pathway at all) -- exactly why compressing it into one number applied once, at any
+# single moment, was never going to match the real multi-week dynamic. See
+# fert_placement_implement/soil_ph in simulate_season()'s own docstring: they're kept, not
+# removed, as the documented, simpler fallback for a caller running the lumped (non-split)
+# mineral-N pool, where no real NH4 state exists for this continuous mechanism to act on.
+VOLATILIZATION_RATE_B = 0.17120
 
 
 def volatilization_rate(tsoil):

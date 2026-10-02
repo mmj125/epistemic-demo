@@ -3659,3 +3659,42 @@ engines agree exactly. Confirmed via headless Chromium that the page still loads
 62/62, fieldset 9/9, title and checkbox present) with no new console errors beyond the two
 already-documented pre-existing ones (a CDN-unreachable network error and an "Unexpected
 number" PAGEERROR, both confirmed via `git stash` to predate this change).
+
+Volatilization rate refit against the lag-filtered proxy, same day, per Matt's direct "Try
+refitting against the lagged proxy instead": the fix above flagged a disclosed basis mismatch
+as the likely explanation for why this mechanism's own output (2.0-2.8% of applied N across
+the full 37-year Rock Springs record) undershoots real Cycles' own actual total (4.4% mean,
+0.1-8.1% range) -- the rate was fit against Cycles' real unlagged topsoil SOIL TMP column, but
+the engine evaluates it against `tsoil_lag`, nitrification's own already-lagged proxy. Tested
+this directly rather than assumed: rebuilt the exact same real (tsoil, rate) pairing used for
+the original fit, but with `tsoil` replaced by a continuously-tracked `tsoil_lag` series (the
+same SOIL_TEMP_LAG_K=0.15 filter applied to the real Rock Springs daily tmean record, run
+start-to-end across 1980-2016, not reset per season) instead of real Cycles' own unlagged
+column. The refit (`rate = 9.072474e-05 * exp(0.17120 * tsoil_lag)`, R^2=0.991) is essentially
+as good a fit as the original (R^2=0.994) -- confirming the lagged proxy carries almost the
+same real signal, just smoothed. Run through the real engine at Rock Springs 2012 N=150: the
+refit moves the mechanism's own output from 2.0-2.8% to only 2.1-2.9% across the 37-year
+record -- the basis mismatch explains roughly a tenth of the real gap, not the bulk of it.
+
+**This is a real, decisive negative result for the basis-mismatch hypothesis**, not a
+confirmation. The much larger remaining gap (the mechanism runs at roughly half of Cycles'
+real mean, with a visibly narrower year-to-year range than Cycles' real 81x spread) is still
+unexplained. A plausible, not yet tested, candidate: this engine's own NH4 pool trajectory
+(shaped by its own nitrification/background-mineralization dynamics) likely differs from real
+Cycles' actual NH4 trajectory in magnitude or timing, limiting how much nitrogen mass is ever
+exposed to the volatilization rate in the first place -- a question about the pool's own
+history, not about the rate law applied to a given (NH4, temperature) pair at one instant.
+Checking this directly would mean comparing this engine's own day-by-day NH4 trajectory
+against real Cycles' `PROF SOIL NH4` column (already read once for the nitrification fit,
+not yet compared trajectory-to-trajectory) -- not attempted this round.
+
+Kept the refit anyway rather than reverting to the unlagged-fit version: it's the more
+internally consistent choice (fit and evaluated against the same proxy), real, and at least
+as good a fit on its own terms, even though it didn't close the hypothesized gap. Verified:
+the full regression suite and `pattern_assertions.py` (15/16) are byte-identical with
+`model_volatilization` unused; the standing tillage sanity check (N=10 gain, N=650 no-op) and
+manure/mineral equivalence both re-verified to hold under the refit; the nitrogen mass-balance
+identity still closes. Ported into `model-validation.html`'s embedded engine, confirmed to
+reproduce the canonical script's exact numbers (2012 corn @ N=150: grain 8.977969 Mg/ha,
+volat_pool 3.5184 kg/ha, 2.35%) through CPython extraction, and confirmed the page still loads
+cleanly (div 62/62, fieldset 9/9, no new console errors).
