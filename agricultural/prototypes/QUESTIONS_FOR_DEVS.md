@@ -3386,3 +3386,83 @@ sourced) -- guessing at either now would repeat exactly the mistake this whole e
 about not making. Flagged here so it isn't rediscovered as a surprise if multi-year carryover
 work resumes; the single-season, no-carryover default path (used by every currently-validated
 crop, wheat included) is completely unaffected by this finding.
+
+Resolved without asking, 2026-10-02 (direct continuation of the same session, per the
+direct instruction "let's be modelers and solve the problem from available data or solvable
+math"): checked whether N.txt (the same file already mined for MINERALIZATION/
+IMMOBILIZATION/NET MINERALIZ in the sixpool work above) also carries real daily nitrogen-loss
+fluxes this engine had never looked at. It does -- "NH4 NITRIFICAT", "N2O FROM NITRIF",
+"NH3 VOLATILIZ", "NO3 DENITRIF", "N2O FROM DENIT" are all literal real daily output columns,
+sitting in the same already-parsed file. This directly contradicts the earlier "confirmed
+absent" framing for nitrification/denitrification/volatilization (item 8's own original text,
+2026-09-18/09-23) -- that framing was checking whether the PAPER/SI disclose the EQUATIONS
+(they don't), not whether real NUMBERS for these processes exist in Cycles' own committed
+output (they do, and have the whole time).
+
+Two real findings came out of mining this data directly:
+
+1. **This engine's ammonia volatilization mechanism is likely overestimating loss by 2-8x for
+the fertilizer/placement combination it's actually validated against.** Real Cycles' own
+seasonal VOLATILIZATION total (annualN.txt, ContinuousCorn, 150 kg N/ha broadcast UAN, 37
+years) averages 4.4% of applied N (range 0.1-8.1%). The flat IPCC Tier-1 default this engine
+uses is 10% flat; the Macnack et al. 2013 weather-driven alternative can estimate up to 37%
+on a warm, windy day (the exact Rock Springs 2012 case already flagged in item 8's own prior
+text as "a real but high 37% loss... not independently checked against a real field
+measurement"). It's now checked, against the real disclosed ground truth for this exact
+scenario, and both existing mechanisms read several times too high. Not yet recalibrated --
+flagged here rather than fixed blind, since the right fix (scale down the existing mechanisms?
+replace them with something fit directly to this real total?) wasn't decided this round.
+
+2. **A real denitrification mechanism was built where none existed before.** Computed a daily
+implied fractional rate (NO3 DENITRIF / PROF SOIL NO3) for every real day with a measurable
+NO3 pool (n=13372, ContinuousCorn, Rock Springs, 37 years), then regressed ln(rate) against
+ln(soil moisture) separately for all 9 real soil layers before picking one:
+
+| layer | n | k0 | exponent | r^2 |
+|---|---|---|---|---|
+| 1 (topsoil) | 13283 | 0.017242 | 3.469 | 0.175 |
+| 2 | 13283 | 0.051717 | 4.369 | **0.314** |
+| 3 | 13283 | 0.026896 | 3.828 | 0.302 |
+| 4 | 13283 | 0.028019 | 4.382 | 0.220 |
+| 5-9 | 13283 | (falling) | | 0.111 down to 0.026 |
+
+Layer 2 fits meaningfully better than layer 1 (topsoil) and is physically sensible: topsoil
+dries fastest via evaporation/transpiration, so the layer just below it stays wetter longer,
+closer to the sustained anaerobic microsites denitrification actually needs. Final rate law:
+`rate = 0.051717 * theta^4.369` applied to the layer-2 moisture. A real, clean, monotonically
+increasing relationship (near-zero at theta~0.13, rising sharply above ~0.33) -- the classic
+anaerobic-microsite shape -- though noisier than this project's other back-calculated rate
+constants, and one that pairs a profile-WIDE NO3 pool against a single layer's own moisture, a
+real mismatch disclosed here, not hidden.
+
+Checked against the real independent seasonal total it should reproduce (annualN.txt's own
+DENITRIFICATION column, mean 6.62% of applied N, range 1.4-11.4%): this mechanism's own output
+across four spot-checked years is 1980=6.3%, 1996=10.6%, 2012=6.9%, 2016=5.8% -- squarely
+inside the real range, and close on 2012 specifically (6.9% modeled vs. 9.465 kg/6.3% real),
+though not an exact per-year match (1980 overshoots the real 1.4% by a wide margin). A real,
+substantial improvement over having zero mechanism at all, not a precise reproduction.
+
+Implemented as a new opt-in `model_denitrification` parameter on `simulate_season()` (default
+False, byte-identical to this parameter not existing -- verified against the full regression
+suite, all four crops and all 16 pattern checks unchanged). Applied to the whole lumped
+mineral-N pool as a daily fractional loss (this engine has no NH4/NO3 split, so the real
+rate -- fit against Cycles' own NO3-specific pool -- is applied to the combined pool as a
+disclosed simplification, the same treatment leaching's own lumped-pool branch already gives
+this exact pool for the exact same reason). Mass balance re-verified exact
+(uptake+leached+remaining+denitrified=supply, to machine precision) and the standing
+tillage-sanity and manure-availability-equivalence checks both re-confirmed to still pass with
+it active (re-tested at a genuinely nitrogen-limiting rate, N=0-20 -- N=50, used in earlier
+sanity checks, is no longer limiting after the day-by-day nitrogen mechanism's own 2026-09-28
+demand-scaling fix, a stale assumption caught and corrected mid-verification, not a new bug).
+Ported into `model-validation.html`'s embedded engine and wired into a new "Denitrification"
+UI fieldset there (the dev-facing page); `engine-demo.html` untouched, matching the project's
+"engine first, UI later" pattern for an unpromoted mechanism.
+
+Not done this round: the volatilization overestimate found above is flagged, not fixed --
+recalibrating or replacing the existing mechanism against this real ground truth is a natural
+next step. Nitrification itself (NH4->NO3 conversion) was not fitted or implemented, since this
+engine's lumped pool has no NH4/NO3 distinction for it to convert between; it would only become
+load-bearing if the pool were ever split into real NH4/NO3 sub-pools, a larger structural
+change not undertaken this round. N2O emissions (both FROM NITRIF and FROM DENIT, also real
+daily columns in N.txt) were not pursued -- no classroom or validation use identified for them
+yet.

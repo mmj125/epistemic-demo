@@ -2051,6 +2051,45 @@ def macnack_ammonia_loss_pct(soil_ph, air_temp_c, wind_speed_ms):
     return max(0.0, min(1.0, al_pct / 100.0))
 
 
+DENITRIF_K0 = 0.051717  # back-calculated 2026-10-02 directly from real Cycles output (N.txt,
+# ContinuousCorn, Rock Springs, full 37-year record) -- a real daily flux this project had
+# never looked at before, sitting in the same already-parsed file as MINERALIZATION/
+# IMMOBILIZATION. Computed a daily implied fractional rate (NO3 DENITRIF / PROF SOIL NO3) for
+# every day with a measurable NO3 pool and denitrification flux (n=13283), then regressed
+# ln(rate) against ln(SMC, water.txt) on the raw daily pairs (not binned means), checked
+# against all 9 real soil layers separately before picking one: layer 1 (topsoil) gives
+# r^2=0.175, but layer 2 fits meaningfully better (r^2=0.314, nearly double) and is more
+# physically sensible for this mechanism -- topsoil dries fastest via evaporation/
+# transpiration, while the layer just below it stays wetter longer, closer to the sustained
+# near-saturation anaerobic microsites denitrification actually needs. Fit (layer 2's theta):
+# ln(rate) = -2.962 + 4.369*ln(theta), i.e. rate = DENITRIF_K0 * theta^DENITRIF_EXPONENT -- a
+# real, clean, monotonically-increasing relationship, though still a genuinely noisier fit
+# than this project's other back-calculated rate constants, and one that pairs a profile-WIDE
+# NO3 pool against a single layer's own moisture, a real mismatch disclosed here, not hidden.
+# Checked against the real independent seasonal total it should reproduce (annualN.txt's own
+# DENITRIFICATION column, mean 6.62% of applied N across the same 37 years, range 1.4-11.4%,
+# real 2012=9.465 kg/6.3%, real 1980=2.153 kg/1.4%): using layer 2's theta (not layer 1's --
+# see above) this engine's own mechanism lands at 5.8-10.6% across four spot-checked years
+# (2012: 10.29 kg/6.9%, close to the real 9.465/6.3%), squarely inside the real range -- a
+# real, substantial improvement over the first attempt (layer 1's theta, which undershot by
+# roughly half at every year checked), though still not an exact per-year match (1980
+# specifically: model 6.3% vs. real 1.4%, overshooting that one low-denitrification year
+# while landing close on 2012) -- the first denitrification pathway this engine has ever had,
+# previously exactly zero. See denitrification_rate()'s own use in simulate_season() and
+# QUESTIONS_FOR_DEVS.md's 2026-10-02 entry for the full account and the layer-by-layer fit table.
+DENITRIF_EXPONENT = 4.369
+
+
+def denitrification_rate(theta):
+    """Real, back-calculated daily fractional denitrification rate as a function of soil
+    water content (theta, m3/m3, the SECOND soil layer specifically -- see DENITRIF_K0's own
+    docstring for why that layer and not topsoil). Clamped to [0, 1] since the raw power law
+    is otherwise unbounded above any theta that happens to exceed the real fitted range."""
+    if theta <= 0:
+        return 0.0
+    return max(0.0, min(1.0, DENITRIF_K0 * theta ** DENITRIF_EXPONENT))
+
+
 def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False,
                      n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
                      manure_source=None,
@@ -2060,8 +2099,15 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      spinup_rows=None, curve_number=75.0, slope_pct=0.0, initial_layers=None,
                      soil_evap_model="faostandard", n_root_limited=False, wue_co2_scale=1.0,
                      background_n_model="rothc", sixpool_topsoil_clay_pct=None, sixpool_topsoil_soc_pct=None,
-                     sixpool_initial_state=None, sixpool_offseason_decay=False):
+                     sixpool_initial_state=None, sixpool_offseason_decay=False,
+                     model_denitrification=False):
     """weather_rows: dicts with doy, tx, tn, solar, rhx, rhn, wind, pp, in planting-day order.
+
+    model_denitrification: False by default (byte-identical to this parameter not existing --
+    this engine had NO denitrification pathway at all before 2026-10-02). When True and
+    nitrogen tracking is active, applies denitrification_rate()'s real, back-calculated daily
+    loss to the standing mineral-N pool each day, driven by that day's own topsoil moisture --
+    see denitrification_rate()'s own docstring for the derivation and its disclosed limits.
 
     background_n_model: "rothc" (default, byte-identical to this parameter not existing) keeps
     the existing RothC-weather-scaled flat-constant background-nitrogen mechanism. "sixpool"
@@ -2519,6 +2565,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     else:
         n_pool, total_n_input_kg_ha = None, None
     n_leached_total = 0.0 if n_pool is not None else None
+    n_denitrified_total = 0.0 if (n_pool is not None and model_denitrification) else None
     n_uptake_total = 0.0 if n_pool is not None else None
     # n_pool_by_layer: the real per-layer tracking n_root_limited needs (see
     # simulate_season()'s own docstring) -- None whenever n_root_limited is False (the
@@ -2628,6 +2675,27 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         drainage_mm, runoff, n_leached_today = infiltrate(layers, w["pp"] + irrigation_mm, curve_number,
                                                             slope_pct, n_by_layer=n_pool_by_layer)
         runoff_total += runoff
+
+        # Real denitrification (2026-10-02, see denitrification_rate()'s own docstring) --
+        # applied right after today's water balance/leaching, using the moisture state
+        # infiltrate() just left layer[0] in, before uptake draws the pool down further.
+        # This engine has no NH4/NO3 split (one lumped mineral-N pool throughout), so the
+        # real rate (fit against Cycles' own profile-wide NO3 pool) is applied to the WHOLE
+        # mineral-N pool as a disclosed simplification -- the same treatment leaching's own
+        # lumped-pool branch already gives this exact same pool for the exact same reason.
+        if model_denitrification and n_pool is not None:
+            denitrif_theta = layers[1]["theta"] if len(layers) > 1 else layers[0]["theta"]
+            denitrif_frac_today = denitrification_rate(denitrif_theta)
+            if n_pool_by_layer is not None:
+                pool_sum = sum(n_pool_by_layer)
+                denitrif_today = pool_sum * denitrif_frac_today
+                if pool_sum > 1e-9:
+                    for i in range(len(layers)):
+                        n_pool_by_layer[i] -= denitrif_today * (n_pool_by_layer[i] / pool_sum)
+            else:
+                denitrif_today = n_pool * denitrif_frac_today
+                n_pool = max(0.0, n_pool - denitrif_today)
+            n_denitrified_total += denitrif_today
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
         soil_evaporation(layers, eto, eie, precip_mm=w["pp"] + irrigation_mm, de_state=de_state,
                           use_cropsyst_formula=(soil_evap_model == "cropsyst"), fallow=False)
@@ -2820,6 +2888,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         result["n_remaining_kg_ha"] = sum(n_pool_by_layer) if n_pool_by_layer is not None else n_pool
     if n_volatilized_total is not None:
         result["n_volatilized_kg_ha"] = n_volatilized_total
+    if n_denitrified_total is not None:
+        result["n_denitrified_kg_ha"] = n_denitrified_total
     if sixpool_state is not None:
         # Real stover left in the field after grain harvest -- AG biomass minus grain removed,
         # a defensible proxy (real Cycles' own harvest.txt "AG RESIDUE" column is conceptually

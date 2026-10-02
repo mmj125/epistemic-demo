@@ -156,6 +156,12 @@
     </fieldset>
 
     <fieldset>
+      <legend>Denitrification</legend>
+      <div class="subfield"><label><input type="checkbox" id="fcDenitrif"> Model denitrification loss</label></div>
+      <div class="sweep-note">This engine had NO denitrification pathway at all until 2026-10-02. Rate is back-calculated directly from Cycles' own N.txt output (ContinuousCorn, Rock Springs) -- a daily implied fractional loss (NO3 DENITRIF &divide; PROF SOIL NO3) regressed against soil layer 2's moisture: rate = 0.051717 &middot; theta^4.369. Checked against the real independent seasonal total it should reproduce (annualN.txt's own DENITRIFICATION column, mean 6.62% of applied N across 37 years, range 1.4-11.4%): this mechanism lands at 5.8-10.6% across spot-checked years, inside the real range but not an exact per-year match. See QUESTIONS_FOR_DEVS.md's 2026-10-02 entry and the engine's own DENITRIF_K0 docstring for the full derivation, including why layer 2's moisture fits better than layer 1's.</div>
+    </fieldset>
+
+    <fieldset>
       <legend>Planting date</legend>
       <div class="subfield"><label><input type="checkbox" id="fcPlantOverride"> Override the computed planting date</label></div>
       <div class="controls" id="fcPlantRow" style="display:none;">
@@ -621,6 +627,35 @@
       none of the four validated crops' correlations moved, since neither harness passes it) and
       mass-balance-exact (supply = uptake + leached + remaining + volatilized, checked to 4
       decimals). Still no UI wiring in any panel.</p>
+      <p><strong>Third update, 2026-10-02:</strong> checked whether real Cycles output could ground
+      volatilization and denitrification directly, rather than continuing to rely on external
+      literature (IPCC/Macnack) for volatilization and having nothing at all for denitrification.
+      <code>N.txt</code> (ContinuousCorn, Rock Springs) turns out to carry real DAILY
+      <code>NH3 VOLATILIZ</code> and <code>NO3 DENITRIF</code> flux columns, sitting in the same
+      already-parsed file as MINERALIZATION/IMMOBILIZATION, never looked at before. Two real
+      findings came out of mining them:</p>
+      <p>(1) Real Cycles' own seasonal <code>VOLATILIZATION</code> total (annualN.txt, same 150 kg
+      N/ha broadcast UAN scenario, 37 years) averages 4.4% of applied N (range 0.1&ndash;8.1%) &mdash;
+      far below the flat IPCC 10% default this engine uses, and nowhere near the up-to-37% a warm,
+      windy Macnack-model day can estimate. This engine's own volatilization mechanism is likely
+      overestimating loss by 2&ndash;8x for this real fertilizer/placement combination; not yet
+      recalibrated against this real ground truth, flagged here rather than fixed blind.</p>
+      <p>(2) Denitrification had no mechanism at all before this. A daily implied fractional rate
+      (NO3 DENITRIF &divide; PROF SOIL NO3) regressed cleanly against soil moisture across all 9 real
+      soil layers; layer 2's theta fit best (r&sup2;=0.314, vs. 0.175 for topsoil) and is physically
+      sensible (topsoil dries fastest via evaporation/transpiration, the layer just below it stays
+      wetter longer, closer to the sustained anaerobic microsites denitrification needs): rate =
+      0.051717&middot;theta<sup>4.369</sup>. Checked against the real independent seasonal total
+      (annualN.txt's own DENITRIFICATION column, mean 6.62% of applied N, range 1.4&ndash;11.4%):
+      this engine's own mechanism lands at 5.8&ndash;10.6% across four spot-checked years, inside the
+      real range (2012 specifically: 6.9% modeled vs. 9.465 kg/6.3% real, a close match) but not an
+      exact per-year fit (1980: 6.3% modeled vs. 1.4% real). New opt-in <code>model_denitrification</code>
+      parameter (default False, byte-identical when unused), exposed in this page's own "Denitrification"
+      fieldset above. Mass balance re-verified exact (uptake+leached+remaining+denitrified=supply,
+      checked to machine precision) and the standing tillage/manure sanity checks both re-confirmed
+      to still pass with it active. No UI wiring in <code>engine-demo.html</code> &mdash; engine only,
+      matching this project's standard pattern for an unpromoted mechanism. See QUESTIONS_FOR_DEVS.md's
+      2026-10-02 entry for the full layer-by-layer fit comparison and the real per-year numbers.</p>
     </details>
     <details class="gap">
       <summary>9. Nitrogen is one mineral-N balance, not the real six-pool carbon/nitrogen system</summary>
@@ -2383,6 +2418,19 @@ def macnack_ammonia_loss_pct(soil_ph, air_temp_c, wind_speed_ms):
     al_pct = -40.7 + 8.43 * soil_ph + 3.85 * wind_speed_ms + 0.33 * air_temp_c
     return max(0.0, min(1.0, al_pct / 100.0))
 
+# Real, back-calculated 2026-10-02 from Cycles' own N.txt output (ContinuousCorn, Rock
+# Springs) -- see cycles_engine_validate.py's own DENITRIF_K0 docstring for the full
+# derivation, the layer-by-layer fit comparison, and the real validation against
+# annualN.txt's own DENITRIFICATION total. This engine had no denitrification pathway at
+# all before this.
+DENITRIF_K0 = 0.051717
+DENITRIF_EXPONENT = 4.369
+
+def denitrification_rate(theta):
+    if theta <= 0:
+        return 0.0
+    return max(0.0, min(1.0, DENITRIF_K0 * theta ** DENITRIF_EXPONENT))
+
 def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False,
                      n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
                      manure_source=None,
@@ -2391,7 +2439,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      fert_placement_implement=None, soil_ph=None,
                      spinup_rows=None, curve_number=75.0, slope_pct=0.0, initial_layers=None,
                      soil_evap_model="faostandard", n_root_limited=False, wue_co2_scale=1.0,
-                     background_n_model="rothc", sixpool_topsoil_clay_pct=None, sixpool_topsoil_soc_pct=None):
+                     background_n_model="rothc", sixpool_topsoil_clay_pct=None, sixpool_topsoil_soc_pct=None,
+                     model_denitrification=False):
     # n_root_limited (default False, byte-identical when unused): real CropSyst nitrogen
     # uptake (Stockle, Martin & Campbell 1994, Eq. 26) is min(demand, potential_uptake), not
     # demand alone. Tracks nitrogen per soil layer (n_pool_by_layer) instead of one lumped
@@ -2530,6 +2579,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     else:
         n_pool, total_n_input_kg_ha = None, None
     n_leached_total = 0.0 if n_pool is not None else None
+    n_denitrified_total = 0.0 if (n_pool is not None and model_denitrification) else None
     n_uptake_total = 0.0 if n_pool is not None else None
     # n_pool_by_layer: real per-layer tracking for n_root_limited. None whenever that flag
     # is False (the default) or nitrogen tracking is off entirely -- every existing caller
@@ -2587,6 +2637,20 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         drainage_mm, runoff, n_leached_today = infiltrate(layers, w["pp"] + irrigation_mm, curve_number,
                                                             slope_pct, n_by_layer=n_pool_by_layer)
         runoff_total += runoff
+
+        if model_denitrification and n_pool is not None:
+            denitrif_theta = layers[1]["theta"] if len(layers) > 1 else layers[0]["theta"]
+            denitrif_frac_today = denitrification_rate(denitrif_theta)
+            if n_pool_by_layer is not None:
+                pool_sum = sum(n_pool_by_layer)
+                denitrif_today = pool_sum * denitrif_frac_today
+                if pool_sum > 1e-9:
+                    for i in range(len(layers)):
+                        n_pool_by_layer[i] -= denitrif_today * (n_pool_by_layer[i] / pool_sum)
+            else:
+                denitrif_today = n_pool * denitrif_frac_today
+                n_pool = max(0.0, n_pool - denitrif_today)
+            n_denitrified_total += denitrif_today
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
         soil_evaporation(layers, eto, eie, precip_mm=w["pp"] + irrigation_mm, de_state=de_state,
                           use_cropsyst_formula=(soil_evap_model == "cropsyst"), fallow=False)
@@ -2709,6 +2773,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     result = dict(total=biomass_mg_ha, ag=ag_biomass_mg_ha, grain=grain_mg_ha, runoff_mm=runoff_total)
     if n_leached_total is not None:
         result["n_leached_kg_ha"] = n_leached_total
+    if n_denitrified_total is not None:
+        result["n_denitrified_kg_ha"] = n_denitrified_total
     if irrigation_trigger_frac is not None:
         result["irrigation_mm"] = irrigation_total_mm
     if record_history:
@@ -3345,6 +3411,7 @@ async function runFullSimulation(p) {
   pyodide.globals.set("fc_tillage", p.tillage || "");
   pyodide.globals.set("fc_plant_override", p.plantOverride === null ? "" : String(p.plantOverride));
   pyodide.globals.set("fc_bg_model", p.bgModel || "rothc");
+  pyodide.globals.set("fc_denitrif", p.denitrif ? "1" : "");
 
   const out = await pyodide.runPythonAsync(`
 import json as _json
@@ -3377,6 +3444,7 @@ _fc_res = simulate_season(
     irrigation_trigger_frac=_fc_irrig_trigger, irrigation_amount_mm=float(fc_irrig_amount),
     tillage_doy=(_fc_plant_doy if _fc_tillage_val else None), tillage_implement=_fc_tillage_val,
     tillage_clay_frac=_fc_tillage_clay,
+    model_denitrification=bool(fc_denitrif),
     record_history=True, **_fc_bg_kwargs,
 )
 _fc_out = {"plant_doy": _fc_plant_doy, **_fc_res}
@@ -3401,6 +3469,7 @@ document.getElementById("fcRunBtn").addEventListener("click", async () => {
     const nRate = nSplit ? null : parseFloat(document.getElementById("fcNRate").value);
     const irrigOn = document.getElementById("fcIrrigOn").checked;
     const plantOn = document.getElementById("fcPlantOverride").checked;
+    const denitrifOn = document.getElementById("fcDenitrif").checked;
 
     const params = {
       wxYear, soilLayers: currentSite.layers, cropKey: cropSelect.value,
@@ -3412,6 +3481,7 @@ document.getElementById("fcRunBtn").addEventListener("click", async () => {
       tillage: document.getElementById("fcTillage").value,
       plantOverride: plantOn ? parseInt(document.getElementById("fcPlantDoy").value, 10) : null,
       bgModel: document.getElementById("fcBgModel").value,
+      denitrif: denitrifOn,
     };
     const res = await runFullSimulation(params);
 
@@ -3422,7 +3492,10 @@ document.getElementById("fcRunBtn").addEventListener("click", async () => {
 
     const massBalance = document.getElementById("fcMassBalance");
     if ("n_uptake_kg_ha" in res) {
-      massBalance.innerHTML = `Nitrogen: uptake ${res.n_uptake_kg_ha.toFixed(1)} kg/ha &middot; leached ${res.n_leached_kg_ha.toFixed(1)} kg/ha &middot; remaining in soil ${res.n_remaining_kg_ha.toFixed(1)} kg/ha (should sum to total supply: applied + credit + manure*0.5 + background mineralization).`;
+      let nbal = `Nitrogen: uptake ${res.n_uptake_kg_ha.toFixed(1)} kg/ha &middot; leached ${res.n_leached_kg_ha.toFixed(1)} kg/ha`;
+      if ("n_denitrified_kg_ha" in res) nbal += ` &middot; denitrified ${res.n_denitrified_kg_ha.toFixed(1)} kg/ha`;
+      nbal += ` &middot; remaining in soil ${res.n_remaining_kg_ha.toFixed(1)} kg/ha (should sum to total supply: applied + credit + manure*0.5 + background mineralization).`;
+      massBalance.innerHTML = nbal;
     } else {
       massBalance.textContent = "No nitrogen tracked for this run (legume, or no rate/credit/manure set).";
     }
