@@ -3530,3 +3530,66 @@ real, different lag of their own); `sixpool_initial_state` multi-year carryover 
 an exploratory, unshipped feature (no UI anywhere exposes it) -- this fix makes it behave
 correctly when exercised directly, but promoting it to a real, UI-exposed feature is a
 separate decision not made this round.
+
+Resolved without asking, 2026-10-02 (same day, per Matt's "I trust your call to keep going
+after ropes that improve our model"): built a real NH4/NO3 split for the mineral-N pool,
+where every nitrogen mechanism before this applied to one lumped pool as a disclosed
+simplification. Checked whether that simplification actually matters by reading N.txt's own
+NH4-side columns (PROF SOIL NH4, NH4 NITRIFICAT) for the first time this session, having
+already mined its NO3-side columns for denitrification -- and found a real, decisive answer:
+cumulative NH4 leaching across the full 37-year Rock Springs record is 0.39 kg/ha against
+43.18 kg/ha of NO3 leaching, under 1% of the total. Real Cycles treats NH4 as essentially
+non-leachable, exactly as real soil chemistry predicts (NH4+ is a cation held by the soil's
+cation-exchange capacity; NO3- is the mobile anion) -- but this engine's existing leaching
+formula applied the same drainage-proportional ratio to the WHOLE pool, meaning freshly
+applied fertilizer N (still almost entirely NH4, not yet nitrified) was modeled as
+immediately as leachable as long-standing NO3.
+
+Fixed by splitting the mineral-N pool into real n_nh4/n_no3 sub-pools, linked by a real,
+back-calculated nitrification rate. Computed a daily implied fractional rate (NH4 NITRIFICAT
+today / PROF SOIL NH4 yesterday, n=13495 real day-samples with a non-trivial NH4 pool) and
+binned by soil temperature (environ.txt's own topsoil SOIL TMP): a real, clean, monotonically
+increasing relationship from ~0.02% at 4C to ~14.6% at 18C. A plain exponential (the same
+family tried first for denitrification) overshoots badly once fit across the observed range;
+a saturating logistic (Rmax/(1+exp(-k*(T-T0))), Rmax=0.145, k=0.46, T0=13.2) fits far better,
+both physically expected and numerically decisive. Disclosed limitation found while fitting,
+not assumed: a meaningful NH4 pool (>0.5 kg N/ha) never once coincides with a soil temperature
+above ~17.1C anywhere in this real 37-year record -- a spring application is already nitrified
+away by the time soil gets genuinely warm -- so this fit is reliable in the 4-17C range it was
+actually measured in, not verified at a hotter climate or a mid-summer manure event. Soil
+temperature itself is tracked day by day inside the day loop via the same already-validated
+lag filter `simulate_soil_temp()` uses for planting-date determination (SOIL_TEMP_LAG_K=0.15),
+since the engine otherwise only ever carries air tmean.
+
+Implementation: fresh N (dated applications, background mineralization, manure, previous-crop
+credit) all land in the NH4 pool, matching how each form actually enters the soil (urea/UAN/
+anhydrous hydrolyze/dissociate to NH4 first; organic-matter mineralization is ammonification,
+NH4 by definition). Denitrification (when enabled) and leaching both draw from the NO3 pool
+only; uptake draws from both pools proportionally to their current size (no real preference
+disclosed or assumed). Shipped as a new opt-in `nh4_no3_split` parameter on `simulate_season()`
+(default False, byte-identical when unused -- verified against the full regression suite, all
+four crops and 15/16 pattern checks unchanged), deliberately mutually exclusive with
+`n_root_limited` (the per-layer path) rather than compounding two large changes into the same
+pass -- if both are set, nh4_no3_split is silently ignored.
+
+Verified: grain yield is completely unaffected at every rate/year tested (the fix only
+redistributes which loss pathway sees which nitrogen, not the total pool size or growth
+dynamics) -- but leaching drops a real, meaningful amount once a realistic antecedent-moisture
+scenario (spinup_rows) actually produces drainage: Rock Springs 1996, N=150, 15.95 kg N/ha
+leached without the split vs. 13.20 kg N/ha with it (~17% less), fresh N correctly getting a
+few real days to nitrify before leaching can act on it. The nitrogen mass-balance identity
+(uptake+leached+denitrified+remaining=supply) still closes exactly with the split active. The
+standing tillage sanity check was re-verified at a genuinely limiting rate (N=10, per the
+2026-09-28 demand-scaling fix that moved the real limiting range down from N=50): no-till 6.75
+vs. moldboard 7.48 Mg/ha, and ~zero difference at N=650 (8.978 both) -- passes with the split
+active. The manure/mineral 0.5-availability equivalence check also still holds exactly (200
+kg/ha manure = 100 kg/ha mineral, byte-identical) with the split active.
+
+Ported into `model-validation.html`'s embedded engine with a new "NH4/NO3 form split" UI
+fieldset there, mirroring denitrification's own placement and copy style; `engine-demo.html`
+untouched, matching this project's "engine first, UI later" pattern for an unpromoted
+mechanism. Not done this round: `n_nh4`/`n_no3` tracking under the per-layer `n_root_limited`
+path (deliberately scoped out, to keep this change bounded); any attempt to recalibrate the
+existing ammonia-volatilization mechanisms (the flat IPCC default, the Macnack weather-driven
+model) against the real 4.4%-mean volatilization finding already logged above -- still flagged
+there, not acted on this round either.

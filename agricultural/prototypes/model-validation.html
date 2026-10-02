@@ -162,6 +162,12 @@
     </fieldset>
 
     <fieldset>
+      <legend>NH4/NO3 form split</legend>
+      <div class="subfield"><label><input type="checkbox" id="fcNh4No3"> Split the mineral-N pool into NH4 and NO3</label></div>
+      <div class="sweep-note">Every mechanism above (denitrification, leaching) applies to ONE lumped mineral-N pool as a disclosed simplification. Checking Cycles' own N.txt directly (2026-10-02) found that's a real mismatch for leaching specifically: NH4 leaching is under 1% of total leaching across the full 37-year Rock Springs record (NO3 43.18 kg/ha vs. NH4 0.39 kg/ha) -- real Cycles treats NH4 as essentially non-leachable, as real soil chemistry predicts (NH4+ is held by the soil's cation-exchange capacity; NO3- is the mobile anion). With this checked, fresh N (an application, background mineralization, manure, a previous-crop credit) lands in a real NH4 pool and nitrifies to NO3 over time at a rate back-calculated the same way denitrification's own was (NH4 NITRIFICAT &divide; PROF SOIL NH4, binned by soil temperature -- a real logistic in temperature, Rmax=0.145/day, reliable only in the 4-17&deg;C range this record's own NH4 pools ever actually occur in). Denitrification and leaching then draw from NO3 only; uptake draws from both. Verified: grain yield is unaffected (uptake/growth dynamics don't change), but leaching drops a real, meaningful amount in a wet year with real antecedent soil moisture (Rock Springs 1996, N=150: 15.95&rarr;13.20 kg N/ha) -- fresh N correctly gets a few real days to nitrify before either loss pathway can act on it. See QUESTIONS_FOR_DEVS.md's 2026-10-02 entry.</div>
+    </fieldset>
+
+    <fieldset>
       <legend>Planting date</legend>
       <div class="subfield"><label><input type="checkbox" id="fcPlantOverride"> Override the computed planting date</label></div>
       <div class="controls" id="fcPlantRow" style="display:none;">
@@ -2473,6 +2479,17 @@ def denitrification_rate(theta):
         return 0.0
     return max(0.0, min(1.0, DENITRIF_K0 * theta ** DENITRIF_EXPONENT))
 
+# Real, back-calculated 2026-10-02 from Cycles' own N.txt output (NH4 NITRIFICAT / PROF SOIL
+# NH4, binned by soil temperature) -- see cycles_engine_validate.py's own NITRIF_RMAX
+# docstring for the full derivation and its disclosed 4-17C validity range.
+NITRIF_RMAX = 0.145
+NITRIF_K = 0.46
+NITRIF_T0 = 13.2
+SOIL_TEMP_LAG_K = 0.15
+
+def nitrification_rate(tsoil):
+    return max(0.0, min(1.0, NITRIF_RMAX / (1.0 + math.exp(-NITRIF_K * (tsoil - NITRIF_T0)))))
+
 def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False,
                      n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
                      manure_source=None,
@@ -2482,7 +2499,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      spinup_rows=None, curve_number=75.0, slope_pct=0.0, initial_layers=None,
                      soil_evap_model="faostandard", n_root_limited=False, wue_co2_scale=1.0,
                      background_n_model="rothc", sixpool_topsoil_clay_pct=None, sixpool_topsoil_soc_pct=None,
-                     model_denitrification=False):
+                     model_denitrification=False, nh4_no3_split=False):
     # n_root_limited (default False, byte-identical when unused): real CropSyst nitrogen
     # uptake (Stockle, Martin & Campbell 1994, Eq. 26) is min(demand, potential_uptake), not
     # demand alone. Tracks nitrogen per soil layer (n_pool_by_layer) instead of one lumped
@@ -2630,6 +2647,12 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     if n_pool is not None and n_root_limited:
         n_pool_by_layer = [0.0] * len(layers)
         n_pool_by_layer[0] = n_pool
+    # NH4/NO3 split (2026-10-02) -- see simulate_season()'s own nh4_no3_split docstring in
+    # cycles_engine_validate.py for the full account. Mutually exclusive with n_root_limited.
+    n_nh4 = n_pool if (n_pool is not None and nh4_no3_split and n_pool_by_layer is None) else None
+    n_no3 = 0.0 if n_nh4 is not None else None
+    tsoil_lag = ((weather_rows[0]["tx"] + weather_rows[0]["tn"]) / 2.0
+                 if (n_nh4 is not None and weather_rows) else None)
     irrigation_total_mm = 0.0
     history = [] if record_history else None
 
@@ -2680,6 +2703,13 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                                                             slope_pct, n_by_layer=n_pool_by_layer)
         runoff_total += runoff
 
+        if n_nh4 is not None:
+            _tmean_today = (w["tx"] + w["tn"]) / 2.0
+            tsoil_lag = tsoil_lag + SOIL_TEMP_LAG_K * (_tmean_today - tsoil_lag)
+            nitrif_amt_today = n_nh4 * nitrification_rate(tsoil_lag)
+            n_nh4 -= nitrif_amt_today
+            n_no3 += nitrif_amt_today
+
         if model_denitrification and n_pool is not None:
             denitrif_theta = layers[1]["theta"] if len(layers) > 1 else layers[0]["theta"]
             denitrif_frac_today = denitrification_rate(denitrif_theta)
@@ -2689,6 +2719,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 if pool_sum > 1e-9:
                     for i in range(len(layers)):
                         n_pool_by_layer[i] -= denitrif_today * (n_pool_by_layer[i] / pool_sum)
+            elif n_no3 is not None:
+                denitrif_today = n_no3 * denitrif_frac_today
+                n_no3 = max(0.0, n_no3 - denitrif_today)
             else:
                 denitrif_today = n_pool * denitrif_frac_today
                 n_pool = max(0.0, n_pool - denitrif_today)
@@ -2722,6 +2755,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             if w["doy"] in applications_by_doy:
                 if n_pool_by_layer is not None:
                     n_pool_by_layer[0] += applications_by_doy[w["doy"]]
+                elif n_nh4 is not None:
+                    n_nh4 += applications_by_doy[w["doy"]]
                 else:
                     n_pool += applications_by_doy[w["doy"]]
             if background_n_model == "sixpool":
@@ -2738,6 +2773,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 # not because a negative value is itself wrong.
                 if n_pool_by_layer is not None:
                     n_pool_by_layer[0] = max(0.0, n_pool_by_layer[0] + background_today)
+                elif n_nh4 is not None:
+                    n_nh4 = max(0.0, n_nh4 + background_today)
                 else:
                     n_pool = max(0.0, n_pool + background_today)
             elif dGB_water_limited > 0:
@@ -2746,10 +2783,14 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 background_today = BACKGROUND_N_KG_HA_DAY * (1.0 + tillage_ft(tillage_dr, tillage_ftx_val)) * weather_factor
                 if n_pool_by_layer is not None:
                     n_pool_by_layer[0] += background_today
+                elif n_nh4 is not None:
+                    n_nh4 += background_today
                 else:
                     n_pool += background_today
             if n_pool_by_layer is not None:
                 n_pool = sum(n_pool_by_layer)
+            elif n_nh4 is not None:
+                n_pool = n_nh4 + n_no3
             # 2026-09-28 fix: biomass is already Mg/ha (what n_critical_pct/n_marginal_demand_pct
             # want) -- the old biomass*10 here plus a duplicate *10 in demand_today_kg_ha below
             # inflated daily N demand ~10x, capping corn's N-tracking path at the same yield
@@ -2774,6 +2815,17 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     for i in range(len(layers)):
                         n_pool_by_layer[i] -= n_uptake_kg_ha * (accessible_n[i] / potential_uptake_kg_ha)
                 n_leached_total += n_leached_today
+            elif n_nh4 is not None:
+                n_uptake_kg_ha = min(n_pool, demand_today_kg_ha)
+                if n_pool > 1e-9:
+                    n_nh4 = max(0.0, n_nh4 - n_uptake_kg_ha * (n_nh4 / n_pool))
+                    n_no3 = max(0.0, n_no3 - n_uptake_kg_ha * (n_no3 / n_pool))
+                profile_water_mm = sum(l["theta"] * l["thick"] * 1000 for l in layers)
+                if profile_water_mm > 0 and n_no3 > 0 and drainage_mm > 0:
+                    leached_kg_ha = drainage_mm * (n_no3 / profile_water_mm)
+                    n_no3 = max(0.0, n_no3 - leached_kg_ha)
+                    n_leached_total += leached_kg_ha
+                n_pool = n_nh4 + n_no3
             else:
                 n_uptake_kg_ha = min(n_pool, demand_today_kg_ha)
                 n_pool -= n_uptake_kg_ha
@@ -2824,6 +2876,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     if n_uptake_total is not None:
         result["n_uptake_kg_ha"] = n_uptake_total
         result["n_remaining_kg_ha"] = sum(n_pool_by_layer) if n_pool_by_layer is not None else n_pool
+        if n_nh4 is not None:
+            result["n_nh4_remaining_kg_ha"] = n_nh4
+            result["n_no3_remaining_kg_ha"] = n_no3
     if n_volatilized_total is not None:
         result["n_volatilized_kg_ha"] = n_volatilized_total
     if sixpool_state is not None:
@@ -3454,6 +3509,7 @@ async function runFullSimulation(p) {
   pyodide.globals.set("fc_plant_override", p.plantOverride === null ? "" : String(p.plantOverride));
   pyodide.globals.set("fc_bg_model", p.bgModel || "rothc");
   pyodide.globals.set("fc_denitrif", p.denitrif ? "1" : "");
+  pyodide.globals.set("fc_nh4no3", p.nh4no3 ? "1" : "");
 
   const out = await pyodide.runPythonAsync(`
 import json as _json
@@ -3486,7 +3542,7 @@ _fc_res = simulate_season(
     irrigation_trigger_frac=_fc_irrig_trigger, irrigation_amount_mm=float(fc_irrig_amount),
     tillage_doy=(_fc_plant_doy if _fc_tillage_val else None), tillage_implement=_fc_tillage_val,
     tillage_clay_frac=_fc_tillage_clay,
-    model_denitrification=bool(fc_denitrif),
+    model_denitrification=bool(fc_denitrif), nh4_no3_split=bool(fc_nh4no3),
     record_history=True, **_fc_bg_kwargs,
 )
 _fc_out = {"plant_doy": _fc_plant_doy, **_fc_res}
@@ -3512,6 +3568,7 @@ document.getElementById("fcRunBtn").addEventListener("click", async () => {
     const irrigOn = document.getElementById("fcIrrigOn").checked;
     const plantOn = document.getElementById("fcPlantOverride").checked;
     const denitrifOn = document.getElementById("fcDenitrif").checked;
+    const nh4no3On = document.getElementById("fcNh4No3").checked;
 
     const params = {
       wxYear, soilLayers: currentSite.layers, cropKey: cropSelect.value,
@@ -3524,6 +3581,7 @@ document.getElementById("fcRunBtn").addEventListener("click", async () => {
       plantOverride: plantOn ? parseInt(document.getElementById("fcPlantDoy").value, 10) : null,
       bgModel: document.getElementById("fcBgModel").value,
       denitrif: denitrifOn,
+      nh4no3: nh4no3On,
     };
     const res = await runFullSimulation(params);
 
@@ -3537,6 +3595,7 @@ document.getElementById("fcRunBtn").addEventListener("click", async () => {
       let nbal = `Nitrogen: uptake ${res.n_uptake_kg_ha.toFixed(1)} kg/ha &middot; leached ${res.n_leached_kg_ha.toFixed(1)} kg/ha`;
       if ("n_denitrified_kg_ha" in res) nbal += ` &middot; denitrified ${res.n_denitrified_kg_ha.toFixed(1)} kg/ha`;
       nbal += ` &middot; remaining in soil ${res.n_remaining_kg_ha.toFixed(1)} kg/ha (should sum to total supply: applied + credit + manure*0.5 + background mineralization).`;
+      if ("n_nh4_remaining_kg_ha" in res) nbal += ` Remaining split: NH4 ${res.n_nh4_remaining_kg_ha.toFixed(1)}, NO3 ${res.n_no3_remaining_kg_ha.toFixed(1)} kg/ha.`;
       massBalance.innerHTML = nbal;
     } else {
       massBalance.textContent = "No nitrogen tracked for this run (legume, or no rate/credit/manure set).";
