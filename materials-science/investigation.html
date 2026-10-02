@@ -250,14 +250,14 @@
   @media(max-width:620px){.afm-key{grid-template-columns:1fr}}
   .pfig svg.dg.afm-anim{min-width:0}
   .sp-wall{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:12px;background:#f7f8fb;border:1px solid var(--border);border-radius:6px;min-height:120px}
-  .sp-tile{display:inline-flex;align-items:baseline;gap:6px;padding:4px 9px;border-radius:999px;background:#fff;border:1.5px solid #2b6cb0;color:#1c1730;line-height:1.2;transition:transform 1.1s ease,opacity 1.1s ease,max-width 1.1s ease,padding 1.1s ease;max-width:600px;overflow:hidden;white-space:nowrap}
+  .sp-tile{display:inline-flex;align-items:baseline;gap:6px;padding:4px 9px;border-radius:999px;background:#fff;border:1.5px solid #2b6cb0;color:#1c1730;line-height:1.2;transition:transform 2s ease,opacity 2s ease,max-width 2s ease,padding 2s ease;max-width:600px;overflow:hidden;white-space:nowrap}
   .sp-tile b{font-weight:600}.sp-tile i{font-style:normal;font-size:11px;color:#4b5563}
   .sp-tile.sp-hi{border-color:#dd6b20;background:#fff4e8}.sp-tile.sp-rare{border-style:dashed;color:#4b5563}.sp-tile.sp-empty{border-color:#9ca3af;color:#6b7280}
-  .sp-tile.sp-leaving{border-color:#c0392b;background:#fdecea;color:#c0392b;animation:spAlert 1.6s ease}
+  .sp-tile.sp-leaving{border-color:#c0392b;background:#fdecea;color:#c0392b;animation:spAlert 2.4s ease}
   .sp-to{font-size:12px;font-weight:700;color:#c0392b}
   .sp-tile.sp-target{border-width:2.5px;box-shadow:0 0 0 4px rgba(43,108,176,.18)}
   .sp-tile.sp-shrink{transform:scale(.2);opacity:0;max-width:0;padding-left:0;padding-right:0;border-width:0}
-  .sp-tile.sp-grew{box-shadow:0 0 0 4px rgba(43,108,176,.25);animation:spGrow 1.4s ease}
+  .sp-tile.sp-grew{box-shadow:0 0 0 4px rgba(43,108,176,.25);animation:spGrow 2.6s ease}
   .sp-plus{font-size:11px;font-weight:700;color:#2b6cb0}
   .sp-aside{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px;font-size:12px;color:#4b5563}.sp-tile.sp-out{border-color:#9ca3af;opacity:.8;font-size:12px}
   .sp-note{font-size:12px;color:#4b5563;margin:6px 0 0}
@@ -265,6 +265,7 @@
   @keyframes spGrow{0%{transform:scale(1)}35%{transform:scale(1.15)}100%{transform:scale(1)}}
   @media(prefers-reduced-motion:reduce){.sp-tile{transition:none;animation:none!important}}
   tr.fixable td{background:#fff4e8}.fix-note{font-size:11px;color:#9a4a08;margin-top:4px;white-space:normal;max-width:260px}
+  .sp-plan{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:8px;padding:8px 12px;background:#fdecea;border:1px solid #f1b5ad;border-radius:6px;font-size:13px;color:#7f1d1d}
 </style>
 </head>
 <body>
@@ -802,7 +803,7 @@ var CAMEL = (function(){
       (cfg.thread ? '<p class="thread-note">' + cfg.thread + '</p>' : "");
   });
 })();
-})();</script></div><div class="pane" id="pane-mess"><div class="lede"><svg class="ic big-ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg><div><div class="pt">Real data hides problems that tidy-looking rules cannot see.</div><div class="job"><b>Your job:</b> for each activity, write the <em>rule</em> you would apply. A rule is something a computer could follow.</div></div></div><section class="panel"><div class="panel-header"><h2><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-text"/></svg>One Text Box, Thirty-Five Answers</h2><span class="panel-tag">M-05 &middot; 1,005 samples, raw material field</span></div><div class="panel-body"><p class="point">Cleaning rules can merge typos, but only an expert can say which labels mean the same thing.</p><p class="look"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye"/></svg><span><b>What you&rsquo;re looking at:</b> The material name, typed by hand. Each bar counts samples with that exact spelling. Formulas are just labels (<a href="#" class="prim" data-card="materials">table</a>).</span></p><p class="task">Every rule starts at <b>keep as typed</b>. Switch one to merge and watch the chart. No chemistry needed.</p><div class="cw" id="cw-m05"></div><div class="takeaway"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-key"/></svg><div><b>Takeaway.</b> Mechanical mess is fixable by anyone. The rest needs someone who knows the field, or an honest &ldquo;unresolved&rdquo;.</div></div><details><summary>A rule that tidies the most but fixes nothing</summary><p>Folding labels under 5 samples into &ldquo;rare&rdquo; hides 10 labels and changes nothing. It makes the chart look cleanest, which is why it is worth pointing at.</p></details></div></section><script>(function(){var root = document.getElementById("cw-m05"); var DATA = {"rows":[["MoS2","Al2O3",311],["WSe2","Al2O3",214],["WS2","Al2O3",141],["GaSe","GaAs",42],["MoSe2","Al2O3",38],["In2Se3","Al2O3",30],["SnSe","MgO",20],["In2Se3","Si",19],["Mo-WSe2","Al2O3",17],["MoS2","C-Al2O3",16],["FeSe","SrTiO3",13],["InSe","Si",12],["SnSe; SnSe","MgO",12],["","Al2O3",11],["(Bi1-x, Inx)2Se3","Al2O3",11],["GaSe","Zn doped GaAs",8],["SnTe","InP",7],["MnTe","Fe-InP",7],["MnSe2; In2Se3","Al2O3",6],["Bi2Se3","Al2O3",6],["MoS2","Al2O3; Al2O3",5],["MoSe2","Al2O3; Al2O3",5],["In2Se3; MnSe2","Al2O3",5],["WSe2","Al2O3; Al2O3",4],["SnTe-Sb","Fe-InP",4],["Al2O3","Al2O3",3],["","GaAs",3],["GaSe; SnTe","InP",3],["SnTe-Bi","Fe-InP",3],["FeSe; FeTe","SrTiO3",2],["MoS2; MoS2","Al2O3",2],["GaAs","GaAs",2],["WS2","Al2O3; Al2O3",2],["2H-MoS2","Al2O3",2],["MoS2","Scored c-Al2O3",2],["SnSe; SnSe; SnSe; SnSe; SnSe","MgO",2],["","Si",1],["FeTe; FeSe","SrTiO3",1],["MoS2-WS2","Al2O3",1],["Se","GaAs",1],["GaSe","IV",1],["H2; InSe","GaAs",1],["Mo-WSe2","hexagonal BN",1],["SnTe","Fe-InP",1],["In2Se3; In2Se3","Si",1],["PtSe2","Al2O3",1],["Bi2Se3; Bi2Se3","Al2O3",1],["Bi2Se3; BIS","Al2O3",1],["WSe2","c-Sapphire",1],["MoS2; MoS2","Pre-scored Al2O3",1],["MoS2; 0","Al2O3",1]]}; 
+})();</script></div><div class="pane" id="pane-mess"><div class="lede"><svg class="ic big-ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg><div><div class="pt">Real data hides problems that tidy-looking rules cannot see.</div><div class="job"><b>Your job:</b> for each activity, write the <em>rule</em> you would apply. A rule is something a computer could follow.</div></div></div><section class="panel"><div class="panel-header"><h2><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-text"/></svg>One Text Box, Thirty-Five Answers</h2><span class="panel-tag">M-05 &middot; 1,005 samples, raw material field</span></div><div class="panel-body"><p class="point">Cleaning rules can merge typos, but only an expert can say which labels mean the same thing.</p><p class="look"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye"/></svg><span><b>What you&rsquo;re looking at:</b> The material name, typed by hand. Each bar counts samples with that exact spelling. Formulas are just labels (<a href="#" class="prim" data-card="materials">table</a>).</span></p><p class="task">Every rule starts at <b>keep as typed</b>. Switch one to merge, read which tiles will move, then press <b>Merge</b> to watch it happen. No chemistry needed.</p><div class="cw" id="cw-m05"></div><div class="takeaway"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-key"/></svg><div><b>Takeaway.</b> Mechanical mess is fixable by anyone. The rest needs someone who knows the field, or an honest &ldquo;unresolved&rdquo;.</div></div><details><summary>A rule that tidies the most but fixes nothing</summary><p>Folding labels under 5 samples into &ldquo;rare&rdquo; hides 10 labels and changes nothing. It makes the chart look cleanest, which is why it is worth pointing at.</p></details></div></section><script>(function(){var root = document.getElementById("cw-m05"); var DATA = {"rows":[["MoS2","Al2O3",311],["WSe2","Al2O3",214],["WS2","Al2O3",141],["GaSe","GaAs",42],["MoSe2","Al2O3",38],["In2Se3","Al2O3",30],["SnSe","MgO",20],["In2Se3","Si",19],["Mo-WSe2","Al2O3",17],["MoS2","C-Al2O3",16],["FeSe","SrTiO3",13],["InSe","Si",12],["SnSe; SnSe","MgO",12],["","Al2O3",11],["(Bi1-x, Inx)2Se3","Al2O3",11],["GaSe","Zn doped GaAs",8],["SnTe","InP",7],["MnTe","Fe-InP",7],["MnSe2; In2Se3","Al2O3",6],["Bi2Se3","Al2O3",6],["MoS2","Al2O3; Al2O3",5],["MoSe2","Al2O3; Al2O3",5],["In2Se3; MnSe2","Al2O3",5],["WSe2","Al2O3; Al2O3",4],["SnTe-Sb","Fe-InP",4],["Al2O3","Al2O3",3],["","GaAs",3],["GaSe; SnTe","InP",3],["SnTe-Bi","Fe-InP",3],["FeSe; FeTe","SrTiO3",2],["MoS2; MoS2","Al2O3",2],["GaAs","GaAs",2],["WS2","Al2O3; Al2O3",2],["2H-MoS2","Al2O3",2],["MoS2","Scored c-Al2O3",2],["SnSe; SnSe; SnSe; SnSe; SnSe","MgO",2],["","Si",1],["FeTe; FeSe","SrTiO3",1],["MoS2-WS2","Al2O3",1],["Se","GaAs",1],["GaSe","IV",1],["H2; InSe","GaAs",1],["Mo-WSe2","hexagonal BN",1],["SnTe","Fe-InP",1],["In2Se3; In2Se3","Si",1],["PtSe2","Al2O3",1],["Bi2Se3; Bi2Se3","Al2O3",1],["Bi2Se3; BIS","Al2O3",1],["WSe2","c-Sapphire",1],["MoS2; MoS2","Pre-scored Al2O3",1],["MoS2; 0","Al2O3",1]]}; 
 /* M-05: switch general cleaning rules from "keep as typed" to "merge" and watch the chart. */
 (function(){
   var ROWS = DATA.rows, id = root.id, TOP = 12, RARE = 5, revealed = false;
@@ -859,7 +860,7 @@ var CAMEL = (function(){
      the move plays in three slow steps so it can be followed:
      1) tiles about to go turn red and say where they go ("-> SnSe"); tiles that will grow are marked;
      2) the red tiles shrink away in place;  3) the new wall appears and the grown tiles pulse. */
-  var prevOn = null, token = 0, HOLD = 1600, SHRINK = 1100;
+  var prevOn = null, token = 0, SHRINK = 2000;
   function copyOn(o){ var c = {}; RULES.forEach(function(r){ c[r.key] = o[r.key]; }); return c; }
   function labeller(o){
     var st = state(o), rareName = Object.keys(st.counts).filter(function(k){ return /^rare \(/.test(k); })[0];
@@ -878,6 +879,7 @@ var CAMEL = (function(){
       if (e.name === "(nothing typed)") cls += " sp-empty";
       if (m.leave){ cls += " sp-leaving"; extra = '<span class="sp-to">&rarr; ' + CAMEL.esc(m.leave) + '</span>'; }
       if (m.coming){ cls += " sp-target"; extra = '<span class="sp-plus">+' + m.coming + ' coming</span>'; }
+      if (m.fresh){ cls += " sp-grew"; extra = '<span class="sp-plus">back as typed</span>'; }
       if (m.gained){ cls += " sp-grew"; extra = '<span class="sp-plus">+' + m.gained + ' from ' + m.from + (m.from === 1 ? " spelling" : " spellings") + '</span>'; }
       return '<span class="' + cls + '" data-name="' + CAMEL.esc(e.name) + '" style="font-size:' + fs + 'px"><b>' + CAMEL.esc(e.name) + '</b><i>' + e.value + '</i>' + extra + '</span>';
     }).join("") + '</div>';
@@ -887,33 +889,41 @@ var CAMEL = (function(){
     return aside.length ? '<div class="sp-aside"><span>Set aside (substrate typed as the material):</span>' + aside.map(function(k){
       return '<span class="sp-tile sp-out"><b>' + CAMEL.esc(k) + '</b><i>' + st.movedLabels[k] + '</i></span>'; }).join("") + '</div>' : "";
   }
-  var NOTE = '<p class="sp-note">Each tile is one spelling, sized by how many samples use it. Orange: WSe2, the material of our film. Red tiles are about to merge; watch where they go.</p>';
+  var NOTE = '<p class="sp-note">Each tile is one spelling, sized by how many samples use it. Orange: WSe2, the material of our film. Change a rule, read the plan, then press the button to watch the merge.</p>';
   function finalHtml(st, gainedMark){
     var e = ordered(st); return wallHtml(e, e.length ? e[0].value : 1, gainedMark || {}) + trayHtml(st) + NOTE;
   }
   function chart(s){
+    /* Viewer-paced: a rule change first shows the plan (red tiles say where they go) and waits for
+       "Merge these" / "Apply"; the move then plays slowly. prevOn is the last state actually shown. */
     var el = document.getElementById(id + "-plot"), my = ++token;
     var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (!prevOn || reduce){ prevOn = copyOn(on); return finalHtml(s); }
-    var A = labeller(prevOn), B = labeller(on), mark = {}, gainedMark = {}, moved = false;
+    var A = labeller(prevOn), B = labeller(on), mark = {}, gainedMark = {}, leaving = 0, arriving = 0, moved = false;
     ROWS.forEach(function(r){
       var a = A.of(r), b = B.of(r); if (a === b) return; moved = true;
-      if (!(a in B.s.counts)) mark[a] = {leave: b};
-      if (b !== "set aside"){
-        if (b in A.s.counts){ mark[b] = mark[b] || {}; mark[b].coming = (mark[b].coming || 0) + r[2]; }
+      if (!(a in B.s.counts) && !mark[a]){ mark[a] = {leave: b}; leaving++; }
+      if (b !== "set aside" && (b in A.s.counts)){
+        mark[b] = mark[b] || {}; mark[b].coming = (mark[b].coming || 0) + r[2];
         var g = gainedMark[b] = gainedMark[b] || {gained: 0, from: 0, seen: {}};
         g.gained += r[2]; if (!g.seen[a]){ g.seen[a] = 1; g.from++; }
-      }
+      } else if (b !== "set aside" && !gainedMark[b]){ gainedMark[b] = {fresh: true}; arriving++; }
     });
-    prevOn = copyOn(on);
-    if (!moved) return finalHtml(s);
-    var eA = ordered(A.s);
+    if (!moved){ prevOn = copyOn(on); return finalHtml(s); }
+    var eA = ordered(A.s), target = copyOn(on);
+    var label = leaving ? "Merge these " + leaving + (leaving === 1 ? " spelling" : " spellings") + " &rarr;" : "Split them back apart &rarr;";
+    var plan = leaving ? leaving + " red " + (leaving === 1 ? "tile is" : "tiles are") + " about to merge. Each says where it goes."
+                       : arriving + (arriving === 1 ? " spelling comes" : " spellings come") + " back as typed.";
     window.setTimeout(function(){
-      if (my !== token) return;
-      Array.prototype.forEach.call(el.querySelectorAll(".sp-leaving"), function(t){ t.classList.add("sp-shrink"); });
-    }, HOLD);
-    window.setTimeout(function(){ if (my === token) el.innerHTML = finalHtml(s, gainedMark); }, HOLD + SHRINK);
-    return wallHtml(eA, eA.length ? eA[0].value : 1, mark) + trayHtml(A.s) + NOTE;
+      var btn = document.getElementById(id + "-go"); if (!btn) return;
+      btn.addEventListener("click", function(){
+        if (my !== token) return; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll(".sp-leaving"), function(t){ t.classList.add("sp-shrink"); });
+        window.setTimeout(function(){ if (my !== token) return; prevOn = target; el.innerHTML = finalHtml(s, gainedMark); }, SHRINK);
+      });
+    }, 0);
+    return '<div class="sp-plan"><span>' + plan + '</span><button type="button" class="cw-btn" id="' + id + '-go">' + label + '</button></div>' +
+      wallHtml(eA, eA.length ? eA[0].value : 1, mark) + trayHtml(A.s) + NOTE;
   }
   function mergeTable(s){
     var keys = Object.keys(s.merges);
