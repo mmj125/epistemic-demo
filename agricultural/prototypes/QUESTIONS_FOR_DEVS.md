@@ -3466,3 +3466,67 @@ load-bearing if the pool were ever split into real NH4/NO3 sub-pools, a larger s
 change not undertaken this round. N2O emissions (both FROM NITRIF and FROM DENIT, also real
 daily columns in N.txt) were not pursued -- no classroom or validation use identified for them
 yet.
+
+Resolved without asking, 2026-10-02 (same day): fixed the multi-year sixpool-carryover
+"alternating total crop failure" instability flagged in the per-pool-C:N entry above, by
+finding and fixing its real root cause rather than disabling or working around the feature
+that exposed it. The bug: chaining `sixpool_initial_state` across consecutive Rock Springs
+corn seasons at N=0 produced a normal year, then total crop failure (grain=0), repeating
+indefinitely. Traced directly: a good year's harvest credits that season's real stover
+(ag_biomass - grain) into `cra` as one instantaneous lump; the very next season, the now-
+correct per-pool-C:N immobilization effect (see above) applies the full steady-state
+decomposition rate to that whole undiminished pulse from day one, demanding more nitrogen via
+immobilization than the mineral-N pool holds with no fertilizer to buffer it -- the crop never
+grows, so the failed year's own harvest credits ~0 new stover, clearing the pulse and letting
+the cycle repeat.
+
+Checked whether real Cycles' own output could resolve this rather than guessing at a fix.
+Reconciled what looked like two contradictory findings into one real, previously-undiscovered
+mechanism: a narrow, hand-checked 10-day window right after a real harvest pulse
+(soilLayersCN.txt, ContinuousCorn, 1980-09-16 to 09-25, using the real weather/moisture for
+those exact days) showed decomposition running 13-22x SLOWER than SIXPOOL_KRA (0.040/day)
+predicts -- but a broad regression across all 37 years (n=10212 real day-pairs, implied
+k_ra = decomposed_amount/(fE*pool)) gave a median of 0.0436, matching SIXPOOL_KRA almost
+exactly, showing no such problem in aggregate. Binning that same broad sample by REAL DAYS
+SINCE THE PRECEDING HARVEST PULSE resolved it: implied k_ra starts at only ~27% of its
+steady-state value in the first 10 days after a pulse, rises to ~73% by day 25-30, then
+plateaus (real data settles around 75-85%, not cleanly at 100%). This is the real, well-
+documented microbial-colonization "lag phase" before fresh plant residue decomposes at its
+full steady-state rate -- SIXPOOL_KRA itself was correctly fit to the real steady-state rate
+all along; what was missing was this real, separate ramp-up before that rate applies.
+
+Implemented as `CRA_MATURATION_TAU_DAYS = 30.0` (least-squares fit to the real binned ratios,
+tau=29.8 rounded) and `cra_maturity_fraction(age_days) = 1 - exp(-age_days/tau)`, multiplied
+directly into `decomp_ra` in `sixpool_step()`. A new `cra_age` field tracks days since the
+pool's last addition (initialized to 9999.0, i.e. "fully matured," so a from-scratch run with
+no prior pulse is unaffected); reset to 0.0 at the exact moment fresh stover is credited into
+`cra` at harvest. Applied only to `decomp_ra` (aboveground residue) -- `crtz`/`crm` (root and
+manure carbon) weren't checked for their own lag behavior this round, a disclosed scope limit,
+not an assumption they behave identically.
+
+Verified: completely inert for every currently-shipped validated path (`cra` is always exactly
+0.0 whenever `sixpool_initial_state` carryover isn't used, which is every one of the four
+default-validated crops) -- the full regression suite (`run_validation.py`,
+`run_validation_rotation2.py`, `pattern_assertions.py`) reproduced byte-identical results
+before and after (corn 0.777, soybean 0.947, wheat 0.455, silage corn 0.117, 15/16 pattern
+checks). Re-ran the exact motivating scenario (chained Rock Springs corn, N=0, 20 consecutive
+years, `sixpool_initial_state` carried forward each year): the alternating-failure pattern is
+gone -- every one of the 20 years now produces a real, physically sensible yield (2.47-6.01
+Mg/ha, matching real dryland-corn-without-fertilizer range), and `cra` itself settles into a
+stable 1.0-2.8 Mg/ha band instead of oscillating between a large pulse and a near-total crash.
+This is the real fix, not a workaround -- it corrects the decomposition mechanism to match
+real Cycles' own disclosed timing behavior, which happens to also resolve the instability as a
+side effect of being more physically correct.
+
+Ported into `model-validation.html`'s embedded engine (the only HTML file carrying the
+sixpool mechanism at all; `engine-demo.html` doesn't expose `sixpool_initial_state` carryover
+anywhere and was left untouched) and verified via direct extraction/execution of the embedded
+`ENGINE_SOURCE`/`GLUE_SOURCE` strings in CPython: the new function and field compile and run
+correctly, and a real single-season sixpool run (the only sixpool path this page actually
+exposes in its UI) is unaffected since `cra` never becomes nonzero there either.
+
+Not done this round: `crtz`/`crm`'s own maturation behavior wasn't checked (both may have a
+real, different lag of their own); `sixpool_initial_state` multi-year carryover itself remains
+an exploratory, unshipped feature (no UI anywhere exposes it) -- this fix makes it behave
+correctly when exercised directly, but promoting it to a real, UI-exposed feature is a
+separate decision not made this round.

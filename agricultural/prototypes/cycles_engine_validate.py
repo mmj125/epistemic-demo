@@ -1882,7 +1882,42 @@ def sixpool_init_state(layer0, clay_pct, soc_pct):
     csx_pct = sixpool_csx_pct(clay_pct / 100.0)
     csx = bd * SIXPOOL_TOPSOIL_DEPTH_M * 100 * csx_pct
     cs0 = bd * SIXPOOL_TOPSOIL_DEPTH_M * 100 * soc_pct
-    return dict(cs=cs0, cm=0.03 * cs0, cra=0.0, crtz=0.0, crm=0.0, csx=csx)
+    return dict(cs=cs0, cm=0.03 * cs0, cra=0.0, crtz=0.0, crm=0.0, csx=csx, cra_age=9999.0)
+
+
+CRA_MATURATION_TAU_DAYS = 30.0  # back-calculated 2026-10-02, directly from real Cycles output
+# (soilLayersCN.txt, ContinuousCorn, Rock Springs) -- found while diagnosing the 2026-10-02
+# multi-year sixpool-carryover instability (an undiminished stover pulse immediately
+# decomposing at full rate the very next season, swamping the mineral-N pool). A hand-checked
+# 10-day window right after a real harvest pulse showed decomposition ~13-22x slower than
+# SIXPOOL_KRA predicts at the real driving weather of that window -- but a broad regression
+# across all 37 years (n=10212 real day-pairs, implied k_ra = decomposed_amount/(fE*pool),
+# matching SIXPOOL_KRA's own documented 0.04-0.044 almost exactly) showed no such problem in
+# aggregate. Binning that same broad sample by REAL DAYS SINCE THE PRECEDING HARVEST PULSE
+# resolved the contradiction: implied k_ra starts at only ~27% of its steady-state value in
+# the first 10 days after a pulse, rises to ~73% by day 25-30, then plateaus (not cleanly at
+# 100% -- real data settles around 75-85%, a real residual this simple exponential doesn't
+# capture exactly). This is the real, well-documented "lag phase" before microbial
+# colonization of fresh plant residue ramps up -- SIXPOOL_KRA itself was correctly fit to the
+# real STEADY-STATE rate; what was missing was this real, separate, previously-undiscovered
+# RAMP before that rate applies. Modeled as `1 - exp(-age/CRA_MATURATION_TAU_DAYS)` (least-
+# squares fit to the real binned ratios, tau=29.8 rounded to 30) -- an honest, not-exact fit
+# (slightly underfits the real early rise, slightly overfits the late plateau), applied only
+# to decomp_ra (aboveground residue), not crtz/crm (root/manure), whose own real lag behavior
+# wasn't checked this round. Completely inert for every currently-validated path: cra is
+# always exactly 0.0 in the default (no multi-year carryover) mode, so this multiplier has
+# nothing to act on there -- it only matters for the exploratory sixpool_initial_state
+# carryover feature this was built to fix. See QUESTIONS_FOR_DEVS.md's 2026-10-02 entry for
+# the full bin table and the broad-sample-vs-narrow-window reconciliation.
+
+
+def cra_maturity_fraction(age_days):
+    """Real, back-calculated fraction of steady-state decomposition rate a residue pool has
+    reached, as a function of days since it was last added -- see CRA_MATURATION_TAU_DAYS's
+    own docstring for the derivation. age_days=9999.0 (sixpool_init_state's own default,
+    meaning "no residue has ever been added") correctly saturates to 1.0, a don't-care value
+    since cra itself is 0.0 in that case."""
+    return 1.0 - math.exp(-age_days / CRA_MATURATION_TAU_DAYS)
 
 
 def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0):
@@ -1924,7 +1959,14 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0):
     crtz += root_c_input_mg_ha  # the only real carbon input modeled in this v1 scope -- see
     # sixpool_init_state's own docstring for why cra/crm have no input pathway here.
 
-    decomp_ra = fe * SIXPOOL_KRA * cra
+    cra_age = state.get("cra_age", 9999.0)
+    cra_maturity = cra_maturity_fraction(cra_age)
+    state["cra_age"] = cra_age + 1.0  # ages one day regardless of whether cra is nonzero --
+    # harmless, since maturity only matters when cra>0, and cra only ever becomes nonzero via
+    # the harvest-crediting reset (simulate_season()) that also resets this to 0.0 at the
+    # same moment the fresh pulse lands, so the two always stay in sync.
+
+    decomp_ra = fe * SIXPOOL_KRA * cra_maturity * cra
     decomp_rtz = fe * SIXPOOL_K_RTZ * crtz
     decomp_rm = fe * SIXPOOL_KRM * crm
     cra = max(0.0, cra - decomp_ra)
@@ -2906,6 +2948,12 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # (letting it decompose for real before the next season, not carry forward untouched).
         ag_residue_mg_ha = max(0.0, ag_biomass_mg_ha - grain_mg_ha)
         sixpool_state["cra"] = sixpool_state.get("cra", 0.0) + ag_residue_mg_ha * CARBON_FRACTION_DM
+        # Reset cra_age to 0 whenever fresh stover lands -- see CRA_MATURATION_TAU_DAYS's own
+        # docstring (2026-10-02). A disclosed simplification when cra already held some
+        # un-decomposed carryover from a prior pulse: treats the WHOLE pool as freshly "reset"
+        # to age 0 rather than tracking a real mixed-age blend, since this pool only ever
+        # receives one discrete addition per season, not a continuous trickle.
+        sixpool_state["cra_age"] = 0.0
         result["sixpool_final_state"] = dict(sixpool_state)
     if initial_layers is not None:
         result["final_layers"] = layers
