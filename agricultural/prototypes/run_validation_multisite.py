@@ -74,6 +74,7 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
             background_n_model="sixpool",sixpool_topsoil_clay_pct=soil_raw[0]["clay"],
             sixpool_topsoil_soc_pct=soil_raw[0]["soc"],sixpool_profile_raw=soil_raw)
     if N>0: kw["fertilizer_source"]="uan"
+    if os.environ.get("NITRATE_LAYERS","1")=="1": kw["nitrate_per_layer"]=True
     res={}
     carry=os.environ.get("CARRY_N","1")=="1"
     lead=int(os.environ.get("LEAD_YEARS",lead_years))

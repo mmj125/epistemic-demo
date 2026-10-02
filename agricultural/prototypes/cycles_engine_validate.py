@@ -2441,8 +2441,12 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
     engine started each season's mineral pool at zero, so leaching (Iowa 2 vs 41 kg N/ha) and
     denitrification (10 vs 52) could not be reproduced no matter how good the rate laws were."""
     leached = denit = volat = 0.0
+    no3_layers = nstate.get("no3_layers")
     for w in rows:
-        drainage_mm, _, _ = infiltrate(layers, w["pp"], curve_number, slope_pct)
+        drainage_mm, _, n_out = infiltrate(layers, w["pp"], curve_number, slope_pct, n_by_layer=no3_layers)
+        if no3_layers is not None:
+            leached += n_out
+            nstate["n_no3"] = sum(no3_layers)
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], lat_deg)
         soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state, fallow=True,
                          summer_time=summer_time_from_doy(w["doy"]))
@@ -2457,15 +2461,21 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
                if model_volatilization else 0.0)
         nstate["n_nh4"] = max(0.0, nstate["n_nh4"] - nit - vol)
         nstate["n_no3"] += nit
+        if no3_layers is not None:
+            no3_layers[0] += nit
         volat += vol
         profile_water_mm = sum(l["theta"] * l["thick"] * 1000 for l in layers)
-        if profile_water_mm > 0 and nstate["n_no3"] > 0 and drainage_mm > 0:
+        if no3_layers is None and profile_water_mm > 0 and nstate["n_no3"] > 0 and drainage_mm > 0:
             lost = min(nstate["n_no3"], drainage_mm * (nstate["n_no3"] / profile_water_mm))
             nstate["n_no3"] -= lost
             leached += lost
         if model_denitrification:
             d = nstate["n_no3"] * denitrification_rate_rel(layers[0]["theta"] / layers[0]["sat"], nstate["tsoil_lag"])
             nstate["n_no3"] = max(0.0, nstate["n_no3"] - d)
+            if no3_layers is not None:
+                f_d = d / (nstate["n_no3"] + d) if (nstate["n_no3"] + d) > 0 else 0.0
+                for i in range(len(no3_layers)):
+                    no3_layers[i] *= (1.0 - f_d)
             denit += d
     return leached, denit, volat
 
@@ -2510,7 +2520,8 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
         de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
         if carry_n:
             if nstate is None:
-                nstate = dict(n_nh4=0.0, n_no3=0.0, tsoil_lag=(rows[0]["tx"] + rows[0]["tn"]) / 2.0)
+                nstate = dict(n_nh4=0.0, n_no3=0.0, tsoil_lag=(rows[0]["tx"] + rows[0]["tn"]) / 2.0,
+                              no3_layers=([0.0] * len(layers) if kw.get("nitrate_per_layer") else None))
             lch, dn, vl = run_fallow_n_window(layers, spinup, nstate, sixpool_state, lat_deg=crop["lat_deg"],
                                               de_state=de_state,
                                               model_denitrification=kw.get("model_denitrification", True),
@@ -2536,6 +2547,7 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
                                               model_volatilization=kw.get("model_volatilization", True))
             fallow_tot = [fallow_tot[0] + lch, fallow_tot[1] + dn, fallow_tot[2] + vl]
             result["fallow_n_leached"], result["fallow_n_denitrified"], result["fallow_n_volatilized"] = fallow_tot
+            result["end_n_state"] = dict(nstate)
         else:
             run_bare_fallow_window(layers, bridge, lat_deg=crop["lat_deg"], de_state=de_state)
     return result
@@ -2552,7 +2564,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      background_n_model="rothc", sixpool_topsoil_clay_pct=None, sixpool_topsoil_soc_pct=None,
                      sixpool_initial_state=None, sixpool_offseason_decay=False,
                      model_denitrification=False, nh4_no3_split=False, model_volatilization=False,
-                     fertilizer_source=None, sixpool_profile_raw=None, initial_n_state=None):
+                     fertilizer_source=None, sixpool_profile_raw=None, initial_n_state=None,
+                     nitrate_per_layer=False):
     """weather_rows: dicts with doy, tx, tn, solar, rhx, rhn, wind, pp, in planting-day order.
 
     model_denitrification: False by default (byte-identical to this parameter not existing --
@@ -3136,6 +3149,20 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         n_no3 += initial_n_state["n_no3"]
         n_pool = n_nh4 + n_no3
         tsoil_lag = initial_n_state["tsoil_lag"]
+    no3_layers = None
+    if nitrate_per_layer and n_nh4 is not None:
+        # Per-layer nitrate (2026-10-02): NO3 is the mobile form, so it is tracked by layer and moved
+        # by redistribute()'s own n_by_layer transport (water carries each layer's nitrate with it)
+        # instead of one well-mixed profile reservoir. NH4 stays a single surface pool (held by
+        # exchange sites, essentially non-leachable in Cycles). n_no3 stays the scalar SUM, kept in
+        # sync, so every existing reader of it is unchanged.
+        no3_layers = [0.0] * len(layers)
+        if initial_n_state is not None and initial_n_state.get("no3_layers"):
+            fresh = n_no3 - initial_n_state["n_no3"]
+            no3_layers = list(initial_n_state["no3_layers"])
+            no3_layers[0] += fresh
+        else:
+            no3_layers[0] = n_no3
     last_doy = None
     # Real, continuous NH4-pool ammonia volatilization (2026-10-02, see volatilization_rate()'s
     # own docstring) -- only meaningful alongside the NH4/NO3 split above, since it drains the
@@ -3239,8 +3266,13 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 irrigation_total_mm += irrigation_mm
 
         drainage_mm, runoff, n_leached_today = infiltrate(layers, w["pp"] + irrigation_mm, curve_number,
-                                                            slope_pct, n_by_layer=n_pool_by_layer)
+                                                            slope_pct,
+                                                            n_by_layer=(no3_layers if no3_layers is not None
+                                                                        else n_pool_by_layer))
         runoff_total += runoff
+        if no3_layers is not None:
+            n_no3 = sum(no3_layers)
+            n_leached_total += n_leached_today
 
         # NH4->NO3 nitrification (2026-10-02, see nitrification_rate()'s own docstring) --
         # runs before today's denitrification/leaching touch n_no3, so a fresh application
@@ -3261,6 +3293,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             volat_amt_today = n_nh4 * volatilization_rate(tsoil_lag, n_nh4) if model_volatilization else 0.0
             n_nh4 = max(0.0, n_nh4 - nitrif_amt_today - volat_amt_today)
             n_no3 += nitrif_amt_today
+            if no3_layers is not None:
+                no3_layers[0] += nitrif_amt_today
             if n_volatilized_pool_total is not None:
                 n_volatilized_pool_total += volat_amt_today
 
@@ -3283,6 +3317,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             elif n_no3 is not None:
                 denitrif_today = n_no3 * denitrif_frac_today
                 n_no3 = max(0.0, n_no3 - denitrif_today)
+                if no3_layers is not None:
+                    for i in range(len(no3_layers)):
+                        no3_layers[i] *= (1.0 - denitrif_frac_today)
             else:
                 denitrif_today = n_pool * denitrif_frac_today
                 n_pool = max(0.0, n_pool - denitrif_today)
@@ -3335,6 +3372,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     _dose_today = applications_by_doy[w["doy"]]
                     n_nh4 += _dose_today * mineral_nh4_frac
                     n_no3 += _dose_today * mineral_no3_frac  # see fertilizer_source's own
+                    if no3_layers is not None:
+                        no3_layers[0] += _dose_today * mineral_no3_frac
                     # docstring for why this isn't always 100% NH4
                 else:
                     n_pool += applications_by_doy[w["doy"]]
@@ -3425,12 +3464,27 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 # concentration specifically, not the combined pool -- see nh4_no3_split's
                 # own docstring for the real evidence (NH4 leaching <1% of total in Cycles'
                 # own output) motivating this over the old combined-pool ratio formula below.
-                n_uptake_kg_ha = min(n_pool, demand_today_kg_ha)
-                if n_pool > 1e-9:
-                    n_nh4 = max(0.0, n_nh4 - n_uptake_kg_ha * (n_nh4 / n_pool))
-                    n_no3 = max(0.0, n_no3 - n_uptake_kg_ha * (n_no3 / n_pool))
+                if no3_layers is not None:
+                    # Plant takes up NH4 (surface pool) plus only the nitrate in layers its roots
+                    # have actually reached (same real-root-depth access n_root_limited uses).
+                    access = layer_depth_fraction_within(layers, root_depth)
+                    reach_no3 = sum(no3_layers[i] * access[i] for i in range(len(layers)))
+                    reachable = n_nh4 + reach_no3
+                    n_uptake_kg_ha = min(reachable, demand_today_kg_ha)
+                    if reachable > 1e-9:
+                        frac = n_uptake_kg_ha / reachable
+                        n_nh4 = max(0.0, n_nh4 - n_nh4 * frac)
+                        for i in range(len(layers)):
+                            no3_layers[i] = max(0.0, no3_layers[i] - no3_layers[i] * access[i] * frac)
+                    n_no3 = sum(no3_layers)
+                    n_pool = n_nh4 + n_no3
+                else:
+                    n_uptake_kg_ha = min(n_pool, demand_today_kg_ha)
+                    if n_pool > 1e-9:
+                        n_nh4 = max(0.0, n_nh4 - n_uptake_kg_ha * (n_nh4 / n_pool))
+                        n_no3 = max(0.0, n_no3 - n_uptake_kg_ha * (n_no3 / n_pool))
                 profile_water_mm = sum(l["theta"] * l["thick"] * 1000 for l in layers)
-                if profile_water_mm > 0 and n_no3 > 0 and drainage_mm > 0:
+                if no3_layers is None and profile_water_mm > 0 and n_no3 > 0 and drainage_mm > 0:
                     leached_kg_ha = drainage_mm * (n_no3 / profile_water_mm)
                     n_no3 = max(0.0, n_no3 - leached_kg_ha)
                     n_leached_total += leached_kg_ha
@@ -3539,7 +3593,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         sixpool_state["cra_age"] = 0.0
         result["sixpool_final_state"] = dict(sixpool_state)
     if n_nh4 is not None:
-        result["final_n_state"] = dict(n_nh4=n_nh4, n_no3=n_no3, tsoil_lag=tsoil_lag)
+        result["final_n_state"] = dict(n_nh4=n_nh4, n_no3=n_no3, tsoil_lag=tsoil_lag,
+                                       no3_layers=list(no3_layers) if no3_layers is not None else None)
         result["last_doy"] = last_doy
     if initial_layers is not None:
         result["final_layers"] = layers
