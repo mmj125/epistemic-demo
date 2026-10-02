@@ -3881,3 +3881,77 @@ entry: this engine's own nitrification runs measurably faster than real Cycles' 
 immediate post-application, high-concentration regime, and that speed (not just whether the
 rate also depends on concentration, which the volatilization-side investigation already found
 and fixed) is what still needs explaining.
+
+Nitrification speed fixed, same session, per Matt's direct "Go fix the nitrification speed
+now" -- the other, still-open bug flagged at the end of the UAN-split entry above (the two
+discrepancies the NH4-trajectory comparison found were offsetting; fixing the split alone
+exposed this one directly).
+
+Checked concentration dependence first, the mechanism that turned out to matter for
+volatilization -- it doesn't apply here. Binning the real implied daily fractional
+nitrification rate (NH4 NITRIFICAT / PROF SOIL NH4 the day before) by BOTH soil temperature
+AND the pool's own NH4 concentration (low <20 / mid 20-60 / high >=60 kg/ha, same 13410 real
+day-samples) found the rate is essentially flat across concentration regimes at a fixed
+temperature (e.g. at 12-14C: 0.0508/0.0467/0.0494 across low/mid/high -- all within a few
+percent, nothing like volatilization's clean ~2x spread). Concentration isn't the driver for
+nitrification; the original fit itself had to be wrong.
+
+Found why directly, not guessed at: the original NITRIF_RMAX/K/T0 fit's own docstring claimed
+real data "never once" coincides with soil temperature above ~17.1C in this 37-year record --
+checked that claim against the real (tsoil, nh4, nitrif) data directly and found it flatly
+false. The real sample set spans -13.5C to +28.2C, with hundreds of real samples at every
+1-degree bin from 4C clear through 24C (n=1 to 682 per bin, a dense, well-populated real
+curve, not a thin tail). Why the original fit was built without this data isn't reconstructable
+now, but the consequence is clear: fit against an artificially narrow window, the logistic
+ended up systematically too steep. Refit via ordinary nonlinear least squares
+(scipy.optimize.curve_fit) directly on the raw 13410 per-day (tsoil, frac_rate) pairs across
+their FULL real range -- R^2=0.53 in raw space (similar order to volatilization's own
+raw-sample fits, 0.56-0.59). The new fit (Rmax=0.145411, k=0.175692, T0=17.022424) tracks the
+real per-degree binned means closely across the whole practically-relevant range:
+
+  temp   real_binned_mean   OLD_fit   NEW_fit
+  4      0.01021            0.00208   0.01340
+  8      0.02582            0.01215   0.02473
+  12     0.04718            0.05298   0.04256
+  14     0.05982            0.08569   0.05384
+  16     0.06908            0.11365   0.06619
+  18     0.07386            0.13064   0.07893
+  24     0.11560            0.14400   0.11242
+
+The old fit overshoots by roughly 1.5-1.6x across the entire 12-20C range (the one a spring
+UAN application actually experiences) and undershoots badly below 10C -- a genuinely wrong
+curve shape, not a minor miscalibration. This is exactly the magnitude of overshoot the
+NH4-trajectory comparison's own day-by-day trace had already found empirically for 2012
+(model ~9-10%/day vs. Cycles' own ~5-6%/day right after the UAN application): day 1 of that
+exact trace (2012-04-19) now predicts nitrif=6.280 kg/ha against real Cycles' own 6.276 --
+a near-exact match, versus the old fit's 10.230.
+
+Verified: full regression suite (corn 0.777, soybean 0.947, wheat 0.455, silage corn 0.117)
+and `pattern_assertions.py` (15/16) byte-identical, since nitrification_rate() only runs under
+`nh4_no3_split=True`, never activated by any default-validated path. Standing tillage sanity
+check (N=10: moldboard +0.872 Mg/ha; N=650: ~0) and the manure/mineral 0.5-availability
+equivalence both re-verified to hold; the nitrogen mass-balance identity still closes.
+
+Re-ran the full 2012-and-37-year comparison with BOTH real fixes now in place (the UAN split
+AND the corrected nitrification rate) -- real, substantial, honest progress, not a full close:
+the 20-day post-application NH4-days exposure improved from 1242 (UAN split alone, over-fast
+nitrification) to 1423, closer to Cycles' real 1605 (an ~11% shortfall, down from ~23%); the
+20-day nitrification total moved from 111.4 (way over Cycles' real 83.25, under the old fit)
+to 68.7 (now under by a similar margin, the opposite direction, consistent with the new fit
+tracking the real curve rather than systematically erring one way). The full 37-year
+volatilization mean with both fixes together is 3.37% of applied N against Cycles' real
+4.43% (MAE 2.645 kg/ha) -- a real improvement over the UAN-split-alone figure (mean
+2.42%, MAE 3.470), achieved
+with both known real, disclosed bugs fixed together rather than one masking the other. The
+no-source default (100% NH4, now paired with the slower corrected nitrification) overshoots
+instead, 7.28% -- slower clearance keeps the artificially-large NH4 peak around longer, the
+same direction logic as before, just a different magnitude now that nitrification itself is
+right. Year-to-year correlation stays weak (0.027) -- the same standing "matches the mean,
+doesn't track which years" gap already documented for several other nitrogen-pathway
+quantities in this engine, not addressed by either of today's two fixes.
+
+Ported into `model-validation.html`'s embedded engine (the only HTML file carrying this
+mechanism), confirmed to reproduce the canonical script's exact numbers (2012 corn @ N=150,
+fertilizer_source="uan": grain 10.711109 Mg/ha, volat 4.0213 kg/ha, 2.68%) via CPython
+extraction, and confirmed via headless Chromium that the page's only console/page errors are
+the three pre-existing ones (confirmed via git stash against the prior commit).

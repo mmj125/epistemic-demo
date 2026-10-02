@@ -2176,27 +2176,43 @@ def denitrification_rate(theta):
     return max(0.0, min(1.0, DENITRIF_K0 * theta ** DENITRIF_EXPONENT))
 
 
-NITRIF_RMAX = 0.145  # back-calculated 2026-10-02 directly from real Cycles output (N.txt,
-# ContinuousCorn, Rock Springs, full 37-year record), the same file denitrification's own
-# rate law came from, read further for the first time this session for its NH4-side columns
-# (PROF SOIL NH4, NH4 NITRIFICAT) rather than just the NO3/denitrification ones. Computed a
-# daily implied fractional nitrification rate (NH4 NITRIFICAT today / PROF SOIL NH4 the day
-# before, n=13495 real day-samples with a non-trivial NH4 pool) and binned by soil temperature
-# (environ.txt's own topsoil SOIL TMP column): a real, clean, monotonically-increasing
-# relationship from ~0.02% at 4C to ~14% at 18C. A plain exponential fit (the same family
-# tried first for denitrification) overshoots badly once fit across the full observed range
-# (predicts 0.26 at 18C against a real 0.146) -- a saturating logistic fits far better
-# (Rmax/(1+exp(-k*(T-T0)))), both physically expected (real nitrification has an optimum-
-# temperature response, not unbounded exponential growth) and numerically decisive (residual
-# sum-of-squares an order of magnitude smaller). Disclosed limitation, found while fitting,
-# not assumed: a meaningful NH4 pool (>0.5 kg N/ha) never once coincides with a soil
-# temperature above ~17.1C anywhere in this real 37-year record -- NH4 from a spring
-# application is already nitrified away by the time soil gets genuinely warm, so NITRIF_RMAX
-# and the curve's real high-temperature plateau are observed only up to that point, not
-# constrained by data above it; treat this fit as reliable in the 4-17C range it was actually
-# fit against, not as a verified Rmax for a hotter climate or a mid-summer manure event.
-NITRIF_K = 0.46
-NITRIF_T0 = 13.2
+NITRIF_RMAX = 0.145411  # REFIT 2026-10-02 (same session, per Matt's direct "Go fix the
+# nitrification speed now" -- the open item flagged by both the NH4-trajectory comparison and
+# the UAN-split fix above, which both found this engine's nitrification clearing NH4 roughly
+# 1.5-2x faster than real Cycles' own does in the regime that matters for a realistic
+# application). First checked whether concentration (not just temperature) explained it, the
+# same mechanism that turned out to matter for volatilization -- it didn't: binning the real
+# implied daily fractional rate by BOTH soil temperature and the pool's own NH4 concentration
+# (low <20 / mid 20-60 / high >=60 kg/ha, same real N.txt data) found the rate is essentially
+# flat across concentration regimes at a fixed temperature (e.g. at 12-14C: 0.0508/0.0467/0.0494
+# -- all within a few percent of each other, nothing like volatilization's clean ~2x spread).
+# Concentration isn't the driver here; the ORIGINAL fit itself was the problem.
+#
+# Found why directly: the original fit's own docstring claimed real data "never once"
+# coincides with soil temperature above ~17.1C in this record -- re-checked that claim against
+# the real data directly and found it flatly false. The real (tsoil, frac_rate) sample set
+# extends from -13.5C to +28.2C, with hundreds of real samples at every 1-degree bin from 4C
+# through 24C (n=1-682 per bin) -- a real, substantial range the original fit was built
+# without, for reasons not reconstructable now (most likely an overly aggressive filter
+# applied before binning, not caught before shipping). Refit via ordinary nonlinear least
+# squares (scipy.optimize.curve_fit) directly on the raw 13410 per-day (tsoil, frac_rate)
+# pairs across their FULL real range (not a binned-mean fit, and not restricted to any
+# a-priori "valid" window) -- R^2=0.53 in raw space, similar order to volatilization's own
+# raw-sample fits (0.56-0.59). The new curve tracks the real per-degree binned means closely
+# across the whole practically-relevant range (e.g. at 12C: real 0.0472 vs. new fit 0.0426; at
+# 14C: real 0.0598 vs. 0.0538; at 18C: real 0.0739 vs. 0.0789; at 24C: real 0.1156 vs. 0.1124),
+# where the ORIGINAL fit (Rmax=0.145, k=0.46, T0=13.2) had overshot badly across almost the
+# entire 10-20C range that matters for a real spring application (at 14C: 0.0857, nearly 1.6x
+# the real 0.0598; at 16C: 0.1137 against a real 0.0691, 1.6x again) -- the exact magnitude of
+# overshoot the NH4-trajectory comparison's day-by-day trace had already found empirically
+# (model ~9-10%/day vs. Cycles' own ~5-6%/day right after the 2012 UAN application, at a
+# comparable real soil temperature). This directly explains why fixing the real 75/25 UAN
+# split (the entry immediately above) made the mean-level match worse rather than better: the
+# split fix correctly lowered this engine's NH4 peak, but with nitrification still clearing
+# that lower peak roughly 1.5-1.6x too fast, less NH4 mass ever had time to accumulate for
+# volatilization to act on, regardless of the peak's own correct starting size.
+NITRIF_K = 0.175692
+NITRIF_T0 = 17.022424
 
 SOIL_TEMP_LAG_K = 0.15  # reuses simulate_soil_temp()'s own already-validated lag-filter
 # constant (2.65-day mean absolute error against real per-year planting dates) rather than
@@ -2206,9 +2222,10 @@ SOIL_TEMP_LAG_K = 0.15  # reuses simulate_soil_temp()'s own already-validated la
 
 def nitrification_rate(tsoil):
     """Real, back-calculated daily fraction of the NH4 pool converted to NO3, as a function
-    of soil temperature -- see NITRIF_RMAX's own docstring for the full derivation and its
-    disclosed 4-17C validity range. Clamped to [0, 1], though the logistic form is already
-    bounded by construction."""
+    of soil temperature -- see NITRIF_RMAX's own docstring for the full derivation. Refit
+    2026-10-02 against the real data's own full observed range (-13.5C to +28.2C, not the
+    4-17C window an earlier pass had wrongly claimed was all that existed). Clamped to [0, 1],
+    though the logistic form is already bounded by construction."""
     return max(0.0, min(1.0, NITRIF_RMAX / (1.0 + math.exp(-NITRIF_K * (tsoil - NITRIF_T0)))))
 
 
