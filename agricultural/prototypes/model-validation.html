@@ -170,7 +170,7 @@
     <fieldset>
       <legend>Ammonia volatilization (continuous, NH4-pool-based)</legend>
       <div class="subfield"><label><input type="checkbox" id="fcVolatPool"> Model continuous volatilization from the NH4 pool (requires the NH4/NO3 split above)</label></div>
-      <div class="sweep-note">Replaces, as the better-grounded mechanism, the two approximations under "Fertilizer placement / volatilization" below (a flat IPCC 10% default, and the Macnack et al. 2013 weather-driven one-time estimate) -- both were checked against Cycles' own real annualN.txt VOLATILIZATION column (2026-10-02) and found to overestimate real seasonal loss (4.4% mean, 0.1-8.1% range, 150 kg N/ha broadcast UAN at Rock Springs across 37 years) by 2-8x; Macnack specifically predicted ~37% at Rock Springs' real 2012 planting-day weather. The real process turns out to be structurally different from a one-time percentage lost at the moment of application: it's a slow, continuous, temperature-gated daily draw on the standing NH4 pool that competes with nitrification for the same pool (once NH4 nitrifies to NO3 it's no longer exposed to this loss pathway at all) -- back-calculated the same way as nitrification/denitrification (NH3 VOLATILIZ &divide; PROF SOIL NH4, binned by topsoil temperature, n=13410 real day-samples). A first refit (same session) swapped the unlagged real topsoil column the rate was first fit against for tsoil_lag (this engine's own lag-filtered proxy) -- tested directly whether that basis-mismatch fix would close the gap to Cycles' real total, and it barely did (engine output moved only from 2.0-2.8% to 2.1-2.9% of applied N, still roughly half of Cycles' 4.4% mean). Directly asked next to compare this engine's own day-by-day NH4 trajectory against Cycles' real PROF SOIL NH4 column -- did that, and found the pool trajectory itself is close to a wash (within 4% over the key 20-day post-application window: this engine's NH4-days integral 1668 vs. Cycles' real 1605), ruling out "wrong pool size/timing" as the cause. With exposure nearly matched, the real implied fractional rate itself was the gap: binning the real per-day rate by BOTH temperature and the pool's own NH4 concentration found the rate roughly doubles from low (&lt;20 kg/ha) to mid/high (&ge;20) concentration at the same temperature -- a real concentration dependence the temperature-only fit never captured, since low-concentration "background" days (the vast majority of a 37-year record) dominated that fit's average. Refit as a genuine two-variable log-linear model (temperature AND NH4 concentration, both real, raw per-day regression, R&sup2;=0.59 in log space vs. 0.56 for temperature alone) -- this closes most of the remaining gap: the engine's own 37-year mean is now 5.45% of applied (real Cycles: 4.43%), and the single real 2012 test case moves from an under-3% estimate to 3.97% against Cycles' own real 7.49% that year. Year-to-year correlation against Cycles' real per-year totals is still weak (0.024) and the range still narrower than Cycles' real 0.16-12.13 kg/ha spread -- the mean-level gap is resolved, tracking which years get more or less volatilization is not, the same standing gap already documented for several other nitrogen-pathway quantities in this engine. Does nothing (both checkboxes compose to a no-op) unless the NH4/NO3 split above is also checked. See QUESTIONS_FOR_DEVS.md's 2026-10-02 entry for the full derivation.</div>
+      <div class="sweep-note">Replaces, as the better-grounded mechanism, the two approximations under "Fertilizer placement / volatilization" below (a flat IPCC 10% default, and the Macnack et al. 2013 weather-driven one-time estimate) -- both were checked against Cycles' own real annualN.txt VOLATILIZATION column (2026-10-02) and found to overestimate real seasonal loss (4.4% mean, 0.1-8.1% range, 150 kg N/ha broadcast UAN at Rock Springs across 37 years) by 2-8x; Macnack specifically predicted ~37% at Rock Springs' real 2012 planting-day weather. The real process turns out to be structurally different from a one-time percentage lost at the moment of application: it's a slow, continuous, temperature-gated daily draw on the standing NH4 pool that competes with nitrification for the same pool (once NH4 nitrifies to NO3 it's no longer exposed to this loss pathway at all) -- back-calculated the same way as nitrification/denitrification (NH3 VOLATILIZ &divide; PROF SOIL NH4, binned by topsoil temperature, n=13410 real day-samples). A first refit (same session) swapped the unlagged real topsoil column the rate was first fit against for tsoil_lag (this engine's own lag-filtered proxy) -- tested directly whether that basis-mismatch fix would close the gap to Cycles' real total, and it barely did (engine output moved only from 2.0-2.8% to 2.1-2.9% of applied N, still roughly half of Cycles' 4.4% mean). Directly asked next to compare this engine's own day-by-day NH4 trajectory against Cycles' real PROF SOIL NH4 column -- did that, and found the pool trajectory itself is close to a wash (within 4% over the key 20-day post-application window: this engine's NH4-days integral 1668 vs. Cycles' real 1605), ruling out "wrong pool size/timing" as the cause. With exposure nearly matched, the real implied fractional rate itself was the gap: binning the real per-day rate by BOTH temperature and the pool's own NH4 concentration found the rate roughly doubles from low (&lt;20 kg/ha) to mid/high (&ge;20) concentration at the same temperature -- a real concentration dependence the temperature-only fit never captured, since low-concentration "background" days (the vast majority of a 37-year record) dominated that fit's average. Refit as a genuine two-variable log-linear model (temperature AND NH4 concentration, both real, raw per-day regression, R&sup2;=0.59 in log space vs. 0.56 for temperature alone) -- this closes most of the remaining gap: the engine's own 37-year mean is now 5.45% of applied (real Cycles: 4.43%), and the single real 2012 test case moves from an under-3% estimate to 3.97% against Cycles' own real 7.49% that year. Year-to-year correlation against Cycles' real per-year totals is still weak (0.024) and the range still narrower than Cycles' real 0.16-12.13 kg/ha spread -- the mean-level gap is resolved, tracking which years get more or less volatilization is not, the same standing gap already documented for several other nitrogen-pathway quantities in this engine. That NH4-trajectory comparison also surfaced a real, now-fixed bug: this engine landed 100% of every mineral application in NH4 regardless of source, while Cycles' own ContinuousCorn.operation discloses UreaAmmoniumNitrate as a real 75%/25% NH4/NO3 split at application. Fixed via a new MINERAL_SOURCES catalog (17 real products mined from fert.txt, the same way MANURE_SOURCES already was) and a new engine-only fertilizer_source parameter on simulate_season() -- not yet wired into this form's own controls, per this project's standing engine-first pattern. Honest, counter-intuitive result found when testing it against this exact scenario: applying the real UAN split makes the mean-level match WORSE, not better (37-year mean drops to 2.42% of applied N, below Cycles' real 4.43%, and the numbers quoted above are computed WITHOUT it) -- the near-wash in NH4-days exposure the trajectory comparison found was coincidental, two real opposite-direction bugs (this engine's NH4 peak too high from the 100%-NH4 default; this engine's nitrification clearing NH4 faster than Cycles' own does post-application) cancelling out. Fixing one exposes the other, still-open one. Kept and shipped anyway as the physically correct behavior for the real input -- not reverted for a better-looking wrong number. Does nothing (both checkboxes compose to a no-op) unless the NH4/NO3 split above is also checked. See QUESTIONS_FOR_DEVS.md's 2026-10-02 entries for the full derivation.</div>
     </fieldset>
 
     <fieldset>
@@ -2465,6 +2465,29 @@ MANURE_SOURCES = {
     "turkey": dict(nh4_frac=0.135, norg_frac=0.865),
 }
 
+MINERAL_SOURCES = {
+    # Real per-product mineral-fertilizer NH4/NO3 split (same fert.txt catalog, 2026-10-02) --
+    # see cycles_engine_validate.py's own MINERAL_SOURCES comment for the full derivation and
+    # the real cross-check against ContinuousCorn.operation's own disclosed UAN split (0.75/0.25).
+    "nitrate": dict(nh4_frac=0.0, no3_frac=1.0),
+    "ammonium": dict(nh4_frac=1.0, no3_frac=0.0),
+    "urea": dict(nh4_frac=1.0, no3_frac=0.0),
+    "anhydrous_ammonia": dict(nh4_frac=1.0, no3_frac=0.0),
+    "uan": dict(nh4_frac=0.75, no3_frac=0.25),
+    "ammonium_sulfate": dict(nh4_frac=1.0, no3_frac=0.0),
+    "dap": dict(nh4_frac=1.0, no3_frac=0.0),
+    "potassium_nitrate": dict(nh4_frac=0.0, no3_frac=1.0),
+    "npk_30_15_0": dict(nh4_frac=1.0, no3_frac=0.0),
+    "ammonium_nitrate": dict(nh4_frac=0.5, no3_frac=0.5),
+    "npk_25_5_0": dict(nh4_frac=0.0, no3_frac=1.0),
+    "npk_24_6_0": dict(nh4_frac=0.0, no3_frac=1.0),
+    "npk_20_20_20": dict(nh4_frac=0.0, no3_frac=1.0),
+    "potassium_ammonium_phosphate": dict(nh4_frac=1.0, no3_frac=0.0),
+    "npk_15_15_0": dict(nh4_frac=1.0, no3_frac=0.0),
+    "npk_15_15_15": dict(nh4_frac=1.0, no3_frac=0.0),
+    "npk_13_13_13": dict(nh4_frac=1.0, no3_frac=0.0),
+}
+
 def macnack_ammonia_loss_pct(soil_ph, air_temp_c, wind_speed_ms):
     # Macnack, Chim & Raun (2013), real weather/pH-driven alternative to the flat IPCC default,
     # specific to surface-broadcast urea; see cycles_engine_validate.py for the full citation
@@ -2528,7 +2551,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      spinup_rows=None, curve_number=75.0, slope_pct=0.0, initial_layers=None,
                      soil_evap_model="faostandard", n_root_limited=False, wue_co2_scale=1.0,
                      background_n_model="rothc", sixpool_topsoil_clay_pct=None, sixpool_topsoil_soc_pct=None,
-                     model_denitrification=False, nh4_no3_split=False, model_volatilization=False):
+                     model_denitrification=False, nh4_no3_split=False, model_volatilization=False,
+                     fertilizer_source=None):
     # n_root_limited (default False, byte-identical when unused): real CropSyst nitrogen
     # uptake (Stockle, Martin & Campbell 1994, Eq. 26) is min(demand, potential_uptake), not
     # demand alone. Tracks nitrogen per soil layer (n_pool_by_layer) instead of one lumped
@@ -2638,7 +2662,15 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         if manure_source not in MANURE_SOURCES:
             raise ValueError(f"Unknown manure source {manure_source!r} -- see MANURE_SOURCES.")
         manure_availability = MANURE_SOURCES[manure_source]["nh4_frac"]
+    if fertilizer_source is not None:
+        if fertilizer_source not in MINERAL_SOURCES:
+            raise ValueError(f"Unknown fertilizer source {fertilizer_source!r} -- see MINERAL_SOURCES.")
+        mineral_nh4_frac = MINERAL_SOURCES[fertilizer_source]["nh4_frac"]
+        mineral_no3_frac = MINERAL_SOURCES[fertilizer_source]["no3_frac"]
+    else:
+        mineral_nh4_frac, mineral_no3_frac = 1.0, 0.0
     applications_by_doy = {}
+    mineral_day0_kg_ha = 0.0
     if n_tracking_active:
         n_volatilized_mineral = 0.0
         if n_applications:
@@ -2657,6 +2689,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             r = mineral_retention_for_doy(planting_doy)
             total_n_input_kg_ha = mineral_applied * r
             n_pool = total_n_input_kg_ha
+            mineral_day0_kg_ha = total_n_input_kg_ha
             n_volatilized_mineral = mineral_applied * (1.0 - r)
         manure_after_volatilization = manure_n_kg_ha * manure_retention
         credit_and_manure = n_credit_kg_ha + manure_after_volatilization * manure_availability
@@ -2678,8 +2711,13 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         n_pool_by_layer[0] = n_pool
     # NH4/NO3 split (2026-10-02) -- see simulate_season()'s own nh4_no3_split docstring in
     # cycles_engine_validate.py for the full account. Mutually exclusive with n_root_limited.
-    n_nh4 = n_pool if (n_pool is not None and nh4_no3_split and n_pool_by_layer is None) else None
-    n_no3 = 0.0 if n_nh4 is not None else None
+    # The mineral day-0 lump splits per fertilizer_source's real NH4/NO3 fractions (2026-10-02,
+    # added after comparing this engine's NH4 trajectory against Cycles' real column found
+    # every mineral dose was landing 100% in NH4 -- see QUESTIONS_FOR_DEVS.md); the remainder
+    # of n_pool (credit/manure) still lands entirely in NH4 as before.
+    n_nh4 = ((mineral_day0_kg_ha * mineral_nh4_frac) + (n_pool - mineral_day0_kg_ha)
+             if (n_pool is not None and nh4_no3_split and n_pool_by_layer is None) else None)
+    n_no3 = (mineral_day0_kg_ha * mineral_no3_frac) if n_nh4 is not None else None
     tsoil_lag = ((weather_rows[0]["tx"] + weather_rows[0]["tn"]) / 2.0
                  if (n_nh4 is not None and weather_rows) else None)
     # Real, continuous NH4-pool ammonia volatilization (2026-10-02) -- see
@@ -2791,7 +2829,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 if n_pool_by_layer is not None:
                     n_pool_by_layer[0] += applications_by_doy[w["doy"]]
                 elif n_nh4 is not None:
-                    n_nh4 += applications_by_doy[w["doy"]]
+                    _dose_today = applications_by_doy[w["doy"]]
+                    n_nh4 += _dose_today * mineral_nh4_frac
+                    n_no3 += _dose_today * mineral_no3_frac
                 else:
                     n_pool += applications_by_doy[w["doy"]]
             if background_n_model == "sixpool":

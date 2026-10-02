@@ -2073,6 +2073,50 @@ MANURE_SOURCES = {
 }
 
 
+MINERAL_SOURCES = {
+    # Real per-product mineral-fertilizer NH4/NO3 split, parsed directly from the same
+    # Cycles v1.4.4 fert.txt catalog MANURE_SOURCES already mines (17 real, non-manure
+    # FIXED_FERTILIZATION SOURCE entries with nonzero total N; a further 3 -- Phosphorus,
+    # Potassium, Sulphur -- carry zero N at all and are correctly excluded). Each fraction
+    # is that source's own N_NH4 (or N_NO3) field divided by its total N fraction
+    # (N_Organic+N_NH4+N_NO3+N_Charcoal, all as fractions of PRODUCT mass, not of applied N)
+    # -- the same normalization MANURE_SOURCES already uses, cross-checked here against this
+    # project's own already-shipped Dairy_Manure numbers (0.031+0.007=0.038 total N fraction,
+    # 0.007/0.038=0.1842, matching MANURE_SOURCES["dairy"]["nh4_frac"]=0.184 exactly) before
+    # trusting the same parse for these mineral entries. Added 2026-10-02 (continuing the same
+    # NH4 trajectory investigation -- see cycles_engine_validate.py's own VOLATILIZATION_RATE_A
+    # docstring and QUESTIONS_FOR_DEVS.md's 2026-10-02 entries) after finding this engine
+    # treated every fresh mineral application as 100% NH4 on arrival, while real Cycles'
+    # own ContinuousCorn.operation discloses UreaAmmoniumNitrate (UAN) specifically as
+    # N_NH4=0.75/N_NO3=0.25 -- confirmed to trace exactly to this catalog's own
+    # "32-00-00_Urea_Ammonium_Nitrate_Solution" entry (N_NH4=0.24, N_NO3=0.08 as fractions of
+    # product mass; 0.24/0.32=0.75, 0.08/0.32=0.25, matching the operation file's own already-
+    # normalized numbers to the fourth decimal). Most real products here are pure NH4-forming
+    # (urea, anhydrous ammonia, ammonium sulfate, DAP, and every potassium/phosphorus-blended
+    # NPK product that uses an ammonium N source) or pure NO3 (straight nitrate and the NPK
+    # blends built on a nitrate N source) -- UAN and ammonium nitrate are the only two real
+    # products in this catalog that genuinely split between both forms.
+    "nitrate": dict(nh4_frac=0.0, no3_frac=1.0),
+    "ammonium": dict(nh4_frac=1.0, no3_frac=0.0),
+    "urea": dict(nh4_frac=1.0, no3_frac=0.0),
+    "anhydrous_ammonia": dict(nh4_frac=1.0, no3_frac=0.0),  # 82-00-00_Anhydrous_Ammonia
+    "uan": dict(nh4_frac=0.75, no3_frac=0.25),  # 32-00-00_Urea_Ammonium_Nitrate_Solution --
+    # the real source already disclosed directly in ContinuousCorn.operation; see above.
+    "ammonium_sulfate": dict(nh4_frac=1.0, no3_frac=0.0),  # 21-00-00_Ammonium_Sulfate
+    "dap": dict(nh4_frac=1.0, no3_frac=0.0),  # 18-46-00_Di-Ammonium_Phoshate
+    "potassium_nitrate": dict(nh4_frac=0.0, no3_frac=1.0),  # 13-00-44_Potassium_Nitrate
+    "npk_30_15_0": dict(nh4_frac=1.0, no3_frac=0.0),
+    "ammonium_nitrate": dict(nh4_frac=0.5, no3_frac=0.5),  # 33-00-00_Ammonium_Nitrate
+    "npk_25_5_0": dict(nh4_frac=0.0, no3_frac=1.0),
+    "npk_24_6_0": dict(nh4_frac=0.0, no3_frac=1.0),
+    "npk_20_20_20": dict(nh4_frac=0.0, no3_frac=1.0),
+    "potassium_ammonium_phosphate": dict(nh4_frac=1.0, no3_frac=0.0),  # 16-20-20
+    "npk_15_15_0": dict(nh4_frac=1.0, no3_frac=0.0),
+    "npk_15_15_15": dict(nh4_frac=1.0, no3_frac=0.0),
+    "npk_13_13_13": dict(nh4_frac=1.0, no3_frac=0.0),
+}
+
+
 def macnack_ammonia_loss_pct(soil_ph, air_temp_c, wind_speed_ms):
     """Macnack, Chim & Raun (2013), "Applied Model for Estimating Potential Ammonia Loss from
     Surface Applied Urea" (Communications in Soil Science and Plant Analysis 44:2055-2063) --
@@ -2255,7 +2299,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      soil_evap_model="faostandard", n_root_limited=False, wue_co2_scale=1.0,
                      background_n_model="rothc", sixpool_topsoil_clay_pct=None, sixpool_topsoil_soc_pct=None,
                      sixpool_initial_state=None, sixpool_offseason_decay=False,
-                     model_denitrification=False, nh4_no3_split=False, model_volatilization=False):
+                     model_denitrification=False, nh4_no3_split=False, model_volatilization=False,
+                     fertilizer_source=None):
     """weather_rows: dicts with doy, tx, tn, solar, rhx, rhn, wind, pp, in planting-day order.
 
     model_denitrification: False by default (byte-identical to this parameter not existing --
@@ -2268,10 +2313,15 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     and nitrogen tracking is active with n_root_limited=False (the two aren't combined -- see
     below), replaces the single lumped mineral-N pool with two real sub-pools, NH4 and NO3,
     linked by nitrification_rate()'s own real, back-calculated temperature-driven daily
-    conversion. Fresh N (dated applications, background mineralization, previous-crop credit,
-    manure) all land in the NH4 pool, matching how each of those forms actually enters the
-    soil (urea/UAN/anhydrous all hydrolyze/dissociate to NH4 before anything else happens to
-    them; organic-matter mineralization is ammonification, NH4 first, by definition).
+    conversion. Background mineralization and previous-crop credit/manure land entirely in the
+    NH4 pool, matching how those forms actually enter the soil (organic-matter mineralization
+    is ammonification, NH4 first, by definition; manure_availability/manure_source already
+    represent the immediately-available, NH4-equivalent portion specifically). Dated/single-
+    lump mineral fertilizer applications split between NH4 and NO3 per fertilizer_source (see
+    its own docstring below) when given -- 100% NH4 otherwise (the historical assumption,
+    correct for several real products like urea/anhydrous ammonia, but not universal: real
+    UAN, for instance, arrives already 25% NO3, confirmed directly against Cycles' own
+    ContinuousCorn.operation).
     Denitrification (model_denitrification) and leaching both draw from the NO3 pool only --
     found directly in Cycles' own real daily output (N.txt) that NH4 leaching is under 1% of
     total leaching across the full 37-year Rock Springs record (NO3 43.18 kg/ha vs. NH4 0.39
@@ -2305,6 +2355,21 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     caller from setting both), but doing so would double-count the same real loss against two
     different approximations of it -- documented here as a real risk to avoid, not guarded by
     an exception, matching this engine's existing pattern for its other opt-in combinations.
+
+    fertilizer_source: None by default (byte-identical to this parameter not existing -- every
+    mineral application still lands 100% in NH4, the original assumption). When given a real
+    key from MINERAL_SOURCES (uan/urea/anhydrous_ammonia/ammonium_nitrate/etc., parsed from the
+    same Cycles v1.4.4 fert.txt catalog MANURE_SOURCES already mines -- see MINERAL_SOURCES'
+    own comment for the full derivation), splits every mineral-fertilizer dose (the n_rate_kg_ha
+    single lump, or each n_applications event) into its real NH4/NO3 fractions at the moment it
+    lands, instead of assuming 100% NH4. Only meaningful alongside nh4_no3_split -- raises
+    ValueError for an unrecognized key regardless, since a silent no-op on a typo'd source name
+    would be worse than failing loudly. Found and fixed 2026-10-02, directly asked for after
+    comparing this engine's own NH4 trajectory against Cycles' real PROF SOIL NH4 column
+    uncovered that 100%-NH4 was never universally true -- see QUESTIONS_FOR_DEVS.md's
+    2026-10-02 entries for the full account, including why this alone doesn't resolve the
+    larger volatilization-rate gap that comparison was built to investigate (see
+    VOLATILIZATION_RATE_A's own docstring).
 
     background_n_model: "rothc" (default, byte-identical to this parameter not existing) keeps
     the existing RothC-weather-scaled flat-constant background-nitrogen mechanism. "sixpool"
@@ -2710,6 +2775,15 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         if manure_source not in MANURE_SOURCES:
             raise ValueError(f"Unknown manure source {manure_source!r} -- see MANURE_SOURCES for the real Cycles v1.4.4 fert.txt manure catalog.")
         manure_availability = MANURE_SOURCES[manure_source]["nh4_frac"]
+    if fertilizer_source is not None:
+        if fertilizer_source not in MINERAL_SOURCES:
+            raise ValueError(f"Unknown fertilizer source {fertilizer_source!r} -- see MINERAL_SOURCES for the real Cycles v1.4.4 fert.txt mineral fertilizer catalog.")
+        mineral_nh4_frac = MINERAL_SOURCES[fertilizer_source]["nh4_frac"]
+        mineral_no3_frac = MINERAL_SOURCES[fertilizer_source]["no3_frac"]
+    else:
+        mineral_nh4_frac, mineral_no3_frac = 1.0, 0.0  # unchanged default: every mineral dose
+        # lands 100% in NH4 when no real source is specified, exactly as before this parameter
+        # existed -- see fertilizer_source's own docstring for why this isn't universally true.
     volatilization_active = fert_placement_implement is not None or soil_ph is not None
     fert_mixing_efficiency = 0.0
     if fert_placement_implement is not None:
@@ -2734,6 +2808,13 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     manure_retention = 1.0 - NH3_FRAC_MANURE * (1.0 - fert_mixing_efficiency) if volatilization_active else 1.0
     n_volatilized_total = 0.0 if volatilization_active else None
     applications_by_doy = {}
+    mineral_day0_kg_ha = 0.0  # the single-lump mineral dose landing at day 0 (net of
+    # volatilization retention) -- stays 0.0 when n_applications is used instead, since mineral
+    # then lands on its own scheduled days via applications_by_doy in the main loop below, not
+    # here. Tracked separately from n_pool/total_n_input_kg_ha (which also fold in
+    # credit_and_manure) purely so the real NH4/NO3 split below can be applied to the mineral
+    # portion only -- see fertilizer_source's own docstring; credit/manure still land entirely
+    # in NH4 either way, unchanged.
     if n_tracking_active:
         n_volatilized_mineral = 0.0
         if n_applications:
@@ -2752,6 +2833,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             r = mineral_retention_for_doy(planting_doy)
             total_n_input_kg_ha = mineral_applied * r
             n_pool = total_n_input_kg_ha  # original single-lump behavior, unchanged when n_applications isn't used
+            mineral_day0_kg_ha = total_n_input_kg_ha
             n_volatilized_mineral = mineral_applied * (1.0 - r)
         manure_after_volatilization = manure_n_kg_ha * manure_retention
         credit_and_manure = n_credit_kg_ha + manure_after_volatilization * manure_availability
@@ -2774,15 +2856,20 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         n_pool_by_layer = [0.0] * len(layers)
         n_pool_by_layer[0] = n_pool
     # NH4/NO3 split (2026-10-02) -- see simulate_season()'s own nh4_no3_split docstring for
-    # the real leaching-split evidence motivating this. n_nh4/n_no3 start as a copy of
-    # whatever n_pool already holds at this point (the initial day-0 lump when no dated
-    # n_applications were given; 0.0, growing day by day, when they were) -- n_pool itself is
-    # then kept as the scalar n_nh4+n_no3 view for every existing piece of code that still
-    # reads it directly (the demand-capping comparisons below), the same "kept in sync, never
-    # authoritative" pattern n_pool_by_layer already established. Mutually exclusive with
-    # n_root_limited by construction (n_pool_by_layer is not None whenever that's active).
-    n_nh4 = n_pool if (n_pool is not None and nh4_no3_split and n_pool_by_layer is None) else None
-    n_no3 = 0.0 if n_nh4 is not None else None
+    # the real leaching-split evidence motivating this. n_nh4/n_no3 start as a split of
+    # whatever n_pool already holds at this point: the mineral day-0 lump (mineral_day0_kg_ha,
+    # 0.0 when dated n_applications were used instead) divides per fertilizer_source's real
+    # NH4/NO3 fractions (1.0/0.0 -- all NH4 -- when no source was given, the original
+    # assumption); the remainder of n_pool (credit_and_manure, isolated here as n_pool minus
+    # the mineral portion, since that local variable itself doesn't persist this far) lands
+    # entirely in NH4 as before. n_pool itself is then kept as the scalar n_nh4+n_no3 view for
+    # every existing piece of code that still reads it directly (the demand-capping comparisons
+    # below), the same "kept in sync, never authoritative" pattern n_pool_by_layer already
+    # established. Mutually exclusive with n_root_limited by construction (n_pool_by_layer is
+    # not None whenever that's active).
+    n_nh4 = ((mineral_day0_kg_ha * mineral_nh4_frac) + (n_pool - mineral_day0_kg_ha)
+             if (n_pool is not None and nh4_no3_split and n_pool_by_layer is None) else None)
+    n_no3 = (mineral_day0_kg_ha * mineral_no3_frac) if n_nh4 is not None else None
     tsoil_lag = ((weather_rows[0]["tx"] + weather_rows[0]["tn"]) / 2.0
                  if (n_nh4 is not None and weather_rows) else None)
     # Real, continuous NH4-pool ammonia volatilization (2026-10-02, see volatilization_rate()'s
@@ -2978,8 +3065,10 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 if n_pool_by_layer is not None:
                     n_pool_by_layer[0] += applications_by_doy[w["doy"]]
                 elif n_nh4 is not None:
-                    n_nh4 += applications_by_doy[w["doy"]]  # fresh mineral N lands in NH4 --
-                    # see nh4_no3_split's own docstring for why
+                    _dose_today = applications_by_doy[w["doy"]]
+                    n_nh4 += _dose_today * mineral_nh4_frac
+                    n_no3 += _dose_today * mineral_no3_frac  # see fertilizer_source's own
+                    # docstring for why this isn't always 100% NH4
                 else:
                     n_pool += applications_by_doy[w["doy"]]
             if background_n_model == "sixpool":

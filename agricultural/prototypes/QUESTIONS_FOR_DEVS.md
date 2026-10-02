@@ -3799,3 +3799,85 @@ magnitude of the net effect on the just-closed mean-level fit not yet tested; wo
 before trusting this mechanism's numbers much further, and before assuming the real,
 concentration-dependent refit above would still land at the same coefficients if re-fit
 against a corrected (not 100%-NH4) application split.
+
+Real UAN 75/25 NH4/NO3 split fixed, same session, per Matt's direct "Go fix the 75/25 UAN
+split now" -- the open item flagged at the end of the NH4-trajectory-comparison entry above.
+This engine had treated every fresh mineral-N input (fertilizer, background, manure, credit)
+as landing 100% in NH4 on arrival, regardless of source, while real Cycles' own
+`ContinuousCorn.operation` discloses the specific UAN application as `N_NH4=0.75`/`N_NO3=0.25`
+-- a real quarter of every application going straight to NO3 at application, never exposed to
+either nitrification or volatilization.
+
+Traced the real split for every other mineral fertilizer product too, not just UAN: Cycles
+v1.4.4's own `fert.txt` catalog (the same file `MANURE_SOURCES` already mines) carries 17 real
+non-manure FIXED_FERTILIZATION SOURCE entries with nonzero total N, each giving its own real
+N_NH4/N_NO3 split as a fraction of PRODUCT mass -- normalizing each by its own total N fraction
+(the same normalization MANURE_SOURCES already uses) reproduces the operation file's own
+disclosed UAN numbers exactly: `32-00-00_Urea_Ammonium_Nitrate_Solution`'s N_NH4=0.24/N_NO3=0.08
+(as fractions of product mass) divides by its own 0.32 total-N fraction to 0.75/0.25, matching
+the operation file's own already-normalized numbers to the fourth decimal -- a real, independent
+cross-check that the normalization approach is correct, not assumed. Only two of the 17 real
+products genuinely split between NH4 and NO3 at application (UAN at 0.75/0.25, Ammonium
+Nitrate at 0.5/0.5); the rest are either pure NH4-forming (urea, anhydrous ammonia, ammonium
+sulfate, DAP, and every NPK blend built on an ammonium N source) or pure NO3 (straight nitrate
+and the NPK blends built on a nitrate source).
+
+Added `MINERAL_SOURCES` (17 real entries) alongside the existing `MANURE_SOURCES`, and a new
+`fertilizer_source` parameter on `simulate_season()` -- `None` by default (byte-identical to
+this parameter not existing: every mineral dose still lands 100% in NH4), or a real catalog key
+(uan/urea/anhydrous_ammonia/ammonium_nitrate/etc.) that splits each mineral dose (the
+`n_rate_kg_ha` single lump, or each `n_applications` event) into its real NH4/NO3 fractions at
+the moment it lands. Background mineralization, previous-crop credit, and manure are
+deliberately untouched by this -- they land entirely in NH4 as before (ammonification is real,
+NH4-first chemistry; manure_availability/manure_source already represent the specifically
+NH4-equivalent available portion). Raises ValueError for an unrecognized source name, same
+pattern as every other named-catalog parameter in this engine (manure_source,
+fert_placement_implement, tillage_implement).
+
+Verified: the full regression suite (corn 0.777, soybean 0.947, wheat 0.455, silage corn 0.117)
+and `pattern_assertions.py` (15/16) are byte-identical, since `fertilizer_source` defaults to
+None and no existing caller passes it. Direct tests against the real ContinuousCorn 2012
+scenario confirm the mechanism works as intended: `fertilizer_source="uan"` correctly splits a
+150 kg N/ha application into 112.5 kg NH4 + 37.5 kg NO3 at landing (day-1 history: n_nh4=101.79,
+n_no3=47.73 after that day's own nitrification/volatilization losses, consistent with
+112.5-10.23-0.48=101.79 and 37.5+10.23=47.73); `fertilizer_source="nitrate"` (a real 0/100
+product) correctly shows exactly 0.0 NH4 and 150.0 NO3 immediately after application, with only
+background mineralization contributing any NH4 at all afterward; an unrecognized name raises
+ValueError as expected. Yield is unaffected either way (the whole-season nitrogen-adequacy
+mechanism cares about total N supply, not its chemical form), confirmed identical to four
+decimal places (10.7111 Mg/ha) across every fertilizer_source tested.
+
+**Real, honest, somewhat counter-intuitive consequence, reported in full rather than
+smoothed over**: applying the real, correct 75/25 split to the exact ContinuousCorn 2012
+scenario, re-checking the same NH4-days exposure metric the prior entry computed, found
+exposure now UNDERSHOOTS real Cycles' own trajectory (1242 vs. real Cycles' 1605, a real ~23%
+shortfall) rather than the near-wash (1668 vs. 1605, within 4%) found before this fix. Diagnosed
+directly, not left as a surprise: the prior near-wash was genuinely coincidental, not evidence
+the engine was broadly correct -- it was two real, independent, OPPOSITE-direction errors
+happening to roughly cancel (this engine's NH4 peak running too HIGH from the 100%-NH4
+assumption, offset by this engine's nitrification running too FAST, clearing that inflated peak
+down faster than real Cycles clears its own smaller one). Correcting one of those two real bugs
+(the 75/25 split) without also correcting the other (nitrification's own real speed, still
+unexplained -- see the prior entry's own concentration-dependence finding, which doesn't
+address the SPEED of the overall curve, only its shape vs. concentration) removes the
+compensating error and exposes the other one directly: the full 37-year volatilization total
+with `fertilizer_source="uan"` applied drops to 2.42% of applied N (down from the no-source
+default's 5.45%), moving FURTHER from real Cycles' own 4.43% mean, not closer; the single 2012
+test case drops from 3.97% to 1.92% against Cycles' own real 7.49% that year.
+
+This is not a reason to revert the split fix -- it is the real, physically correct behavior
+for the real, disclosed input, and shipping it is strictly more honest than keeping the
+100%-NH4 default's better-looking but physically wrong aggregate number. It does mean the
+volatilization mechanism's own best current aggregate match (5.45% mean, the number already
+documented and shipped in the prior entry) is achieved WITHOUT the UAN split applied -- a
+real, disclosed inconsistency between "this specific number looks closest to Cycles' own mean"
+and "this specific configuration is the physically correct one for the real scenario it's
+being checked against." `fertilizer_source` stays an opt-in parameter (not wired into any
+default-validated harness or any UI) specifically because of this -- turning it on by default
+for the one real scenario it was built from would make the already-documented 5.45%/3.97%
+headline numbers stale without fixing the deeper problem those numbers were coincidentally
+masking. The real, still-open target behind both findings is the same one flagged in the prior
+entry: this engine's own nitrification runs measurably faster than real Cycles' does in the
+immediate post-application, high-concentration regime, and that speed (not just whether the
+rate also depends on concentration, which the volatilization-side investigation already found
+and fixed) is what still needs explaining.
