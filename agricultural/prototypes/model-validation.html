@@ -170,7 +170,7 @@
     <fieldset>
       <legend>Ammonia volatilization (continuous, NH4-pool-based)</legend>
       <div class="subfield"><label><input type="checkbox" id="fcVolatPool"> Model continuous volatilization from the NH4 pool (requires the NH4/NO3 split above)</label></div>
-      <div class="sweep-note">Replaces, as the better-grounded mechanism, the two approximations under "Fertilizer placement / volatilization" below (a flat IPCC 10% default, and the Macnack et al. 2013 weather-driven one-time estimate) -- both were checked against Cycles' own real annualN.txt VOLATILIZATION column (2026-10-02) and found to overestimate real seasonal loss (4.4% mean, 0.1-8.1% range, 150 kg N/ha broadcast UAN at Rock Springs across 37 years) by 2-8x; Macnack specifically predicted ~37% at Rock Springs' real 2012 planting-day weather. The real process turns out to be structurally different from a one-time percentage lost at the moment of application: it's a slow, continuous, temperature-gated daily draw on the standing NH4 pool that competes with nitrification for the same pool (once NH4 nitrifies to NO3 it's no longer exposed to this loss pathway at all) -- back-calculated the same way as nitrification/denitrification (NH3 VOLATILIZ &divide; PROF SOIL NH4, binned by topsoil temperature, n=13410 real day-samples, fit as a plain exponential, no sign of nitrification's own high-temperature plateau). Refit against tsoil_lag (this engine's own lag-filtered proxy, the same one nitrification already evaluates against) rather than Cycles' own unlagged topsoil column the rate was first fit against -- tested directly whether closing that basis mismatch would close the gap to Cycles' real total, and it does not meaningfully (R&sup2;=0.991 vs the unlagged fit's 0.994, essentially as good, but the engine's own output only moves from 2.0-2.8% to 2.1-2.9% of applied N). Honest result, unchanged by the refit: this real mechanism lands at roughly half of Cycles' own 4.4% mean, with a narrower year-to-year range than Cycles' real 0.1-8.1% -- the basis mismatch is ruled out as the primary cause; the real remaining gap is still open, most likely in how this engine's own NH4-pool trajectory differs from Cycles' real one, not in the rate law itself. Does nothing (both checkboxes compose to a no-op) unless the NH4/NO3 split above is also checked. See QUESTIONS_FOR_DEVS.md's 2026-10-02 entry for the full derivation.</div>
+      <div class="sweep-note">Replaces, as the better-grounded mechanism, the two approximations under "Fertilizer placement / volatilization" below (a flat IPCC 10% default, and the Macnack et al. 2013 weather-driven one-time estimate) -- both were checked against Cycles' own real annualN.txt VOLATILIZATION column (2026-10-02) and found to overestimate real seasonal loss (4.4% mean, 0.1-8.1% range, 150 kg N/ha broadcast UAN at Rock Springs across 37 years) by 2-8x; Macnack specifically predicted ~37% at Rock Springs' real 2012 planting-day weather. The real process turns out to be structurally different from a one-time percentage lost at the moment of application: it's a slow, continuous, temperature-gated daily draw on the standing NH4 pool that competes with nitrification for the same pool (once NH4 nitrifies to NO3 it's no longer exposed to this loss pathway at all) -- back-calculated the same way as nitrification/denitrification (NH3 VOLATILIZ &divide; PROF SOIL NH4, binned by topsoil temperature, n=13410 real day-samples). A first refit (same session) swapped the unlagged real topsoil column the rate was first fit against for tsoil_lag (this engine's own lag-filtered proxy) -- tested directly whether that basis-mismatch fix would close the gap to Cycles' real total, and it barely did (engine output moved only from 2.0-2.8% to 2.1-2.9% of applied N, still roughly half of Cycles' 4.4% mean). Directly asked next to compare this engine's own day-by-day NH4 trajectory against Cycles' real PROF SOIL NH4 column -- did that, and found the pool trajectory itself is close to a wash (within 4% over the key 20-day post-application window: this engine's NH4-days integral 1668 vs. Cycles' real 1605), ruling out "wrong pool size/timing" as the cause. With exposure nearly matched, the real implied fractional rate itself was the gap: binning the real per-day rate by BOTH temperature and the pool's own NH4 concentration found the rate roughly doubles from low (&lt;20 kg/ha) to mid/high (&ge;20) concentration at the same temperature -- a real concentration dependence the temperature-only fit never captured, since low-concentration "background" days (the vast majority of a 37-year record) dominated that fit's average. Refit as a genuine two-variable log-linear model (temperature AND NH4 concentration, both real, raw per-day regression, R&sup2;=0.59 in log space vs. 0.56 for temperature alone) -- this closes most of the remaining gap: the engine's own 37-year mean is now 5.45% of applied (real Cycles: 4.43%), and the single real 2012 test case moves from an under-3% estimate to 3.97% against Cycles' own real 7.49% that year. Year-to-year correlation against Cycles' real per-year totals is still weak (0.024) and the range still narrower than Cycles' real 0.16-12.13 kg/ha spread -- the mean-level gap is resolved, tracking which years get more or less volatilization is not, the same standing gap already documented for several other nitrogen-pathway quantities in this engine. Does nothing (both checkboxes compose to a no-op) unless the NH4/NO3 split above is also checked. See QUESTIONS_FOR_DEVS.md's 2026-10-02 entry for the full derivation.</div>
     </fieldset>
 
     <fieldset>
@@ -2501,12 +2501,23 @@ def nitrification_rate(tsoil):
 # cycles_engine_validate.py's own VOLATILIZATION_RATE_A docstring for the full derivation,
 # including why this replaces, as the better-grounded mechanism, this engine's two prior
 # volatilization approximations (fert_placement_implement/soil_ph below), which overestimated
-# real Cycles' own seasonal volatilization (4.4% mean, 0.1-8.1% range) by 2-8x.
-VOLATILIZATION_RATE_A = 9.072474e-05
-VOLATILIZATION_RATE_B = 0.17120
+# real Cycles' own seasonal volatilization (4.4% mean, 0.1-8.1% range) by 2-8x. Refit a second
+# time the same session, per Matt's direct "Compare the NH4 trajectory against Cycles' real
+# column" -- that comparison found the NH4-pool trajectory itself is close to a wash (within
+# 4% over the key 20-day post-application window), but the real implied fractional rate
+# roughly doubles from low to mid/high NH4 concentration at the same soil temperature, a real
+# concentration-dependence the temperature-only fit never captured. Refit as a two-variable
+# log-linear model (temperature + NH4 concentration, both real); see cycles_engine_validate.py
+# for the complete derivation, methodology, and R^2 figures.
+VOLATILIZATION_RATE_A = 1.7123583682683128e-05
+VOLATILIZATION_RATE_B = 0.20628423305907934
+VOLATILIZATION_RATE_C = 0.022823629745439243
+VOLATILIZATION_RATE_NH4_CAP = 300.0
 
-def volatilization_rate(tsoil):
-    return max(0.0, min(1.0, VOLATILIZATION_RATE_A * math.exp(VOLATILIZATION_RATE_B * tsoil)))
+def volatilization_rate(tsoil, nh4_kg_ha):
+    nh4_capped = min(nh4_kg_ha, VOLATILIZATION_RATE_NH4_CAP)
+    return max(0.0, min(1.0, VOLATILIZATION_RATE_A * math.exp(
+        VOLATILIZATION_RATE_B * tsoil + VOLATILIZATION_RATE_C * nh4_capped)))
 
 def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False,
                      n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
@@ -2728,7 +2739,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             _tmean_today = (w["tx"] + w["tn"]) / 2.0
             tsoil_lag = tsoil_lag + SOIL_TEMP_LAG_K * (_tmean_today - tsoil_lag)
             nitrif_amt_today = n_nh4 * nitrification_rate(tsoil_lag)
-            volat_amt_today = n_nh4 * volatilization_rate(tsoil_lag) if model_volatilization else 0.0
+            volat_amt_today = n_nh4 * volatilization_rate(tsoil_lag, n_nh4) if model_volatilization else 0.0
             n_nh4 = max(0.0, n_nh4 - nitrif_amt_today - volat_amt_today)
             n_no3 += nitrif_amt_today
             if n_volatilized_pool_total is not None:

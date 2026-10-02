@@ -3698,3 +3698,104 @@ identity still closes. Ported into `model-validation.html`'s embedded engine, co
 reproduce the canonical script's exact numbers (2012 corn @ N=150: grain 8.977969 Mg/ha,
 volat_pool 3.5184 kg/ha, 2.35%) through CPython extraction, and confirmed the page still loads
 cleanly (div 62/62, fieldset 9/9, no new console errors).
+
+NH4 trajectory compared directly against Cycles' real column, same day, per Matt's direct
+"Compare the NH4 trajectory against Cycles' real column" -- the exact candidate flagged (and
+left untested) at the end of the refit entry above. Instrumented this engine's own day-by-day
+`n_nh4`/`n_no3`/`nitrif_today`/`volat_today`/`tsoil_lag` into a scratch copy's `record_history`
+output and ran it against the real ContinuousCorn 2012 scenario (Rock Springs, N=150 at
+planting via the engine's own default single-lump path), then pulled real Cycles' own
+`N.txt` PROF SOIL NH4/NH3 VOLATILIZ columns and `environ.txt`'s real unlagged topsoil
+temperature for the identical real calendar dates.
+
+Two real, distinct discrepancies found, pulling in OPPOSITE directions -- worth recording both
+rather than just the net effect:
+1. This engine dumps 100% of fresh fertilizer into NH4 on application; real Cycles' own
+   `ContinuousCorn.operation` discloses UreaAmmoniumNitrate as `N_NH4=0.75`/`N_NO3=0.25` --
+   a real quarter of every application goes straight to NO3 in real Cycles, never exposed to
+   volatilization at all. Not modeled here (every fertilizer source is treated identically,
+   100% NH4) -- confirmed real, not yet fixed, flagged as a separate open item (see below).
+   This makes this engine's NH4 PEAK too high relative to real Cycles (full 150 vs. real
+   Cycles' own observed post-application jump to ~117-123, consistent with ~112.5 kg NH4 +
+   background).
+2. This engine's own nitrification clears the NH4 pool measurably faster than real Cycles'
+   does in the immediate post-application, high-concentration regime at a comparable real
+   soil temperature: implied daily fractional nitrification rate ~9-10%/day in this engine's
+   trace at tsoil~12-14C vs. real Cycles' own ~5-6.5%/day at the same real dates and a similar
+   real soil temperature (both read directly from each source's own data, not inferred).
+
+Quantified the NET effect directly rather than assume the two discrepancies' signs tell the
+whole story: summed over the real 20-day window holding almost all of a season's NH4 mass
+(this engine's days 111-130; real Cycles' 2012-04-19 through 2012-05-08, the same calendar
+application window), this engine's own NH4-days integral (sum of the daily pool value, a
+rough exposure-time proxy) is 1668, real Cycles' own is 1605 -- within 4%, essentially a wash.
+**This decisively rules out "the NH4 pool trajectory differs in magnitude/timing" as the
+cause of the volatilization shortfall** -- the hypothesis this entry exists to test. The two
+discrepancies above are both real but happen to roughly offset over this window (a higher
+peak, cleared faster, nets out to similar total exposure-time as a lower peak, cleared
+slower).
+
+With exposure nearly matched, the real volatilization totals over the identical window still
+diverged sharply: this engine's own volat sum was 1.45 kg N/ha vs. real Cycles' 4.73 -- a real
+~3.3x shortfall in the RATE ITSELF, not in how much NH4 was ever present to act on. This
+pointed the investigation at `volatilization_rate()` directly rather than at pool dynamics.
+
+Diagnosed why with a direct, binned check across the full 37-year ContinuousCorn record (not
+just 2012): computed the real implied daily fractional rate (`NH3 VOLATILIZ / PROF SOIL NH4`
+the day before, n=13410 real day-samples with a non-trivial pool) and binned it by BOTH real
+topsoil temperature AND the real NH4 concentration that day (low <20 / mid 20-60 / high >=60
+kg/ha). Found the implied rate roughly DOUBLES from the low-concentration regime to mid/high
+at the SAME real temperature (e.g. at 12-14C: 0.00053/day low vs. 0.00110-0.00119 mid/high) --
+a real, genuine concentration dependence the original temperature-only fit never captured,
+because the low-concentration "background" regime (NH4 elevated only ~20-30 real days/year
+right after a fertilization event; background days make up the bulk of a 37-year sample)
+dominates that fit's average and pulls it below what actually governs the high-concentration
+regime that matters for a single realistic application.
+
+Refit as a genuine two-variable log-linear model, `ln(frac_rate) = a + b*tsoil + c*nh4` (nh4
+capped at 300 before fitting/evaluating), fit directly on the raw 13378 real (tsoil, nh4,
+frac_rate>0) triples via ordinary least squares (not a binned-mean fit, unlike both prior
+single-variable versions) -- R^2=0.59 in log space, a real improvement over the same raw-
+sample approach using temperature alone (R^2=0.56), consistent with the clear concentration
+signal found above. New fitted constants: a=-10.975 (A=1.7124e-05), b=0.20628, c=0.022824.
+
+Result: real, substantial, decisive. The single 2012 test case moved from under 3% (either
+prior fit) to 3.97% against Cycles' own real 2012 total of 7.49% -- still undershooting, but
+roughly closing half the remaining gap in one step. The full 37-year mean moved to 5.45% of
+applied N against real Cycles' own 4.43% mean -- the mean-level gap that motivated this whole
+investigation ("roughly half of Cycles' real mean") is now resolved, and arguably slightly
+overshoots rather than undershoots. What did NOT improve: year-to-year tracking stays weak
+(correlation against real Cycles' own per-year totals: 0.024, not meaningfully different from
+before) and the real range is still narrower than Cycles' own (model 5.54-13.52 kg/ha vs.
+real 0.16-12.13) -- the same standing "matches the mean, doesn't track which years" gap
+already documented for several other nitrogen-pathway quantities in this engine (e.g. the
+Kansas nitrogen-response-muting item). Not fixed here; a genuinely different, larger-scope
+problem (most likely needing real multi-year state carryover, per the standing diagnosis
+already reached for that other gap) than the mean-level fit just closed.
+
+Shipped: `VOLATILIZATION_RATE_A/_B` updated, new `VOLATILIZATION_RATE_C`/`_NH4_CAP` added,
+`volatilization_rate()` now takes `(tsoil, nh4_kg_ha)` instead of `tsoil` alone, in
+`cycles_engine_validate.py` and `model-validation.html`'s embedded engine (the only HTML file
+carrying this mechanism; `engine-demo.html` untouched, per the standing "engine first, UI
+later" pattern). Verified: the full regression suite (corn 0.777, soybean 0.947, wheat 0.455,
+silage corn 0.117) and `pattern_assertions.py` (15/16) are byte-identical, since no default-
+validated path activates `nh4_no3_split`/`model_volatilization`; the standing tillage sanity
+check (N=10: moldboard +0.873 Mg/ha; N=650: -0.0003, noise) and the real manure/mineral 0.5-
+availability equivalence both re-verified to hold; the nitrogen mass-balance identity still
+closes (uptake 97.83 + leached 6.27 + remaining 103.00 + volatilized 5.96, consistent with a
+plausible ~63 kg/ha implied background credit on top of 150 applied). `model-validation.html`'s
+embedded copy confirmed to reproduce the canonical script's exact numbers (2012 corn @ N=150:
+grain 10.711109 Mg/ha, volat 5.9616 kg/ha, 3.97%) via CPython extraction, and the page still
+loads cleanly (div 62/62, fieldset 9/9).
+
+Real, disclosed, NOT yet fixed open item surfaced along the way: this engine treats every
+fresh mineral-N input (fertilizer, background, manure, credit) as 100% NH4 on arrival,
+regardless of source -- real Cycles' own fertilizer catalog (and the specific UAN application
+already disclosed in `ContinuousCorn.operation`) gives each real fertilizer source its own
+real NH4/NO3 split at application (UAN: 75/25; other real sources in the same catalog surely
+differ, not yet checked). Fixing this would lower this engine's own NH4 peak (a portion would
+go straight to NO3, bypassing volatilization and nitrification both) -- direction and
+magnitude of the net effect on the just-closed mean-level fit not yet tested; worth doing
+before trusting this mechanism's numbers much further, and before assuming the real,
+concentration-dependent refit above would still land at the same coefficients if re-fit
+against a corrected (not 100%-NH4) application split.
