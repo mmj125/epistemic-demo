@@ -3312,3 +3312,77 @@ back-calculate them from (unlike the carbon-side constants, which had real Cycle
 check against) -- exactly the kind of blind construction this project's own discipline exists
 to avoid. Nothing committed; this was a diagnostic exercise using a monkey-patched test
 script, not an engine change.
+
+Resolved without asking, 2026-10-02 (direct follow-up to the entry immediately above, after
+being told not to treat "undisclosed" as the end of the line): the premise of the previous
+entry's conclusion was wrong. The real per-pool C:N ratios are NOT undisclosed -- they are
+literal daily output columns in a file this project had already been reading for its carbon
+data (`soilLayersCN.txt`) without ever looking at the C:N columns sitting right next to the
+ones already in use: "STAND RESID C:N" / "FLAT RESID C:N" / "MANURE RES C:N" / "MIC C:N" /
+"SOIL ORG C:N". Pulled directly from real Cycles output: Rock Springs ContinuousCorn gives a
+real, stable-across-37-years median STAND/FLAT residue C:N of ~86 and MIC C:N of ~9.66 and
+SOIL ORG C:N of ~9.38; CornSilageSoyWheat (the one scenario with real manure events) gives a
+real median MANURE RESID C:N of ~29.9. There is no disclosed "ROOT C:N" column, but it's
+directly calculable from two OTHER already-disclosed columns in a different file
+(CornRM.90.txt's own real ROOT BIOMASS and ROOT N): root_biomass_mg_ha * 0.42 * 1000 /
+root_n_kg_ha gives a real median of ~52-53 across the full record -- lower than aboveground
+residue, exactly as real agronomy would predict (roots are more N-rich than stover).
+
+This directly resolves the gap flagged above: `sixpool_step()`'s single flat `CN_RATIO_SOM=11`
+applied to TOTAL carbon respired (regardless of which pool it came from) was replaced with a
+proper per-pool N mass balance -- N released when carbon leaves a pool (at THAT pool's own real
+C:N), N consumed when carbon is retained into a receiving pool (at the RECEIVING pool's own real
+C:N). Since residue C:N (~86 stand/flat, ~52 root, ~30 manure) runs far higher than Cm/Cs's own
+C:N (~9.4-9.7), building microbial biomass out of decomposing residue is now correctly modeled
+as a real, often-large net N SINK (immobilization), not a source -- something the old flat-ratio
+version was structurally incapable of representing, since it only ever converted CO2 loss to
+positive mineralized N, with zero mechanism for carbon RETAINED into a growing pool to cost any
+nitrogen at all. The function can now return a negative value on a given day; the caller floors
+the mineral-N pool it feeds at 0 (a real mineral-N pool can't go physically negative -- this
+simplified day-by-day accounting isn't rate-limited by available substrate the way reality is,
+so the floor stands in for that).
+
+Verified via the full regression suite: corn (0.777, default validation never activates
+nitrogen tracking), soybean (0.947), and silage corn (0.117) are all byte-identical, confirming
+the fix only touches callers that actually use `background_n_model="sixpool"` -- currently just
+wheat's own validated path. Wheat moved 0.490 -> 0.455 (calibration_factor re-derived, 0.7541 ->
+0.7509, a pure mean-matching rescale that doesn't touch correlation) -- a real, modest
+regression from the flat-ratio version, but STILL above wheat's pre-sixpool rothc baseline of
+0.444, so this is a net improvement over where wheat started, just a smaller one than the flat
+ratio happened to produce. `pattern_assertions.py` stays at 15/16 (no new failures). Kept rather
+than reverted: the per-pool mechanism is real and disclosed, the flat ratio was a guess that
+happened to score a bit higher by coincidence, and this project's own standing discipline (see
+e.g. the 2026-10-01 off-season-decomposition entry, or the FAO-56 depletion-fraction fix)
+already treats "more correct, real data, modest point-accuracy cost" as worth keeping rather
+than chasing the single highest-scoring guess.
+
+A genuine, separate new finding surfaced while testing this against the multi-year
+`sixpool_initial_state` carryover feature (itself never shipped in any validated harness or
+UI panel -- an exploratory mechanism only, per its own 2026-10-01 docstring): chaining Rock
+Springs corn across consecutive years at N=0 with sixpool carryover active now produces a
+striking ALTERNATING pattern -- a normal, nonzero-yield season, then a complete, total crop
+failure (grain=0.000, n_uptake=0.00 kg N/ha) the very next year, then normal again, repeating
+indefinitely. Confirmed this is specific to sixpool carryover, not a general carryover bug:
+soil-moisture-only carryover (`initial_layers` with no sixpool state) across the same ten years
+shows no such pattern at all (sensible 8.6-11.9 Mg/ha every year). Root cause, traced directly:
+a good year's harvest credits a real, often-large pulse of stover carbon into `cra` (the real
+`ag_residue_mg_ha = ag_biomass - grain` carried forward for exactly this purpose); the FOLLOWING
+season, `sixpool_step()` runs every day starting day 1 of planting and immediately begins
+decomposing that whole pulse at once, with no gradual mellowing period -- the real net
+immobilization this fix correctly introduces is large enough, applied to an undiminished fresh
+stover pulse with no fertilizer to buffer it (N=0), to floor the mineral-N pool at exactly zero
+for the ENTIRE season, which (via `dGB_n_limited = dGB_water_limited * n_stress`, n_stress=0)
+means the crop never grows at all that year. A failed year then credits ~0 new stover at its
+own harvest (ag_biomass never grew), so the pulse clears and the cycle repeats. This is a real,
+physically-motivated phenomenon (high-C:N fresh residue causing severe short-term N
+immobilization is well documented in soil science) made UNREALISTICALLY catastrophic by this
+engine's lack of any rate-limiting on how fast a microbial pool can draw down a finite
+mineral-N stock in one day, and by `cra` arriving as one instantaneous lump rather than a
+gradual return. Not fixed this round -- multi-year sixpool carryover was already exploratory
+and unshipped before this was found, and fixing it properly would mean either rate-limiting
+daily immobilization by available mineral N (a real mechanism, not yet sourced from any
+available Cycles data) or smoothing stover's return into `cra` over real time (also not yet
+sourced) -- guessing at either now would repeat exactly the mistake this whole entry's fix was
+about not making. Flagged here so it isn't rediscovered as a surprise if multi-year carryover
+work resumes; the single-season, no-carryover default path (used by every currently-validated
+crop, wheat included) is completely unaffected by this finding.

@@ -1734,9 +1734,31 @@ SIXPOOL_EPS_C_KM_PRODUCT = 0.0165  # back-calculated combined eps_c*fA*k_m rate 
 # real 0.013-0.02/day range), itself already carrying the same fA~1 assumption used here, so
 # dividing by SIXPOOL_EPS_C below to recover k_m alone needs no further fA correction.
 SIXPOOL_KM = SIXPOOL_EPS_C_KM_PRODUCT / SIXPOOL_EPS_C
-CN_RATIO_SOM = 11.0  # standard, widely-cited C:N ratio for stabilized temperate agricultural
-# soil organic matter -- the flat conversion this mechanism uses from net carbon respired to
-# net nitrogen mineralized. Not a Cycles-specific or site-specific number.
+CN_RATIO_SOM = 11.0  # SUPERSEDED 2026-10-02, kept only as the pre-fix historical constant (see
+# below) -- no longer read anywhere in sixpool_step(). Was a single flat literature C:N ratio
+# applied to TOTAL carbon respired regardless of which pool it came from; replaced because it
+# structurally cannot represent net immobilization (see SIXPOOL_CN_* below).
+#
+# 2026-10-02, real per-pool C:N ratios, directly disclosed by Cycles' own output (not
+# literature guesses, and not back-calculated indirectly -- these are literal column values):
+# soilLayersCN.txt carries "STAND RESID C:N" / "FLAT RESID C:N" / "MANURE RES C:N" / "MIC C:N"
+# / "SOIL ORG C:N" as real daily per-pool outputs. Pulled directly: Rock Springs ContinuousCorn
+# (no manure in that scenario) gives a real median STAND/FLAT residue C:N of ~86 and a real
+# median MIC C:N of ~9.66 and SOIL ORG C:N of ~9.38, stable across the full 37-year record to
+# within a few percent. CornSilageSoyWheat (the one scenario with real manure events) gives a
+# real median MANURE RESID C:N of ~29.9. There is no disclosed "ROOT C:N" column, but
+# CornRM.90.txt's own real ROOT BIOMASS/ROOT N columns give it directly by division
+# (root_biomass_mg_ha * CARBON_FRACTION_DM * 1000 / root_n_kg_ha) -- a real median of ~52-53
+# across the full record, genuinely lower (more N-rich) than aboveground stand/flat residue,
+# as real agronomy would predict. This resolves the exact gap flagged on 2026-10-01 ("CN_RATIO_
+# SOM is the weak link... undisclosed real six-pool nitrogen system") -- the per-pool ratios
+# were not undisclosed at all, just never extracted from a file this project had already parsed
+# for its carbon columns but not its C:N columns sitting right next to them.
+SIXPOOL_CN_CRA = 86.0  # real STAND/FLAT RESID C:N, soilLayersCN.txt, Rock Springs ContinuousCorn.
+SIXPOOL_CN_CRTZ = 52.0  # real root-tissue C:N, computed from CornRM.90.txt's ROOT BIOMASS/ROOT N.
+SIXPOOL_CN_CRM = 30.0  # real MANURE RESID C:N, soilLayersCN.txt, CornSilageSoyWheat.
+SIXPOOL_CN_CM = 9.7  # real MIC C:N, soilLayersCN.txt layer 1, Rock Springs ContinuousCorn.
+SIXPOOL_CN_CS = 9.4  # real SOIL ORG C:N, soilLayersCN.txt layer 1, Rock Springs ContinuousCorn.
 SIXPOOL_TOPSOIL_DEPTH_M = 0.05  # fixed at Cycles' own REAL layer-1 thickness for Rock Springs
 # (GenericHagerstown.soil, confirmed directly: /tmp/cycles-run/input/GenericHagerstown.soil
 # layer 1 = 0.05m) -- the exact real control volume SIXPOOL_KS/SIXPOOL_KRA/SIXPOOL_K_RTZ were
@@ -1879,8 +1901,21 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0):
     Net carbon respired as CO2 each day = whatever is NOT retained at each transfer (residue
     decomposition not humified into Cm; Cm turnover not humified into Cs; all of Cs's own
     decomposition, which has no further downstream pool -- matching real Cycles' own "SOM
-    RESPIRED C" column, confirmed exactly equal to fE*fT*fD*ks*Cs). Net N mineralized = that
-    total carbon / CN_RATIO_SOM (see module header)."""
+    RESPIRED C" column, confirmed exactly equal to fE*fT*fD*ks*Cs).
+
+    Net N mineralized (2026-10-02, replacing the original flat-CO2/CN_RATIO_SOM shortcut):
+    computed per transfer using each pool's OWN real, disclosed C:N ratio (SIXPOOL_CN_* in the
+    module header), not one ratio applied to the total. N is released when carbon leaves a pool
+    (at that pool's own C:N) and consumed when carbon is retained into a receiving pool (at the
+    receiving pool's own C:N) -- the standard decomposer mass-balance identity. Residue C:N
+    (~86 for stand/flat, ~52 for root, ~30 for manure) runs far higher than Cm/Cs's own C:N
+    (~9.4-9.7), so building microbial biomass out of residue carbon is a real, large net N SINK
+    (immobilization) on most days, not a source -- this is why the function can and does return
+    a negative value (simulate_season() floors the pool it feeds at zero after adding it, the
+    same way a real mineral-N pool can't go physically negative). This single change is what
+    lets the mechanism's own net N output decline as the Cm/Cs pools build toward their own
+    steady state, instead of every bit of decomposed carbon counting as mineralized N regardless
+    of whether it was actually retained into growing biomass."""
     cs, cm, cra, crtz, crm, csx = state["cs"], state["cm"], state["cra"], state["crtz"], state["crm"], state["csx"]
     fe = sixpool_fe(tmean, relwet)
     fh = sixpool_fh(cs, csx)
@@ -1913,8 +1948,14 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0):
 
     state["cs"], state["cm"], state["cra"], state["crtz"], state["crm"] = cs, cm, cra, crtz, crm
 
-    total_co2_c_mg_ha = co2_residue + co2_cm + co2_cs
-    return total_co2_c_mg_ha * 1000 / CN_RATIO_SOM
+    n_released = (decomp_ra * 1000 / SIXPOOL_CN_CRA
+                  + decomp_rtz * 1000 / SIXPOOL_CN_CRTZ
+                  + decomp_rm * 1000 / SIXPOOL_CN_CRM
+                  + cm_loss * 1000 / SIXPOOL_CN_CM
+                  + cs_loss * 1000 / SIXPOOL_CN_CS)
+    n_immobilized = (cm_gain_from_residue * 1000 / SIXPOOL_CN_CM
+                      + cs_gain * 1000 / SIXPOOL_CN_CS)
+    return n_released - n_immobilized
 
 
 def n_critical_pct(biomass_mgha, crop):
@@ -2645,10 +2686,15 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                                        * CARBON_FRACTION_DM)
                 ft_eff = 1.0 + tillage_ft(tillage_dr, tillage_ftx_val)
                 background_today = sixpool_step(sixpool_state, tmean, relwet_topsoil, root_c_input_today, ft_eff)
+                # background_today can now be genuinely negative (net immobilization -- see
+                # sixpool_step()'s own docstring, 2026-10-02) -- floored at 0 here because a
+                # real mineral-N pool can't go physically negative (immobilization is
+                # substrate-limited in reality; this simplified day-by-day accounting isn't),
+                # not because a negative value is itself wrong.
                 if n_pool_by_layer is not None:
-                    n_pool_by_layer[0] += background_today
+                    n_pool_by_layer[0] = max(0.0, n_pool_by_layer[0] + background_today)
                 else:
-                    n_pool += background_today
+                    n_pool = max(0.0, n_pool + background_today)
             elif dGB_water_limited > 0:
                 weather_factor = (rothc_temp_factor(tmean) * rothc_moisture_factor(layers[0]["theta"], layers[0]["fc"], layers[0]["pwp"])
                                    / ROTHC_WEATHER_FACTOR_NORM)  # see ROTHC_WEATHER_FACTOR_NORM's own docstring -- fixed 2026-09-29

@@ -85,7 +85,12 @@ WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
              # (Kemanian et al. 2007) regressed wheat's correlation (0.337->0.163) even
              # though it helped corn/soybean, plausibly tied to wheat's own already-
              # documented winter-dormancy anomaly.
-             make_layers=make_layers, calibration_factor=0.7541,  # re-derived 2026-10-01 for
+             make_layers=make_layers, calibration_factor=0.7509,  # re-derived 2026-10-02 for
+             # sixpool_step()'s own per-pool real C:N fix (CN_RATIO_SOM's single flat ratio
+             # replaced by the real, disclosed SIXPOOL_CN_* ratios read directly off Cycles'
+             # own soilLayersCN.txt output -- see that module's own docstring) -- a pure
+             # mean-matching rescale; correlation moved 0.490->0.455 from the fix itself, not
+             # from this rescale. Previous value 0.7541, re-derived 2026-10-01 for
              # promoting this crop's background-nitrogen mechanism from "rothc" to "sixpool"
              # (see this file's own validate() call for WHEAT below) -- a pure mean-matching
              # rescale, doesn't touch correlation (0.444->0.490, unaffected by this number);
