@@ -4087,3 +4087,41 @@ itself, which is now correct. Reproducible via the new
 default validation path or any UI -- every already-shipped, documented correlation number in
 this project (corn 0.777, soybean 0.947, wheat 0.455, silage corn 0.117) is unaffected, verified
 via the full regression suite and pattern_assertions.py (15/16) both staying byte-identical.
+
+### 2026-10-02 (late): per-layer six-pool carbon, a 10x root-carbon unit bug, and what the 16-site table says
+
+Built `simulate_season(sixpool_per_layer=True)` (opt-in; the lumped pool stays the default): one Cs/Cm/Crtz
+two-pool per soil layer (own clay, SOC, bulk density, full thickness; initial per-layer stocks reproduce
+Cycles' `soilLayersCN.txt` SOIL ORG C to 3-4 significant figures at all four sites checked), a surface residue
+pool (cra/crm) in layer 0, per-depth soil temperature (lag + gain table, rms 0.85-1.09 C against Cycles'
+`environ.txt` SOIL TMP), and a refit fE moisture curve.
+
+Back-calculated from Cycles' own output (16 sites, 528 site-years, all in `run_validation_multisite.py`'s
+reference runs, nothing committed):
+- Cycles' annual net N mineralization (N.txt MINERALIZATION + IMMOBILIZATION; immobilization is stored
+  NEGATIVE, so net is the sum, not the difference) = 186.8 x SOM RESPIRED C - 78.1 x HUMIFIED C - 7.6 x RES
+  RESPIRED C (kg N per Mg C), R^2 0.972, per-site mean residual under 25 kg N. The engine's per-pool C:N
+  bookkeeping gave 2-3x too much gross AND immobilized N; the per-layer path uses this regression instead.
+- Humified share of decomposed residue C falls from ~0.53 at low Cs/Csx to ~0.1-0.2 by Cs/Csx = 1, about
+  0.53 x (1 - r^12), floored at 0.2 here (the SI's exponent of 6 and eps_c 0.4 gave 0.35 at r = 0.7).
+- SOM respiration = 0.00068 x sum_layers fE_i x Cs_i x exp(-4.44 x zmid_i), with NO dependence on Cs/Csx
+  (a free fD shape collapsed to a constant): rms log error 0.204 against 0.347 for the SI fD form and 0.563
+  for the original constants. Decomposition is strongly depth-attenuated (e-folding 0.23 m).
+- fE itself (Cycles' FACTOR COMP.) is reproduced to rms 0.053 given Cycles' own temperature and water; the old
+  moisture ramp over-estimated dry-soil fE 2-5x (floor 0.157 vs 0.02), refit as a piecewise curve.
+
+Real bug found on the way: the root carbon input to the six-pool state was missing a x10 (dGB is kg/m2, the pool
+is Mg/ha), so engine root-carbon decomposition was 0.13 vs Cycles' 2.2 Mg C/yr. Fixed in the shared line, which
+also moves the default lumped sixpool path: wheat 0.557 -> 0.523 correlation, calibration_factor 0.9618 ->
+0.9742 (mean restored to 3.92). Corn 0.777, soybean 0.947, silage corn 0.117 and pattern checks 15/16 unchanged.
+
+16-site standing at 150 kg N/ha, per-layer vs lumped: leaching rms log error 1.20 vs 1.67 (Iowa 37 vs Cycles 41,
+was 2), N150 grain MAE 1.26 vs 1.33, denitrification 1.25 vs 1.23 (same), volatilization 1.02 vs 0.93.
+NOT improved: unfertilized corn (N0 grain MAE 2.84 vs 0.83 Mg/ha). With a realistic mineral-N supply the engine
+takes up 60-130 kg N at N0 where Cycles' crop takes up 12-40 kg and makes 0.2-2 Mg/ha, so the N-stress-to-yield
+sensitivity (and/or root access to soil nitrate) is now the binding gap. Net N still overshoots 2-5x at the
+wettest/highest-SOM sites (Iowa, Illinois, Minnesota, Arkansas) and at Kansas/Texas because (a) the engine's soil
+is far wetter than Cycles' at dry sites (Kansas 1999 layer-1 relative wetness 0.77 vs 0.07), the known
+water-balance gap, and (b) a 2-year lead-in cannot reproduce 19 years of SOC decline, so Cs/Csx and humification
+at Iowa sit at their 1980 values. Per-layer mode is therefore opt-in and not wired into any panel. Next ropes:
+N-stress sensitivity at N0, and engine soil moisture at dry sites.

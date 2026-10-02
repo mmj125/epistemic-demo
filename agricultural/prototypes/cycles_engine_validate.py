@@ -1872,9 +1872,29 @@ def sixpool_fe_moisture(relwet):
     return max(0.0, min(1.0, 0.157 + 1.052 * relwet + 1.337 * relwet * relwet))
 
 
-def sixpool_fe(tmean, relwet):
-    """Combined real environmental modulation factor, 0-1 (Kemanian et al. 2024's fE)."""
-    return max(0.0, min(1.0, sixpool_fe_temp(tmean) * sixpool_fe_moisture(relwet)))
+SIXPOOL_FE_MOISTURE_PTS = ((-0.3, 0.0), (0.0, 0.04), (0.05, 0.13), (0.15, 0.38), (0.3, 0.79), (0.45, 0.98),
+                           (0.6, 1.0), (1.0, 0.97), (2.0, 0.90))
+# Refit 2026-10-02 against 104,220 site-layer-days of Cycles' own FACTOR COMP. (soilLayersCN.txt) with
+# Cycles' own per-layer SOIL TMP and water content, 16 sites: the old quadratic ramp (floor 0.157 at/below
+# the wilting point) over-estimated dry-soil fE 2-5x and missed the mild decline above field capacity.
+
+
+def sixpool_fe_moisture_ml(relwet):
+    """fE moisture response, per-layer mode (piecewise linear through SIXPOOL_FE_MOISTURE_PTS, flat beyond the ends).
+    relwet = (theta-pwp)/(fc-pwp)."""
+    pts = SIXPOOL_FE_MOISTURE_PTS
+    if relwet <= pts[0][0]:
+        return pts[0][1]
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+        if relwet <= x1:
+            return y0 + (y1 - y0) * (relwet - x0) / (x1 - x0)
+    return pts[-1][1]
+
+
+def sixpool_fe(tmean, relwet, ml=False):
+    """Combined real environmental modulation factor, 0-1 (Kemanian et al. 2024's fE). ml=True uses the
+    per-layer-mode moisture refit (sixpool_fe_moisture_ml)."""
+    return max(0.0, min(1.0, sixpool_fe_temp(tmean) * (sixpool_fe_moisture_ml(relwet) if ml else sixpool_fe_moisture(relwet))))
 
 
 def sixpool_csx_pct(clay_frac):
@@ -1901,6 +1921,38 @@ def sixpool_fh(cs, csx):
     """Real SI Eq. SI.13 humification-saturation factor: fH = 1-(Cs/Csx)^6."""
     ratio = max(0.0, cs / csx) if csx > 0 else 0.0
     return max(0.0, 1.0 - ratio ** 6)
+
+
+# Per-layer mode refit (2026-10-02): regressing Cycles' own annual SOM respiration (soilC.txt) on its own
+# per-layer FACTOR COMP. (fE) x SOIL ORG C x fD(C SAT. RATIO), 528 site-years over 16 sites, the SI's
+# fD form 1-1/(1+(a*r)^b) fits best at a=9.95, b=1.145, ks=0.000348 (rms log error 0.347; the old
+# a=4.5, b=3, ks=0.00032 gives 0.563; no fD at all gives 0.393). Used only by the per-layer pool.
+SIXPOOL_DIAG = None  # optional list; when set, sixpool_step appends (cs_loss, residue_decomp, residue_co2) per call
+# Cycles' own annual net N mineralization (N.txt MINERALIZATION + IMMOBILIZATION) regressed on its own
+# annual soilC.txt columns, 528 site-years x 16 sites: net N = 186.8*SOM_RESPIRED_C - 78.1*HUMIFIED_C
+# - 7.6*RES_RESPIRED_C (kg N per Mg C), R^2 = 0.972, per-site mean residual under 25 kg N. Humified
+# share of decomposed residue C (HUMIFIED/(HUMIFIED+RES RESPIRED)) falls from ~0.53 at low Cs/Csx to
+# ~0.1 by Cs/Csx = 1: ~0.53*(1-r^12) (a flat eps_c*fH with exponent 6 gave 0.35 at r=0.7 and 0 at r>1).
+SIXPOOL_ML_N_A = 186.8
+SIXPOOL_ML_N_B = 78.1
+SIXPOOL_ML_N_C = 7.6
+SIXPOOL_ML_EPS_H = 0.53
+SIXPOOL_ML_FH_P = 12.0
+SIXPOOL_ML_FH_FLOOR = 0.2  # Cycles still humifies ~0.12-0.17 of decomposed residue C at Cs/Csx >= 1 (Iowa 1980-83)
+# Per-layer Cs decomposition (2026-10-02, supersedes the fD-form fit above, which fit the same data at
+# rms 0.347): Cycles' annual SOM respiration regressed on its own per-layer FACTOR COMP. x SOIL ORG C,
+# 528 site-years, with a free fD shape collapsed to a constant (b -> 0), so the best form is
+# resp = KS * sum_i fE_i * Cs_i * exp(-Q * zmid_i), rms log error 0.204 (0.347 with the SI fD form and no
+# depth term, 0.563 with the original constants); per-site mean bias within +/-0.27 except Wisconsin -0.39.
+SIXPOOL_ML_DEPTH_Q = 4.44
+SIXPOOL_ML_KS = 0.000680
+SIXPOOL_ML_FD_A = 9.95
+SIXPOOL_ML_FD_B = 1.145
+
+
+def sixpool_fd_ml(cs, csx):
+    ratio = max(0.0, cs / csx) if csx > 0 else 0.0
+    return max(0.0, 1.0 - 1.0 / (1.0 + (SIXPOOL_ML_FD_A * ratio) ** SIXPOOL_ML_FD_B))
 
 
 def sixpool_fd(cs, csx):
@@ -2015,7 +2067,7 @@ def cra_maturity_fraction(age_days):
     return 1.0 - math.exp(-age_days / CRA_MATURATION_TAU_DAYS)
 
 
-def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0):
+def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=None):
     """Advances the six-pool state by one day (mutating it in place) and returns the day's net
     nitrogen mineralized (kg N/ha) -- the quantity simulate_season() adds directly into
     n_pool_by_layer[0] in place of the RothC-based background_today term when
@@ -2046,10 +2098,18 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0):
     lets the mechanism's own net N output decline as the Cm/Cs pools build toward their own
     steady state, instead of every bit of decomposed carbon counting as mineralized N regardless
     of whether it was actually retained into growing biomass."""
+    if "ml" in state and layers is not None:
+        return sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff)
     cs, cm, cra, crtz, crm, csx = state["cs"], state["cm"], state["cra"], state["crtz"], state["crm"], state["csx"]
-    fe = sixpool_fe(tmean, relwet)
+    ml_sub = state.get("ml_sub", False)
+    fe = sixpool_fe(tmean, relwet, ml_sub)
     fh = sixpool_fh(cs, csx)
-    fd = sixpool_fd(cs, csx)
+    if ml_sub:
+        fd = 1.0  # no Cs/Csx dependence in the per-layer fit (see SIXPOOL_ML_KS)
+        ks_use = SIXPOOL_ML_KS * math.exp(-SIXPOOL_ML_DEPTH_Q * state["zmid"])
+    else:
+        fd = sixpool_fd(cs, csx)
+        ks_use = SIXPOOL_KS
 
     crtz += root_c_input_mg_ha  # the only real carbon input modeled in this v1 scope -- see
     # sixpool_init_state's own docstring for why cra/crm have no input pathway here.
@@ -2069,14 +2129,18 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0):
     crm = max(0.0, crm - decomp_rm)
 
     gross_residue_decomp = decomp_ra + decomp_rtz + decomp_rm
-    cm_gain_from_residue = SIXPOOL_EPS_C * fh * gross_residue_decomp
+    if ml_sub:
+        _r = max(0.0, cs / csx) if csx > 0 else 0.0
+        cm_gain_from_residue = SIXPOOL_ML_EPS_H * max(SIXPOOL_ML_FH_FLOOR, 1.0 - _r ** SIXPOOL_ML_FH_P) * gross_residue_decomp
+    else:
+        cm_gain_from_residue = SIXPOOL_EPS_C * fh * gross_residue_decomp
     co2_residue = gross_residue_decomp - cm_gain_from_residue
 
     cm_loss = SIXPOOL_FA * fe * ft_eff * SIXPOOL_KM * cm
     cs_gain = SIXPOOL_EPS_C * SIXPOOL_FA * fe * fh * SIXPOOL_KM * cm
     co2_cm = max(0.0, cm_loss - cs_gain)
 
-    cs_loss = fe * ft_eff * fd * SIXPOOL_KS * cs
+    cs_loss = fe * ft_eff * fd * ks_use * cs
     co2_cs = cs_loss  # Cs has no further downstream pool in this two-pool system -- all of
     # its loss is CO2, matching real Cycles' own "SOM RESPIRED C" column exactly.
 
@@ -2092,7 +2156,75 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0):
                   + cs_loss * 1000 / SIXPOOL_CN_CS)
     n_immobilized = (cm_gain_from_residue * 1000 / SIXPOOL_CN_CM
                       + cs_gain * 1000 / SIXPOOL_CN_CS)
+    if ml_sub:
+        n_net = (SIXPOOL_ML_N_A * cs_loss - SIXPOOL_ML_N_B * cm_gain_from_residue
+                 - SIXPOOL_ML_N_C * (gross_residue_decomp - cm_gain_from_residue))
+        if SIXPOOL_DIAG is not None:
+            SIXPOOL_DIAG.append((cs_loss, gross_residue_decomp, co2_residue, n_net, 0.0, cm_loss, decomp_ra, decomp_rtz, cm_gain_from_residue, cs_gain, co2_cm))
+        return n_net
+    if SIXPOOL_DIAG is not None:
+        SIXPOOL_DIAG.append((cs_loss, gross_residue_decomp, co2_residue, n_released, n_immobilized, cm_loss, decomp_ra, decomp_rtz, cm_gain_from_residue, cs_gain, co2_cm))
     return n_released - n_immobilized
+
+
+
+SIXPOOL_ML_ROOT_DECAY_M = 0.25  # exponential depth distribution of root-carbon input (layer midpoint)
+SIXPOOL_ML_TMEAN_INIT = 11.0  # initial annual-mean air temperature (C) for the soil-temperature model
+# Soil temperature by layer midpoint depth from air temperature: T = Tmean + g*(lag(air,k) - Tmean).
+# (zmid upper bound m, lag k, gain g) fitted against Cycles' own environ.txt SOIL TMP, 8 sites x 11 years x
+# all layers: rms 0.85-1.09 C (a plain first-order lag per layer gave 2-3.5 C at depth).
+SIXPOOL_ML_TEMP_TABLE = ((0.25, 0.80, 0.9), (0.6, 0.50, 0.8), (1.0, 0.15, 0.7), (99.0, 0.06, 0.5))
+
+
+def sixpool_ml_temp_params(zmid):
+    for zmax, k, g in SIXPOOL_ML_TEMP_TABLE:
+        if zmid < zmax:
+            return k, g
+    return SIXPOOL_ML_TEMP_TABLE[-1][1], SIXPOOL_ML_TEMP_TABLE[-1][2]
+SIXPOOL_ML_TILL_DEPTH_M = 0.15  # tillage disturbance factor applies only to layers starting above this depth
+
+
+def sixpool_ml_init(layers, profile_raw):
+    """Per-layer six-pool state (2026-10-02): one Cs/Cm/Crtz two-pool per soil layer (own clay ->
+    Csx, own SOC, own bulk density, full layer thickness), plus a surface residue pool (cra, crm,
+    cra_age) at the top level that decomposes in layer 0, matching Cycles' per-layer decomposition
+    (a single lumped pool could not reproduce site-to-site respiration: rms log error 0.79)."""
+    subs, z = [], 0.0
+    for l, raw in zip(layers, profile_raw):
+        sub = sixpool_init_state(l, raw["clay"], raw["soc"], depth_m=raw["thick"])
+        sub["z0"], sub["zmid"], sub["tl"], sub["ml_sub"] = z, z + raw["thick"] / 2.0, None, True
+        subs.append(sub)
+        z += raw["thick"]
+    return dict(ml=subs, cs=sum(x["cs"] for x in subs), cm=sum(x["cm"] for x in subs),
+                cra=0.0, crtz=0.0, crm=0.0, csx=sum(x["csx"] for x in subs), cra_age=9999.0)
+
+
+def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
+    """Advance every layer's two-pool one day; returns total net N mineralized (kg N/ha). Layer 0
+    carries the surface residue pools. Root carbon input is distributed over layers by an
+    exponential depth weight."""
+    subs = state["ml"]
+    wts = [math.exp(-x["zmid"] / SIXPOOL_ML_ROOT_DECAY_M) * (x["z0"] >= 0) for x in subs]
+    wsum = sum(wts) or 1.0
+    total = 0.0
+    for i, (sub, l) in enumerate(zip(subs, layers)):
+        k, g = sixpool_ml_temp_params(sub["zmid"])
+        if sub["tl"] is None:
+            sub["tl"] = tmean
+            sub["tm"] = SIXPOOL_ML_TMEAN_INIT
+        sub["tl"] += k * (tmean - sub["tl"])
+        sub["tm"] += (tmean - sub["tm"]) / 365.0
+        t_layer = sub["tm"] + g * (sub["tl"] - sub["tm"])
+        relwet = ((l["theta"] - l["pwp"]) / (l["fc"] - l["pwp"]) if l["fc"] > l["pwp"] else 1.0)
+        if i == 0:
+            sub["cra"], sub["crm"], sub["cra_age"] = state["cra"], state["crm"], state["cra_age"]
+        ft = ft_eff if sub["z0"] < SIXPOOL_ML_TILL_DEPTH_M else 1.0
+        total += sixpool_step(sub, t_layer, relwet, root_c_input_mg_ha * wts[i] / wsum, ft)
+        if i == 0:
+            state["cra"], state["crm"], state["cra_age"] = sub["cra"], sub["crm"], sub["cra_age"]
+    state["cs"] = sum(x["cs"] for x in subs)
+    state["cm"] = sum(x["cm"] for x in subs)
+    return total
 
 
 def n_critical_pct(biomass_mgha, crop):
@@ -2455,7 +2587,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
         if sixpool_state is not None:
             relwet = ((layers[0]["theta"] - layers[0]["pwp"]) / (layers[0]["fc"] - layers[0]["pwp"])
                       if layers[0]["fc"] > layers[0]["pwp"] else 1.0)
-            nstate["n_nh4"] = max(0.0, nstate["n_nh4"] + sixpool_step(sixpool_state, tmean, relwet, 0.0, 1.0))
+            nstate["n_nh4"] = max(0.0, nstate["n_nh4"] + sixpool_step(sixpool_state, tmean, relwet, 0.0, 1.0, layers))
         nit = nstate["n_nh4"] * nitrification_rate(nstate["tsoil_lag"])
         vol = (nstate["n_nh4"] * volatilization_rate(nstate["tsoil_lag"], nstate["n_nh4"])
                if model_volatilization else 0.0)
@@ -2540,7 +2672,7 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
         de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
         if carry_n:
             nstate = dict(result["final_n_state"])
-            sixpool_state = dict(result["sixpool_final_state"]) if "sixpool_final_state" in result else None
+            sixpool_state = copy.deepcopy(result["sixpool_final_state"]) if "sixpool_final_state" in result else None
             lch, dn, vl = run_fallow_n_window(layers, bridge, nstate, sixpool_state, lat_deg=crop["lat_deg"],
                                               de_state=de_state,
                                               model_denitrification=kw.get("model_denitrification", True),
@@ -2564,7 +2696,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      background_n_model="rothc", sixpool_topsoil_clay_pct=None, sixpool_topsoil_soc_pct=None,
                      sixpool_initial_state=None, sixpool_offseason_decay=False,
                      model_denitrification=False, nh4_no3_split=False, model_volatilization=False,
-                     fertilizer_source=None, sixpool_profile_raw=None, initial_n_state=None,
+                     fertilizer_source=None, sixpool_profile_raw=None, sixpool_per_layer=False, initial_n_state=None,
                      nitrate_per_layer=False):
     """weather_rows: dicts with doy, tx, tn, solar, rhx, rhn, wind, pp, in planting-day order.
 
@@ -2970,7 +3102,10 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             if sixpool_topsoil_clay_pct is None or sixpool_topsoil_soc_pct is None:
                 raise ValueError("background_n_model='sixpool' requires sixpool_topsoil_clay_pct "
                                   "and sixpool_topsoil_soc_pct -- see simulate_season()'s own docstring.")
-            sixpool_state = sixpool_init_state(layers[0], sixpool_topsoil_clay_pct, sixpool_topsoil_soc_pct,
+            if sixpool_per_layer and sixpool_profile_raw:
+                sixpool_state = sixpool_ml_init(layers, sixpool_profile_raw)
+            else:
+              sixpool_state = sixpool_init_state(layers[0], sixpool_topsoil_clay_pct, sixpool_topsoil_soc_pct,
                                                 depth_m=(sixpool_effective_depth_m(sixpool_profile_raw, sixpool_topsoil_soc_pct)
                                                          if sixpool_profile_raw else None))
         # Moved ahead of the spinup block above (2026-10-01) specifically so
@@ -3006,7 +3141,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 tmean_spin = (w["tx"] + w["tn"]) / 2
                 relwet_spin = ((layers[0]["theta"] - layers[0]["pwp"]) / (layers[0]["fc"] - layers[0]["pwp"])
                                 if layers[0]["fc"] > layers[0]["pwp"] else 1.0)
-                sixpool_step(sixpool_state, tmean_spin, relwet_spin, 0.0)
+                sixpool_step(sixpool_state, tmean_spin, relwet_spin, 0.0, 1.0, layers)
     tillage_depth_m, tillage_mixing_efficiency = None, None
     if tillage_doy is not None:
         if tillage_implement not in TILLAGE_IMPLEMENTS:
@@ -3385,10 +3520,10 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 # sixpool_step()'s own docstring for the full structure.
                 relwet_topsoil = ((layers[0]["theta"] - layers[0]["pwp"]) / (layers[0]["fc"] - layers[0]["pwp"])
                                    if layers[0]["fc"] > layers[0]["pwp"] else 1.0)
-                root_c_input_today = (dGB_water_limited * (1.0 - shoot_fraction(ttf, crop["fsti"], crop["fstf"]))
+                root_c_input_today = (10.0 * dGB_water_limited * (1.0 - shoot_fraction(ttf, crop["fsti"], crop["fstf"]))
                                        * CARBON_FRACTION_DM)
                 ft_eff = 1.0 + tillage_ft(tillage_dr, tillage_ftx_val)
-                background_today = sixpool_step(sixpool_state, tmean, relwet_topsoil, root_c_input_today, ft_eff)
+                background_today = sixpool_step(sixpool_state, tmean, relwet_topsoil, root_c_input_today, ft_eff, layers)
                 # background_today can now be genuinely negative (net immobilization -- see
                 # sixpool_step()'s own docstring, 2026-10-02) -- floored at 0 here because a
                 # real mineral-N pool can't go physically negative (immobilization is
@@ -3591,7 +3726,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # to age 0 rather than tracking a real mixed-age blend, since this pool only ever
         # receives one discrete addition per season, not a continuous trickle.
         sixpool_state["cra_age"] = 0.0
-        result["sixpool_final_state"] = dict(sixpool_state)
+        result["sixpool_final_state"] = copy.deepcopy(sixpool_state)
     if n_nh4 is not None:
         result["final_n_state"] = dict(n_nh4=n_nh4, n_no3=n_no3, tsoil_lag=tsoil_lag,
                                        no3_layers=list(no3_layers) if no3_layers is not None else None)
