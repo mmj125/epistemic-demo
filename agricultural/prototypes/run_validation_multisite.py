@@ -10,6 +10,7 @@ import field_data as fd
 import cycles_engine_validate as cev
 from cycles_engine_validate import *
 import run_validation as rv
+cev.N_DEMAND_SCALE = float(os.environ.get("N_DEMAND_SCALE", cev.N_DEMAND_SCALE))
 CY="/tmp/cycles-run"  # a local Cycles v1.4.4 release directory (binary + input/), not committed
 SITES=dict(rock_springs=fd.PRESET_SITES["rock_springs"],iowa=fd.PRESET_SITES["iowa"],
            kansas=fd.PRESET_SITES["kansas"],maryland=fd.PRESET_SITES["maryland"],
@@ -74,8 +75,15 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
             sixpool_topsoil_soc_pct=soil_raw[0]["soc"],sixpool_profile_raw=soil_raw)
     if N>0: kw["fertilizer_source"]="uan"
     res={}
+    carry=os.environ.get("CARRY_N","1")=="1"
+    lead=int(os.environ.get("LEAD_YEARS",lead_years))
     for y in sorted(wx):
-        res[y]=simulate_season_with_leadin(wx,y,crop,lead_years=lead_years,**kw)
+        r=simulate_season_with_leadin(wx,y,crop,lead_years=lead,carry_n=carry,**kw)
+        if carry and "fallow_n_leached" in r:   # add the off-season windows so totals are calendar-year like Cycles' annualN.txt
+            r["n_leached_kg_ha"]=r.get("n_leached_kg_ha",0.0)+r["fallow_n_leached"]
+            r["n_denitrified_kg_ha"]=r.get("n_denitrified_kg_ha",0.0)+r["fallow_n_denitrified"]
+            r["n_volatilized_pool_kg_ha"]=r.get("n_volatilized_pool_kg_ha",0.0)+r["fallow_n_volatilized"]
+        res[y]=r
     return res
 if __name__=="__main__":
     out={}

@@ -1517,6 +1517,7 @@ def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
 # When n_rate_kg_ha is left as None (the default), none of this runs and
 # behavior is byte-identical to before this feature existed -- verified by
 # re-running run_validation.py / run_validation_rotation2.py unchanged.
+N_DEMAND_SCALE = 0.75  # fraction of the critical-curve marginal N demand the crop actually takes up: Cycles Iowa corn at 150 kg N holds 224 kg N/ha at maturity vs 295 for the full curve (0.76); unstressed whole-plant concentration runs 0.63-0.9 of the curve across growth (run_validation_multisite.py, 2026-10-02)
 N_STRESS_FULL_RATIO = 0.06
 N_STRESS_ZERO_RATIO = 0.62
 NCRIT_FLOOR_MGHA = 1.0  # dilution curve is flat (at N_MAX_CONCENTRATION) below this biomass; standard convention
@@ -2270,6 +2271,31 @@ def denitrification_rate(theta):
     return max(0.0, min(1.0, DENITRIF_K0 * theta ** DENITRIF_EXPONENT))
 
 
+DENITRIF_RELSAT_EXPONENT = 7.0   # fitted 2026-10-02 on 16 sites x 2 N rates x 37 years of native Cycles
+DENITRIF_K_REL = 0.017594        # output (N.txt, water.txt, environ.txt); see denitrification_rate_rel()
+
+
+def denitrification_rate_rel(theta_rel, tsoil_c):
+    """Daily fractional denitrification of the NO3 pool as a function of topsoil RELATIVE saturation
+    (theta/sat of layer 1) and soil temperature. Replaces denitrification_rate() (absolute layer-2
+    theta, fitted on Rock Springs only) as the active mechanism: absolute theta does not transfer
+    across soil textures (pooled across 16 sites it explains 9% of daily variance and misses
+    site totals by a factor of 5; Iowa/Texas/Kansas were 2-12x low). Pooling all 16 sites, the
+    implied rate (NO3 DENITRIF / prior-day PROF SOIL NO3) collapses onto ONE curve of layer-1
+    relative saturation: 0.00001/day at 0.25, 0.0003 at 0.5, 0.002 at 0.75, 0.005 at 0.82, rising
+    with roughly the 5th-7th power. Best pooled fit (grid over exponent, nitrate saturation and
+    temperature form, daily R2 0.33, site-total rms log error 0.87 vs 1.61): rate = K * rel^7 *
+    max(T,0)/15, linear in NO3 (a Michaelis-Menten nitrate term did not help). Annual totals fed
+    Cycles' own NO3 pool: Iowa 50.9 vs 51.7, Texas 29.8 vs 30.0, Kansas 8.0 vs 7.4, Arkansas 11.4 vs
+    12.5 kg N/ha (old formula: 31.9, 3.7, 0.6, 24.3). Known residual: cold snowmelt sites
+    (Minnesota 30 vs 64, Wisconsin 3 vs 15) are under-predicted, likely thaw-period denitrification
+    the temperature term zeroes out."""
+    if theta_rel <= 0:
+        return 0.0
+    return max(0.0, min(1.0, DENITRIF_K_REL * min(theta_rel, 1.2) ** DENITRIF_RELSAT_EXPONENT
+                        * max(tsoil_c, 0.0) / 15.0))
+
+
 NITRIF_RMAX = 0.145411  # REFIT 2026-10-02 (same session, per Matt's direct "Go fix the
 # nitrification speed now" -- the open item flagged by both the NH4-trajectory comparison and
 # the UAN-split fix above, which both found this engine's nitrification clearing NH4 roughly
@@ -2400,21 +2426,73 @@ def volatilization_rate(tsoil, nh4_kg_ha):
         VOLATILIZATION_RATE_B * tsoil + VOLATILIZATION_RATE_C * nh4_capped)))
 
 
+def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=75.0, slope_pct=0.0,
+                        lat_deg=40.6875, de_state=None, model_denitrification=True, model_volatilization=True):
+    """Bare-soil water balance PLUS the nitrogen dynamics that keep running with no crop: sixpool
+    mineralization/immobilization (zero root carbon), nitrification, ammonia volatilization,
+    denitrification and nitrate leaching, over an arbitrary weather window. Mutates `layers`,
+    `nstate` ({n_nh4, n_no3, tsoil_lag}) and `sixpool_state` in place and returns
+    (n_leached, n_denitrified, n_volatilized) totals for the window. Mirrors the in-season block in
+    simulate_season() term for term (same rate functions), minus uptake and fertilizer.
+
+    Built 2026-10-02 after the 16-site comparison showed Cycles carries 100-450 kg N/ha of standing
+    nitrate through every January at Iowa/Minnesota/Illinois (ORG SOIL N mineralizes year-round,
+    only ~48% of annual leaching and ~15% of denitrification fall in the crop window) while this
+    engine started each season's mineral pool at zero, so leaching (Iowa 2 vs 41 kg N/ha) and
+    denitrification (10 vs 52) could not be reproduced no matter how good the rate laws were."""
+    leached = denit = volat = 0.0
+    for w in rows:
+        drainage_mm, _, _ = infiltrate(layers, w["pp"], curve_number, slope_pct)
+        eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], lat_deg)
+        soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state, fallow=True,
+                         summer_time=summer_time_from_doy(w["doy"]))
+        tmean = (w["tx"] + w["tn"]) / 2.0
+        nstate["tsoil_lag"] += SOIL_TEMP_LAG_K * (tmean - nstate["tsoil_lag"])
+        if sixpool_state is not None:
+            relwet = ((layers[0]["theta"] - layers[0]["pwp"]) / (layers[0]["fc"] - layers[0]["pwp"])
+                      if layers[0]["fc"] > layers[0]["pwp"] else 1.0)
+            nstate["n_nh4"] = max(0.0, nstate["n_nh4"] + sixpool_step(sixpool_state, tmean, relwet, 0.0, 1.0))
+        nit = nstate["n_nh4"] * nitrification_rate(nstate["tsoil_lag"])
+        vol = (nstate["n_nh4"] * volatilization_rate(nstate["tsoil_lag"], nstate["n_nh4"])
+               if model_volatilization else 0.0)
+        nstate["n_nh4"] = max(0.0, nstate["n_nh4"] - nit - vol)
+        nstate["n_no3"] += nit
+        volat += vol
+        profile_water_mm = sum(l["theta"] * l["thick"] * 1000 for l in layers)
+        if profile_water_mm > 0 and nstate["n_no3"] > 0 and drainage_mm > 0:
+            lost = min(nstate["n_no3"], drainage_mm * (nstate["n_no3"] / profile_water_mm))
+            nstate["n_no3"] -= lost
+            leached += lost
+        if model_denitrification:
+            d = nstate["n_no3"] * denitrification_rate_rel(layers[0]["theta"] / layers[0]["sat"], nstate["tsoil_lag"])
+            nstate["n_no3"] = max(0.0, nstate["n_no3"] - d)
+            denit += d
+    return leached, denit, volat
+
+
 def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant_window=(110, 131),
-                                plant_min_soil_t=12.0, **season_kwargs):
+                                plant_min_soil_t=12.0, carry_n=False, **season_kwargs):
     """Runs one target season preceded by `lead_years` real prior seasons of the SAME crop and
     management, carrying real soil-water state forward (initial_layers/final_layers plus a bare-
-    fallow bridge from day 301 to year end), instead of resetting every layer to 50% of plant-
-    available water each January. Found 2026-10-02 (run_validation_multisite.py, 16 CONUS sites vs
-    native Cycles v1.4.4): Cycles carries deep-layer water across years (its sandy deep layers sit
-    far above field capacity year-round), so a fresh start per year starves sandy and dry sites
-    (Carolina 2.3 vs Cycles 9.2 Mg/ha at 150 kg N). N=150 mean abs error across 16 sites: 1.95
-    (fresh) -> 1.38 (1 lead year) -> 1.31 (2 lead years) -> 1.31 (full 37-year chain), so two
-    prior years capture the whole effect at 3x the compute. weather_by_year is {year: {doy: row}}.
-    Returns the target year's simulate_season() result (with plant_doy added). Years before the
-    first available weather year are skipped, so early years just get fewer lead years."""
+    fallow bridge from the last simulated day to year end), instead of resetting every layer to 50%
+    of plant-available water each January. Found 2026-10-02 (run_validation_multisite.py, 16 CONUS
+    sites vs native Cycles v1.4.4): Cycles carries deep-layer water across years, so a fresh start
+    per year starves sandy and dry sites (Carolina 2.3 vs Cycles 9.2 Mg/ha at 150 kg N). N=150
+    mean abs error across 16 sites: 1.95 (fresh) -> 1.38 (1 lead year) -> 1.31 (2 lead years) ->
+    1.31 (full 37-year chain), so two prior years capture the whole effect at 3x the compute.
+
+    carry_n=True (requires nh4_no3_split=True and background_n_model='sixpool' in season_kwargs)
+    ALSO carries the standing NH4/NO3 pools and the six-pool carbon state between seasons and runs
+    run_fallow_n_window() over the Jan-1-to-planting and harvest-to-Dec-31 gaps, so nitrate keeps
+    forming and being lost off-season the way it does in Cycles. weather_by_year is
+    {year: {doy: row}}. Returns the target year's simulate_season() result (plant_doy added; with
+    carry_n also fallow_n_leached/fallow_n_denitrified/fallow_n_volatilized for the target year's
+    own off-season windows). Years before the first available weather year are skipped, so early
+    years just get fewer lead years."""
     result = None
     layers = None
+    nstate = None
+    sixpool_state = None
     first = min(weather_by_year)
     for y in range(max(first, year - lead_years), year + 1):
         d = weather_by_year[y]
@@ -2428,13 +2506,38 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
             kw["wue_co2_scale"] = CO2_PPM_BY_YEAR.get(y, CO2_REF_PPM) / CO2_REF_PPM
         if layers is None:
             layers = crop["make_layers"]()
-        result = simulate_season(rows, crop, spinup_rows=spinup, initial_layers=layers, **kw)
+        fallow_tot = [0.0, 0.0, 0.0]
+        de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
+        if carry_n:
+            if nstate is None:
+                nstate = dict(n_nh4=0.0, n_no3=0.0, tsoil_lag=(rows[0]["tx"] + rows[0]["tn"]) / 2.0)
+            lch, dn, vl = run_fallow_n_window(layers, spinup, nstate, sixpool_state, lat_deg=crop["lat_deg"],
+                                              de_state=de_state,
+                                              model_denitrification=kw.get("model_denitrification", True),
+                                              model_volatilization=kw.get("model_volatilization", True))
+            fallow_tot = [lch, dn, vl]
+            kw["initial_n_state"] = dict(nstate)
+            if sixpool_state is not None:
+                kw["sixpool_initial_state"] = sixpool_state
+            result = simulate_season(rows, crop, spinup_rows=None, initial_layers=layers, **kw)
+        else:
+            result = simulate_season(rows, crop, spinup_rows=spinup, initial_layers=layers, **kw)
         result["plant_doy"] = plant_doy
         layers = result["final_layers"]
-        bridge = [d[k] for k in range(301, 367) if k in d]
-        run_bare_fallow_window(layers, bridge, lat_deg=crop["lat_deg"],
-                               de_state=dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]),
-                                             rew=REW_DEFAULT_MM))
+        last = result.get("last_doy") or 299
+        bridge = [d[k] for k in range(last + 1, 367) if k in d] if carry_n else [d[k] for k in range(301, 367) if k in d]
+        de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
+        if carry_n:
+            nstate = dict(result["final_n_state"])
+            sixpool_state = dict(result["sixpool_final_state"]) if "sixpool_final_state" in result else None
+            lch, dn, vl = run_fallow_n_window(layers, bridge, nstate, sixpool_state, lat_deg=crop["lat_deg"],
+                                              de_state=de_state,
+                                              model_denitrification=kw.get("model_denitrification", True),
+                                              model_volatilization=kw.get("model_volatilization", True))
+            fallow_tot = [fallow_tot[0] + lch, fallow_tot[1] + dn, fallow_tot[2] + vl]
+            result["fallow_n_leached"], result["fallow_n_denitrified"], result["fallow_n_volatilized"] = fallow_tot
+        else:
+            run_bare_fallow_window(layers, bridge, lat_deg=crop["lat_deg"], de_state=de_state)
     return result
 
 
@@ -2449,7 +2552,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      background_n_model="rothc", sixpool_topsoil_clay_pct=None, sixpool_topsoil_soc_pct=None,
                      sixpool_initial_state=None, sixpool_offseason_decay=False,
                      model_denitrification=False, nh4_no3_split=False, model_volatilization=False,
-                     fertilizer_source=None, sixpool_profile_raw=None):
+                     fertilizer_source=None, sixpool_profile_raw=None, initial_n_state=None):
     """weather_rows: dicts with doy, tx, tn, solar, rhx, rhn, wind, pp, in planting-day order.
 
     model_denitrification: False by default (byte-identical to this parameter not existing --
@@ -3023,6 +3126,17 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     n_no3 = (mineral_day0_kg_ha * mineral_no3_frac) if n_nh4 is not None else None
     tsoil_lag = ((weather_rows[0]["tx"] + weather_rows[0]["tn"]) / 2.0
                  if (n_nh4 is not None and weather_rows) else None)
+    if initial_n_state is not None and n_nh4 is not None:
+        # Standing mineral nitrogen carried in from the previous season/off-season (see
+        # run_fallow_n_window() and simulate_season_with_leadin(carry_n=True)). Added ON TOP of
+        # this season's own fertilizer/credit; deliberately NOT counted in total_n_input_kg_ha
+        # (carried-in N is not new supply), so the single-season mass-balance identity gains a
+        # carried-in term when this is used.
+        n_nh4 += initial_n_state["n_nh4"]
+        n_no3 += initial_n_state["n_no3"]
+        n_pool = n_nh4 + n_no3
+        tsoil_lag = initial_n_state["tsoil_lag"]
+    last_doy = None
     # Real, continuous NH4-pool ammonia volatilization (2026-10-02, see volatilization_rate()'s
     # own docstring) -- only meaningful alongside the NH4/NO3 split above, since it drains the
     # real NH4 sub-pool directly rather than approximating a one-time loss at application time.
@@ -3071,6 +3185,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     canopy_n_kg_ha = 0.0
 
     for w in weather_rows:
+        last_doy = w["doy"]
         # Real cold-kill (2026-10-01): a single night below the crop's own real, disclosed
         # THRESHOLD_TEMPERATURE_FOR_COLD_DAMAGE (GenericCrops.crop -- corn 3C, soybean 2C,
         # winter wheat -10C) ends the season outright. Found diagnosing corn's single worst
@@ -3156,8 +3271,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # is an NO3-consuming process by definition) rather than the whole lumped pool, which
         # is still the disclosed-simplification default everywhere else.
         if model_denitrification and n_pool is not None:
-            denitrif_theta = layers[1]["theta"] if len(layers) > 1 else layers[0]["theta"]
-            denitrif_frac_today = denitrification_rate(denitrif_theta)
+            denitrif_frac_today = denitrification_rate_rel(
+                layers[0]["theta"] / layers[0]["sat"],
+                tsoil_lag if tsoil_lag is not None else (w["tx"] + w["tn"]) / 2.0)
             if n_pool_by_layer is not None:
                 pool_sum = sum(n_pool_by_layer)
                 denitrif_today = pool_sum * denitrif_frac_today
@@ -3286,7 +3402,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             _ratio = n_actual_pct / n_crit_pct if n_crit_pct > 0 else 1.0
             n_stress = max(0.0, min(1.0, (_ratio - N_STRESS_FULL_RATIO) / (N_STRESS_ZERO_RATIO - N_STRESS_FULL_RATIO)))
             dGB_n_limited = dGB_water_limited * n_stress
-            demand_today_kg_ha = dGB_n_limited * 100 * n_marginal_demand_pct(biomass * 10, crop)
+            demand_today_kg_ha = dGB_n_limited * 100 * n_marginal_demand_pct(biomass * 10, crop) * N_DEMAND_SCALE
             if n_pool_by_layer is not None:
                 # Real CropSyst-style min(demand, potential_uptake) (Eq. 26, Stockle/Martin/
                 # Campbell 1994) -- potential_uptake is however much of the pool currently
@@ -3338,7 +3454,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
 
         if record_history:
             history.append(dict(doy=w["doy"], ttf=round(ttf, 4), canopy=round(eie, 4),
-                                 water_stress=round(water_stress, 4), ag_mg_ha=round(ag_biomass * 10, 4)))
+                                 water_stress=round(water_stress, 4), ag_mg_ha=round(ag_biomass * 10, 4),
+                                 n_no3=round(n_no3, 3) if n_no3 is not None else None,
+                                 n_nh4=round(n_nh4, 3) if n_nh4 is not None else None))
 
         if tillage_dr > 0:
             tillage_dr -= tillage_dr * tillage_dr_decay(layers)
@@ -3420,6 +3538,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # receives one discrete addition per season, not a continuous trickle.
         sixpool_state["cra_age"] = 0.0
         result["sixpool_final_state"] = dict(sixpool_state)
+    if n_nh4 is not None:
+        result["final_n_state"] = dict(n_nh4=n_nh4, n_no3=n_no3, tsoil_lag=tsoil_lag)
+        result["last_doy"] = last_doy
     if initial_layers is not None:
         result["final_layers"] = layers
     return result
