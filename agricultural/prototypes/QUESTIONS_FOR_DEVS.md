@@ -3955,3 +3955,67 @@ mechanism), confirmed to reproduce the canonical script's exact numbers (2012 co
 fertilizer_source="uan": grain 10.711109 Mg/ha, volat 4.0213 kg/ha, 2.68%) via CPython
 extraction, and confirmed via headless Chromium that the page's only console/page errors are
 the three pre-existing ones (confirmed via git stash against the prior commit).
+
+Year-to-year volatilization correlation gap investigated, same session, per Matt's direct
+"Go close the year-to-year correlation gap now" -- tested the most promising remaining
+hypothesis directly, found it doesn't work (and makes things WORSE, not better), traced the
+likely real cause, and did NOT ship a fix, since nothing tried actually improved the result.
+Recorded in full per this project's own standing discipline of documenting a real, well-
+evidenced negative result as completely as a positive one, so this isn't re-attempted blind.
+
+The leading candidate, tested first: real Cycles' `ContinuousCorn.operation` fixes the UAN
+application at a literal calendar DOY 110 every year, regardless of that year's own planting
+date. This engine's validated path, by contrast, applies the single-lump `n_rate_kg_ha` dose
+on the FIRST day of `weather_rows` -- i.e. at `plant_doy`, not at a fixed calendar day. Checked
+directly how much `plant_doy` actually varies across the real 37-year Rock Springs record
+(via `find_planting_doy`, already used for every validated crop): it ranges from 110 (0 years,
+e.g. 1985/2002/2005/2013/2015) all the way to 131 (the search window's own ceiling, hit in 6
+separate years -- 1981/1984/1988/1989/1995/1997 -- meaning the real soil-temperature planting
+trigger apparently never fired within the searched window those years). A 21-day spread in
+when the "same" fertilizer event lands, relative to real Cycles' fixed DOY 110, is a real,
+substantial timing mismatch -- different years would see completely different weather (soil
+temperature, rainfall) in the days immediately following application, which is exactly the
+window that drives most of a season's volatilization.
+
+Built a standalone test (not yet wired into the engine) that applies the real 75/25 UAN split
+at the correct fixed DOY 110, evolves the NH4/NO3 pool day by day through nitrification and
+volatilization alone (using the same real, already-shipped rate functions) from DOY 110
+through the actual growing season, and compared the resulting year-to-year pattern against
+real Cycles' own `annualN.txt` VOLATILIZATION column -- a direct, decisive test, not inferred.
+**Result: no improvement, and a real regression on both counts.** Correlation went from 0.027
+(the already-shipped single-lump-at-planting mechanism) to 0.016 -- effectively still zero,
+not meaningfully different. The mean-level match got WORSE too: 1.98% of applied N against
+Cycles' real 4.43% (vs. the already-shipped mechanism's 3.37%). The timing-mismatch hypothesis
+is REJECTED by direct evidence, not just unconfirmed -- fixing it would be a real regression,
+not a fix, and was NOT shipped.
+
+Chased the likely real cause next rather than stop at a negative result: checked whether this
+engine's LEACHING (a pathway competing for the same NH4/NO3 pool) shows better year-to-year
+tracking than volatilization does, since if the underlying water-balance dynamics carry no
+real signal at all, nothing downstream of them could either. They do, partially: this engine's
+year-to-year leaching total correlates 0.527 with real Cycles' own leaching column (NO3+NH4
+leaching, annualN.txt) -- a real, moderate, meaningfully-nonzero signal, in sharp contrast to
+volatilization's near-zero 0.027. But the ABSOLUTE magnitude is roughly 10x too high (model
+mean 12.11 kg N/ha vs. real Cycles' 1.18 kg N/ha) -- consistent with, not a new finding beyond,
+this engine's already-extensively-documented water-redistribution-physics gap (the same-day
+cascading-bucket approximation of Cycles' real sub-daily capacitance-weighted Eq. 1-2, already
+the subject of this session's Campbell-conductance refit, substepping, curve-number/f_wc swap,
+and initial-moisture-fraction fixes -- each of which moved Rock Springs correlation by only
+single-percentage-point amounts, confirming this site's humid climate rarely stresses the
+water balance hard enough to expose the gap's full size).
+
+Conclusion, stated plainly rather than papered over with a cosmetic tweak: volatilization's
+near-zero year-to-year correlation is very likely inherited from this same, already-diagnosed,
+structurally larger problem -- this engine's water balance tracks real Cycles' own leaching
+pattern only moderately (0.53) and overshoots its magnitude by an order of magnitude, and
+volatilization (which draws on the same pool, with no leaching-style competition of its own to
+anchor it to real wetness patterns) inherits that mismatch with no signal left over. Both of
+today's two tested hypotheses (application timing, and the rate functions' own shape/
+concentration-dependence, the latter already resolved in the two prior entries) are now ruled
+out or already fixed; the water-balance magnitude/timing gap is the standing, already-known,
+and already-extensively-attempted target -- fully closing it would mean the real sub-daily
+redistribution physics this project has flagged as a "materially larger undertaking" since
+2026-09-25, not a nitrogen-pathway-specific fix. Not pursued further this round; no engine
+code was changed by this investigation (the timing-fix test lives only in a scratch script,
+never applied to `cycles_engine_validate.py` or `model-validation.html`, since it made the
+real numbers worse, not better).
