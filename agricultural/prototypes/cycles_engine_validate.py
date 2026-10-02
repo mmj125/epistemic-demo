@@ -1908,7 +1908,28 @@ def sixpool_fd(cs, csx):
     return max(0.0, 1.0 - 1.0 / (1.0 + (4.5 * ratio) ** 3))
 
 
-def sixpool_init_state(layer0, clay_pct, soc_pct):
+SIXPOOL_DEPTH_DECAY_M = 0.5  # fitted 2026-10-02 against native Cycles season net mineralization at 16
+# CONUS sites (run_validation_multisite.py / QUESTIONS_FOR_DEVS.md): the exponential decay length of
+# a layer's weight in the decomposing-carbon stock. rms log error across sites 0.565 (fixed 0.05m
+# topsoil pool) -> 0.320 (decay length 0.5m); 0.3-1.5m all within 0.35, so not a knife-edge value.
+SIXPOOL_DEPTH_K = 0.279  # scale so the exact Rock Springs Hagerstown profile (the pool's original
+# calibration reference) lands at 0.057m, ~ the old fixed 0.05m -- the fit and that sanity check agree.
+
+
+def sixpool_effective_depth_m(profile_raw, soc_top_pct):
+    """Effective decomposing-pool depth (m) for a soil profile given as [{thick, soc}, ...] (soc in
+    %), replacing the fixed SIXPOOL_TOPSOIL_DEPTH_M when a caller supplies the whole profile. Real
+    Cycles decomposes organic matter in every layer; the old single 0.05m pool only ever saw layer
+    1's SOC, which is why Iowa (3.5% SOC through 0.6m) got under half of Cycles' mineralization."""
+    z, stock = 0.0, 0.0
+    for l in profile_raw:
+        zm = z + l["thick"] / 2.0
+        stock += l["thick"] * l["soc"] * math.exp(-zm / SIXPOOL_DEPTH_DECAY_M)
+        z += l["thick"]
+    return SIXPOOL_DEPTH_K * stock / soc_top_pct if soc_top_pct > 0 else SIXPOOL_TOPSOIL_DEPTH_M
+
+
+def sixpool_init_state(layer0, clay_pct, soc_pct, depth_m=None):
     """Initializes the topsoil two-pool (+ residue) carbon state from the same real soil
     texture/SOC data the caller already used to build layer0's own hydraulic properties --
     deliberately scoped to layer0 only, the exact same control volume the existing RothC-based
@@ -1952,8 +1973,9 @@ def sixpool_init_state(layer0, clay_pct, soc_pct):
     artifact, and not yet resolved -- see this module's own header comment."""
     bd = sixpool_bulk_density(layer0["sat"])
     csx_pct = sixpool_csx_pct(clay_pct / 100.0)
-    csx = bd * SIXPOOL_TOPSOIL_DEPTH_M * 100 * csx_pct
-    cs0 = bd * SIXPOOL_TOPSOIL_DEPTH_M * 100 * soc_pct
+    depth_m = SIXPOOL_TOPSOIL_DEPTH_M if depth_m is None else depth_m
+    csx = bd * depth_m * 100 * csx_pct
+    cs0 = bd * depth_m * 100 * soc_pct
     return dict(cs=cs0, cm=0.03 * cs0, cra=0.0, crtz=0.0, crm=0.0, csx=csx, cra_age=9999.0)
 
 
@@ -2378,6 +2400,44 @@ def volatilization_rate(tsoil, nh4_kg_ha):
         VOLATILIZATION_RATE_B * tsoil + VOLATILIZATION_RATE_C * nh4_capped)))
 
 
+def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant_window=(110, 131),
+                                plant_min_soil_t=12.0, **season_kwargs):
+    """Runs one target season preceded by `lead_years` real prior seasons of the SAME crop and
+    management, carrying real soil-water state forward (initial_layers/final_layers plus a bare-
+    fallow bridge from day 301 to year end), instead of resetting every layer to 50% of plant-
+    available water each January. Found 2026-10-02 (run_validation_multisite.py, 16 CONUS sites vs
+    native Cycles v1.4.4): Cycles carries deep-layer water across years (its sandy deep layers sit
+    far above field capacity year-round), so a fresh start per year starves sandy and dry sites
+    (Carolina 2.3 vs Cycles 9.2 Mg/ha at 150 kg N). N=150 mean abs error across 16 sites: 1.95
+    (fresh) -> 1.38 (1 lead year) -> 1.31 (2 lead years) -> 1.31 (full 37-year chain), so two
+    prior years capture the whole effect at 3x the compute. weather_by_year is {year: {doy: row}}.
+    Returns the target year's simulate_season() result (with plant_doy added). Years before the
+    first available weather year are skipped, so early years just get fewer lead years."""
+    result = None
+    layers = None
+    first = min(weather_by_year)
+    for y in range(max(first, year - lead_years), year + 1):
+        d = weather_by_year[y]
+        doys = sorted(d)
+        tsoil = simulate_soil_temp([(d[k]["tx"] + d[k]["tn"]) / 2 for k in doys], k=0.15)
+        plant_doy = find_planting_doy(dict(zip(doys, tsoil)), plant_window, plant_min_soil_t)
+        rows = [d[k] for k in range(plant_doy, 300) if k in d]
+        spinup = [d[k] for k in range(1, plant_doy) if k in d]
+        kw = dict(season_kwargs)
+        if "wue_co2_scale" not in kw:
+            kw["wue_co2_scale"] = CO2_PPM_BY_YEAR.get(y, CO2_REF_PPM) / CO2_REF_PPM
+        if layers is None:
+            layers = crop["make_layers"]()
+        result = simulate_season(rows, crop, spinup_rows=spinup, initial_layers=layers, **kw)
+        result["plant_doy"] = plant_doy
+        layers = result["final_layers"]
+        bridge = [d[k] for k in range(301, 367) if k in d]
+        run_bare_fallow_window(layers, bridge, lat_deg=crop["lat_deg"],
+                               de_state=dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]),
+                                             rew=REW_DEFAULT_MM))
+    return result
+
+
 def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False,
                      n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
                      manure_source=None,
@@ -2389,7 +2449,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      background_n_model="rothc", sixpool_topsoil_clay_pct=None, sixpool_topsoil_soc_pct=None,
                      sixpool_initial_state=None, sixpool_offseason_decay=False,
                      model_denitrification=False, nh4_no3_split=False, model_volatilization=False,
-                     fertilizer_source=None):
+                     fertilizer_source=None, sixpool_profile_raw=None):
     """weather_rows: dicts with doy, tx, tn, solar, rhx, rhn, wind, pp, in planting-day order.
 
     model_denitrification: False by default (byte-identical to this parameter not existing --
@@ -2794,7 +2854,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             if sixpool_topsoil_clay_pct is None or sixpool_topsoil_soc_pct is None:
                 raise ValueError("background_n_model='sixpool' requires sixpool_topsoil_clay_pct "
                                   "and sixpool_topsoil_soc_pct -- see simulate_season()'s own docstring.")
-            sixpool_state = sixpool_init_state(layers[0], sixpool_topsoil_clay_pct, sixpool_topsoil_soc_pct)
+            sixpool_state = sixpool_init_state(layers[0], sixpool_topsoil_clay_pct, sixpool_topsoil_soc_pct,
+                                                depth_m=(sixpool_effective_depth_m(sixpool_profile_raw, sixpool_topsoil_soc_pct)
+                                                         if sixpool_profile_raw else None))
         # Moved ahead of the spinup block above (2026-10-01) specifically so
         # sixpool_offseason_decay below can run during it -- see that parameter's own
         # docstring and QUESTIONS_FOR_DEVS.md for why.

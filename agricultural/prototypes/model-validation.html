@@ -2290,7 +2290,28 @@ def sixpool_fd(cs, csx):
     return max(0.0, 1.0 - 1.0 / (1.0 + (4.5 * ratio) ** 3))
 
 
-def sixpool_init_state(layer0, clay_pct, soc_pct):
+SIXPOOL_DEPTH_DECAY_M = 0.5  # fitted 2026-10-02 against native Cycles season net mineralization at 16
+# CONUS sites (run_validation_multisite.py / QUESTIONS_FOR_DEVS.md): the exponential decay length of
+# a layer's weight in the decomposing-carbon stock. rms log error across sites 0.565 (fixed 0.05m
+# topsoil pool) -> 0.320 (decay length 0.5m); 0.3-1.5m all within 0.35, so not a knife-edge value.
+SIXPOOL_DEPTH_K = 0.279  # scale so the exact Rock Springs Hagerstown profile (the pool's original
+# calibration reference) lands at 0.057m, ~ the old fixed 0.05m -- the fit and that sanity check agree.
+
+
+def sixpool_effective_depth_m(profile_raw, soc_top_pct):
+    """Effective decomposing-pool depth (m) for a soil profile given as [{thick, soc}, ...] (soc in
+    %), replacing the fixed SIXPOOL_TOPSOIL_DEPTH_M when a caller supplies the whole profile. Real
+    Cycles decomposes organic matter in every layer; the old single 0.05m pool only ever saw layer
+    1's SOC, which is why Iowa (3.5% SOC through 0.6m) got under half of Cycles' mineralization."""
+    z, stock = 0.0, 0.0
+    for l in profile_raw:
+        zm = z + l["thick"] / 2.0
+        stock += l["thick"] * l["soc"] * math.exp(-zm / SIXPOOL_DEPTH_DECAY_M)
+        z += l["thick"]
+    return SIXPOOL_DEPTH_K * stock / soc_top_pct if soc_top_pct > 0 else SIXPOOL_TOPSOIL_DEPTH_M
+
+
+def sixpool_init_state(layer0, clay_pct, soc_pct, depth_m=None):
     """Initializes the topsoil two-pool (+ residue) carbon state from the same real soil
     texture/SOC data the caller already used to build layer0's own hydraulic properties --
     deliberately scoped to layer0 only, the exact same control volume the existing RothC-based
@@ -2334,8 +2355,9 @@ def sixpool_init_state(layer0, clay_pct, soc_pct):
     artifact, and not yet resolved -- see this module's own header comment."""
     bd = sixpool_bulk_density(layer0["sat"])
     csx_pct = sixpool_csx_pct(clay_pct / 100.0)
-    csx = bd * SIXPOOL_TOPSOIL_DEPTH_M * 100 * csx_pct
-    cs0 = bd * SIXPOOL_TOPSOIL_DEPTH_M * 100 * soc_pct
+    depth_m = SIXPOOL_TOPSOIL_DEPTH_M if depth_m is None else depth_m
+    csx = bd * depth_m * 100 * csx_pct
+    cs0 = bd * depth_m * 100 * soc_pct
     return dict(cs=cs0, cm=0.03 * cs0, cra=0.0, crtz=0.0, crm=0.0, csx=csx, cra_age=9999.0)
 
 
@@ -2577,7 +2599,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      soil_evap_model="faostandard", n_root_limited=False, wue_co2_scale=1.0,
                      background_n_model="rothc", sixpool_topsoil_clay_pct=None, sixpool_topsoil_soc_pct=None,
                      model_denitrification=False, nh4_no3_split=False, model_volatilization=False,
-                     fertilizer_source=None):
+                     fertilizer_source=None, sixpool_profile_raw=None):
     # n_root_limited (default False, byte-identical when unused): real CropSyst nitrogen
     # uptake (Stockle, Martin & Campbell 1994, Eq. 26) is min(demand, potential_uptake), not
     # demand alone. Tracks nitrogen per soil layer (n_pool_by_layer) instead of one lumped
@@ -2756,7 +2778,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         if sixpool_topsoil_clay_pct is None or sixpool_topsoil_soc_pct is None:
             raise ValueError("background_n_model='sixpool' requires sixpool_topsoil_clay_pct "
                               "and sixpool_topsoil_soc_pct.")
-        sixpool_state = sixpool_init_state(layers[0], sixpool_topsoil_clay_pct, sixpool_topsoil_soc_pct)
+        sixpool_state = sixpool_init_state(layers[0], sixpool_topsoil_clay_pct, sixpool_topsoil_soc_pct,
+                                                depth_m=(sixpool_effective_depth_m(sixpool_profile_raw, sixpool_topsoil_soc_pct)
+                                                         if sixpool_profile_raw else None))
     # Real, day-by-day concentration-tracked N stress (2026-09-25), replacing the season-
     # total quadratic-plateau. Found via CropSyst's own public source (crop_N_common.cpp):
     # N_reduction_factor = 1-(Ncrit-Nactual)/(Ncrit-Nmin), a function of the plant's own

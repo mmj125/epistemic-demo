@@ -12,7 +12,11 @@ from cycles_engine_validate import *
 import run_validation as rv
 CY="/tmp/cycles-run"  # a local Cycles v1.4.4 release directory (binary + input/), not committed
 SITES=dict(rock_springs=fd.PRESET_SITES["rock_springs"],iowa=fd.PRESET_SITES["iowa"],
-           kansas=fd.PRESET_SITES["kansas"],maryland=fd.PRESET_SITES["maryland"])
+           kansas=fd.PRESET_SITES["kansas"],maryland=fd.PRESET_SITES["maryland"],
+           # 12 further CONUS sites (added 2026-10-02) so any fit is checked off the original four
+           nebraska=(41.0,-98.0),illinois=(40.2,-89.0),ohio=(40.5,-83.5),minnesota=(44.5,-94.5),
+           georgia=(32.5,-83.5),texas=(32.0,-97.5),michigan=(43.0,-84.5),carolina=(35.2,-79.0),
+           missouri=(38.5,-92.5),indiana=(40.0,-86.5),arkansas=(35.0,-91.5),wisconsin=(44.0,-89.5))
 N_LEVELS=[0,150]
 def lat_of(lat,lon):
     m=fd.load_manifest(); _,_,k=fd.tile_for_point(lat,lon); d,e=fd.load_tile_bytes(m,k)
@@ -56,7 +60,7 @@ def doy_of(s):
 def corr(a,b):
     ma,mb=statistics.mean(a),statistics.mean(b); sa=math.sqrt(sum((x-ma)**2 for x in a)); sb=math.sqrt(sum((x-mb)**2 for x in b))
     return sum((a[i]-ma)*(b[i]-mb) for i in range(len(a)))/(sa*sb) if sa and sb else float('nan')
-def engine(site,wx,soil_raw,cell_lat,N,mode):
+def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     crop=dict(rv.CORN); crop["lat_deg"]=cell_lat
     def ml():
         L=[]
@@ -65,18 +69,13 @@ def engine(site,wx,soil_raw,cell_lat,N,mode):
             L.append(dict(thick=l["thick"],fc=h["fc"],pwp=h["pwp"],sat=h["sat"],theta=h["pwp"]+INITIAL_MOISTURE_FRACTION*(h["fc"]-h["pwp"]),ksat_mm_day=h["ksat_mm_day"],psi_e_kpa=h["psi_e_kpa"],B=h["B"]))
         return L
     crop["make_layers"]=ml
+    kw=dict(n_rate_kg_ha=N,nh4_no3_split=True,model_denitrification=True,model_volatilization=True,
+            background_n_model="sixpool",sixpool_topsoil_clay_pct=soil_raw[0]["clay"],
+            sixpool_topsoil_soc_pct=soil_raw[0]["soc"],sixpool_profile_raw=soil_raw)
+    if N>0: kw["fertilizer_source"]="uan"
     res={}
     for y in sorted(wx):
-        d=wx[y]; ds=sorted(d)
-        ts=simulate_soil_temp([(d[k]["tx"]+d[k]["tn"])/2 for k in ds],k=0.15)
-        pd=find_planting_doy(dict(zip(ds,ts)),(110,131),12.0)
-        rows=[d[k] for k in range(pd,300) if k in d]; sp=[d[k] for k in range(1,pd) if k in d]
-        w=CO2_PPM_BY_YEAR.get(y,CO2_REF_PPM)/CO2_REF_PPM
-        kw=dict(spinup_rows=sp,wue_co2_scale=w)
-        if mode=="nflags":
-            kw.update(n_rate_kg_ha=N,nh4_no3_split=True,model_denitrification=True,model_volatilization=True)
-            if N>0: kw["fertilizer_source"]="uan"
-        r=simulate_season(rows,crop,**kw); r["plant"]=pd; res[y]=r
+        res[y]=simulate_season_with_leadin(wx,y,crop,lead_years=lead_years,**kw)
     return res
 if __name__=="__main__":
     out={}
@@ -85,15 +84,15 @@ if __name__=="__main__":
         write_inputs(site,lat,lon,wx,soil,cl)
         for N in N_LEVELS:
             H,A=run_cycles(site,N)
-            for mode in (["default"] if N==150 else [])+["nflags"]:
+            for mode in ["leadin"]:
                 E=engine(site,wx,soil,cl,N,mode)
                 ys=sorted(set(H)&set(E))
                 row={}
                 for var,gr,ge in [("grain",lambda y:H[y]["grain"],lambda y:E[y]["grain"]),("total_biomass",lambda y:H[y]["total"],lambda y:E[y]["total"]),
-                                  ("plant_doy",lambda y:doy_of(H[y]["plant"]),lambda y:E[y]["plant"])]:
+                                  ("plant_doy",lambda y:doy_of(H[y]["plant"]),lambda y:E[y]["plant_doy"])]:
                     a=[gr(y) for y in ys]; b=[ge(y) for y in ys]
                     row[var]=dict(real=statistics.mean(a),model=statistics.mean(b),mae=statistics.mean(abs(x-z) for x,z in zip(a,b)),corr=corr(a,b),n=len(ys))
-                if mode=="nflags" and N==150:
+                if N==150:
                     for k,ek in [("leach","n_leached_kg_ha"),("volat","n_volatilized_pool_kg_ha"),("denit","n_denitrified_kg_ha")]:
                         yy=[y for y in ys if y in A]; a=[A[y][k] for y in yy]; b=[E[y].get(ek,0.0) for y in yy]
                         row[k]=dict(real=statistics.mean(a),model=statistics.mean(b),mae=statistics.mean(abs(x-z) for x,z in zip(a,b)),corr=corr(a,b),n=len(yy))
