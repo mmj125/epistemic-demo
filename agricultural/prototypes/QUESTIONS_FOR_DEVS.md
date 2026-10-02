@@ -4125,3 +4125,34 @@ is far wetter than Cycles' at dry sites (Kansas 1999 layer-1 relative wetness 0.
 water-balance gap, and (b) a 2-year lead-in cannot reproduce 19 years of SOC decline, so Cs/Csx and humification
 at Iowa sit at their 1980 values. Per-layer mode is therefore opt-in and not wired into any panel. Next ropes:
 N-stress sensitivity at N0, and engine soil moisture at dry sites.
+
+### 2026-10-02 (night): soil water at dry and humid sites -- Cycles' soil evaporation is set by residue cover
+
+Compared annual and monthly water budgets and per-layer soil water, engine vs Cycles, at Rock Springs, Iowa,
+Kansas, Maryland and Georgia. The engine evaporated about 1.0 x ETo from bare soil all off-season (Cycles 0.14-0.9
+by site) and finished 90-140 mm/yr too dry at humid sites, so deep layers never refilled and drainage was 0-28 mm
+against Cycles' 80-200.
+
+Back-calculated from Cycles' own daily output (35,017 wet, canopy-free, rain-free days over 16 sites):
+- SOIL EVAP / ETo equals (1 - residue cover) in every 0.1 cover bin to within 0.01. Cover is residue.txt FRAC
+  INTERCEP (its first column; the canopy is in the crop file), and cover = 1 - exp(-0.27 x residue biomass) with
+  AG + BG residue in Mg/ha (0.2-0.5 -> 0.09 ... 8-15 -> 0.90). Warm sites decompose residue fast (cover small, soil
+  evaporates at ~0.9 ETo); cold sites keep it (0.14-0.2). Within a site the ratio does not depend on temperature.
+- A separate RES EVAP term takes about min(0.55 x rain, 1.0) mm on rain days at cover 0.77, scaled by cover/0.77.
+
+Implemented as residue_cover_frac()/residue_rain_evap_mm(), driven by the per-layer six-pool surface residue pool
+(cra) at 0.7 of its stover biomass (engine cover ran 0.1 above Cycles'), applied to soil evaporation demand and to
+rain reaching the soil in the main loop, spin-up and fallow windows. Only active in per-layer mode, so every
+default path and validation number is unchanged. Rock Springs 1999: soil evap 270 vs 284 (was 519 against Cycles'
+380 soil + residue), drainage 108 vs 124 (was 28); Iowa 284 vs 318, drainage 154 vs 81 (was 0); Kansas 351 vs 357.
+Remaining: Maryland and Georgia soil evaporation 35-20% low, Iowa drainage 2x high.
+
+16-site standing at 150 kg N/ha with per-layer mode: grain MAE 1.08 Mg/ha and mean year correlation 0.78 (best so
+far; lumped 1.33, previous per-layer 1.26). Leaching worsened (rms log error 1.20 -> 1.83: Iowa 124 vs 41,
+Illinois 104 vs 6, Minnesota 108 vs 22) and denitrification 1.25 -> 1.39, because the water is now right and the
+mineral-N supply behind it is 2-5x too high at the high-SOC, clay and dry sites: net mineralization is a small
+difference between large terms (186.8 x SOM resp - 78.1 x humified), so a 30% respiration error or a humified-C
+error of 1 Mg C moves it by 100-250 kg N. Tried a 1.7x root-carbon multiplier (engine root decomposition is 1.3 vs
+Cycles' 2.2 Mg C/yr): it helped little and drove low-SOC sites negative, so it was dropped. Unfertilized corn is
+still too productive (N0 grain MAE 3.1). Next: net-N accuracy at high-SOC sites (humified C and Cs respiration
+there), then N0 yield.

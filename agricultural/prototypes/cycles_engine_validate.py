@@ -615,6 +615,37 @@ def soil_evaporation(layers, eto_mm, canopy_cover_frac, precip_mm=0.0, de_state=
     return actual_mm
 
 
+
+# Residue cover and residue evaporation (2026-10-02), back-calculated from Cycles' own output at 16 sites:
+# water.txt SOIL EVAP / ETo on wet, canopy-free, rain-free days equals (1 - residue cover) almost exactly
+# (cover from residue.txt FRAC INTERCEP, 35,017 days, every 0.1 cover bin within 0.01), and residue cover
+# follows 1 - exp(-0.27 * residue biomass (AG + BG, Mg/ha)) (bins 0.2-0.5 -> 0.09 ... 8-15 -> 0.90). A separate
+# RES EVAP term takes about min(0.55 * rain, 1.0) mm on rain days at cover 0.77 (scaled here by cover/0.77).
+# Together they explain why Cycles' soil evaporation is 0.14-0.9 of ETo by site (residue decays fast at warm
+# sites) where this engine evaporated ~1.0 x ETo all off-season and ended 90-140 mm/yr too dry. Only active
+# when the per-layer six-pool state (which tracks the surface residue pool cra) is in use.
+RESIDUE_COVER_K = 0.27
+RESIDUE_RAIN_EVAP_FRAC = 0.55
+RESIDUE_RAIN_EVAP_CAP_MM = 1.0
+RESIDUE_COVER_REF = 0.77
+RESIDUE_COVER_BIOMASS_FRAC = 0.7  # share of the engine's surface residue pool (all stover) that counts toward
+# cover: engine cover ran 0.1 above Cycles' all year (Cycles' AG RES is ~0.6-0.75 of the engine's stover biomass)
+
+
+def residue_cover_frac(sixpool_state):
+    if sixpool_state is None or "ml" not in sixpool_state:
+        return 0.0
+    biomass = RESIDUE_COVER_BIOMASS_FRAC * max(0.0, sixpool_state.get("cra", 0.0)) / CARBON_FRACTION_DM
+    return 1.0 - math.exp(-RESIDUE_COVER_K * biomass)
+
+
+def residue_rain_evap_mm(precip_mm, cover):
+    if cover <= 0 or precip_mm <= 0:
+        return 0.0
+    scale = cover / RESIDUE_COVER_REF
+    return min(RESIDUE_RAIN_EVAP_FRAC * scale * precip_mm, RESIDUE_RAIN_EVAP_CAP_MM * scale, precip_mm)
+
+
 def summer_time_from_doy(doy):
     """A real day-of-year is either inside or outside a Northern-Hemisphere summer window --
     a simple, disclosed proxy (DOY 152-243, roughly June 1 - Aug 31) for CropSyst's own
@@ -2575,12 +2606,14 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
     leached = denit = volat = 0.0
     no3_layers = nstate.get("no3_layers")
     for w in rows:
-        drainage_mm, _, n_out = infiltrate(layers, w["pp"], curve_number, slope_pct, n_by_layer=no3_layers)
+        _rc = residue_cover_frac(sixpool_state)
+        _re = residue_rain_evap_mm(w["pp"], _rc)
+        drainage_mm, _, n_out = infiltrate(layers, w["pp"] - _re, curve_number, slope_pct, n_by_layer=no3_layers)
         if no3_layers is not None:
             leached += n_out
             nstate["n_no3"] = sum(no3_layers)
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], lat_deg)
-        soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state, fallow=True,
+        soil_evaporation(layers, eto * (1.0 - _rc), 0.0, precip_mm=w["pp"] - _re, de_state=de_state, fallow=True,
                          summer_time=summer_time_from_doy(w["doy"]))
         tmean = (w["tx"] + w["tn"]) / 2.0
         nstate["tsoil_lag"] += SOIL_TEMP_LAG_K * (tmean - nstate["tsoil_lag"])
@@ -3120,10 +3153,12 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # assumption having no basis in a dry climate. Uses the SAME infiltrate() (now
         # runoff-aware) and soil_evaporation() the main loop uses, just with canopy_cover=0.
         for w in spinup_rows:
-            _, spin_runoff, _ = infiltrate(layers, w["pp"], curve_number, slope_pct)
+            _rc = residue_cover_frac(sixpool_state)
+            _re = residue_rain_evap_mm(w["pp"], _rc)
+            _, spin_runoff, _ = infiltrate(layers, w["pp"] - _re, curve_number, slope_pct)
             runoff_total += spin_runoff
             eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
-            soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state,
+            soil_evaporation(layers, eto * (1.0 - _rc), 0.0, precip_mm=w["pp"] - _re, de_state=de_state,
                               use_cropsyst_formula=(soil_evap_model == "cropsyst"),
                               fallow=True, summer_time=summer_time_from_doy(w["doy"]))
             if sixpool_offseason_decay and sixpool_state is not None:
@@ -3400,7 +3435,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 irrigation_mm = irrigation_amount_mm
                 irrigation_total_mm += irrigation_mm
 
-        drainage_mm, runoff, n_leached_today = infiltrate(layers, w["pp"] + irrigation_mm, curve_number,
+        res_cover_today = residue_cover_frac(sixpool_state)
+        res_evap_today = residue_rain_evap_mm(w["pp"], res_cover_today)
+        drainage_mm, runoff, n_leached_today = infiltrate(layers, w["pp"] + irrigation_mm - res_evap_today, curve_number,
                                                             slope_pct,
                                                             n_by_layer=(no3_layers if no3_layers is not None
                                                                         else n_pool_by_layer))
@@ -3460,7 +3497,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 n_pool = max(0.0, n_pool - denitrif_today)
             n_denitrified_total += denitrif_today
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
-        soil_evaporation(layers, eto, eie, precip_mm=w["pp"] + irrigation_mm, de_state=de_state,
+        soil_evaporation(layers, eto * (1.0 - res_cover_today), eie, precip_mm=w["pp"] + irrigation_mm - res_evap_today, de_state=de_state,
                           use_cropsyst_formula=(soil_evap_model == "cropsyst"), fallow=False)
 
         tmean = (w["tx"] + w["tn"]) / 2
