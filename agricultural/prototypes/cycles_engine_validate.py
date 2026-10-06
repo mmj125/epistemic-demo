@@ -996,6 +996,9 @@ EVAPORATIVE_LAYER_DEPTH_M = 0.10  # real, sourced (2026-09-30): Stockle, Martin 
 # was walled off from the crop.
 
 
+ROOT_DENSITY_DECAY_M = None  # None = triangular density (validated default); a length in m = exponential density exp(-z/L), under test 2026-10-06 (L=0.35 best on 10-site relative-wetness fit, not yet adopted)
+
+
 def root_length_fraction_by_layer(layers, root_depth_m):
     """Real CropSyst root-length-density weighting (2026-09-30, replacing the earlier FAO-56
     depth-quartile substitute, 0.4/0.3/0.2/0.1): the CropSyst manual itself (Simulation crop:
@@ -1026,7 +1029,10 @@ def root_length_fraction_by_layer(layers, root_depth_m):
         a = max(top, EVAPORATIVE_LAYER_DEPTH_M)
         b = bot
         if b > a:
-            fl[i] = (b - a) * (1 - (a + b) / (2 * root_depth_m))
+            if ROOT_DENSITY_DECAY_M is None:
+                fl[i] = (b - a) * (1 - (a + b) / (2 * root_depth_m))
+            else:
+                fl[i] = math.exp(-a / ROOT_DENSITY_DECAY_M) - math.exp(-b / ROOT_DENSITY_DECAY_M)
         depth += l["thick"]
     total = sum(fl)
     return [f / total for f in fl] if total > 0 else fl
