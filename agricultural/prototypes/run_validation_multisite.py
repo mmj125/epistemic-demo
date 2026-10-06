@@ -12,6 +12,7 @@ from cycles_engine_validate import *
 import run_validation as rv
 cev.N_DEMAND_SCALE = float(os.environ.get("N_DEMAND_SCALE", cev.N_DEMAND_SCALE))
 cev.ROOT_DENSITY_DECAY_M = float(os.environ["ROOT_DECAY"]) if os.environ.get("ROOT_DECAY") else cev.ROOT_DENSITY_DECAY_M
+cev.SURFACE_AIRDRY_FRAC = float(os.environ["AIRDRY"]) if os.environ.get("AIRDRY") else cev.SURFACE_AIRDRY_FRAC
 CY="/tmp/cycles-run"  # a local Cycles v1.4.4 release directory (binary + input/), not committed
 SITES=dict(rock_springs=fd.PRESET_SITES["rock_springs"],iowa=fd.PRESET_SITES["iowa"],
            kansas=fd.PRESET_SITES["kansas"],maryland=fd.PRESET_SITES["maryland"],

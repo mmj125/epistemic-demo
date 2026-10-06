@@ -566,6 +566,12 @@ def compute_tew(theta_fc, theta_wp, ze_m=0.15):
     return 1000 * (theta_fc - 0.5 * theta_wp) * ze_m
 
 
+# Surface layer evaporation floor as a fraction of its wilting-point water content. None keeps the
+# validated default (floor = wilting point). Cycles' own layer 1 dries below wilting point (min
+# water content 0.62-0.94 x pwp over 16 sites, 2026-10-06 back-calculation).
+SURFACE_AIRDRY_FRAC = None
+
+
 def soil_evaporation(layers, eto_mm, canopy_cover_frac, precip_mm=0.0, de_state=None,
                       use_cropsyst_formula=False, fallow=False, summer_time=False):
     """Bare-soil/residue evaporation. When de_state is given (a dict with 'de'/'tew'/'rew'
@@ -607,7 +613,8 @@ def soil_evaporation(layers, eto_mm, canopy_cover_frac, precip_mm=0.0, de_state=
         de, tew, rew = de_state["de"], de_state["tew"], de_state["rew"]
         kr = 1.0 if de <= rew else (max(0.0, (tew - de) / (tew - rew)) if tew > rew else 0.0)
         demand_mm *= kr
-    available_mm = max(0.0, (l0["theta"] - l0["pwp"]) * l0["thick"] * 1000)
+    _floor = l0["pwp"] if SURFACE_AIRDRY_FRAC is None else SURFACE_AIRDRY_FRAC * l0["pwp"]
+    available_mm = max(0.0, (l0["theta"] - _floor) * l0["thick"] * 1000)
     actual_mm = min(demand_mm, available_mm)
     l0["theta"] -= actual_mm / (l0["thick"] * 1000)
     if de_state is not None:
