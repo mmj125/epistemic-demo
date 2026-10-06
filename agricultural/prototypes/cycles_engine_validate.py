@@ -1561,6 +1561,7 @@ def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
 # When n_rate_kg_ha is left as None (the default), none of this runs and
 # behavior is byte-identical to before this feature existed -- verified by
 # re-running run_validation.py / run_validation_rotation2.py unchanged.
+N_UPTAKE_RATE_PER_DAY = None  # None = uptake limited only by demand (validated default); else also capped at this fraction/day of the reachable mineral N pool (nitrate_per_layer path)
 N_DEMAND_SCALE = 0.75  # fraction of the critical-curve marginal N demand the crop actually takes up: Cycles Iowa corn at 150 kg N holds 224 kg N/ha at maturity vs 295 for the full curve (0.76); unstressed whole-plant concentration runs 0.63-0.9 of the curve across growth (run_validation_multisite.py, 2026-10-02)
 N_STRESS_FULL_RATIO = 0.06
 N_STRESS_ZERO_RATIO = 0.62
@@ -3684,7 +3685,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     access = layer_depth_fraction_within(layers, root_depth)
                     reach_no3 = sum(no3_layers[i] * access[i] for i in range(len(layers)))
                     reachable = n_nh4 + reach_no3
-                    n_uptake_kg_ha = min(reachable, demand_today_kg_ha)
+                    _cap = reachable if N_UPTAKE_RATE_PER_DAY is None else reachable * N_UPTAKE_RATE_PER_DAY
+                    n_uptake_kg_ha = min(_cap, demand_today_kg_ha)
                     if reachable > 1e-9:
                         frac = n_uptake_kg_ha / reachable
                         n_nh4 = max(0.0, n_nh4 - n_nh4 * frac)

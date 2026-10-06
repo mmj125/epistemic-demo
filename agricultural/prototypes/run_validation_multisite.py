@@ -13,6 +13,7 @@ import run_validation as rv
 cev.N_DEMAND_SCALE = float(os.environ.get("N_DEMAND_SCALE", cev.N_DEMAND_SCALE))
 cev.ROOT_DENSITY_DECAY_M = float(os.environ["ROOT_DECAY"]) if os.environ.get("ROOT_DECAY") else cev.ROOT_DENSITY_DECAY_M
 cev.SURFACE_AIRDRY_FRAC = float(os.environ["AIRDRY"]) if os.environ.get("AIRDRY") else cev.SURFACE_AIRDRY_FRAC
+cev.N_UPTAKE_RATE_PER_DAY = float(os.environ["UPTAKE_RATE"]) if os.environ.get("UPTAKE_RATE") else cev.N_UPTAKE_RATE_PER_DAY
 CY="/tmp/cycles-run"  # a local Cycles v1.4.4 release directory (binary + input/), not committed
 SITES=dict(rock_springs=fd.PRESET_SITES["rock_springs"],iowa=fd.PRESET_SITES["iowa"],
            kansas=fd.PRESET_SITES["kansas"],maryland=fd.PRESET_SITES["maryland"],
@@ -80,7 +81,7 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     if os.environ.get("PER_LAYER","0")=="1": kw["sixpool_per_layer"]=True
     res={}
     carry=os.environ.get("CARRY_N","1")=="1"
-    lead_env=os.environ.get("LEAD_YEARS",str(lead_years))
+    lead_env=os.environ.get("LEAD_YEARS","full")
     first_year=min(wx)
     for y in sorted(wx):
         lead=(y-first_year) if lead_env=="full" else int(lead_env)   # "full" = start from the first weather year, as Cycles does
