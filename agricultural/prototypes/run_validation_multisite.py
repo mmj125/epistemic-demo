@@ -80,8 +80,10 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     if os.environ.get("PER_LAYER","0")=="1": kw["sixpool_per_layer"]=True
     res={}
     carry=os.environ.get("CARRY_N","1")=="1"
-    lead=int(os.environ.get("LEAD_YEARS",lead_years))
+    lead_env=os.environ.get("LEAD_YEARS",str(lead_years))
+    first_year=min(wx)
     for y in sorted(wx):
+        lead=(y-first_year) if lead_env=="full" else int(lead_env)   # "full" = start from the first weather year, as Cycles does
         r=simulate_season_with_leadin(wx,y,crop,lead_years=lead,carry_n=carry,**kw)
         if carry and "fallow_n_leached" in r:   # add the off-season windows so totals are calendar-year like Cycles' annualN.txt
             r["n_leached_kg_ha"]=r.get("n_leached_kg_ha",0.0)+r["fallow_n_leached"]
