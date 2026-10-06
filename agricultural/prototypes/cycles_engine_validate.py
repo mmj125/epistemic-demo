@@ -189,6 +189,9 @@ def saxton_rawls(sand_pct, clay_pct, om_pct):
                 ksat_mm_day=ksat_mm_h * 24)
 
 
+KHE_SCALE = 1.0  # multiplier on the capacitance-weighted conductivity in redistribute() (1.0 = validated default); under test 2026-10-06
+
+
 def campbell_khe(theta_s, theta_sfc, theta_sat, ksat, psi_e, b):
     """Real Eq. 1, Kemanian et al. 2024: the capacitance-weighted effective hydraulic
     conductivity between the current moisture theta_s and field capacity theta_sfc, using
@@ -466,7 +469,7 @@ def redistribute(layers, water_in_mm, n_substeps=REDISTRIBUTE_SUBSTEPS, n_by_lay
         time_left = 1.0
         for _ in range(REDISTRIBUTE_MAX_STEPS):
             excesses = [max(0.0, (l["theta"] - l["fc"]) * thicks_mm[i]) for i, l in enumerate(layers)]
-            khes = [campbell_khe(l["theta"], l["fc"], l["sat"], l["ksat_mm_day"], l["psi_e_kpa"], l["B"])
+            khes = [KHE_SCALE * campbell_khe(l["theta"], l["fc"], l["sat"], l["ksat_mm_day"], l["psi_e_kpa"], l["B"])
                     if excesses[i] > 1e-9 else 0.0 for i, l in enumerate(layers)]
             travel_times = [e / k for e, k in zip(excesses, khes) if k > 0]
             if not travel_times:
