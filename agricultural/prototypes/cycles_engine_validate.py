@@ -575,6 +575,12 @@ def compute_tew(theta_fc, theta_wp, ze_m=0.15):
 SURFACE_AIRDRY_FRAC = None
 
 
+# Opt-in global switch (default False, validated numbers unchanged): route EVERY soil_evaporation() call,
+# including the fallow/off-season windows simulate_season() does not pass use_cropsyst_formula to, through the
+# CropSyst formula. Added 2026-10-06 to test it against Cycles' layer-1 drying at Iowa.
+FORCE_CROPSYST_EVAP = False
+
+
 def soil_evaporation(layers, eto_mm, canopy_cover_frac, precip_mm=0.0, de_state=None,
                       use_cropsyst_formula=False, fallow=False, summer_time=False):
     """Bare-soil/residue evaporation. When de_state is given (a dict with 'de'/'tew'/'rew'
@@ -610,7 +616,7 @@ def soil_evaporation(layers, eto_mm, canopy_cover_frac, precip_mm=0.0, de_state=
     "NOT YET VALIDATED" note before relying on it for anything real."""
     l0 = layers[0]
     demand_mm = eto_mm * (1 - canopy_cover_frac)
-    if use_cropsyst_formula:
+    if use_cropsyst_formula or FORCE_CROPSYST_EVAP:
         return soil_evaporation_cropsyst(layers, demand_mm, fallow=fallow, summer_time=summer_time)
     if de_state is not None:
         de, tew, rew = de_state["de"], de_state["tew"], de_state["rew"]

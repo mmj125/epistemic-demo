@@ -4169,3 +4169,11 @@ good where nitrate supply is realistic (Rock Springs 0.6 vs 1.1, Maryland 0.9 vs
 0.6, Texas 4.9 vs 3.0) and 5-18x high where denitrification is already over (Iowa 144 vs 8, Illinois 30 vs 2,
 Arkansas 24 vs 2, Minnesota 46 vs 8): the emission term inherits the mineral-N supply error. Opt-in path only
 (requires nh4_no3_split); defaults unchanged.
+
+### 2026-10-06 update: Iowa nitrate-by-layer and soil-moisture comparison (opt-in only, nothing shipped as default)
+
+- Engine standing nitrate pool at Iowa runs 1.5-1.7x Cycles' every year (Jan-1: 517 vs 311 in 1985, 270 vs 161 in 2000, 150 vs 88 in 2012), with a similar layer distribution. It is a steady bias, not drift, so the leaching/denitrification overshoot comes from the size of the pool, not from transport between layers.
+- Engine in-season net mineralization at Iowa is about 255 kg N/ha every year; Cycles' ranges 100-252 with weather (103, 252, 158, 100 for 1985/1993/2000/2012). Cycles' SOM respiration varies 3.4x between years (0.68 to 2.34 Mg C/ha); the engine's barely tracks it.
+- Year-total water budgets match well (2000 and 2012 transpiration 351 vs 329 and 224 vs 225 mm), but engine layers 1-3 sit wetter than Cycles' in dry/mid years (in-season layer-1 relative wetness 0.40 vs 0.12 in 1985, 0.90 vs 0.39 in 2000, 0.48 vs 0.25 in 2012) and the engine under-evaporates from soil by 40-47 mm in dry years.
+- Added opt-in `FORCE_CROPSYST_EVAP` (env `CS_EVAP=1` in the multisite harness) routing every soil_evaporation() call, including fallow windows, through the CropSyst formula. Matched 16-site comparison against baseline (PER_LAYER=1, full history): N0 grain MAE 2.32 -> 1.99, N0 bias 2.15 -> 1.76, denitrification rms log 1.18 -> 1.09, N2O 1.24 -> 1.09, N150 grain MAE 1.41 -> 1.42 (flat), N150 bias -0.26 -> -0.65, volatilization 0.88 -> 0.92 (slightly worse), leaching flat. Mixed, not adopted as default. Rock Springs validation unchanged either way.
+- Next: why engine SOM respiration does not follow Cycles' year-to-year swing (layer moisture and temperature trajectories by layer are the suspect, since fE itself matches Cycles within about 2%).
