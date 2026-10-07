@@ -4200,3 +4200,19 @@ annualSoilProfileC.txt ROOT BIOMASS IN (sum over layers) divided by harvest.txt 
 Cycles' Cm/Cs at Iowa is 1.5-2.9% (summed over layers, 3.3-5.8 Mg C/ha, rising as Cs declines); the engine's Cm is 0.6-1.1. But in per-layer mode, mineralized N comes from a regression on Cs respiration, humified C and residue respiration, so Cm's size only reaches the output through the Cs gain flux, and that flux is already fitted (engine humified C 3.45 vs Cycles 3.23 in 1993). The size gap is the fast fitted k_m with a small pool versus Cycles' slow turnover with a large pool, which gives similar flux. Adding an fA cap would not change the yearly fluxes, so no code was changed.
 
 The actual yearly error is total residue decomposition: engine vs Cycles in Mg C/ha is 6.11/6.27 (1985), 6.75/6.51 (1993), 7.19/4.70 (2000), 3.62/5.56 (2012). Cycles' Jan-1 surface residue C is 2.34/1.80/1.80/3.03 in those years. Next step if pursued: compare the engine's Jan-1 cra and its decay through winter against those values.
+
+### 2026-10-07: Jan-1 surface residue, engine vs Cycles (Iowa, N=150)
+
+Share of last season's stover carbon (AG biomass minus grain, x0.42) still on the surface at the next Jan 1 (stand+flat residue C in Cycles, cra in the engine, both including some older carryover):
+
+| Harvest year | Cycles | Engine |
+|---|---|---|
+| 2005 | 23% | 42% |
+| 2006 | 28% | 64% |
+| 2007 | 17% | 40% |
+| 2008 | 32% | 51% |
+| 2009 | 40% | 53% |
+| 2010 | 21% | 40% |
+| 2011 | 77% | 52% |
+
+The engine keeps roughly twice as much residue through the fall as Cycles in ordinary years, and its retention barely varies (40-64%) while Cycles' ranges 17-77%. The 2011 case (Cycles keeps 77%, then decomposes 5.56 Mg C in 2012) is the one the engine misses. Likely causes to test: the 30-day maturity lag (CRA_MATURATION_TAU_DAYS) delaying fall decomposition after a September harvest, and fall surface moisture (fE) in dry autumns. No code changed.
