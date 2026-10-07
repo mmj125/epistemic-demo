@@ -1843,6 +1843,13 @@ def tillage_dr_decay(layers, max_rate_per_day=0.02):
 # simplified mineralization models generally, not invented for this engine.
 # ---------------------------------------------------------------------------
 
+# Cycles' annual root-biomass input to the soil is EXACTLY 5/3 of its root biomass at harvest for corn
+# (annualSoilProfileC.txt ROOT BIOMASS IN vs harvest.txt ROOT BIOMASS: 1.66667, sd 0.00000 over 37 years
+# at both Iowa and Rock Springs; soybean 1.68, winter wheat 1.64, silage corn 1.85 in CornSilageSoyWheat),
+# i.e. roots return more carbon than their final standing biomass (in-season turnover/rhizodeposition).
+# The engine's root carbon input only credited the final root biomass, ~0.6x of Cycles' (found 2026-10-07).
+ROOT_C_INPUT_FACTOR = 5.0 / 3.0
+
 CARBON_FRACTION_DM = 0.42  # standard literature fraction of plant dry matter that is carbon;
 # a general, widely-cited value, not Cycles-specific or site-specific.
 
@@ -3610,7 +3617,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 relwet_topsoil = ((layers[0]["theta"] - layers[0]["pwp"]) / (layers[0]["fc"] - layers[0]["pwp"])
                                    if layers[0]["fc"] > layers[0]["pwp"] else 1.0)
                 root_c_input_today = (10.0 * dGB_water_limited * (1.0 - shoot_fraction(ttf, crop["fsti"], crop["fstf"]))
-                                       * CARBON_FRACTION_DM)
+                                       * CARBON_FRACTION_DM * ROOT_C_INPUT_FACTOR)
                 ft_eff = 1.0 + tillage_ft(tillage_dr, tillage_ftx_val)
                 background_today = sixpool_step(sixpool_state, tmean, relwet_topsoil, root_c_input_today, ft_eff, layers)
                 # background_today can now be genuinely negative (net immobilization -- see
