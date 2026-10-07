@@ -575,10 +575,10 @@ def compute_tew(theta_fc, theta_wp, ze_m=0.15):
 SURFACE_AIRDRY_FRAC = None
 
 
-# Opt-in global switch (default False, validated numbers unchanged): route EVERY soil_evaporation() call,
+# Global switch (default True since 2026-10-07; set False for the older FAO-56 Kr path): route EVERY soil_evaporation() call,
 # including the fallow/off-season windows simulate_season() does not pass use_cropsyst_formula to, through the
 # CropSyst formula. Added 2026-10-06 to test it against Cycles' layer-1 drying at Iowa.
-FORCE_CROPSYST_EVAP = False
+FORCE_CROPSYST_EVAP = True
 
 
 def soil_evaporation(layers, eto_mm, canopy_cover_frac, precip_mm=0.0, de_state=None,

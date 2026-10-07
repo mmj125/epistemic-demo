@@ -41,7 +41,7 @@ def make_layers():
 SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43,
                rue=1.3, wue=4.5, hi_x=0.4, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
                kc=1.0, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=LAT,
-               make_layers=make_layers, calibration_factor=1.4678,  # unchanged by the real
+               make_layers=make_layers, calibration_factor=1.4868,  # unchanged by the real
                # CO2-WUE-scaling mechanism added 2026-10-01 (wue_co2_scale, see
                # simulate_season()'s own docstring) -- model mean moved by <0.001 Mg/ha, a real
                # but negligible effect here (correlation 0.9545->0.9471, within noise), unlike
@@ -245,7 +245,7 @@ WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
 CORN_SILAGE = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
                     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
                     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=LAT,
-                    make_layers=make_layers, forage_fraction=0.95, calibration_factor=0.7925,  # re-
+                    make_layers=make_layers, forage_fraction=0.95, calibration_factor=0.7979,  # re-
                     # derived 2026-10-01 for the real CO2-WUE-scaling mechanism (wue_co2_scale,
                     # see simulate_season()'s own docstring) -- a real cost here (correlation
                     # 0.2035->0.1170), kept anyway since the mechanism is physically general
