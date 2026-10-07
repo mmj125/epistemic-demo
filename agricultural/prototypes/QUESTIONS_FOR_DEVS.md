@@ -4216,3 +4216,9 @@ Share of last season's stover carbon (AG biomass minus grain, x0.42) still on th
 | 2011 | 77% | 52% |
 
 The engine keeps roughly twice as much residue through the fall as Cycles in ordinary years, and its retention barely varies (40-64%) while Cycles' ranges 17-77%. The 2011 case (Cycles keeps 77%, then decomposes 5.56 Mg C in 2012) is the one the engine misses. Likely causes to test: the 30-day maturity lag (CRA_MATURATION_TAU_DAYS) delaying fall decomposition after a September harvest, and fall surface moisture (fE) in dry autumns. No code changed.
+
+### 2026-10-07: maturity lag tested, rejected
+
+Cycles' implied residue decomposition rate (total decomposed C over the prior day's residue pool, 37 Iowa harvests) is about 0.023/day in the first 10 days after harvest, 0.0175 by day 31-40, 0.005 by day 71-80 and near zero by day 90, so it shows no lag. Setting CRA_MATURATION_TAU_DAYS from 30 to 1 brings the engine's Jan-1 surface residue to within a few percent of Cycles' in six of seven years at Iowa (0.95/0.95, 0.40/0.39, 0.75/0.69, 1.67/1.68, 1.54/1.92, 1.07/1.02), though 2012 still misses (1.62 vs 3.03).
+
+The 16-site same-input table got worse, not better (previous default vs tau=1): N0 grain MAE 1.71 -> 1.89, N150 grain MAE 1.42 -> 1.51 and correlation 0.769 -> 0.751, denitrification rms log 1.04 -> 1.18, leaching 1.06 -> 1.10, volatilization correlation 0.25 -> 0.18. Rock Springs validation was unchanged (corn 0.757, soybean 0.952, wheat 0.510, silage corn 0.130, checks 15/16). Likely reason: the other N constants (the mineralization regression, humified share) were fitted with the 30-day lag in place, so matching residue alone unbalances them. Reverted to 30. If revisited, the lag and the N regression coefficients would need refitting together.

@@ -2093,7 +2093,7 @@ def sixpool_init_state(layer0, clay_pct, soc_pct, depth_m=None):
     return dict(cs=cs0, cm=0.03 * cs0, cra=0.0, crtz=0.0, crm=0.0, csx=csx, cra_age=9999.0)
 
 
-CRA_MATURATION_TAU_DAYS = 30.0  # back-calculated 2026-10-02, directly from real Cycles output
+CRA_MATURATION_TAU_DAYS = 30.0  # back-calculated 2026-10-02 from Cycles output; 1.0 tested 2026-10-07 and rejected, see QUESTIONS_FOR_DEVS.md
 # (soilLayersCN.txt, ContinuousCorn, Rock Springs) -- found while diagnosing the 2026-10-02
 # multi-year sixpool-carryover instability (an undiminished stover pulse immediately
 # decomposing at full rate the very next season, swamping the mineral-N pool). A hand-checked
