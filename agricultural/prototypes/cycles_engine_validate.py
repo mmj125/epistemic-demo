@@ -1994,7 +1994,7 @@ SIXPOOL_DIAG = None  # optional list; when set, sixpool_step appends (cs_loss, r
 # - 7.6*RES_RESPIRED_C (kg N per Mg C), R^2 = 0.972, per-site mean residual under 25 kg N. Humified
 # share of decomposed residue C (HUMIFIED/(HUMIFIED+RES RESPIRED)) falls from ~0.53 at low Cs/Csx to
 # ~0.1 by Cs/Csx = 1: ~0.53*(1-r^12) (a flat eps_c*fH with exponent 6 gave 0.35 at r=0.7 and 0 at r>1).
-SIXPOOL_ML_N_A = 186.8
+SIXPOOL_ML_N_A = 140.0  # was 186.8 (fit on respiration terms alone); 140 chosen 2026-10-07 on the 16-site table (N0 corn bias +1.44 -> +0.21, leaching 1.06 -> 0.90, wheat chain 0.25 -> 0.52) at a cost to fertilized corn (N150 bias -0.70 -> -1.01); see QUESTIONS_FOR_DEVS.md
 SIXPOOL_ML_N_B = 78.1
 SIXPOOL_ML_N_C = 7.6
 SIXPOOL_ML_EPS_H = 0.53
