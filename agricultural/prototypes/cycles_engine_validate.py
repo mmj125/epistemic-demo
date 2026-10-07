@@ -1998,6 +1998,10 @@ SIXPOOL_ML_N_A = 140.0  # was 186.8 (fit on respiration terms alone); 140 chosen
 SIXPOOL_ML_N_B = 78.1
 SIXPOOL_ML_N_C = 7.6
 SIXPOOL_ML_EPS_H = 0.53
+# Clay-dependent humified fraction of decomposed residue (opt-in, 2026-10-07): (a, b) in a + b*(1-exp(-5.5*clay_frac)),
+# the C-Farm Eq. 4a clay shape (Kemanian & Stockle 2010) fitted to Cycles' humified/(humified+residue respired) over 16 sites:
+# 0.370 + 0.152 g, rms 0.034 vs 0.047 for one constant. None keeps the flat SIXPOOL_ML_EPS_H.
+SIXPOOL_ML_HUM_CLAY = None
 SIXPOOL_ML_FH_P = 12.0
 SIXPOOL_ML_FH_FLOOR = 0.2  # Cycles still humifies ~0.12-0.17 of decomposed residue C at Cs/Csx >= 1 (Iowa 1980-83)
 # Per-layer Cs decomposition (2026-10-02, supersedes the fD-form fit above, which fit the same data at
@@ -2090,7 +2094,7 @@ def sixpool_init_state(layer0, clay_pct, soc_pct, depth_m=None):
     depth_m = SIXPOOL_TOPSOIL_DEPTH_M if depth_m is None else depth_m
     csx = bd * depth_m * 100 * csx_pct
     cs0 = bd * depth_m * 100 * soc_pct
-    return dict(cs=cs0, cm=0.03 * cs0, cra=0.0, crtz=0.0, crm=0.0, csx=csx, cra_age=9999.0)
+    return dict(cs=cs0, cm=0.03 * cs0, cra=0.0, crtz=0.0, crm=0.0, csx=csx, cra_age=9999.0, clay=clay_pct / 100.0)
 
 
 CRA_MATURATION_TAU_DAYS = 30.0  # back-calculated 2026-10-02 from Cycles output; 1.0 tested 2026-10-07 and rejected, see QUESTIONS_FOR_DEVS.md
@@ -2192,7 +2196,9 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
     gross_residue_decomp = decomp_ra + decomp_rtz + decomp_rm
     if ml_sub:
         _r = max(0.0, cs / csx) if csx > 0 else 0.0
-        cm_gain_from_residue = SIXPOOL_ML_EPS_H * max(SIXPOOL_ML_FH_FLOOR, 1.0 - _r ** SIXPOOL_ML_FH_P) * gross_residue_decomp
+        _eps_h = SIXPOOL_ML_EPS_H if SIXPOOL_ML_HUM_CLAY is None else (
+            SIXPOOL_ML_HUM_CLAY[0] + SIXPOOL_ML_HUM_CLAY[1] * (1.0 - math.exp(-5.5 * state.get("clay", 0.2))))
+        cm_gain_from_residue = _eps_h * max(SIXPOOL_ML_FH_FLOOR, 1.0 - _r ** SIXPOOL_ML_FH_P) * gross_residue_decomp
     else:
         cm_gain_from_residue = SIXPOOL_EPS_C * fh * gross_residue_decomp
     co2_residue = gross_residue_decomp - cm_gain_from_residue
