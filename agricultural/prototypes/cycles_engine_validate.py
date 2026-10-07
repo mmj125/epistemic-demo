@@ -3436,6 +3436,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     # artifact of the old mechanism's specific shape. Corn/soybean/silage corn's own DEFAULT
     # validation (n_rate_kg_ha=None) is completely unaffected either way, since this whole
     # block only runs when n_pool is not None.
+    winter_killed = False
     canopy_n_kg_ha = 0.0
 
     for w in weather_rows:
@@ -3462,6 +3463,15 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # produced this session -- see run_validation.py's own calibration_factor comment
         # and QUESTIONS_FOR_DEVS.md for the full account.
         if tt_cum >= crop.get("flowering_tt", math.inf) and w["tn"] < crop.get("threshold_temp_cold_damage", -math.inf):
+            break
+        # Winterkill (2026-10-07): a night below the crop's own real MIN_TEMPERATURE_FOR_COLD_DAMAGE
+        # (GenericCrops.crop; winter wheat -25C) kills the stand at any growth stage, no harvest.
+        # Derived directly, not fitted: in 37 Rock Springs winters real Cycles' continuous winter
+        # wheat dies in exactly the three whose coldest night is below -26.5C (1982 -26.58, 1985
+        # -27.55, 1994 -27.36) and survives -23.38 and -23.19, consistent with the crop file's -25.
+        # Opt-in via crop["winterkill_temp"] (None/absent = never), so no existing crop changes.
+        if w["tn"] < crop.get("winterkill_temp", -math.inf):
+            winter_killed = True
             break
         dtt = thermal_time_increment(w["tx"], w["tn"], crop["base_t"], crop["opt_t"], crop["max_t"])
         tt_cum += dtt
@@ -3782,8 +3792,12 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     ag_biomass_mg_ha = ag_biomass * 10
     grain_mg_ha = ag_biomass * HI * 10 * crop.get("calibration_factor", 1.0)
     forage_mg_ha = ag_biomass_mg_ha * crop.get("forage_fraction", 0.95) * crop.get("calibration_factor", 1.0)
+    if winter_killed:
+        grain_mg_ha = 0.0
+        forage_mg_ha = 0.0
     result = dict(total=biomass_mg_ha, ag=ag_biomass_mg_ha, grain=grain_mg_ha, forage=forage_mg_ha,
                   runoff_mm=runoff_total)
+    result["winter_killed"] = winter_killed
     if n_leached_total is not None:
         result["n_leached_kg_ha"] = n_leached_total
     if irrigation_trigger_frac is not None:
