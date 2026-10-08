@@ -126,6 +126,7 @@
 <div class="panel">
   <div class="panel-header"><h2>3. Load your Cycles output</h2></div>
   <div class="panel-body">
+    <div style="border:1px solid var(--accent,#c60);border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:13px;"><b>Do not select the files you just downloaded.</b> The <code>.weather</code>, <code>.soil</code>, <code>.operation</code> and <code>.ctrl</code> files from step 2 are <i>inputs</i> for the Cycles program. This step needs what Cycles <i>writes after you run it on them</i>: a folder of <code>.txt</code> files (<code>harvest.txt</code>, <code>annualN.txt</code>, ...). You need a copy of Cycles v1.4.4 to produce them; this page does not include or run Cycles. Without Cycles you can still run step 4 to see the engine's own results.</div>
     <p>Unzip the download into your Cycles <code>input/</code> folder, run <code>./Cycles -b &lt;name&gt;</code> (the exact name is in the README), then select (or drop) the files from <code>output/&lt;name&gt;/</code>: <code>harvest.txt</code> and <code>annualN.txt</code> are used for the comparison below; <code>environ.txt</code> is used to check that Cycles read the same weather as the engine, and <code>N.txt</code>, <code>water.txt</code> and the daily crop file are kept for the daily overlay. Files are read in your browser and never uploaded.</p>
     <input type="file" id="outInput" multiple>
     <div class="sweep-note" id="outNote"></div>
@@ -4763,6 +4764,8 @@ document.getElementById("outInput").addEventListener("change", async (e) => {
   cyclesOut.harvest = null; cyclesOut.annualN = null; cyclesOut.daily = {};
   for (const f of e.target.files) {
     // browsers add " (1)" to repeat downloads, and some systems change case or hide the extension
+    if (/\.(ctrl|operation|soil|weather|crop)$/i.test(f.name)) { notes.push(`${f.name}: this is an INPUT file for Cycles, not output. Run Cycles on it first, then load the .txt files it writes to output/<name>/`); continue; }
+    if (/^readme/i.test(f.name)) { notes.push(`${f.name}: skipped (instructions, not output)`); continue; }
     const nm = f.name.replace(/\s*\(\d+\)(?=\.[^.]*$|$)/, "").toLowerCase();
     try {
       if (/\.(zip|gz|7z)$/.test(nm)) { notes.push(`${f.name}: archives cannot be read here, unzip it first and pick the .txt files inside`); continue; }
