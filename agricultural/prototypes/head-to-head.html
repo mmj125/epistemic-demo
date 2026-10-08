@@ -125,6 +125,20 @@
   </div>
 </div>
 
+<div class="panel">
+  <div class="panel-header"><h2>5. Daily overlay</h2></div>
+  <div class="panel-body">
+    <p>Pick a year and a quantity to see Cycles' daily values against this engine's for the same season. Needs the daily files from step 3 and an engine run from step 4.</p>
+    <div class="controls">
+      <div class="field"><label for="dYear">Year</label><select id="dYear"></select></div>
+      <div class="field"><label for="dVar">Quantity</label><select id="dVar"></select></div>
+      <button class="btn" id="dBtn" disabled>Show daily overlay</button>
+    </div>
+    <div id="dStatus" class="sweep-note"></div>
+    <canvas id="dCanvas" class="chart" style="height:320px;display:none"></canvas>
+  </div>
+</div>
+
 <footer>Cycles is released under CC BY-NC-ND 4.0 by its authors; this page does not redistribute it. See ACCURACY.md and HEAD_TO_HEAD_SCOPE.md in the repository.</footer>
 </div>
 
@@ -3971,6 +3985,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             history.append(dict(doy=w["doy"], ttf=round(ttf, 4), canopy=round(eie, 4),
                                  water_stress=round(water_stress, 4), n_stress=round(n_stress, 4), n_pool=round(n_pool, 2) if n_pool is not None else None,
                                  ag_mg_ha=round(ag_biomass * 10, 4),
+                                 theta=[round(l["theta"], 4) for l in layers],
                                  n_no3=round(n_no3, 3) if n_no3 is not None else None,
                                  n_nh4=round(n_nh4, 3) if n_nh4 is not None else None))
 
@@ -4691,6 +4706,7 @@ document.getElementById("outInput").addEventListener("change", async (e) => {
       else if (/\.txt$/.test(f.name)) { cyclesOut.daily[f.name] = parseDaily(text); notes.push(`${f.name}: ${cyclesOut.daily[f.name].rows.length} daily rows kept`); }
     } catch (err) { notes.push(`${f.name}: ${err.message}`); }
   }
+  if (engineResult) fillYearSelect(Object.keys(engineResult).map(Number).sort((a, b) => a - b));
   document.getElementById("outNote").textContent = notes.join(" | ") + (cyclesOut.harvest ? "" : " | harvest.txt not found yet");
   if (engineResult) renderComparison();
 });
@@ -4724,9 +4740,13 @@ else:
     kw = dict()
     win, carry = (120, 140), False
 res = {}
+if h2h_hist:
+    kw = dict(kw, record_history=True)
 for y in range(h2h_y0, h2h_y1 + 1):
     r = simulate_season_with_leadin(wx, y, crop, lead_years=2, plant_window=win, carry_n=carry, **kw)
     o = dict(grain=r["grain"], total=r["total"], plant=r["plant_doy"])
+    if h2h_hist:
+        o["history"] = r.get("history", [])
     if carry and "fallow_n_leached" in r:
         o["leach"] = r.get("n_leached_kg_ha", 0.0) + r["fallow_n_leached"]
         o["denit"] = r.get("n_denitrified_kg_ha", 0.0) + r["fallow_n_denitrified"]
@@ -4762,7 +4782,7 @@ document.getElementById("runBtn").addEventListener("click", async () => {
     py.globals.set("h2h_wx_json", JSON.stringify(wx));
     py.globals.set("h2h_soil_json", JSON.stringify(currentSite.layers));
     py.globals.set("h2h_lat", currentSite.wxCell[0]);
-    py.globals.set("h2h_crop", a.crop); py.globals.set("h2h_n", a.n); py.globals.set("h2h_y0", a.y0); py.globals.set("h2h_y1", a.y1);
+    py.globals.set("h2h_hist", false); py.globals.set("h2h_crop", a.crop); py.globals.set("h2h_n", a.n); py.globals.set("h2h_y0", a.y0); py.globals.set("h2h_y1", a.y1);
     status.textContent = `Running ${a.y1 - a.y0 + 1} years...`;
     await new Promise((r) => setTimeout(r, 30));
     const t0 = performance.now();
@@ -4781,6 +4801,7 @@ function stats(pairs) {
   return { n, cyc: ma, eng: mb, ratio: mb / ma, mae: ae / n, corr: sa > 0 && sb > 0 ? sab / Math.sqrt(sa * sb) : NaN };
 }
 function renderComparison() {
+  fillYearSelect(Object.keys(engineResult).map(Number).sort((a, b) => a - b));
   const box = document.getElementById("resultBox"); box.style.display = "block";
   const years = Object.keys(engineResult).map(Number).sort((a, b) => a - b);
   const H = cyclesOut.harvest;
@@ -4810,6 +4831,100 @@ function renderComparison() {
     nb.innerHTML = `<table><tr><th>Annual nitrogen fluxes</th><th>Cycles mean</th><th>Engine mean</th><th>Engine / Cycles</th><th>Mean abs error</th><th>Correlation</th></tr>${rows}</table><p class="sweep-note">Nitrogen losses are the engine's weakest output: typically off by a factor of about 3 (see ACCURACY.md).</p>`;
   } else nb.innerHTML = "";
 }
+
+// ---- daily overlay ----
+const DAILY_VARS = {
+  ag:     { label: "Aboveground biomass (Mg/ha)", unit: "Mg/ha", cyc: ["crop", "AG BIOMASS"], eng: (h) => h.ag_mg_ha },
+  canopy: { label: "Canopy interception (fraction)", unit: "", cyc: ["crop", "FRAC INTERCEP"], eng: (h) => h.canopy },
+  wstress:{ label: "Water stress (% , 0 = none)", unit: "%", cyc: ["crop", "WATER STRESS"], eng: (h) => 100 * (1 - h.water_stress) },
+  nstress:{ label: "Nitrogen stress (% , 0 = none; corn)", unit: "%", cyc: ["crop", "N STRESS"], eng: (h) => (h.n_stress == null ? null : 100 * (1 - h.n_stress)), corn: true },
+  minn:   { label: "Profile mineral N (kg N/ha; corn)", unit: "kg N/ha", cyc: ["N", ["PROF SOIL NO3", "PROF SOIL NH4"]], eng: (h) => (h.n_no3 == null ? null : h.n_no3 + h.n_nh4), corn: true },
+  smc1:   { label: "Soil moisture, layer 1 (m3/m3)", unit: "m3/m3", cyc: ["water", 0], eng: (h) => h.theta[0] },
+  smc2:   { label: "Soil moisture, layer 2 (m3/m3)", unit: "m3/m3", cyc: ["water", 1], eng: (h) => h.theta[1] },
+  smc3:   { label: "Soil moisture, layer 3 (m3/m3)", unit: "m3/m3", cyc: ["water", 2], eng: (h) => h.theta[2] },
+  smc4:   { label: "Soil moisture, layer 4 (m3/m3)", unit: "m3/m3", cyc: ["water", 3], eng: (h) => h.theta[3] },
+};
+(function fillVars() {
+  const sel = document.getElementById("dVar");
+  Object.entries(DAILY_VARS).forEach(([k, v]) => { const o = document.createElement("option"); o.value = k; o.textContent = v.label; sel.appendChild(o); });
+})();
+function dailyFile(kind) {
+  for (const [name, f] of Object.entries(cyclesOut.daily)) {
+    if (kind === "crop" && f.cols.includes("FRAC INTERCEP")) return f;
+    if (kind === "water" && f.cols.includes("TRANSPIRATION")) return f;
+    if (kind === "N" && f.cols.includes("PROF SOIL NO3")) return f;
+  }
+  return null;
+}
+function cyclesSeries(spec, year) {
+  const [kind, which] = spec;
+  const f = dailyFile(kind); if (!f) return null;
+  let idx;
+  if (kind === "water") {
+    const first = f.cols.indexOf("SMC"); if (first < 0 || typeof which !== "number") return null;
+    idx = [first + which];
+  } else idx = (Array.isArray(which) ? which : [which]).map((n) => f.cols.indexOf(n));
+  if (idx.some((i) => i < 0)) return null;
+  const pts = [], pre = String(year) + "-";
+  for (const r of f.rows) if (r[0].startsWith(pre)) pts.push([dayOfYear(r[0]), idx.reduce((s, i) => s + r[i], 0)]);
+  return pts;
+}
+function drawOverlay(canvas, series, ylabel, title) {
+  const dpr = window.devicePixelRatio || 1, W = canvas.clientWidth, H = canvas.clientHeight;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  const g = canvas.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  const L = 58, R = 16, T = 34, B = 36;
+  const all = series.flatMap((s) => s.points);
+  if (!all.length) return;
+  const x0 = Math.min(...all.map((p) => p[0])), x1 = Math.max(...all.map((p) => p[0]));
+  let y0 = Math.min(0, ...all.map((p) => p[1])), y1 = Math.max(...all.map((p) => p[1])) * 1.06 || 1;
+  const X = (x) => L + (x - x0) / Math.max(1, x1 - x0) * (W - L - R), Y = (y) => H - B - (y - y0) / (y1 - y0) * (H - T - B);
+  g.font = "11px DM Mono, monospace"; g.fillStyle = "#5f7180"; g.strokeStyle = "#e1e9ef"; g.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) { const v = y0 + (y1 - y0) * i / 4, yy = Y(v); g.beginPath(); g.moveTo(L, yy); g.lineTo(W - R, yy); g.stroke(); g.textAlign = "right"; g.fillText(v.toFixed(y1 < 2 ? 2 : 1), L - 6, yy + 4); }
+  g.textAlign = "center";
+  for (let i = 0; i <= 5; i++) { const v = Math.round(x0 + (x1 - x0) * i / 5); g.fillText(v, X(v), H - B + 16); }
+  g.fillText("day of year", (L + W - R) / 2, H - 4);
+  g.save(); g.translate(12, (T + H - B) / 2); g.rotate(-Math.PI / 2); g.fillText(ylabel, 0, 0); g.restore();
+  g.textAlign = "left"; g.fillStyle = "#101820"; g.font = "12px DM Sans, sans-serif"; g.fillText(title, L, 16);
+  let lx = L + 8;
+  for (const s of series) {
+    g.strokeStyle = s.color; g.lineWidth = 2; g.setLineDash(s.dash || []);
+    g.beginPath(); s.points.forEach((p, i) => (i ? g.lineTo(X(p[0]), Y(p[1])) : g.moveTo(X(p[0]), Y(p[1])))); g.stroke();
+    g.setLineDash([]);
+  }
+  g.font = "11px DM Mono, monospace";
+  series.forEach((s, i) => { const yy = T + 8 + i * 15; g.strokeStyle = s.color; g.lineWidth = 2; g.setLineDash(s.dash || []); g.beginPath(); g.moveTo(W - R - 150, yy); g.lineTo(W - R - 126, yy); g.stroke(); g.setLineDash([]); g.fillStyle = "#3c4a56"; g.fillText(s.label, W - R - 120, yy + 4); });
+}
+function fillYearSelect(years) {
+  const sel = document.getElementById("dYear"), cur = sel.value; sel.innerHTML = "";
+  years.forEach((y) => { const o = document.createElement("option"); o.value = y; o.textContent = y; sel.appendChild(o); });
+  if (cur && years.includes(Number(cur))) sel.value = cur; else if (years.includes(2012)) sel.value = "2012";
+  document.getElementById("dBtn").disabled = !(years.length && Object.keys(cyclesOut.daily).length);
+}
+document.getElementById("dBtn").addEventListener("click", async () => {
+  const st = document.getElementById("dStatus"), btn = document.getElementById("dBtn"); btn.disabled = true;
+  try {
+    const year = Number(document.getElementById("dYear").value), spec = DAILY_VARS[document.getElementById("dVar").value], a = scenarioArgs();
+    if (spec.corn && a.crop !== "corn") throw new Error("That quantity exists only for the corn scenario (soybean fixes its own nitrogen).");
+    const py = await ensurePyodide(st);
+    const wx = {}; for (let y = Math.max(a.y0, year - 2); y <= year; y++) wx[y] = currentSite.weather[y];
+    py.globals.set("h2h_wx_json", JSON.stringify(wx)); py.globals.set("h2h_soil_json", JSON.stringify(currentSite.layers));
+    py.globals.set("h2h_lat", currentSite.wxCell[0]); py.globals.set("h2h_hist", true);
+    py.globals.set("h2h_crop", a.crop); py.globals.set("h2h_n", a.n); py.globals.set("h2h_y0", year); py.globals.set("h2h_y1", year);
+    st.textContent = "Running the season...";
+    const res = JSON.parse(await py.runPythonAsync(GLUE)), hist = res[year].history;
+    const eng = hist.map((h) => [h.doy, spec.eng(h)]).filter((p) => p[1] != null);
+    const x0 = hist.length ? hist[0].doy - 5 : 1, x1 = hist.length ? hist[hist.length - 1].doy + 5 : 366;
+    const cyc = cyclesSeries(spec.cyc, year);
+    const series = [];
+    if (cyc) series.push({ label: "Cycles", color: "#1f3b57", points: cyc.filter((p) => p[0] >= x0 && p[0] <= x1) });
+    series.push({ label: "This engine", color: "#e08a2e", dash: [6, 3], points: eng });
+    const cv = document.getElementById("dCanvas"); cv.style.display = "block";
+    drawOverlay(cv, series, spec.unit, `${spec.label}, ${year}, ${currentLabel}`);
+    st.textContent = cyc ? "" : "The Cycles file needed for this quantity was not loaded; showing the engine only.";
+  } catch (err) { st.textContent = "Overlay failed: " + err.message; }
+  btn.disabled = false;
+});
 
 document.getElementById("exportBtn").addEventListener("click", () => {
   try {
