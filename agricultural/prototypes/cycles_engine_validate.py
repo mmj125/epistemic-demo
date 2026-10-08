@@ -146,6 +146,9 @@ def eto_fao56(doy, tmax, tmin, rs, rhmax, rhmin, wind_z, lat_deg, alt_m=0.0, win
 # saturation from soil texture. Standard public method.
 # ---------------------------------------------------------------------------
 
+PSI_E_FROM_ANCHOR = False   # opt-in; see saxton_rawls()
+
+
 def saxton_rawls(sand_pct, clay_pct, om_pct):
     S, C, OM = sand_pct / 100, clay_pct / 100, om_pct
     theta_1500t = (-0.024 * S + 0.487 * C + 0.006 * OM
@@ -184,6 +187,11 @@ def saxton_rawls(sand_pct, clay_pct, om_pct):
     psi_e = psi_et + (0.02 * psi_et ** 2 - 0.113 * psi_et - 0.70)
     B = (math.log(1500) - math.log(33)) / (math.log(fc) - math.log(pwp))
     lam = 1 / B
+    if PSI_E_FROM_ANCHOR:
+        # Self-consistent Campbell curve: psi(fc) = -33 kPa exactly (B above is already fitted through the
+        # 33 and 1500 kPa points). Eq. 4 is a regression (SE ~2.9 kPa) whose small values, amplified by
+        # (theta/sat)^-B, gave +550 kPa at field capacity for sands (Carolina) and flipped sign between layers.
+        psi_e = 33.0 * (fc / sat) ** B
     ksat_mm_h = 1930 * (sat - fc) ** (3 - lam)
     return dict(pwp=pwp, fc=fc, sat=sat, psi_e_kpa=psi_e, B=B, lam=lam,
                 ksat_mm_day=ksat_mm_h * 24)
