@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Head-to-head with native Cycles</title>
+<style>
+  :root{
+    --sky:#eef3f7;--sky-dark:#c8d8e4;--ink:#101820;--ink-soft:#3c4a56;
+    --field:#f4f8fb;--panel:#ffffff;--border:#c9d8e2;--muted:#5f7180;
+    --solar:#e08a2e;--accent:#c0392b;--data:#2471a3;--trend:#154360;--log:#1e8449;--ai:#6c3483;
+    --warn:#b7791f;--fail:#c0392b;--pass:#1e8449;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:"DM Sans",sans-serif;background:var(--field);color:var(--ink);min-height:100vh;margin:0;}
+  .wrap{max-width:960px;margin:0 auto;padding:28px 20px 60px;}
+  .eyebrow{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+  header{padding:0 0 20px;border-bottom:2px solid var(--ink);margin-bottom:24px;}
+  h1{font-family:"DM Serif Display",serif;font-size:clamp(24px,4.5vw,34px);line-height:1.15;margin:0;font-weight:400;}
+  .header-sub{margin-top:10px;color:var(--ink-soft);font-weight:300;max-width:760px;line-height:1.65;font-size:14px;}
+  .panel{background:var(--panel);border:1.5px solid var(--border);border-radius:5px;overflow:hidden;margin-bottom:22px;}
+  .panel-header{padding:11px 18px;background:var(--ink);}
+  .panel-header h2{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--sky);font-weight:500;margin:0;}
+  .panel-body{padding:18px;}
+  .panel-body p{font-size:13.5px;line-height:1.7;color:var(--ink-soft);margin:0 0 12px;}
+  .panel-body p:last-child{margin-bottom:0;}
+  .note{background:var(--sky);border-left:3px solid var(--data);border-radius:0 4px 4px 0;padding:12px 16px;font-size:13px;line-height:1.65;color:var(--ink-soft);}
+  .controls{display:flex;gap:20px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;}
+  .field label{display:block;font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+  select,input[type=number]{font-family:"DM Sans",sans-serif;font-size:14px;padding:8px 10px;border:1.5px solid var(--border);border-radius:3px;background:#fff;color:var(--ink);}
+  input[type=number]{width:110px;}
+  .btn{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:10px 18px;border-radius:3px;border:1.5px solid var(--data);background:var(--data);color:#fff;cursor:pointer;}
+  .btn:hover:not(:disabled){background:var(--trend);border-color:var(--trend);}
+  .btn:disabled{opacity:.5;cursor:default;}
+  .btn-secondary{background:var(--panel);color:var(--data);font-size:11px;font-family:"DM Mono",monospace;padding:6px 10px;border:1.5px solid var(--data);border-radius:3px;cursor:pointer;}
+  .btn-secondary:hover:not(:disabled){background:var(--sky);}
+  #status{font-family:"DM Mono",monospace;font-size:11.5px;color:var(--muted);margin:10px 0 4px;min-height:16px;}
+  .result{display:none;margin-top:14px;}
+  .headline{font-size:15px;color:var(--ink-soft);margin-bottom:14px;}
+  .headline b{font-size:28px;color:var(--trend);font-family:"DM Sans",sans-serif;font-weight:600;}
+  canvas.chart{width:100%;height:220px;display:block;border-radius:3px;background:#fff;border:1.5px solid var(--border);}
+  table{border-collapse:collapse;margin-top:14px;font-size:13px;width:100%;}
+  td,th{border:1px solid var(--border);padding:6px 10px;text-align:right;}
+  th{background:var(--sky);text-align:left;color:var(--ink-soft);font-weight:500;}
+  td:first-child{text-align:left;color:var(--ink-soft);}
+  .sweep-note{font-size:12.5px;color:var(--muted);margin-top:8px;font-style:italic;}
+  footer{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.6;}
+  .subfield{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:6px 0;}
+  .subfield label{font-size:12.5px;color:var(--ink-soft);font-family:"DM Sans",sans-serif;text-transform:none;letter-spacing:0;}
+  .tag{display:inline-block;font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:9px;margin-left:6px;}
+  .tag-pass{background:#e3f2e8;color:var(--pass);}
+  .tag-fail{background:#fbe9e7;color:var(--fail);}
+  .tag-unresolved{background:#fdf3dc;color:var(--warn);}
+  details.gap summary{cursor:pointer;font-weight:500;color:var(--ink);padding:8px 0;font-size:13.5px;}
+  details.gap{border-bottom:1px solid var(--border);padding:2px 0;}
+  details.gap:last-child{border-bottom:none;}
+  details.gap p{margin:4px 0 12px;}
+  pre.rawjson{background:var(--sky);border-radius:3px;padding:10px;font-size:11px;overflow-x:auto;max-height:220px;}
+  fieldset{border:1.5px solid var(--border);border-radius:4px;padding:12px 14px;margin:0 0 14px;}
+  fieldset legend{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:0 6px;}
+
+  .filelist{font-family:"DM Mono",monospace;font-size:12px;line-height:1.8;color:var(--ink-soft);}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="eyebrow">Agricultural Unit &middot; Head-to-head</div>
+  <h1>Check this engine against native Cycles on your own machine</h1>
+  <div class="header-sub">
+    Pick a site and a scenario. This page writes a set of Cycles input files; you run your own copy of Cycles on them.
+    Nothing from Cycles (binary, crop file or output) is bundled here, and nothing you load leaves your browser.
+    Step 1 of 3 is built: the exporter. Reading your Cycles output back in and overlaying this engine on it comes next.
+  </div>
+</header>
+
+<div class="panel" id="panel-select-site">
+  <div class="panel-header"><h2>1. Site</h2></div>
+  <div class="panel-body">
+    <p>Real STATSGO2 soil and real NLDAS-2 weather, resolved to the nearest ~55 km cell. Pick a preset or upload a KML point or polygon for any location in the CONUS.</p>
+    <div id="presetRow" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">...or upload your own field (KML):</div>
+    <input type="file" id="kmlInput" accept=".kml">
+    <div class="sweep-note" id="siteNote" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-header"><h2>2. Scenario</h2></div>
+  <div class="panel-body">
+    <p>Continuous corn (CornRM.90), one broadcast UAN application and a planter pass on day 110, planting between day 110 and 131 once soil temperature is above 12 &deg;C: the scenario the 16-site accuracy table is built on.</p>
+    <div class="controls">
+      <div class="field"><label for="nRate">Nitrogen (kg N/ha)</label><input type="number" id="nRate" value="150" min="0" max="400" step="10"></div>
+      <div class="field"><label for="yFrom">First year</label><input type="number" id="yFrom" value="1980" min="1980" max="2016"></div>
+      <div class="field"><label for="yTo">Last year</label><input type="number" id="yTo" value="2016" min="1980" max="2016"></div>
+    </div>
+    <button class="btn" id="exportBtn" disabled>Download Cycles input files (.zip)</button>
+    <div id="status"></div>
+    <div class="filelist" id="fileList"></div>
+  </div>
+</div>
+
+<footer>Cycles is released under CC BY-NC-ND 4.0 by its authors; this page does not redistribute it. See ACCURACY.md and HEAD_TO_HEAD_SCOPE.md in the repository.</footer>
+</div>
+
+<script>
+const FIELD_TILE_DEG = 5;
+
+function parseFieldKML(kmlText) {
+  // A KMZ file (Google Earth's zipped export format) starts with the ZIP magic
+  // bytes "PK" -- those two bytes survive UTF-8 decoding intact even though the
+  // rest of a binary zip won't, so this check is reliable without needing to
+  // actually unzip anything. Called out with its own message since exporting a
+  // .kmz instead of a plain .kml is the single most likely real trip-up (Google
+  // Earth Web's own "Export as KML file" option can still produce a .kmz).
+  if (kmlText.slice(0, 2) === "PK") {
+    throw new Error('This looks like a zipped KMZ file, not a plain KML file. Re-export/save it as "KML" (not "KMZ") -- see the tutorial for exact steps -- and try again.');
+  }
+  const doc = new DOMParser().parseFromString(kmlText, "text/xml");
+  if (doc.querySelector("parsererror")) throw new Error("That file isn't valid KML/XML.");
+  const placemarks = Array.from(doc.getElementsByTagName("Placemark"));
+  if (placemarks.length === 0) throw new Error("No Placemark found in this KML file.");
+  const pm = placemarks[0];
+
+  const point = pm.getElementsByTagName("Point")[0];
+  if (point) {
+    const coordText = point.getElementsByTagName("coordinates")[0]?.textContent?.trim();
+    if (!coordText) throw new Error("Point placemark has no coordinates.");
+    const [lng, lat] = coordText.split(",").map(Number);
+    return { kind: "point", lat, lng };
+  }
+
+  const ring = pm.getElementsByTagName("LinearRing")[0];
+  const coordEl = ring ? ring.getElementsByTagName("coordinates")[0] : pm.getElementsByTagName("coordinates")[0];
+  if (!coordEl) throw new Error("No Point or Polygon coordinates found in this KML file.");
+  const vertices = coordEl.textContent.trim().split(/\s+/).map((triplet) => {
+    const [lng, lat] = triplet.split(",").map(Number);
+    return { lat, lng };
+  }).filter((v) => Number.isFinite(v.lat) && Number.isFinite(v.lng));
+  if (vertices.length < 3) throw new Error("Polygon needs at least 3 valid vertices.");
+  return { kind: "polygon", vertices };
+}
+
+function fieldPolygonCentroid(vertices) {
+  let signedArea = 0, cx = 0, cy = 0;
+  const n = vertices.length;
+  for (let i = 0; i < n; i++) {
+    const p0 = vertices[i], p1 = vertices[(i + 1) % n];
+    const cross = p0.lng * p1.lat - p1.lng * p0.lat;
+    signedArea += cross;
+    cx += (p0.lng + p1.lng) * cross;
+    cy += (p0.lat + p1.lat) * cross;
+  }
+  signedArea *= 0.5;
+  if (Math.abs(signedArea) < 1e-12) {
+    return { lat: vertices.reduce((s, v) => s + v.lat, 0) / n, lng: vertices.reduce((s, v) => s + v.lng, 0) / n };
+  }
+  return { lat: cy / (6 * signedArea), lng: cx / (6 * signedArea) };
+}
+
+function fieldTileForPoint(lat, lng, tileDeg = FIELD_TILE_DEG) {
+  const lat0 = Math.floor(lat / tileDeg) * tileDeg;
+  const lon0 = Math.floor(lng / tileDeg) * tileDeg;
+  return { lat0, lon0, key: `${lat0}_${lon0}` };
+}
+
+// --- Soil lookup (real STATSGO2 data, agricultural/prototypes/field_selector.js
+// has the fuller comments -- inlined here the same way this whole file inlines
+// everything else). Unlike the weather tile above, this data is real and
+// already committed alongside this HTML file.
+const DEFAULT_SUBSOIL_SOC_PCT = 0.2;
+let soilGridCache = null;
+
+async function loadFieldSoilGrid() {
+  if (soilGridCache) return soilGridCache;
+  const res = await fetch("statsgo2_soil_grid.json.gz");
+  if (!res.ok) throw new Error(`Couldn't load soil grid (HTTP ${res.status}).`);
+  const buf = await res.arrayBuffer();
+  const ds = new DecompressionStream("gzip");
+  const text = await new Response(new Response(buf).body.pipeThrough(ds)).text();
+  soilGridCache = JSON.parse(text);
+  return soilGridCache;
+}
+
+function nearestFieldSoilCell(lat, lng, grid) {
+  let best = null, bestDist = Infinity;
+  for (const cell of grid) {
+    const dLat = cell.lat - lat, dLon = cell.lon - lng;
+    const dist = Math.sqrt(dLat * dLat + dLon * dLon);
+    if (dist < bestDist) { bestDist = dist; best = cell; }
+  }
+  return { cell: best, distanceDeg: bestDist };
+}
+
+function fieldSoilLayersForCell(cell) {
+  return cell.layers.map((l) => ({
+    thick: l.thick, clay: l.clay, sand: l.sand,
+    soc: l.soc == null ? DEFAULT_SUBSOIL_SOC_PCT : l.soc,
+  }));
+}
+
+// --- Weather tile lookup (real committed tiles, agricultural/prototypes/weather-tiles/,
+// same-origin -- see CLAUDE.md on why this replaced a GitHub Release: Release
+// assets don't send Access-Control-Allow-Origin, so a browser fetch from this
+// deployed page was blocked by CORS regardless of correct packaging).
+const WEATHER_BASE = "weather-tiles";
+let weatherManifestCache = null;
+const weatherTileCache = {};
+
+function fieldIsLeapYear(y) {
+  return y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0);
+}
+function fieldAllYearDoys(y0, y1) {
+  const out = [];
+  for (let y = y0; y <= y1; y++) {
+    const n = fieldIsLeapYear(y) ? 366 : 365;
+    for (let d = 1; d <= n; d++) out.push([y, d]);
+  }
+  return out;
+}
+// Decodes one cell out of a tile's decompressed bytes into {year: {doy: [field...]}},
+// the exact shape this page's own embedded ALL_WX already uses -- see
+// field_selector.js's decodeCellWeather() for the fuller comments on this layout.
+function fieldDecodeCellWeather(bytes, cellIndex, manifest, tileEntry) {
+  const days = fieldAllYearDoys(manifest.years[0], manifest.years[1]);
+  const nFields = manifest.fields.length;
+  const view = new Int16Array(bytes);
+  const recordsPerCell = days.length * nFields;
+  const offset = cellIndex * recordsPerCell;
+  const wx = {};
+  for (let i = 0; i < days.length; i++) {
+    const [year, doy] = days[i];
+    const values = new Array(nFields);
+    for (let f = 0; f < nFields; f++) {
+      values[f] = view[offset + i * nFields + f] * manifest.scale[manifest.fields[f]];
+    }
+    if (!wx[year]) wx[year] = {};
+    wx[year][doy] = values;
+  }
+  return wx;
+}
+async function loadFieldWeatherManifest() {
+  if (weatherManifestCache) return weatherManifestCache;
+  const res = await fetch(`${WEATHER_BASE}/manifest.json`);
+  if (!res.ok) throw new Error(`Couldn't load weather manifest (HTTP ${res.status}).`);
+  weatherManifestCache = await res.json();
+  return weatherManifestCache;
+}
+async function fieldNearestWeather(lat, lng) {
+  const manifest = await loadFieldWeatherManifest();
+  const tile = fieldTileForPoint(lat, lng);
+  const tileEntry = manifest.tiles[tile.key];
+  if (!tileEntry) return { weather: null, distanceDeg: Infinity, cell: null };
+  let bytes = weatherTileCache[tile.key];
+  if (!bytes) {
+    const res = await fetch(`${WEATHER_BASE}/${tileEntry.file}`);
+    if (!res.ok) throw new Error(`Couldn't load weather tile ${tile.key} (HTTP ${res.status}).`);
+    const buf = await res.arrayBuffer();
+    const ds = new DecompressionStream("gzip");
+    bytes = await new Response(new Response(buf).body.pipeThrough(ds)).arrayBuffer();
+    weatherTileCache[tile.key] = bytes;
+  }
+  let bestIdx = 0, bestDist = Infinity;
+  tileEntry.cells.forEach(([clat, clon], idx) => {
+    const d = Math.hypot(clat - lat, clon - lng);
+    if (d < bestDist) { bestDist = d; bestIdx = idx; }
+  });
+  const weather = fieldDecodeCellWeather(bytes, bestIdx, manifest, tileEntry);
+  return { weather, distanceDeg: bestDist, cell: tileEntry.cells[bestIdx] };
+}
+
+// --- Two-field slot state, upload handlers, and the comparison run ---
+const fieldState = { A: null, B: null };
+
+// Shared by both input paths (KML upload and the four preset buttons below) --
+// resolves real soil + weather for a given point, renders the result table,
+// and sets fieldState. placemarkDesc is just the "Placemark type" row's text,
+// since a preset has no real KML placemark to describe.
+// Pure resolver, no DOM/state side effects -- shared by the field-comparison
+// panel's applyResolvedSite() below and the nitrogen-sweep/frontier panel's
+// own site picker, so there's exactly one place that knows how to turn a
+// lat/lng into real soil + weather.
+async function resolveSiteAt(centroid) {
+  const grid = await loadFieldSoilGrid();
+  const { cell: soilCell, distanceDeg: soilDist } = nearestFieldSoilCell(centroid.lat, centroid.lng, grid);
+  const layers = fieldSoilLayersForCell(soilCell);
+  const { weather, distanceDeg: wxDist, cell: wxCell } = await fieldNearestWeather(centroid.lat, centroid.lng);
+  const soilOut = soilDist > 0.75;
+  const wxOut = !weather || wxDist > 0.75;
+  return { centroid, soilCell, soilDist, layers, topsoil: layers[0], weather, wxDist, wxCell, soilOut, wxOut };
+}
+
+const PRESET_SITES = [
+  { label: "Rock Springs, PA", lat: 40.7093, lng: -77.9478 },
+  { label: "Central Iowa", lat: 42.0, lng: -93.6 },
+  { label: "Western Kansas", lat: 37.97, lng: -100.87 },
+  { label: "MD Eastern Shore", lat: 38.5, lng: -75.8 },
+];
+const WEATHER_FIELDS = ["pp","tx","tn","solar","rhx","rhn","wind"];
+let currentSite = null, currentLabel = "";
+
+// ---- Cycles file writers (formats verified against Cycles v1.4.4 sample files and a real run) ----
+const CTRL_TEMPLATE = `## SIMULATION YEARS ##
+
+SIMULATION_START_DATE   1980-01-01
+SIMULATION_END_DATE     2016-12-31
+ROTATION_SIZE           1
+
+## INPUT FILES ##
+
+CROP_FILE               GenericCrops.crop
+OPERATION_FILE          ContinuousCorn.operation
+SOIL_FILE               GenericHagerstown.soil
+WEATHER_FILE            RockSprings.weather
+REINIT_FILE             N/A
+
+## SIMULATION OPTIONS ##
+
+CO2_LEVEL               -999    # Atmospheric CO2 concentration (ppm). If set to -999, annual CO2 concentrations in co2.txt will be used
+USE_REINITIALIZATION    0
+ADJUSTED_YIELDS         0
+HOURLY_INFILTRATION     1
+AUTOMATIC_NITROGEN      0
+AUTOMATIC_PHOSPHORUS    0
+AUTOMATIC_SULFUR        0
+
+## OUTPUT FILES ##
+
+DAILY_WEATHER_OUT       1
+DAILY_CROP_OUT          1
+DAILY_RESIDUE_OUT       1
+DAILY_WATER_OUT         1
+DAILY_NITROGEN_OUT      1
+DAILY_SOIL_CARBON_OUT   1
+DAILY_SOIL_LYR_CN_OUT   1
+ANNUAL_SOIL_OUT         1
+ANNUAL_PROFILE_OUT      1
+ANNUAL_NFLUX_OUT        1
+`;
+const OP_HEAD = `##############################################################################
+# A continuous corn rotation, fertilized with 150 kg/ha UAN, completely
+# no-till except for slight disturbance by planter disks
+##############################################################################
+
+`;
+const OP_FERT = `FIXED_FERTILIZATION
+YEAR                1
+DOY                 110
+SOURCE              UreaAmmoniumNitrate
+MASS                150         # kg/ha
+FORM                Liquid
+METHOD              Broadcast
+DEPTH               0.05        # m
+C_Organic           0           # kg/kg
+C_Charcoal          0           # kg/kg
+N_Organic           0           # kg/kg
+N_Charcoal          0           # kg/kg
+N_NH4               0.75        # kg/kg
+N_NO3               0.25        # kg/kg
+P_Organic           0           # kg/kg
+P_CHARCOAL          0           # kg/kg
+P_INORGANIC         0           # kg/kg
+K                   0           # kg/kg
+S                   0           # kg/kg
+
+`;
+const OP_REST = `TILLAGE
+YEAR                1
+DOY                 110
+TOOL                Planter_double_disk_opnr
+DEPTH               0.03        # m
+SOIL_DISTURB_RATIO  5
+MIXING_EFFICIENCY   0.071554
+CROP_NAME           N/A
+FRAC_THERMAL_TIME   0.0
+KILL_EFFICIENCY     0.0
+
+PLANTING
+YEAR                1
+DOY                 110
+END_DOY             131
+MAX_SMC             -999        # m3/m3
+MIN_SMC             0.0         # m3/m3
+MAX_SOIL_TEMP       -999        # degree C
+MIN_SOIL_TEMP       12.0        # degree C
+CROP                CornRM.90
+USE_AUTO_IRR        0
+USE_AUTO_FERT       0
+DENSITY             1.0
+CLIPPING_START      1
+CLIPPING_END        366
+`;
+
+function writeWeather(site, y0, y1) {
+  const lat = site.wxCell[0];
+  let s = `LATITUDE                ${lat.toFixed(6)}\nALTITUDE                0.000000\nSCREENING_HEIGHT        10.0\n`;
+  s += "YEAR    DOY     PP      TX      TN      SOLAR   RHX     RHN     WIND\n####    ###     mm      deg C   deg C   MJ/m2   %       %       m/s\n";
+  for (let y = y0; y <= y1; y++) {
+    const days = Object.keys(site.weather[y]).map(Number).sort((a, b) => a - b);
+    for (const d of days) {
+      const r = site.weather[y][d];
+      s += `${y}\t${d}\t${r[0].toFixed(4)}\t${r[1].toFixed(2)}\t${r[2].toFixed(2)}\t${r[3].toFixed(4)}\t${r[4].toFixed(2)}\t${r[5].toFixed(2)}\t${r[6].toFixed(3)}\n`;
+    }
+  }
+  return s;
+}
+function writeSoil(layers) {
+  let s = `CURVE_NUMBER        75\nSLOPE               0\nTOTAL_LAYERS        ${layers.length}\n`;
+  s += "LAYER   THICK   CLAY    SAND    SOC     BD      FC      PWP     SON     NO3     NH4     BYP_H   BYP_V\n#       m       %       %       %       Mg/m3   m3/m3   m3/m3   kg/ha   kg/ha   kg/ha   -       -\n";
+  layers.forEach((l, i) => {
+    const no3 = Math.min(Math.max(1, Math.round(10 * l.thick / 0.05 * 0.25)), 10);
+    s += `${i + 1}\t${l.thick}\t${l.clay}\t${l.sand}\t${l.soc}\t-999\t-999\t-999\t-999\t${no3}\t1\t0.0\t0.00\n`;
+  });
+  return s;
+}
+function writeOperation(n) {
+  const fert = n > 0 ? OP_FERT.replace("MASS                150", "MASS                " + n) : "";
+  return OP_HEAD + fert + OP_REST;
+}
+function writeCtrl(name, y0, y1) {
+  return CTRL_TEMPLATE
+    .replace("SIMULATION_START_DATE   1980-01-01", `SIMULATION_START_DATE   ${y0}-01-01`)
+    .replace("SIMULATION_END_DATE     2016-12-31", `SIMULATION_END_DATE     ${y1}-12-31`)
+    .replace("ContinuousCorn.operation", name + ".operation")
+    .replace("GenericHagerstown.soil", name + ".soil")
+    .replace("RockSprings.weather", name + ".weather");
+}
+function writeReadme(name) {
+  return `Cycles input files written by the epistemic head-to-head page.
+
+Files:  ${name}.weather  ${name}.soil  ${name}.operation  ${name}.ctrl
+
+1. Copy all four files into the input/ folder of your Cycles v1.4.4 release, next to GenericCrops.crop
+   (the crop file is NOT included here; it ships with Cycles).
+2. Run:   ./Cycles -b ${name}
+3. Output is written to output/${name}/. Load harvest.txt, N.txt, water.txt and soilC.txt back into the page.
+
+Notes: weather is NLDAS-2 reanalysis resolved to a ~55 km cell, soil is STATSGO2 (nearest map unit). The soil file asks Cycles to
+compute FC, PWP and bulk density itself (-999). Cycles is CC BY-NC-ND 4.0, copyright its authors; nothing of it is redistributed here.
+`;
+}
+
+// ---- store-only zip writer ----
+const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(bytes) { let c = 0xFFFFFFFF; for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function makeZip(files) {
+  const enc = new TextEncoder(), parts = [], central = [];
+  let offset = 0;
+  const u16 = (v) => [v & 255, (v >>> 8) & 255], u32 = (v) => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255];
+  for (const f of files) {
+    const name = enc.encode(f.name), data = enc.encode(f.text), crc = crc32(data);
+    const local = new Uint8Array([0x50,0x4b,3,4, ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(name.length), ...u16(0)]);
+    parts.push(local, name, data);
+    central.push({ name, crc, size: data.length, offset });
+    offset += local.length + name.length + data.length;
+  }
+  let cdSize = 0;
+  for (const c of central) {
+    const h = new Uint8Array([0x50,0x4b,1,2, ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(c.crc), ...u32(c.size), ...u32(c.size), ...u16(c.name.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(c.offset)]);
+    parts.push(h, c.name); cdSize += h.length + c.name.length;
+  }
+  parts.push(new Uint8Array([0x50,0x4b,5,6, ...u16(0), ...u16(0), ...u16(central.length), ...u16(central.length), ...u32(cdSize), ...u32(offset), ...u16(0)]));
+  return new Blob(parts, { type: "application/zip" });
+}
+
+function buildFiles() {
+  const n = Math.max(0, Math.min(400, Number(document.getElementById("nRate").value) || 0));
+  const y0 = Math.max(1980, Number(document.getElementById("yFrom").value) || 1980);
+  const y1 = Math.min(2016, Number(document.getElementById("yTo").value) || 2016);
+  if (y1 < y0) throw new Error("Last year is before first year.");
+  const name = "h2h_" + currentLabel.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") + "_N" + n;
+  return { name, files: [
+    { name: name + ".weather", text: writeWeather(currentSite, y0, y1) },
+    { name: name + ".soil", text: writeSoil(currentSite.layers) },
+    { name: name + ".operation", text: writeOperation(n) },
+    { name: name + ".ctrl", text: writeCtrl(name, y0, y1) },
+    { name: "README.txt", text: writeReadme(name) },
+  ] };
+}
+
+async function setSite(centroid, label) {
+  const note = document.getElementById("siteNote");
+  note.textContent = "Resolving real soil and weather for this location...";
+  currentSite = null; document.getElementById("exportBtn").disabled = true;
+  try {
+    const r = await resolveSiteAt(centroid);
+    if (r.soilOut || r.wxOut) {
+      note.textContent = `${label}: outside real CONUS coverage (soil ${r.soilDist.toFixed(2)} deg away). Try another point.`;
+      return;
+    }
+    currentSite = r; currentLabel = label;
+    note.textContent = `${label}: ${r.soilCell.compname} series soil, weather cell ${r.wxCell[0].toFixed(2)}, ${r.wxCell[1].toFixed(2)} (${r.wxDist.toFixed(2)} deg away). Ready.`;
+    document.getElementById("exportBtn").disabled = false;
+  } catch (err) { note.textContent = "Couldn't resolve that location: " + err.message; }
+}
+PRESET_SITES.forEach((p) => {
+  const b = document.createElement("button"); b.className = "btn-secondary"; b.textContent = p.label;
+  b.addEventListener("click", () => setSite({ lat: p.lat, lng: p.lng }, p.label));
+  document.getElementById("presetRow").appendChild(b);
+});
+document.getElementById("kmlInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const parsed = parseFieldKML(await file.text());
+    const c = parsed.kind === "point" ? { lat: parsed.lat, lng: parsed.lng } : fieldPolygonCentroid(parsed.vertices);
+    await setSite(c, "Your field (" + c.lat.toFixed(2) + ", " + c.lng.toFixed(2) + ")");
+  } catch (err) { document.getElementById("siteNote").textContent = err.message; }
+});
+document.getElementById("exportBtn").addEventListener("click", () => {
+  try {
+    const { name, files } = buildFiles();
+    const blob = makeZip(files), url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = name + ".zip"; document.body.appendChild(a); a.click(); a.remove();
+    document.getElementById("status").textContent = `Wrote ${name}.zip (${(blob.size / 1024).toFixed(0)} KB).`;
+    document.getElementById("fileList").innerHTML = files.map((f) => `${f.name} &mdash; ${(f.text.length / 1024).toFixed(1)} KB`).join("<br>");
+    window.__lastExport = { name, files };
+  } catch (err) { document.getElementById("status").textContent = err.message; }
+});
+</script>
+</body>
+</html>

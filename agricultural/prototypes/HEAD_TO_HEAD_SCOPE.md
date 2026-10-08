@@ -36,3 +36,6 @@ Hard requirement from Matt: a run must not take minutes.
 
 ## Measured run time (real Pyodide 0.26.2 under node, 2026-10-08)
 Iowa, full 1980-2016 record, N=150, same settings as the 16-site harness (per-layer six-pool, nitrate by layer, 2 lead years, carried nitrogen state): 6.9 s for 37 years (native CPython: 2.3 s). Two nitrogen rates therefore take about 14 s. Budget: under 20 s for a full record in the browser. If a build exceeds it, fall back to a year-range selector, then to a single chained run (one pass carrying soil state, which the earlier lead-year test showed is as accurate as 2 lead years).
+
+## Build log
+2026-10-08 step (a) exporter built: `head-to-head.html` (corn only for now, soybean pending a validated continuous-soybean scenario; Mode B and parsers and overlay still to build). Verified in a real browser (Playwright): the exported weather, soil and operation files match the 16-site harness's files line for line numerically (13,520 weather lines, 9 soil lines, 50 operation lines, zero mismatches), the ctrl file differs only in file names, the zip passes `testzip`, and running the real Cycles v1.4.4 binary on the exported files gives a harvest.txt and N.txt byte-identical to the harness reference run (same md5).
