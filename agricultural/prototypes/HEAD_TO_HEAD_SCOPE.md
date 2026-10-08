@@ -29,3 +29,10 @@ Order: (a) exporter and zip, tested by running the real binary on the exported f
 
 ## Licensing notes
 No Cycles binary, crop file or output is bundled or committed. The zip contains only files we generate from public NLDAS-2 and STATSGO2 data or from the reviewer's own uploads. The page should state that Cycles output stays on their machine.
+
+## Decisions (accepted 2026-10-08)
+1. Cycles v1.4.4 tab files only. 2. Mode B (their own `.weather` and `.soil`) in v1. 3. Corn and soybean. 4. New `head-to-head.html`, not linked from the splash page.
+Hard requirement from Matt: a run must not take minutes.
+
+## Measured run time (real Pyodide 0.26.2 under node, 2026-10-08)
+Iowa, full 1980-2016 record, N=150, same settings as the 16-site harness (per-layer six-pool, nitrate by layer, 2 lead years, carried nitrogen state): 6.9 s for 37 years (native CPython: 2.3 s). Two nitrogen rates therefore take about 14 s. Budget: under 20 s for a full record in the browser. If a build exceeds it, fall back to a year-range selector, then to a single chained run (one pass carrying soil state, which the earlier lead-year test showed is as accurate as 2 lead years).
