@@ -127,7 +127,7 @@
   <div class="panel-header"><h2>3. Load your Cycles output</h2></div>
   <div class="panel-body">
     <p>Unzip the download into your Cycles <code>input/</code> folder, run <code>./Cycles -b &lt;name&gt;</code> (the exact name is in the README), then select (or drop) the files from <code>output/&lt;name&gt;/</code>: <code>harvest.txt</code> and <code>annualN.txt</code> are used for the comparison below; <code>environ.txt</code> is used to check that Cycles read the same weather as the engine, and <code>N.txt</code>, <code>water.txt</code> and the daily crop file are kept for the daily overlay. Files are read in your browser and never uploaded.</p>
-    <input type="file" id="outInput" multiple accept=".txt">
+    <input type="file" id="outInput" multiple>
     <div class="sweep-note" id="outNote"></div>
     <div id="inputCheck"></div>
   </div>
@@ -4762,11 +4762,19 @@ document.getElementById("outInput").addEventListener("change", async (e) => {
   const notes = [];
   cyclesOut.harvest = null; cyclesOut.annualN = null; cyclesOut.daily = {};
   for (const f of e.target.files) {
+    // browsers add " (1)" to repeat downloads, and some systems change case or hide the extension
+    const nm = f.name.replace(/\s*\(\d+\)(?=\.[^.]*$|$)/, "").toLowerCase();
     try {
+      if (/\.(zip|gz|7z)$/.test(nm)) { notes.push(`${f.name}: archives cannot be read here, unzip it first and pick the .txt files inside`); continue; }
+      if (/\.csv$/.test(nm)) { notes.push(`${f.name}: comma-delimited output comes from Cycles v1.5.x, this page needs v1.4.4 (.txt files)`); continue; }
       const text = await f.text();
-      if (f.name === "harvest.txt") { cyclesOut.harvest = parseHarvest(text); notes.push(`harvest.txt: ${Object.keys(cyclesOut.harvest).length} harvests`); }
-      else if (f.name === "annualN.txt") { cyclesOut.annualN = parseAnnualN(text); notes.push(`annualN.txt: ${Object.keys(cyclesOut.annualN).length} years`); }
-      else if (/\.txt$/.test(f.name)) { cyclesOut.daily[f.name] = parseDaily(text); notes.push(`${f.name}: ${cyclesOut.daily[f.name].rows.length} daily rows kept`); }
+      if (/^harvest(\.txt)?$/.test(nm)) { cyclesOut.harvest = parseHarvest(text); notes.push(`${f.name}: ${Object.keys(cyclesOut.harvest).length} harvests`); }
+      else if (/^annualn(\.txt)?$/.test(nm)) { cyclesOut.annualN = parseAnnualN(text); notes.push(`${f.name}: ${Object.keys(cyclesOut.annualN).length} years`); }
+      else if (/\.txt$/.test(nm) || !/\./.test(nm)) {
+        const d = parseDaily(text);
+        if (d.cols.length > 3 && d.rows.length) { cyclesOut.daily[f.name] = d; notes.push(`${f.name}: ${d.rows.length} daily rows kept`); }
+        else notes.push(`${f.name}: not recognized as a Cycles table`);
+      } else notes.push(`${f.name}: unrecognized file type, skipped`);
     } catch (err) { notes.push(`${f.name}: ${err.message}`); }
   }
   checkInputs();
