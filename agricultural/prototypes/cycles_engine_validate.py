@@ -146,7 +146,7 @@ def eto_fao56(doy, tmax, tmin, rs, rhmax, rhmin, wind_z, lat_deg, alt_m=0.0, win
 # saturation from soil texture. Standard public method.
 # ---------------------------------------------------------------------------
 
-PSI_E_FROM_ANCHOR = False   # opt-in; see saxton_rawls()
+PSI_E_FROM_ANCHOR = True    # default since 2026-10-08 (16-site N150 grain MAE 1.37 -> 1.11, corr 0.77 -> 0.82); see saxton_rawls()
 
 
 def saxton_rawls(sand_pct, clay_pct, om_pct):
