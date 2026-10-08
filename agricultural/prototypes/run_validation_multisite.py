@@ -17,6 +17,7 @@ cev.N_UPTAKE_RATE_PER_DAY = float(os.environ["UPTAKE_RATE"]) if os.environ.get("
 cev.KHE_SCALE = float(os.environ["KHE"]) if os.environ.get("KHE") else cev.KHE_SCALE
 cev.FORCE_CROPSYST_EVAP = os.environ.get("CS_EVAP", "1") == "1"
 if os.environ.get("PSI_ANCHOR"): cev.PSI_E_FROM_ANCHOR = os.environ["PSI_ANCHOR"]=="1"   # only override when set (a default of off here silently disabled the engine default)
+if os.environ.get("CS_AD"): cev.CROPSYST_AIRDRY_FRAC = float(os.environ["CS_AD"])
 if os.environ.get("FE_POW"): cev.FE_TEMP_POW = float(os.environ["FE_POW"])
 if os.environ.get("FE_K"): cev.FE_TEMP_CYCLES_K = float(os.environ["FE_K"])
 if os.environ.get("PLANT_GATE"): cev.PLANT_MOISTURE_GATE = os.environ["PLANT_GATE"]=="1"

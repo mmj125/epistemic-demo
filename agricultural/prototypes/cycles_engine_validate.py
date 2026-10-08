@@ -581,6 +581,8 @@ def compute_tew(theta_fc, theta_wp, ze_m=0.15):
 # validated default (floor = wilting point). Cycles' own layer 1 dries below wilting point (min
 # water content 0.62-0.94 x pwp over 16 sites, 2026-10-06 back-calculation).
 SURFACE_AIRDRY_FRAC = None
+# Air-dry floor of the CropSyst surface-evaporation formula as a fraction of wilting point (CropSyst's own 1/3; Cycles' layer 1 reaches 0.62-0.94).
+CROPSYST_AIRDRY_FRAC = 1.0 / 3.0
 
 
 # Global switch (default True since 2026-10-07; set False for the older FAO-56 Kr path): route EVERY soil_evaporation() call,
@@ -733,7 +735,7 @@ def soil_evaporation_cropsyst(layers, pot_evap_mm, fallow=False, summer_time=Fal
     reference data is available again."""
     l0, l1 = layers[0], layers[1]
     pwp1, thick1_mm = l0["pwp"], l0["thick"] * 1000
-    air_dry_1 = pwp1 / 3.0
+    air_dry_1 = pwp1 * CROPSYST_AIRDRY_FRAC
     wc1 = l0["theta"]
     if wc1 < pwp1:
         denom = pwp1 - air_dry_1
