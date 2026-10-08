@@ -133,6 +133,7 @@
       <div class="field"><label for="outDir">...or the whole output folder</label><input type="file" id="outDir" webkitdirectory></div>
     </div>
     <div class="sweep-note" id="outNote"></div>
+    <button class="btn-secondary" id="outClear" style="margin-top:6px;">Clear loaded output</button>
     <div id="inputCheck"></div>
   </div>
 </div>
@@ -4838,16 +4839,20 @@ async function loadOutputEntries(entries, notes) {
 }
 async function handleOutputPick(fileList) {
   const notes = [];
-  cyclesOut.harvest = null; cyclesOut.annualN = null; cyclesOut.daily = {};
   await loadOutputEntries(Array.from(fileList).map((f) => ({ name: f.name, file: f })), notes);
   checkInputs();
   if (engineResult) fillYearSelect(Object.keys(engineResult).map(Number).sort((a, b) => a - b));
   const kept = [cyclesOut.harvest && "harvest", cyclesOut.annualN && "annualN", Object.keys(cyclesOut.daily).length && Object.keys(cyclesOut.daily).length + " daily"].filter(Boolean);
+  updateOverlayHint();
   document.getElementById("outNote").textContent = (kept.length ? "Loaded: " + kept.join(", ") + ". " : "") + notes.filter((x) => !/(rows kept|harvests|years)$/.test(x)).join(" | ") + (cyclesOut.harvest ? "" : (notes.length ? " | " : "") + "harvest.txt not found yet");
   if (engineResult) renderComparison();
 }
-document.getElementById("outInput").addEventListener("change", (e) => handleOutputPick(e.target.files));
-document.getElementById("outDir").addEventListener("change", (e) => handleOutputPick(e.target.files));
+document.getElementById("outInput").addEventListener("change", (e) => { handleOutputPick(e.target.files); e.target.value = ""; });
+document.getElementById("outClear").addEventListener("click", () => {
+  cyclesOut.harvest = null; cyclesOut.annualN = null; cyclesOut.daily = {};
+  document.getElementById("outNote").textContent = "Cleared."; document.getElementById("dBtn").disabled = true; updateOverlayHint(); if (engineResult) renderComparison();
+});
+document.getElementById("outDir").addEventListener("change", (e) => { handleOutputPick(e.target.files); e.target.value = ""; });
 
 // ---- engine run (real Pyodide, same engine and settings as the 16-site table) ----
 let pyodide = null, engineResult = null, engineTheta0 = null;
@@ -5039,11 +5044,19 @@ function drawOverlay(canvas, series, ylabel, title) {
   g.font = "11px DM Mono, monospace";
   series.forEach((s, i) => { const yy = T + 8 + i * 15; g.strokeStyle = s.color; g.lineWidth = 2; g.setLineDash(s.dash || []); g.beginPath(); g.moveTo(W - R - 150, yy); g.lineTo(W - R - 126, yy); g.stroke(); g.setLineDash([]); g.fillStyle = "#3c4a56"; g.fillText(s.label, W - R - 120, yy + 4); });
 }
+function updateOverlayHint() {
+  const st = document.getElementById("dStatus"), n = Object.keys(cyclesOut.daily).length;
+  const need = [];
+  if (!engineResult) need.push("run the engine in step 4");
+  if (!n) need.push("load Cycles' daily files in step 3 (for corn: the crop file such as CornRM.90.txt, plus N.txt and water.txt)");
+  st.textContent = need.length ? "To use the daily overlay: " + need.join(", and ") + "." : "";
+  document.getElementById("dBtn").disabled = need.length > 0;
+}
 function fillYearSelect(years) {
   const sel = document.getElementById("dYear"), cur = sel.value; sel.innerHTML = "";
   years.forEach((y) => { const o = document.createElement("option"); o.value = y; o.textContent = y; sel.appendChild(o); });
   if (cur && years.includes(Number(cur))) sel.value = cur; else if (years.includes(2012)) sel.value = "2012";
-  document.getElementById("dBtn").disabled = !(years.length && Object.keys(cyclesOut.daily).length);
+  updateOverlayHint();
 }
 document.getElementById("dBtn").addEventListener("click", async () => {
   const st = document.getElementById("dStatus"), btn = document.getElementById("dBtn"); btn.disabled = true;
