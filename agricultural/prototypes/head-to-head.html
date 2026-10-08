@@ -71,7 +71,7 @@
   <div class="header-sub">
     Pick a site and a scenario. This page writes a set of Cycles input files; you run your own copy of Cycles on them.
     Nothing from Cycles (binary, crop file or output) is bundled here, and nothing you load leaves your browser.
-    Step 1 of 3 is built: the exporter. Reading your Cycles output back in and overlaying this engine on it comes next.
+    Steps: choose a site (or your own weather and soil files), download the input files, run Cycles, load its output back in, then run this engine and compare, including a daily overlay for any year.
   </div>
 </header>
 
@@ -82,6 +82,12 @@
     <div id="presetRow" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">...or upload your own field (KML):</div>
     <input type="file" id="kmlInput" accept=".kml">
+    <div style="font-size:11px;color:var(--muted);margin:12px 0 4px;">...or use your own Cycles input files (the engine then runs on exactly your weather and soil):</div>
+    <div class="controls" style="margin-bottom:6px;">
+      <div class="field"><label for="ownWx">Weather file (.weather)</label><input type="file" id="ownWx"></div>
+      <div class="field"><label for="ownSoil">Soil file (.soil)</label><input type="file" id="ownSoil"></div>
+      <button class="btn-secondary" id="ownBtn" disabled>Use these files</button>
+    </div>
     <div class="sweep-note" id="siteNote" style="margin-top:10px;"></div>
   </div>
 </div>
@@ -2955,7 +2961,7 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
                 if k >= plant_window[0] and tmap.get(k, -99.0) > plant_min_soil_t and gl[0]["theta"] > gl[0]["pwp"]:
                     gated = k
                     break
-                run_bare_fallow_window(gl, [d[k]], lat_deg=crop["lat_deg"], de_state=gde)
+                run_bare_fallow_window(gl, [d[k]], lat_deg=crop["lat_deg"], curve_number=season_kwargs.get("curve_number", 75.0), slope_pct=season_kwargs.get("slope_pct", 0.0), de_state=gde)
             plant_doy = gated
         rows = [d[k] for k in range(plant_doy, 300) if k in d]
         spinup = [d[k] for k in range(1, plant_doy) if k in d]
@@ -2970,7 +2976,7 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
             if nstate is None:
                 nstate = dict(n_nh4=0.0, n_no3=0.0, tsoil_lag=(rows[0]["tx"] + rows[0]["tn"]) / 2.0,
                               no3_layers=([0.0] * len(layers) if kw.get("nitrate_per_layer") else None))
-            lch, dn, vl = run_fallow_n_window(layers, spinup, nstate, sixpool_state, lat_deg=crop["lat_deg"],
+            lch, dn, vl = run_fallow_n_window(layers, spinup, nstate, sixpool_state, lat_deg=crop["lat_deg"], curve_number=season_kwargs.get("curve_number", 75.0), slope_pct=season_kwargs.get("slope_pct", 0.0),
                                               de_state=de_state,
                                               model_denitrification=kw.get("model_denitrification", True),
                                               model_volatilization=kw.get("model_volatilization", True))
@@ -2990,7 +2996,7 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
         if carry_n:
             nstate = dict(result["final_n_state"])
             sixpool_state = copy.deepcopy(result["sixpool_final_state"]) if "sixpool_final_state" in result else None
-            lch, dn, vl = run_fallow_n_window(layers, bridge, nstate, sixpool_state, lat_deg=crop["lat_deg"],
+            lch, dn, vl = run_fallow_n_window(layers, bridge, nstate, sixpool_state, lat_deg=crop["lat_deg"], curve_number=season_kwargs.get("curve_number", 75.0), slope_pct=season_kwargs.get("slope_pct", 0.0),
                                               de_state=de_state,
                                               model_denitrification=kw.get("model_denitrification", True),
                                               model_volatilization=kw.get("model_volatilization", True))
@@ -2999,7 +3005,7 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
             result["fallow_n2o"] = n2o_pre + nstate.pop("n2o", 0.0)
             result["end_n_state"] = dict(nstate)
         else:
-            run_bare_fallow_window(layers, bridge, lat_deg=crop["lat_deg"], de_state=de_state)
+            run_bare_fallow_window(layers, bridge, lat_deg=crop["lat_deg"], curve_number=season_kwargs.get("curve_number", 75.0), slope_pct=season_kwargs.get("slope_pct", 0.0), de_state=de_state)
     return result
 
 
@@ -4560,13 +4566,27 @@ function writeOperation(n) {
   const fert = n > 0 ? OP_FERT.replace("MASS                150", "MASS                " + n) : "";
   return OP_HEAD + fert + OP_REST;
 }
-function writeCtrl(name, y0, y1) {
+function writeCtrl(name, y0, y1, wxName, soilName) {
   return CTRL_TEMPLATE
     .replace("SIMULATION_START_DATE   1980-01-01", `SIMULATION_START_DATE   ${y0}-01-01`)
     .replace("SIMULATION_END_DATE     2016-12-31", `SIMULATION_END_DATE     ${y1}-12-31`)
     .replace("ContinuousCorn.operation", name + ".operation")
-    .replace("GenericHagerstown.soil", name + ".soil")
-    .replace("RockSprings.weather", name + ".weather");
+    .replace("GenericHagerstown.soil", soilName || (name + ".soil"))
+    .replace("RockSprings.weather", wxName || (name + ".weather"));
+}
+function writeReadmeOwn(name, wxName, soilName) {
+  return `Cycles input files written by the epistemic head-to-head page, for YOUR weather and soil files.
+
+Files here:  ${name}.operation  ${name}.ctrl      (your ${wxName} and ${soilName} are used as they are)
+
+1. Copy ${name}.operation and ${name}.ctrl into the input/ folder of your Cycles v1.4.4 release, next to your ${wxName}, ${soilName} and GenericCrops.crop.
+2. Run:   ./Cycles -b ${name}
+3. Output is written to output/${name}/. Load harvest.txt, annualN.txt, N.txt, water.txt and the daily crop file back into the page.
+
+Notes: this page's engine reads thickness, clay, sand and organic carbon from your soil file, plus its curve number and slope. It derives field capacity,
+wilting point and bulk density from texture, so any values you gave for those are not used by the engine (Cycles itself uses them). Initial nitrate and
+ammonium in your soil file are not used by the engine. Cycles is CC BY-NC-ND 4.0, copyright its authors; nothing of it is redistributed here.
+`;
 }
 function writeReadme(name) {
   return `Cycles input files written by the epistemic head-to-head page.
@@ -4606,17 +4626,29 @@ function makeZip(files) {
   return new Blob(parts, { type: "application/zip" });
 }
 
+function siteYears() { return currentSite && currentSite.years ? currentSite.years : [1980, 2016]; }
 function buildFiles() {
+  const [ymin, ymax] = siteYears();
   const n = Math.max(0, Math.min(400, Number(document.getElementById("nRate").value) || 0));
-  const y0 = Math.max(1980, Number(document.getElementById("yFrom").value) || 1980);
-  const y1 = Math.min(2016, Number(document.getElementById("yTo").value) || 2016);
+  const y0 = Math.max(ymin, Number(document.getElementById("yFrom").value) || ymin);
+  const y1 = Math.min(ymax, Number(document.getElementById("yTo").value) || ymax);
   if (y1 < y0) throw new Error("Last year is before first year.");
   const soy = currentCrop() === "soybean";
-  const name = "h2h_" + currentLabel.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") + (soy ? "_soy" : "_N" + n);
+  const op = soy ? writeOperationSoy() : writeOperation(n);
+  const base = currentSite.custom ? currentSite.custom.base : currentLabel;
+  const name = "h2h_" + base.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") + (soy ? "_soy" : "_N" + n);
+  if (currentSite.custom) {
+    const c = currentSite.custom;
+    return { name, files: [
+      { name: name + ".operation", text: op },
+      { name: name + ".ctrl", text: writeCtrl(name, y0, y1, c.wxName, c.soilName) },
+      { name: "README.txt", text: writeReadmeOwn(name, c.wxName, c.soilName) },
+    ] };
+  }
   return { name, files: [
     { name: name + ".weather", text: writeWeather(currentSite, y0, y1) },
     { name: name + ".soil", text: writeSoil(currentSite.layers) },
-    { name: name + ".operation", text: soy ? writeOperationSoy() : writeOperation(n) },
+    { name: name + ".operation", text: op },
     { name: name + ".ctrl", text: writeCtrl(name, y0, y1) },
     { name: "README.txt", text: writeReadme(name) },
   ] };
@@ -4633,6 +4665,8 @@ async function setSite(centroid, label) {
       return;
     }
     currentSite = r; currentLabel = label;
+    ["yFrom", "yTo"].forEach((id) => { const e = document.getElementById(id); e.min = 1980; e.max = 2016; });
+    document.getElementById("yFrom").value = 1980; document.getElementById("yTo").value = 2016;
     note.textContent = `${label}: ${r.soilCell.compname} series soil, weather cell ${r.wxCell[0].toFixed(2)}, ${r.wxCell[1].toFixed(2)} (${r.wxDist.toFixed(2)} deg away). Ready.`;
     document.getElementById("exportBtn").disabled = false; document.getElementById("runBtn").disabled = false;
   } catch (err) { note.textContent = "Couldn't resolve that location: " + err.message; }
@@ -4740,6 +4774,7 @@ else:
     kw = dict()
     win, carry = (120, 140), False
 res = {}
+kw = dict(kw, curve_number=h2h_cn, slope_pct=h2h_slope)
 if h2h_hist:
     kw = dict(kw, record_history=True)
 for y in range(h2h_y0, h2h_y1 + 1):
@@ -4767,8 +4802,9 @@ function scenarioArgs() {
   return {
     crop: currentCrop(),
     n: Math.max(0, Math.min(400, Number(document.getElementById("nRate").value) || 0)),
-    y0: Math.max(1980, Number(document.getElementById("yFrom").value) || 1980),
-    y1: Math.min(2016, Number(document.getElementById("yTo").value) || 2016),
+    y0: Math.max(siteYears()[0], Number(document.getElementById("yFrom").value) || siteYears()[0]),
+    y1: Math.min(siteYears()[1], Number(document.getElementById("yTo").value) || siteYears()[1]),
+    cn: currentSite.curveNumber || 75, slope: currentSite.slopePct || 0,
   };
 }
 document.getElementById("runBtn").addEventListener("click", async () => {
@@ -4782,7 +4818,7 @@ document.getElementById("runBtn").addEventListener("click", async () => {
     py.globals.set("h2h_wx_json", JSON.stringify(wx));
     py.globals.set("h2h_soil_json", JSON.stringify(currentSite.layers));
     py.globals.set("h2h_lat", currentSite.wxCell[0]);
-    py.globals.set("h2h_hist", false); py.globals.set("h2h_crop", a.crop); py.globals.set("h2h_n", a.n); py.globals.set("h2h_y0", a.y0); py.globals.set("h2h_y1", a.y1);
+    py.globals.set("h2h_hist", false); py.globals.set("h2h_cn", a.cn); py.globals.set("h2h_slope", a.slope); py.globals.set("h2h_crop", a.crop); py.globals.set("h2h_n", a.n); py.globals.set("h2h_y0", a.y0); py.globals.set("h2h_y1", a.y1);
     status.textContent = `Running ${a.y1 - a.y0 + 1} years...`;
     await new Promise((r) => setTimeout(r, 30));
     const t0 = performance.now();
@@ -4909,7 +4945,7 @@ document.getElementById("dBtn").addEventListener("click", async () => {
     const py = await ensurePyodide(st);
     const wx = {}; for (let y = Math.max(a.y0, year - 2); y <= year; y++) wx[y] = currentSite.weather[y];
     py.globals.set("h2h_wx_json", JSON.stringify(wx)); py.globals.set("h2h_soil_json", JSON.stringify(currentSite.layers));
-    py.globals.set("h2h_lat", currentSite.wxCell[0]); py.globals.set("h2h_hist", true);
+    py.globals.set("h2h_lat", currentSite.wxCell[0]); py.globals.set("h2h_hist", true); py.globals.set("h2h_cn", a.cn); py.globals.set("h2h_slope", a.slope);
     py.globals.set("h2h_crop", a.crop); py.globals.set("h2h_n", a.n); py.globals.set("h2h_y0", year); py.globals.set("h2h_y1", year);
     st.textContent = "Running the season...";
     const res = JSON.parse(await py.runPythonAsync(GLUE)), hist = res[year].history;
@@ -4924,6 +4960,67 @@ document.getElementById("dBtn").addEventListener("click", async () => {
     st.textContent = cyc ? "" : "The Cycles file needed for this quantity was not loaded; showing the engine only.";
   } catch (err) { st.textContent = "Overlay failed: " + err.message; }
   btn.disabled = false;
+});
+
+// ---- own Cycles weather and soil files (Mode B) ----
+function parseCyclesWeather(text) {
+  const lines = text.split(/\r?\n/); let lat = null, k = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim();
+    if (/^LATITUDE/i.test(t)) lat = Number(t.split(/\s+/)[1]);
+    if (/^YEAR\s/i.test(t)) { k = i + 2; break; }
+  }
+  if (lat === null || !Number.isFinite(lat)) throw new Error("weather file: no LATITUDE line");
+  if (k < 0) throw new Error("weather file: no YEAR column header");
+  const wx = {}; let rows = 0;
+  for (let i = k; i < lines.length; i++) {
+    const p = lines[i].trim().split(/\s+/); if (p.length < 9) continue;
+    const v = p.map(Number); if (v.some((x) => !Number.isFinite(x))) throw new Error("weather file: unreadable line " + (i + 1));
+    if (v.slice(2).some((x) => x <= -990)) throw new Error(`weather file: missing value (-999) on ${v[0]} day ${v[1]}; fill gaps before using it`);
+    (wx[v[0]] = wx[v[0]] || {})[v[1]] = [v[2], v[3], v[4], v[5], v[6], v[7], v[8]]; rows++;
+  }
+  const years = Object.keys(wx).map(Number).sort((a, b) => a - b);
+  if (!rows) throw new Error("weather file: no data rows");
+  for (const y of years) { const n = Object.keys(wx[y]).length; if (n < 365) throw new Error(`weather file: year ${y} has only ${n} days`); }
+  return { lat, wx, years: [years[0], years[years.length - 1]] };
+}
+function parseCyclesSoil(text) {
+  const lines = text.split(/\r?\n/); let cn = 75, slope = 0, k = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim(), p = t.split(/\s+/);
+    if (/^CURVE_NUMBER/i.test(t)) cn = Number(p[1]);
+    if (/^SLOPE/i.test(t)) slope = Number(p[1]);
+    if (/^LAYER\s/i.test(t)) { k = i + 2; break; }
+  }
+  if (k < 0) throw new Error("soil file: no LAYER header");
+  const layers = []; let extra = false;
+  for (let i = k; i < lines.length; i++) {
+    const p = lines[i].trim().split(/\s+/); if (p.length < 5) continue;
+    const v = p.map(Number); if (v.slice(0, 5).some((x) => !Number.isFinite(x))) continue;
+    if (v[4] <= -990) throw new Error("soil file: missing organic carbon in layer " + v[0]);
+    if (v.length > 7 && (v[5] > -990 || v[6] > -990 || v[7] > -990)) extra = true;
+    layers.push({ thick: v[1], clay: v[2], sand: v[3], soc: v[4] });
+  }
+  if (!layers.length) throw new Error("soil file: no layers read");
+  return { layers, cn, slope, extra };
+}
+function ownReady() { return document.getElementById("ownWx").files.length && document.getElementById("ownSoil").files.length; }
+["ownWx", "ownSoil"].forEach((id) => document.getElementById(id).addEventListener("change", () => { document.getElementById("ownBtn").disabled = !ownReady(); }));
+document.getElementById("ownBtn").addEventListener("click", async () => {
+  const note = document.getElementById("siteNote");
+  try {
+    const wf = document.getElementById("ownWx").files[0], sf = document.getElementById("ownSoil").files[0];
+    const w = parseCyclesWeather(await wf.text()), s = parseCyclesSoil(await sf.text());
+    currentLabel = "Your files";
+    currentSite = { custom: { base: wf.name.replace(/\.[^.]*$/, ""), wxName: wf.name, soilName: sf.name }, weather: w.wx, layers: s.layers,
+                    wxCell: [w.lat, 0], years: w.years, curveNumber: s.cn, slopePct: s.slope };
+    document.getElementById("yFrom").value = w.years[0]; document.getElementById("yTo").value = w.years[1];
+    document.getElementById("yFrom").min = document.getElementById("yTo").min = w.years[0];
+    document.getElementById("yFrom").max = document.getElementById("yTo").max = w.years[1];
+    note.textContent = `Your files: ${s.layers.length} soil layers, latitude ${w.lat.toFixed(2)}, weather ${w.years[0]} to ${w.years[1]}, curve number ${s.cn}, slope ${s.slope}.` +
+      (s.extra ? " Your soil file gives bulk density, field capacity or wilting point; this engine derives them from texture and ignores those values." : "") + " Ready.";
+    document.getElementById("exportBtn").disabled = false; document.getElementById("runBtn").disabled = false;
+  } catch (err) { note.textContent = err.message; }
 });
 
 document.getElementById("exportBtn").addEventListener("click", () => {

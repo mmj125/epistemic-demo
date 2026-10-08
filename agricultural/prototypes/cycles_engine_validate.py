@@ -2807,7 +2807,7 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
                 if k >= plant_window[0] and tmap.get(k, -99.0) > plant_min_soil_t and gl[0]["theta"] > gl[0]["pwp"]:
                     gated = k
                     break
-                run_bare_fallow_window(gl, [d[k]], lat_deg=crop["lat_deg"], de_state=gde)
+                run_bare_fallow_window(gl, [d[k]], lat_deg=crop["lat_deg"], curve_number=season_kwargs.get("curve_number", 75.0), slope_pct=season_kwargs.get("slope_pct", 0.0), de_state=gde)
             plant_doy = gated
         rows = [d[k] for k in range(plant_doy, 300) if k in d]
         spinup = [d[k] for k in range(1, plant_doy) if k in d]
@@ -2822,7 +2822,7 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
             if nstate is None:
                 nstate = dict(n_nh4=0.0, n_no3=0.0, tsoil_lag=(rows[0]["tx"] + rows[0]["tn"]) / 2.0,
                               no3_layers=([0.0] * len(layers) if kw.get("nitrate_per_layer") else None))
-            lch, dn, vl = run_fallow_n_window(layers, spinup, nstate, sixpool_state, lat_deg=crop["lat_deg"],
+            lch, dn, vl = run_fallow_n_window(layers, spinup, nstate, sixpool_state, lat_deg=crop["lat_deg"], curve_number=season_kwargs.get("curve_number", 75.0), slope_pct=season_kwargs.get("slope_pct", 0.0),
                                               de_state=de_state,
                                               model_denitrification=kw.get("model_denitrification", True),
                                               model_volatilization=kw.get("model_volatilization", True))
@@ -2842,7 +2842,7 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
         if carry_n:
             nstate = dict(result["final_n_state"])
             sixpool_state = copy.deepcopy(result["sixpool_final_state"]) if "sixpool_final_state" in result else None
-            lch, dn, vl = run_fallow_n_window(layers, bridge, nstate, sixpool_state, lat_deg=crop["lat_deg"],
+            lch, dn, vl = run_fallow_n_window(layers, bridge, nstate, sixpool_state, lat_deg=crop["lat_deg"], curve_number=season_kwargs.get("curve_number", 75.0), slope_pct=season_kwargs.get("slope_pct", 0.0),
                                               de_state=de_state,
                                               model_denitrification=kw.get("model_denitrification", True),
                                               model_volatilization=kw.get("model_volatilization", True))
@@ -2851,7 +2851,7 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
             result["fallow_n2o"] = n2o_pre + nstate.pop("n2o", 0.0)
             result["end_n_state"] = dict(nstate)
         else:
-            run_bare_fallow_window(layers, bridge, lat_deg=crop["lat_deg"], de_state=de_state)
+            run_bare_fallow_window(layers, bridge, lat_deg=crop["lat_deg"], curve_number=season_kwargs.get("curve_number", 75.0), slope_pct=season_kwargs.get("slope_pct", 0.0), de_state=de_state)
     return result
 
 
