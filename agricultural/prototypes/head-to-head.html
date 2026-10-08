@@ -127,8 +127,11 @@
   <div class="panel-header"><h2>3. Load your Cycles output</h2></div>
   <div class="panel-body">
     <div style="border:1px solid var(--accent,#c60);border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:13px;"><b>Do not select the files you just downloaded.</b> The <code>.weather</code>, <code>.soil</code>, <code>.operation</code> and <code>.ctrl</code> files from step 2 are <i>inputs</i> for the Cycles program. This step needs what Cycles <i>writes after you run it on them</i>: a folder of <code>.txt</code> files (<code>harvest.txt</code>, <code>annualN.txt</code>, ...). You need a copy of Cycles v1.4.4 to produce them; this page does not include or run Cycles. Without Cycles you can still run step 4 to see the engine's own results.</div>
-    <p>Unzip the download into your Cycles <code>input/</code> folder, run <code>./Cycles -b &lt;name&gt;</code> (the exact name is in the README), then select (or drop) the files from <code>output/&lt;name&gt;/</code>: <code>harvest.txt</code> and <code>annualN.txt</code> are used for the comparison below; <code>environ.txt</code> is used to check that Cycles read the same weather as the engine, and <code>N.txt</code>, <code>water.txt</code> and the daily crop file are kept for the daily overlay. Files are read in your browser and never uploaded.</p>
-    <input type="file" id="outInput" multiple>
+    <p><b>Easiest:</b> unzip the step 2 download into your Cycles v1.4.4 folder and run <code>run_cycles.bat</code> (Windows) or <code>bash run_cycles.sh</code> (Mac/Linux). It runs Cycles and makes a <code>*_output.zip</code>. Drop that zip below. You can also pick the individual <code>.txt</code> files or the whole <code>output/&lt;name&gt;</code> folder. Used: <code>harvest.txt</code> and <code>annualN.txt</code> for the comparison, <code>environ.txt</code> and <code>water.txt</code> to check Cycles read the same weather and soil, and the crop/N/water daily files for the overlay in step 5.</p>
+    <div class="controls" style="margin-bottom:6px;">
+      <div class="field"><label for="outInput">Output files or a .zip of the output folder</label><input type="file" id="outInput" multiple></div>
+      <div class="field"><label for="outDir">...or the whole output folder</label><input type="file" id="outDir" webkitdirectory></div>
+    </div>
     <div class="sweep-note" id="outNote"></div>
     <div id="inputCheck"></div>
   </div>
@@ -4601,14 +4604,41 @@ function writeCtrl(name, y0, y1, wxName, soilName) {
     .replace("GenericHagerstown.soil", soilName || (name + ".soil"))
     .replace("RockSprings.weather", wxName || (name + ".weather"));
 }
+function runScripts(name) {
+  return [
+    { name: "run_cycles.sh", text: `#!/bin/bash
+# Run from the Cycles v1.4.4 folder (the one with the Cycles program and input/). Mac/Linux.
+set -e
+cd "$(dirname "$0")"
+cp -f ${name}.* input/ 2>/dev/null || true
+chmod +x ./Cycles 2>/dev/null || true
+./Cycles -b ${name}
+(cd output && zip -rq ../${name}_output.zip ${name}) || echo "zip not found: select the folder output/${name} in the page instead"
+echo "Done. Load ${name}_output.zip (or the folder output/${name}) in step 3 of the page."
+` },
+    { name: "run_cycles.bat", text: [
+      "@echo off",
+      "rem Run from the Cycles v1.4.4 folder (the one with Cycles.exe and input\\). Windows.",
+      "cd /d \"%~dp0\"",
+      "for %%e in (weather soil operation ctrl) do if exist " + name + ".%%e copy /y " + name + ".%%e input\\ >nul",
+      "Cycles.exe -b " + name,
+      "powershell -command \"Compress-Archive -Force output\\" + name + " " + name + "_output.zip\"",
+      "echo Done. Load " + name + "_output.zip in step 3 of the page.",
+      "pause", ""].join("\r\n") },
+  ];
+}
 function writeReadmeOwn(name, wxName, soilName) {
   return `Cycles input files written by the epistemic head-to-head page, for YOUR weather and soil files.
 
 Files here:  ${name}.operation  ${name}.ctrl      (your ${wxName} and ${soilName} are used as they are)
 
-1. Copy ${name}.operation and ${name}.ctrl into the input/ folder of your Cycles v1.4.4 release, next to your ${wxName}, ${soilName} and GenericCrops.crop.
-2. Run:   ./Cycles -b ${name}
-3. Output is written to output/${name}/. Load harvest.txt, annualN.txt, N.txt, water.txt and the daily crop file back into the page.
+EASY WAY: put your ${wxName} and ${soilName} in the input/ folder of your Cycles v1.4.4 folder, unzip this into the Cycles folder, then run
+   run_cycles.sh (Mac/Linux:  bash run_cycles.sh)   or   run_cycles.bat (Windows: double-click).
+   It runs Cycles and zips the output as ${name}_output.zip. Drop that zip into step 3 of the page.
+
+BY HAND: copy ${name}.operation and ${name}.ctrl into input/ next to your ${wxName}, ${soilName} and GenericCrops.crop, run
+   ./Cycles -b ${name}
+   and load the files from output/${name}/ (or the whole folder) into step 3.
 
 Notes: this page's engine reads thickness, clay, sand and organic carbon from your soil file, plus its curve number and slope. It derives field capacity,
 wilting point and bulk density from texture, so any values you gave for those are not used by the engine (Cycles itself uses them). Initial nitrate and
@@ -4620,10 +4650,13 @@ function writeReadme(name, own) {
 
 Files:  ${name}.weather  ${name}.soil  ${name}.operation  ${name}.ctrl
 
-1. Copy all four files into the input/ folder of your Cycles v1.4.4 release, next to GenericCrops.crop
-   (the crop file is NOT included here; it ships with Cycles).
-2. Run:   ./Cycles -b ${name}
-3. Output is written to output/${name}/. Load harvest.txt, N.txt, water.txt and soilC.txt back into the page.
+EASY WAY: unzip this into your Cycles v1.4.4 folder (the one containing the Cycles program and the input/ folder), then run
+   run_cycles.sh (Mac/Linux:  bash run_cycles.sh)   or   run_cycles.bat (Windows: double-click).
+   It copies the files into input/, runs Cycles and zips the output as ${name}_output.zip. Drop that zip into step 3 of the page.
+
+BY HAND: copy all four files into input/ next to GenericCrops.crop (the crop file is NOT included; it ships with Cycles), run
+   ./Cycles -b ${name}
+   and load the files from output/${name}/ (or the whole folder) into step 3.
 
 Notes: ${own ? 'weather is your file, unchanged; the soil file is rewritten from the layers this engine read (thickness, clay, sand, organic carbon, your curve number and slope), so Cycles and the engine see the same inputs.' : 'weather is NLDAS-2 reanalysis resolved to a ~55 km cell, soil is STATSGO2 (nearest map unit).'} The soil file asks Cycles to
 compute FC, PWP and bulk density itself (-999). Cycles is CC BY-NC-ND 4.0, copyright its authors; nothing of it is redistributed here.
@@ -4672,7 +4705,7 @@ function buildFiles() {
       { name: name + ".soil", text: writeSoil(currentSite.layers, currentSite.curveNumber, currentSite.slopePct) },
       { name: name + ".operation", text: op },
       { name: name + ".ctrl", text: writeCtrl(name, y0, y1) },
-      { name: "README.txt", text: writeReadme(name, true) },
+      { name: "README.txt", text: writeReadme(name, true) }, ...runScripts(name),
     ] };
   }
   return { name, files: [
@@ -4680,7 +4713,7 @@ function buildFiles() {
     { name: name + ".soil", text: writeSoil(currentSite.layers) },
     { name: name + ".operation", text: op },
     { name: name + ".ctrl", text: writeCtrl(name, y0, y1) },
-    { name: "README.txt", text: writeReadme(name) },
+    { name: "README.txt", text: writeReadme(name) }, ...runScripts(name),
   ] };
 }
 
@@ -4759,32 +4792,62 @@ function parseAnnualN(text) {
 }
 function parseDaily(text) { const t = parseCyclesTable(text); return { cols: t.cols, rows: t.rows.map((r) => r.map((x, i) => (i === 0 ? x : Number(x)))) }; }
 const cyclesOut = { harvest: null, annualN: null, daily: {} };
-document.getElementById("outInput").addEventListener("change", async (e) => {
-  const notes = [];
-  cyclesOut.harvest = null; cyclesOut.annualN = null; cyclesOut.daily = {};
-  for (const f of e.target.files) {
+async function readZip(file) {
+  const buf = new Uint8Array(await file.arrayBuffer()), dv = new DataView(buf.buffer);
+  let e = buf.length - 22;
+  while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--;
+  if (e < 0) throw new Error("not a readable zip file");
+  const n = dv.getUint16(e + 10, true); let p = dv.getUint32(e + 16, true);
+  const out = [], dec = new TextDecoder();
+  for (let i = 0; i < n; i++) {
+    const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true);
+    const nlen = dv.getUint16(p + 28, true), xlen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true);
+    const lho = dv.getUint32(p + 42, true), name = dec.decode(buf.subarray(p + 46, p + 46 + nlen));
+    p += 46 + nlen + xlen + clen;
+    if (name.endsWith("/")) continue;
+    const ds = lho + 30 + dv.getUint16(lho + 26, true) + dv.getUint16(lho + 28, true);
+    const raw = buf.subarray(ds, ds + csize);
+    out.push({ name: name.split("/").pop(), getText: async () => {
+      if (method === 0) return dec.decode(raw);
+      if (method !== 8) throw new Error("unsupported zip compression");
+      const st = new Blob([raw]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+      return await new Response(st).text();
+    } });
+  }
+  return out;
+}
+async function loadOutputEntries(entries, notes) {
+  for (const f of entries) {
     // browsers add " (1)" to repeat downloads, and some systems change case or hide the extension
     if (/\.(ctrl|operation|soil|weather|crop)$/i.test(f.name)) { notes.push(`${f.name}: this is an INPUT file for Cycles, not output. Run Cycles on it first, then load the .txt files it writes to output/<name>/`); continue; }
-    if (/^readme/i.test(f.name)) { notes.push(`${f.name}: skipped (instructions, not output)`); continue; }
+    if (/^readme|^run_cycles/i.test(f.name)) continue;
     const nm = f.name.replace(/\s*\(\d+\)(?=\.[^.]*$|$)/, "").toLowerCase();
     try {
-      if (/\.(zip|gz|7z)$/.test(nm)) { notes.push(`${f.name}: archives cannot be read here, unzip it first and pick the .txt files inside`); continue; }
+      if (/\.zip$/.test(nm)) { await loadOutputEntries(await readZip(f.file), notes); continue; }
+      if (/\.(gz|7z|tar)$/.test(nm)) { notes.push(`${f.name}: this archive type cannot be read here, use a .zip or pick the .txt files`); continue; }
       if (/\.csv$/.test(nm)) { notes.push(`${f.name}: comma-delimited output comes from Cycles v1.5.x, this page needs v1.4.4 (.txt files)`); continue; }
-      const text = await f.text();
+      const text = f.getText ? await f.getText() : await f.file.text();
       if (/^harvest(\.txt)?$/.test(nm)) { cyclesOut.harvest = parseHarvest(text); notes.push(`${f.name}: ${Object.keys(cyclesOut.harvest).length} harvests`); }
       else if (/^annualn(\.txt)?$/.test(nm)) { cyclesOut.annualN = parseAnnualN(text); notes.push(`${f.name}: ${Object.keys(cyclesOut.annualN).length} years`); }
       else if (/\.txt$/.test(nm) || !/\./.test(nm)) {
         const d = parseDaily(text);
         if (d.cols.length > 3 && d.rows.length) { cyclesOut.daily[f.name] = d; notes.push(`${f.name}: ${d.rows.length} daily rows kept`); }
-        else notes.push(`${f.name}: not recognized as a Cycles table`);
       } else notes.push(`${f.name}: unrecognized file type, skipped`);
     } catch (err) { notes.push(`${f.name}: ${err.message}`); }
   }
+}
+async function handleOutputPick(fileList) {
+  const notes = [];
+  cyclesOut.harvest = null; cyclesOut.annualN = null; cyclesOut.daily = {};
+  await loadOutputEntries(Array.from(fileList).map((f) => ({ name: f.name, file: f })), notes);
   checkInputs();
   if (engineResult) fillYearSelect(Object.keys(engineResult).map(Number).sort((a, b) => a - b));
-  document.getElementById("outNote").textContent = notes.join(" | ") + (cyclesOut.harvest ? "" : " | harvest.txt not found yet");
+  const kept = [cyclesOut.harvest && "harvest", cyclesOut.annualN && "annualN", Object.keys(cyclesOut.daily).length && Object.keys(cyclesOut.daily).length + " daily"].filter(Boolean);
+  document.getElementById("outNote").textContent = (kept.length ? "Loaded: " + kept.join(", ") + ". " : "") + notes.filter((x) => !/(rows kept|harvests|years)$/.test(x)).join(" | ") + (cyclesOut.harvest ? "" : (notes.length ? " | " : "") + "harvest.txt not found yet");
   if (engineResult) renderComparison();
-});
+}
+document.getElementById("outInput").addEventListener("change", (e) => handleOutputPick(e.target.files));
+document.getElementById("outDir").addEventListener("change", (e) => handleOutputPick(e.target.files));
 
 // ---- engine run (real Pyodide, same engine and settings as the 16-site table) ----
 let pyodide = null, engineResult = null, engineTheta0 = null;
