@@ -69,11 +69,25 @@
   <div class="eyebrow">Agricultural Unit &middot; Head-to-head</div>
   <h1>Check this engine against native Cycles on your own machine</h1>
   <div class="header-sub">
-    Pick a site and a scenario. This page writes a set of Cycles input files; you run your own copy of Cycles on them.
-    Nothing from Cycles (binary, crop file or output) is bundled here, and nothing you load leaves your browser.
-    Steps: choose a site (or your own weather and soil files), download the input files, run Cycles, load its output back in, then run this engine and compare, including a daily overlay for any year.
+    This page lets you check our from-scratch reimplementation of Cycles against your own copy of Cycles, on identical inputs. You pick a site (or load your own weather and soil files), download a set of Cycles input files, run Cycles yourself, and drop its output back here. The page then runs our engine on the same inputs in your browser and shows where the two agree and where they do not. Nothing from Cycles (binary, crop file or output) is bundled here, and nothing you load leaves your browser.
   </div>
 </header>
+
+<div class="panel">
+  <div class="panel-header"><h2>Before you start</h2></div>
+  <div class="panel-body">
+    <p><b>You need</b> a Cycles v1.4.4 release on your machine (the binary and its <code>input/</code> folder with <code>GenericCrops.crop</code>). Version 1.5.x writes different output files and is not read by this page yet.</p>
+    <p><b>Where this engine is weak.</b> We would rather you read this first than discover it:</p>
+    <ul style="font-size:13.5px;line-height:1.7;color:var(--ink-soft);margin:0 0 12px 18px;">
+      <li>Fertilized corn (150 kg N/ha) across 16 sites: typical yearly grain error about 1.1 Mg/ha (about 13%), year-to-year correlation about 0.82. Unfertilized corn is much weaker (correlation about 0.3, yield level too high).</li>
+      <li>Nitrogen losses (leaching, denitrification, N2O, volatilization) are typically off by a factor of about 3. Soil mineral nitrogen runs high at organic-matter-rich sites.</li>
+      <li>Soybean is the continuous no-fertilizer case only; the engine runs about 14% low at Rock Springs and high at semi-arid sites. Wheat, silage corn and pasture are not offered because they do not meet our own accuracy bar.</li>
+      <li>Water-limited sites (Kansas, Texas, Arkansas) match best; some sandy and humid sites run 5 to 15% low in dry years.</li>
+      <li>The engine is a simplification: no full six-pool soil system by layer for every process, no topography beyond the slope you supply, and several formulas were fitted to Cycles output because the published equations omit their constants.</li>
+    </ul>
+    <p>The full accuracy statement and the list of mechanisms we tried and rejected are in <a href="https://github.com/mmj125/epistemic-demo/blob/main/agricultural/ACCURACY.md" target="_blank" rel="noopener">ACCURACY.md</a> and <a href="https://github.com/mmj125/epistemic-demo/blob/main/agricultural/prototypes/QUESTIONS_FOR_DEVS.md" target="_blank" rel="noopener">QUESTIONS_FOR_DEVS.md</a>.</p>
+  </div>
+</div>
 
 <div class="panel" id="panel-select-site">
   <div class="panel-header"><h2>1. Site</h2></div>
@@ -112,7 +126,7 @@
 <div class="panel">
   <div class="panel-header"><h2>3. Load your Cycles output</h2></div>
   <div class="panel-body">
-    <p>Run Cycles on the downloaded files, then select (or drop) the files from <code>output/&lt;name&gt;/</code>: <code>harvest.txt</code> and <code>annualN.txt</code> are used for the comparison below; <code>environ.txt</code> is used to check that Cycles read the same weather as the engine, and <code>N.txt</code>, <code>water.txt</code> and the daily crop file are kept for the daily overlay. Files are read in your browser and never uploaded.</p>
+    <p>Unzip the download into your Cycles <code>input/</code> folder, run <code>./Cycles -b &lt;name&gt;</code> (the exact name is in the README), then select (or drop) the files from <code>output/&lt;name&gt;/</code>: <code>harvest.txt</code> and <code>annualN.txt</code> are used for the comparison below; <code>environ.txt</code> is used to check that Cycles read the same weather as the engine, and <code>N.txt</code>, <code>water.txt</code> and the daily crop file are kept for the daily overlay. Files are read in your browser and never uploaded.</p>
     <input type="file" id="outInput" multiple accept=".txt">
     <div class="sweep-note" id="outNote"></div>
     <div id="inputCheck"></div>
@@ -125,6 +139,12 @@
     <button class="btn" id="runBtn" disabled>Run engine</button>
     <div id="runStatus"></div>
     <div class="result" id="resultBox">
+      <details class="gap"><summary>How to read these numbers</summary>
+        <p><b>Engine / Cycles</b> is the ratio of the two means over the common years: 1.00 means the engine matches Cycles on average, 0.90 means it runs 10% low.</p>
+        <p><b>Mean abs error</b> is the average size of the yearly miss, in the quantity's own units, regardless of direction.</p>
+        <p><b>Correlation</b> says whether the engine ranks the years the way Cycles does (good years and bad years), independent of level. A model can have the right average and the wrong years, or the reverse; read both. Values near 0 mean the year-to-year pattern is not captured.</p>
+        <p><b>Planting day</b> is a check on the temperature-and-moisture rule, not on crop growth. Nitrogen fluxes are annual totals (kg N/ha) and are the engine's weakest outputs.</p>
+      </details>
       <div id="statsBox"></div>
       <table id="yearTable"></table>
       <div id="nBox"></div>
