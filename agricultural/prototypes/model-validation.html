@@ -2372,6 +2372,7 @@ EVAPORATIVE_LAYER_DEPTH_M = 0.10  # real, sourced (2026-09-30): Stockle, Martin 
 # was walled off from the crop.
 
 
+ROOT_TRI_POW = 1.0  # exponent on the triangular root density (1 = linear taper to zero at root depth; <1 flatter, 0 uniform); under test 2026-10-08
 ROOT_DENSITY_DECAY_M = None  # None = triangular density (validated default); a length in m = exponential density exp(-z/L), under test 2026-10-06 (L=0.35 best on 10-site relative-wetness fit, not yet adopted)
 
 
@@ -2406,7 +2407,7 @@ def root_length_fraction_by_layer(layers, root_depth_m):
         b = bot
         if b > a:
             if ROOT_DENSITY_DECAY_M is None:
-                fl[i] = (b - a) * (1 - (a + b) / (2 * root_depth_m))
+                fl[i] = (b - a) * max(0.0, 1 - (a + b) / (2 * root_depth_m)) ** ROOT_TRI_POW
             else:
                 fl[i] = math.exp(-a / ROOT_DENSITY_DECAY_M) - math.exp(-b / ROOT_DENSITY_DECAY_M)
         depth += l["thick"]
@@ -5298,7 +5299,7 @@ def make_layers():
     return layers
 
 CORN = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
-    rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
+    rue=2.332, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
     calibration_factor=1.1491, canopy_shape=CORN_CANOPY_SHAPE,  # re-derived 2026-10-01 for the real CO2-WUE-scaling mechanism (wue_co2_scale) -- previous value 1.1076, itself re-derived the same day for the real
     # cold-kill mechanism (threshold_temp_cold_damage, see below); previous value 1.0977, recalibrated 2026-09-25 for the
     # hydraulic-conductance water-stress mechanism (campbell_water_uptake(), see below) --

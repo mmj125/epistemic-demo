@@ -19,6 +19,7 @@ TAIL_MARK = "SOIL_LAYERS_RAW = ["
 # page-specific crop calibration: harness value (validated against Cycles) times the page's historical ratio
 PAGES = {
     "model-validation.html": dict(corn=rv.CORN["calibration_factor"], soy=r2.SOYBEAN["calibration_factor"], wheat=r2.WHEAT["calibration_factor"], wheat_cold=True),
+    "head-to-head.html":    dict(corn=rv.CORN["calibration_factor"], soy=r2.SOYBEAN["calibration_factor"], wheat=r2.WHEAT["calibration_factor"], wheat_cold=True),
     "engine-demo.html":      dict(corn=rv.CORN["calibration_factor"], soy=r2.SOYBEAN["calibration_factor"], wheat=round(r2.WHEAT["calibration_factor"] * 0.6427, 4), wheat_cold=False),
 }
 
@@ -31,11 +32,26 @@ def set_cal(tail, name, value):
     m = re.compile(r"calibration_factor=[0-9.]+").search(tail, i)
     return tail[:m.start()] + "calibration_factor=%s" % repr(float(value)) + tail[m.end():]
 
+def set_field(tail, name, field, value):
+    # refresh one numeric field inside the "NAME = dict(" block (stops at the next top-level assignment so a
+    # missing field can never edit a later crop's dict). Added 2026-10-08 after the pages' CORN rue was found
+    # stale at 2.2 while the harness corn used 2.332 (only calibration_factor had been refreshed).
+    i = tail.index(name + " = dict(")
+    m_end = re.compile(r"\n[A-Z_]+ = ").search(tail, i + 10)
+    end = m_end.start() if m_end else len(tail)
+    m = re.compile(r"\b%s=-?[0-9.]+" % field).search(tail, i, end)
+    if not m:
+        raise SystemExit("sync: %s has no %s field in the page tail" % (name, field))
+    return tail[:m.start()] + "%s=%s" % (field, repr(float(value))) + tail[m.end():]
+
 def build(page_text, cfg):
     i = page_text.index(MARK) + len(MARK)
     j = page_text.index("`;", i)
     old = page_text[i:j]
     tail = old[old.index(TAIL_MARK):]
+    for f in ("rue", "wue"):
+        tail = set_field(tail, "CORN", f, rv.CORN[f])
+        tail = set_field(tail, "SOYBEAN", f, r2.SOYBEAN[f])
     tail = set_cal(tail, "CORN", cfg["corn"])
     tail = set_cal(tail, "SOYBEAN", cfg["soy"])
     tail = set_cal(tail, "WHEAT", cfg["wheat"])
