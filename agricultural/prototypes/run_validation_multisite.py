@@ -32,7 +32,7 @@ SITES=dict(rock_springs=fd.PRESET_SITES["rock_springs"],iowa=fd.PRESET_SITES["io
            nebraska=(41.0,-98.0),illinois=(40.2,-89.0),ohio=(40.5,-83.5),minnesota=(44.5,-94.5),
            georgia=(32.5,-83.5),texas=(32.0,-97.5),michigan=(43.0,-84.5),carolina=(35.2,-79.0),
            missouri=(38.5,-92.5),indiana=(40.0,-86.5),arkansas=(35.0,-91.5),wisconsin=(44.0,-89.5))
-N_LEVELS=[0,150]
+N_LEVELS=[int(x) for x in os.environ.get('N_LEVELS','0,150').split(',')]
 def lat_of(lat,lon):
     m=fd.load_manifest(); _,_,k=fd.tile_for_point(lat,lon); d,e=fd.load_tile_bytes(m,k)
     best=min(e["cells"],key=lambda c:math.hypot(c[0]-lat,c[1]-lon)); return best[0]
@@ -52,7 +52,7 @@ def write_inputs(site,lat,lon,wx,soil_raw,cell_lat):
     s.close()
     base=open(f"{CY}/input/ContinuousCorn.operation").read()
     for N in N_LEVELS:
-        op=base
+        op=base.replace('MASS                150','MASS                %d'%N,1) if N>0 else base
         if N==0:
             a=op.index("FIXED_FERTILIZATION"); b=op.index("TILLAGE"); op=op[:a]+op[b:]
         open(f"{CY}/input/{site}N{N}.operation","w").write(op)
