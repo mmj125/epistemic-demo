@@ -112,9 +112,10 @@
 <div class="panel">
   <div class="panel-header"><h2>3. Load your Cycles output</h2></div>
   <div class="panel-body">
-    <p>Run Cycles on the downloaded files, then select (or drop) the files from <code>output/&lt;name&gt;/</code>: <code>harvest.txt</code> and <code>annualN.txt</code> are used for the comparison below; <code>N.txt</code>, <code>water.txt</code> and the daily crop file are read and kept for the daily overlay. Files are read in your browser and never uploaded.</p>
+    <p>Run Cycles on the downloaded files, then select (or drop) the files from <code>output/&lt;name&gt;/</code>: <code>harvest.txt</code> and <code>annualN.txt</code> are used for the comparison below; <code>environ.txt</code> is used to check that Cycles read the same weather as the engine, and <code>N.txt</code>, <code>water.txt</code> and the daily crop file are kept for the daily overlay. Files are read in your browser and never uploaded.</p>
     <input type="file" id="outInput" multiple accept=".txt">
     <div class="sweep-note" id="outNote"></div>
+    <div id="inputCheck"></div>
   </div>
 </div>
 
@@ -4553,8 +4554,8 @@ function writeWeather(site, y0, y1) {
   }
   return s;
 }
-function writeSoil(layers) {
-  let s = `CURVE_NUMBER        75\nSLOPE               0\nTOTAL_LAYERS        ${layers.length}\n`;
+function writeSoil(layers, cn, slope) {
+  let s = `CURVE_NUMBER        ${cn || 75}\nSLOPE               ${slope || 0}\nTOTAL_LAYERS        ${layers.length}\n`;
   s += "LAYER   THICK   CLAY    SAND    SOC     BD      FC      PWP     SON     NO3     NH4     BYP_H   BYP_V\n#       m       %       %       %       Mg/m3   m3/m3   m3/m3   kg/ha   kg/ha   kg/ha   -       -\n";
   layers.forEach((l, i) => {
     const no3 = Math.min(Math.max(1, Math.round(10 * l.thick / 0.05 * 0.25)), 10);
@@ -4588,7 +4589,7 @@ wilting point and bulk density from texture, so any values you gave for those ar
 ammonium in your soil file are not used by the engine. Cycles is CC BY-NC-ND 4.0, copyright its authors; nothing of it is redistributed here.
 `;
 }
-function writeReadme(name) {
+function writeReadme(name, own) {
   return `Cycles input files written by the epistemic head-to-head page.
 
 Files:  ${name}.weather  ${name}.soil  ${name}.operation  ${name}.ctrl
@@ -4598,7 +4599,7 @@ Files:  ${name}.weather  ${name}.soil  ${name}.operation  ${name}.ctrl
 2. Run:   ./Cycles -b ${name}
 3. Output is written to output/${name}/. Load harvest.txt, N.txt, water.txt and soilC.txt back into the page.
 
-Notes: weather is NLDAS-2 reanalysis resolved to a ~55 km cell, soil is STATSGO2 (nearest map unit). The soil file asks Cycles to
+Notes: ${own ? 'weather is your file, unchanged; the soil file is rewritten from the layers this engine read (thickness, clay, sand, organic carbon, your curve number and slope), so Cycles and the engine see the same inputs.' : 'weather is NLDAS-2 reanalysis resolved to a ~55 km cell, soil is STATSGO2 (nearest map unit).'} The soil file asks Cycles to
 compute FC, PWP and bulk density itself (-999). Cycles is CC BY-NC-ND 4.0, copyright its authors; nothing of it is redistributed here.
 `;
 }
@@ -4638,11 +4639,14 @@ function buildFiles() {
   const base = currentSite.custom ? currentSite.custom.base : currentLabel;
   const name = "h2h_" + base.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") + (soy ? "_soy" : "_N" + n);
   if (currentSite.custom) {
-    const c = currentSite.custom;
+    // Cycles must run on exactly what the engine reads: the original weather text, and a soil file rewritten from the parsed
+    // layers (texture and organic carbon, the file's own curve number and slope, FC/PWP/BD left to Cycles as in the tile case).
     return { name, files: [
+      { name: name + ".weather", text: currentSite.custom.wxText },
+      { name: name + ".soil", text: writeSoil(currentSite.layers, currentSite.curveNumber, currentSite.slopePct) },
       { name: name + ".operation", text: op },
-      { name: name + ".ctrl", text: writeCtrl(name, y0, y1, c.wxName, c.soilName) },
-      { name: "README.txt", text: writeReadmeOwn(name, c.wxName, c.soilName) },
+      { name: name + ".ctrl", text: writeCtrl(name, y0, y1) },
+      { name: "README.txt", text: writeReadme(name, true) },
     ] };
   }
   return { name, files: [
@@ -4740,6 +4744,7 @@ document.getElementById("outInput").addEventListener("change", async (e) => {
       else if (/\.txt$/.test(f.name)) { cyclesOut.daily[f.name] = parseDaily(text); notes.push(`${f.name}: ${cyclesOut.daily[f.name].rows.length} daily rows kept`); }
     } catch (err) { notes.push(`${f.name}: ${err.message}`); }
   }
+  checkInputs();
   if (engineResult) fillYearSelect(Object.keys(engineResult).map(Number).sort((a, b) => a - b));
   document.getElementById("outNote").textContent = notes.join(" | ") + (cyclesOut.harvest ? "" : " | harvest.txt not found yet");
   if (engineResult) renderComparison();
@@ -5010,18 +5015,46 @@ document.getElementById("ownBtn").addEventListener("click", async () => {
   const note = document.getElementById("siteNote");
   try {
     const wf = document.getElementById("ownWx").files[0], sf = document.getElementById("ownSoil").files[0];
-    const w = parseCyclesWeather(await wf.text()), s = parseCyclesSoil(await sf.text());
+    const wxRaw = await wf.text(), w = parseCyclesWeather(wxRaw), s = parseCyclesSoil(await sf.text());
     currentLabel = "Your files";
-    currentSite = { custom: { base: wf.name.replace(/\.[^.]*$/, ""), wxName: wf.name, soilName: sf.name }, weather: w.wx, layers: s.layers,
+    currentSite = { custom: { base: wf.name.replace(/\.[^.]*$/, ""), wxName: wf.name, soilName: sf.name, wxText: wxRaw }, weather: w.wx, layers: s.layers,
                     wxCell: [w.lat, 0], years: w.years, curveNumber: s.cn, slopePct: s.slope };
     document.getElementById("yFrom").value = w.years[0]; document.getElementById("yTo").value = w.years[1];
     document.getElementById("yFrom").min = document.getElementById("yTo").min = w.years[0];
     document.getElementById("yFrom").max = document.getElementById("yTo").max = w.years[1];
     note.textContent = `Your files: ${s.layers.length} soil layers, latitude ${w.lat.toFixed(2)}, weather ${w.years[0]} to ${w.years[1]}, curve number ${s.cn}, slope ${s.slope}.` +
-      (s.extra ? " Your soil file gives bulk density, field capacity or wilting point; this engine derives them from texture and ignores those values." : "") + " Ready.";
+      (s.extra ? " Your soil file gives bulk density, field capacity or wilting point; both this engine and the soil file we export derive them from texture, so Cycles will not use your values." : "") + " Ready.";
     document.getElementById("exportBtn").disabled = false; document.getElementById("runBtn").disabled = false;
   } catch (err) { note.textContent = err.message; }
 });
+
+// ---- input check: did Cycles read the same weather and layers as this engine? ----
+function checkInputs() {
+  const box = document.getElementById("inputCheck"); if (!box) return;
+  if (!currentSite) { box.innerHTML = ""; return; }
+  const env = Object.values(cyclesOut.daily).find((f) => f.cols.includes("PRECIPITATION") && f.cols.includes("MAX TMP"));
+  const water = dailyFile("water");
+  const msgs = []; let bad = false;
+  if (env) {
+    const iP = env.cols.indexOf("PRECIPITATION"), iX = env.cols.indexOf("MAX TMP"), iN = env.cols.indexOf("MIN TMP");
+    let n = 0, miss = 0, worst = 0;
+    for (const r of env.rows) {
+      if (!/^\d{4}-/.test(r[0])) continue;
+      const y = Number(r[0].slice(0, 4)), d = dayOfYear(r[0]), w = currentSite.weather[y] && currentSite.weather[y][d];
+      if (!w) { miss++; continue; }
+      n++; worst = Math.max(worst, Math.abs(r[iP] - w[0]), Math.abs(r[iX] - w[1]), Math.abs(r[iN] - w[2]));
+    }
+    if (!n) { bad = true; msgs.push("Cycles' weather echo (environ.txt) shares no days with the engine's weather."); }
+    else if (worst > 0.011 || miss > 0) { bad = true; msgs.push(`Weather differs: ${n} days compared, largest difference ${worst.toFixed(2)} (rain mm or temperature C)` + (miss ? `, ${miss} Cycles days not in the engine's weather` : "") + ". Cycles was probably run on different input files."); }
+    else msgs.push(`Weather identical on all ${n} days (largest difference ${worst.toFixed(2)}).`);
+  } else msgs.push("Load environ.txt to confirm Cycles read the same weather.");
+  if (water) {
+    const nl = water.cols.filter((c) => c === "SMC").length;
+    if (nl !== currentSite.layers.length) { bad = true; msgs.push(`Soil layers differ: Cycles has ${nl}, the engine ${currentSite.layers.length}.`); }
+    else msgs.push(`Same number of soil layers (${nl}).`);
+  }
+  box.innerHTML = `<p class="sweep-note" style="color:${bad ? "var(--fail)" : "var(--pass)"}">Input check: ${msgs.join(" ")}</p>`;
+}
 
 document.getElementById("exportBtn").addEventListener("click", () => {
   try {
