@@ -57,6 +57,14 @@ def write_inputs(site,lat,lon,wx,soil_raw,cell_lat):
         c=open(f"{CY}/input/ContinuousCorn.ctrl").read().replace("ContinuousCorn.operation",f"{site}N{N}.operation").replace("GenericHagerstown.soil",f"{site}.soil").replace("RockSprings.weather",f"{site}.weather")
         open(f"{CY}/input/{site}N{N}.ctrl","w").write(c)
 def run_cycles(site,N):
+    # Cached 2026-10-08: the Cycles reference for a site/N never changes between engine experiments (same tile inputs),
+    # so run the binary once and reuse the parsed result. Delete {CY}/cache_*.json to force a re-run.
+    cache=f"{CY}/cache_{site}N{N}.json"
+    if os.path.exists(cache) and os.environ.get("NO_CACHE","0")!="1":
+        d=json.load(open(cache)); return {int(k):v for k,v in d["H"].items()},{int(k):v for k,v in d["A"].items()}
+    H,A=_run_cycles_uncached(site,N)
+    json.dump(dict(H=H,A=A),open(cache,"w")); return H,A
+def _run_cycles_uncached(site,N):
     subprocess.run(["./Cycles","-b",f"{site}N{N}"],cwd=CY,capture_output=True)
     out=f"{CY}/output/{site}N{N}"; H={}
     for line in open(f"{out}/harvest.txt").readlines()[2:]:
@@ -92,7 +100,9 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     carry=os.environ.get("CARRY_N","1")=="1"
     lead_env=os.environ.get("LEAD_YEARS","full")
     first_year=min(wx)
+    ystep=int(os.environ.get("YEAR_STEP","1"))
     for y in sorted(wx):
+        if (y-first_year)%ystep: continue   # quick mode: every ystep-th year only
         lead=(y-first_year) if lead_env=="full" else int(lead_env)   # "full" = start from the first weather year, as Cycles does
         r=simulate_season_with_leadin(wx,y,crop,lead_years=lead,carry_n=carry,**kw)
         if carry and "fallow_n_leached" in r:   # add the off-season windows so totals are calendar-year like Cycles' annualN.txt
@@ -104,7 +114,9 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     return res
 if __name__=="__main__":
     out={}
+    _only=[x for x in os.environ.get("SITES","").split(",") if x]
     for site,(lat,lon) in SITES.items():
+        if _only and site not in _only: continue
         wx,wd=fd.resolve_field_weather(lat,lon); soil,sd,name=fd.resolve_field_soil(lat,lon); cl=lat_of(lat,lon)
         write_inputs(site,lat,lon,wx,soil,cl)
         for N in N_LEVELS:
@@ -123,4 +135,4 @@ if __name__=="__main__":
                         row[k]=dict(real=statistics.mean(a),model=statistics.mean(b),mae=statistics.mean(abs(x-z) for x,z in zip(a,b)),corr=corr(a,b),n=len(yy))
                 out[f"{site}|N{N}|{mode}"]=dict(soil=name,soil_dist=sd,wx_dist=wd,res=row)
                 print(site,N,mode,name,{k:(round(v['real'],2),round(v['model'],2),round(v['corr'],2)) for k,v in row.items()},flush=True)
-    json.dump(out,open(os.path.join(P,"multisite_results.json"),"w"),indent=1)
+    json.dump(out,open(os.environ.get("OUT_JSON") or os.path.join(P,"multisite_results.json"),"w"),indent=1)
