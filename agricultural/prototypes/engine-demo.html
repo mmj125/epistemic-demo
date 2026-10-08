@@ -2975,6 +2975,22 @@ def cra_maturity_fraction(age_days):
     return 1.0 - math.exp(-age_days / CRA_MATURATION_TAU_DAYS)
 
 
+SIXPOOL_N_LIMIT = False  # opt-in (2026-10-08): nitrogen limitation of decomposition, see sixpool_n_factor()
+SIXPOOL_NLIM_MIN = 0.40     # decomposition multiplier with no mineral N
+SIXPOOL_NLIM_CENTER = 30.0  # profile mineral N (kg/ha) at the logistic midpoint
+SIXPOOL_NLIM_WIDTH = 6.0
+
+
+def sixpool_n_factor(mineral_n_kg_ha):
+    """Decomposition multiplier from profile mineral N (kg N/ha). Fitted 2026-10-08 on weekly sums of Cycles'
+    own SOM respiration, unfertilized over fertilized run on identical inputs (16 sites, first four years,
+    before pools diverge): the ratio is 0.40 below 10 kg N/ha, 0.59 at 20-30, 0.81 at 30-40, 0.94 at 40-50 and
+    about 1 above 50, i.e. Cycles' decomposition is limited by mineral N. Logistic fit to that curve."""
+    if mineral_n_kg_ha is None:
+        return 1.0
+    return SIXPOOL_NLIM_MIN + (1.0 - SIXPOOL_NLIM_MIN) / (1.0 + math.exp(-(mineral_n_kg_ha - SIXPOOL_NLIM_CENTER) / SIXPOOL_NLIM_WIDTH))
+
+
 def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=None):
     """Advances the six-pool state by one day (mutating it in place) and returns the day's net
     nitrogen mineralized (kg N/ha) -- the quantity simulate_season() adds directly into
@@ -3011,6 +3027,8 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
     cs, cm, cra, crtz, crm, csx = state["cs"], state["cm"], state["cra"], state["crtz"], state["crm"], state["csx"]
     ml_sub = state.get("ml_sub", False)
     fe = sixpool_fe(tmean, relwet, ml_sub)
+    if SIXPOOL_N_LIMIT:
+        fe *= sixpool_n_factor(state.get("n_min"))
     fh = sixpool_fh(cs, csx)
     if ml_sub:
         fd = 1.0  # no Cs/Csx dependence in the per-layer fit (see SIXPOOL_ML_KS)
@@ -3126,6 +3144,7 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
         sub["tm"] += (tmean - sub["tm"]) / 365.0
         t_layer = sub["tm"] + g * (sub["tl"] - sub["tm"])
         relwet = ((l["theta"] - l["pwp"]) / (l["fc"] - l["pwp"]) if l["fc"] > l["pwp"] else 1.0)
+        sub["n_min"] = state.get("n_min")
         if i == 0:
             sub["cra"], sub["crm"], sub["cra_age"] = state["cra"], state["crm"], state["cra_age"]
         ft = ft_eff if sub["z0"] < SIXPOOL_ML_TILL_DEPTH_M else 1.0
@@ -3520,6 +3539,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
         if sixpool_state is not None:
             relwet = ((layers[0]["theta"] - layers[0]["pwp"]) / (layers[0]["fc"] - layers[0]["pwp"])
                       if layers[0]["fc"] > layers[0]["pwp"] else 1.0)
+            sixpool_state["n_min"] = nstate["n_nh4"] + nstate["n_no3"]
             nstate["n_nh4"] = max(0.0, nstate["n_nh4"] + sixpool_step(sixpool_state, tmean, relwet, 0.0, 1.0, layers))
         nit = nstate["n_nh4"] * nitrification_rate(nstate["tsoil_lag"])
         vol = (nstate["n_nh4"] * volatilization_rate(nstate["tsoil_lag"], nstate["n_nh4"])
@@ -4501,6 +4521,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 root_c_input_today = (10.0 * dGB_water_limited * (1.0 - shoot_fraction(ttf, crop["fsti"], crop["fstf"]))
                                        * CARBON_FRACTION_DM * ROOT_C_INPUT_FACTOR)
                 ft_eff = 1.0 + tillage_ft(tillage_dr, tillage_ftx_val)
+                sixpool_state["n_min"] = ((n_nh4 or 0.0) + (n_no3 or 0.0)) if n_nh4 is not None else n_pool
                 background_today = sixpool_step(sixpool_state, tmean, relwet_topsoil, root_c_input_today, ft_eff, layers)
                 # background_today can now be genuinely negative (net immobilization -- see
                 # sixpool_step()'s own docstring, 2026-10-02) -- floored at 0 here because a
