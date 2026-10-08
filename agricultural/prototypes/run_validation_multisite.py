@@ -18,6 +18,7 @@ cev.KHE_SCALE = float(os.environ["KHE"]) if os.environ.get("KHE") else cev.KHE_S
 cev.FORCE_CROPSYST_EVAP = os.environ.get("CS_EVAP", "1") == "1"
 cev.PSI_E_FROM_ANCHOR = os.environ.get("PSI_ANCHOR","0")=="1"
 cev.FE_TEMP_CYCLES_K = float(os.environ.get("FE_K","0"))
+cev.PLANT_MOISTURE_GATE = os.environ.get("PLANT_GATE","0")=="1"
 if os.environ.get("N_A"): cev.SIXPOOL_ML_N_A = float(os.environ["N_A"])
 if os.environ.get("EPS_H"): cev.SIXPOOL_ML_EPS_H = float(os.environ["EPS_H"])
 if os.environ.get("CRA_TAU"): cev.CRA_MATURATION_TAU_DAYS = float(os.environ["CRA_TAU"])

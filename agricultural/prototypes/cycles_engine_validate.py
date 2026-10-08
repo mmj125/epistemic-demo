@@ -2729,6 +2729,9 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
     return leached, denit, volat
 
 
+PLANT_MOISTURE_GATE = False   # opt-in; see simulate_season_with_leadin()
+
+
 def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant_window=(110, 131),
                                 plant_min_soil_t=12.0, carry_n=False, **season_kwargs):
     """Runs one target season preceded by `lead_years` real prior seasons of the SAME crop and
@@ -2758,6 +2761,23 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
         doys = sorted(d)
         tsoil = simulate_soil_temp([(d[k]["tx"] + d[k]["tn"]) / 2 for k in doys], k=0.15)
         plant_doy = find_planting_doy(dict(zip(doys, tsoil)), plant_window, plant_min_soil_t)
+        if PLANT_MOISTURE_GATE:
+            # Cycles also waits until the topsoil is wetter than wilting point (back-calculated 2026-10-08
+            # from planting dates at Kansas and Texas, where temperature alone plants 6-8 days early).
+            # Decide on a throwaway copy of the soil run through the same bare-soil water balance the
+            # real spin-up window uses; the condition is read at the end of the previous day.
+            gl = copy.deepcopy(layers) if layers is not None else crop["make_layers"]()
+            gde = dict(de=0.0, tew=compute_tew(gl[0]["fc"], gl[0]["pwp"]), rew=REW_DEFAULT_MM)
+            tmap = dict(zip(doys, tsoil))
+            gated = plant_window[1]
+            for k in range(1, plant_window[1] + 1):
+                if k not in d:
+                    continue
+                if k >= plant_window[0] and tmap.get(k, -99.0) > plant_min_soil_t and gl[0]["theta"] > gl[0]["pwp"]:
+                    gated = k
+                    break
+                run_bare_fallow_window(gl, [d[k]], lat_deg=crop["lat_deg"], de_state=gde)
+            plant_doy = gated
         rows = [d[k] for k in range(plant_doy, 300) if k in d]
         spinup = [d[k] for k in range(1, plant_doy) if k in d]
         kw = dict(season_kwargs)
