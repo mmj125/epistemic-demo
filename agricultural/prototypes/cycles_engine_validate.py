@@ -2011,13 +2011,8 @@ SIXPOOL_ML_FH_FLOOR = 0.2  # Cycles still humifies ~0.12-0.17 of decomposed resi
 # depth term, 0.563 with the original constants); per-site mean bias within +/-0.27 except Wisconsin -0.39.
 SIXPOOL_ML_DEPTH_Q = 4.44
 SIXPOOL_ML_KS = 0.000680
-SIXPOOL_ML_FD_A = 9.95
-SIXPOOL_ML_FD_B = 1.145
-
-
-def sixpool_fd_ml(cs, csx):
-    ratio = max(0.0, cs / csx) if csx > 0 else 0.0
-    return max(0.0, 1.0 - 1.0 / (1.0 + (SIXPOOL_ML_FD_A * ratio) ** SIXPOOL_ML_FD_B))
+# (An fD-style Cs/Csx saturation term, sixpool_fd_ml with constants 9.95/1.145, was removed 2026-10-08: unused since the
+# per-layer fit found no Cs/Csx dependence in SOM respiration; see sixpool_step's `fd = 1.0` for the ml_sub branch.)
 
 
 def sixpool_fd(cs, csx):
@@ -3158,14 +3153,17 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     mechanism might add), ready to feed into the next chained call's own initial_layers with
     no extraction step needed.
 
-    soil_evap_model: "faostandard" (default) keeps the existing FAO-56 Kr-based bare-soil
-    evaporation mechanism (soil_evaporation()'s own default path). "cropsyst" switches to a
-    different, real, fully-disclosed formula found 2026-09-28 (see
-    soil_evaporation_cropsyst()'s own docstring for the full source and shape) -- NOT the
-    default, since this sandbox's reference data doesn't exist in this container and the
-    formula couldn't be checked against real per-year correlation the way every other adopted
-    mechanism here has been. Available to test, not yet validated enough to trust as the
-    default.
+    soil_evap_model: UPDATED 2026-10-08 (the text here used to say CropSyst evaporation was "not the
+    default" and "not validated"; both stopped being true on 2026-10-07). The module flag
+    FORCE_CROPSYST_EVAP is True, which routes EVERY soil_evaporation() call (in-season, spin-up and
+    fallow windows) through the CropSyst formula (soil_evaporation_cropsyst()) regardless of this
+    parameter, so "faostandard" below is only reached when a caller sets FORCE_CROPSYST_EVAP = False
+    (the embedded engines in engine-demo.html and model-validation.html do exactly that implicitly:
+    they have no such flag and still run the FAO-56 Kr path). It was validated against Cycles on the
+    16-site same-input table (N0 grain MAE 2.32 -> 2.03, Iowa net mineralization year-to-year
+    correlation about 0.5 -> 0.9; see QUESTIONS_FOR_DEVS.md 2026-10-07). "faostandard" = the FAO-56
+    Kr-based bare-soil evaporation mechanism (soil_evaporation()'s own default path); "cropsyst" = the
+    fully-disclosed formula found 2026-09-28 (soil_evaporation_cropsyst()).
 
     n_root_limited (default False, byte-identical when unused): real CropSyst nitrogen uptake
     (Stockle, Martin & Campbell 1994, Eq. 26, already on disk as cropsyst.pdf) is "the minimum
