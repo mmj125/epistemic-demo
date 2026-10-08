@@ -22,6 +22,9 @@ if os.environ.get("FE_POW"): cev.FE_TEMP_POW = float(os.environ["FE_POW"])
 if os.environ.get("FE_K"): cev.FE_TEMP_CYCLES_K = float(os.environ["FE_K"])
 if os.environ.get("PLANT_GATE"): cev.PLANT_MOISTURE_GATE = os.environ["PLANT_GATE"]=="1"
 if os.environ.get("NGF"): cev.NET_GROWTH_FRACTION = float(os.environ["NGF"])
+if os.environ.get("NLIM"): cev.SIXPOOL_N_LIMIT = os.environ["NLIM"]=="1"
+if os.environ.get("NLIM_MIN"): cev.SIXPOOL_NLIM_MIN = float(os.environ["NLIM_MIN"])
+if os.environ.get("NLIM_C"): cev.SIXPOOL_NLIM_CENTER = float(os.environ["NLIM_C"])
 if os.environ.get("N_A"): cev.SIXPOOL_ML_N_A = float(os.environ["N_A"])
 if os.environ.get("EPS_H"): cev.SIXPOOL_ML_EPS_H = float(os.environ["EPS_H"])
 if os.environ.get("CRA_TAU"): cev.CRA_MATURATION_TAU_DAYS = float(os.environ["CRA_TAU"])
