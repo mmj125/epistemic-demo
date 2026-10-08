@@ -1022,6 +1022,7 @@ EVAPORATIVE_LAYER_DEPTH_M = 0.10  # real, sourced (2026-09-30): Stockle, Martin 
 # was walled off from the crop.
 
 
+ROOT_TRI_POW = 1.0  # exponent on the triangular root density (1 = linear taper to zero at root depth; <1 flatter, 0 uniform); under test 2026-10-08
 ROOT_DENSITY_DECAY_M = None  # None = triangular density (validated default); a length in m = exponential density exp(-z/L), under test 2026-10-06 (L=0.35 best on 10-site relative-wetness fit, not yet adopted)
 
 
@@ -1056,7 +1057,7 @@ def root_length_fraction_by_layer(layers, root_depth_m):
         b = bot
         if b > a:
             if ROOT_DENSITY_DECAY_M is None:
-                fl[i] = (b - a) * (1 - (a + b) / (2 * root_depth_m))
+                fl[i] = (b - a) * max(0.0, 1 - (a + b) / (2 * root_depth_m)) ** ROOT_TRI_POW
             else:
                 fl[i] = math.exp(-a / ROOT_DENSITY_DECAY_M) - math.exp(-b / ROOT_DENSITY_DECAY_M)
         depth += l["thick"]

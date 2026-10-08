@@ -25,6 +25,7 @@ if os.environ.get("NGF"): cev.NET_GROWTH_FRACTION = float(os.environ["NGF"])
 if os.environ.get("NLIM"): cev.SIXPOOL_N_LIMIT = os.environ["NLIM"]=="1"
 if os.environ.get("NLIM_MIN"): cev.SIXPOOL_NLIM_MIN = float(os.environ["NLIM_MIN"])
 if os.environ.get("NLIM_C"): cev.SIXPOOL_NLIM_CENTER = float(os.environ["NLIM_C"])
+if os.environ.get("ROOT_POW"): cev.ROOT_TRI_POW = float(os.environ["ROOT_POW"])
 if os.environ.get("N_A"): cev.SIXPOOL_ML_N_A = float(os.environ["N_A"])
 if os.environ.get("EPS_H"): cev.SIXPOOL_ML_EPS_H = float(os.environ["EPS_H"])
 if os.environ.get("CRA_TAU"): cev.CRA_MATURATION_TAU_DAYS = float(os.environ["CRA_TAU"])
@@ -89,6 +90,7 @@ def corr(a,b):
     return sum((a[i]-ma)*(b[i]-mb) for i in range(len(a)))/(sa*sb) if sa and sb else float('nan')
 def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     crop=dict(rv.CORN); crop["lat_deg"]=cell_lat
+    if os.environ.get("LWP_WILT"): crop["lwp_wilting_point"]=float(os.environ["LWP_WILT"])
     for _k,_e in (("calibration_factor","GRAIN_MULT"),("rue","RUE_MULT"),("wue","WUE_MULT")):
         if os.environ.get(_e): crop[_k]=crop[_k]*float(os.environ[_e])
     def ml():
