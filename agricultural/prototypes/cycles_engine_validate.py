@@ -1915,12 +1915,33 @@ SIXPOOL_TOPSOIL_DEPTH_M = 0.05  # fixed at Cycles' own REAL layer-1 thickness fo
 # a given lookup's layer0 happens to be" isn't the quantity SIXPOOL_KS was fit against).
 
 
+FE_TEMP_CYCLES_K = 0.0   # 0 = original quadratic; >0 = Cycles-measured temperature curve times this scale
+FE_TEMP_CYCLES_PTS = ((-10.5, 0.112), (-7.5, 0.114), (-4.5, 0.145), (-1.5, 0.157), (1.5, 0.163), (4.5, 0.160),
+                      (7.5, 0.166), (10.5, 0.173), (13.5, 0.191), (16.5, 0.215), (19.5, 0.250), (22.5, 0.269),
+                      (25.5, 0.333), (28.5, 0.559))
+
+
 def sixpool_fe_temp(tmean):
     """Real, back-calculated fE temperature response: a quadratic fit against Cycles' own
     FACTOR COMP. column (soilLayersCN.txt), isolated from moisture by restricting the fit to
     near-field-capacity days. Unverified above ~26C (Rock Springs' real record never gets
     hotter) -- clamped to 1.0 for any warmer extrapolation rather than let the raw quadratic
     run past its real fitted range (it crosses 1.0 again around 28-29C if left unclamped)."""
+    if FE_TEMP_CYCLES_K:
+        # Cycles' own mean FACTOR COMP. by soil temperature (relwet 0.7-1.3, 6 sites, layer 1), scaled by
+        # FE_TEMP_CYCLES_K; much flatter than the quadratic below (12->24C: x1.7 vs x2.7).
+        pts = FE_TEMP_CYCLES_PTS
+        if tmean <= pts[0][0]:
+            v = pts[0][1]
+        elif tmean >= pts[-1][0]:
+            v = pts[-1][1] + (pts[-1][1] - pts[-2][1]) / (pts[-1][0] - pts[-2][0]) * (tmean - pts[-1][0])
+        else:
+            v = pts[-1][1]
+            for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+                if tmean <= x1:
+                    v = y0 + (y1 - y0) * (tmean - x0) / (x1 - x0)
+                    break
+        return max(0.0, min(1.0, FE_TEMP_CYCLES_K * v))
     if tmean <= 0:
         return 0.0
     return max(0.0, min(1.0, 0.00095 + 0.01165 * tmean + 0.000822 * tmean * tmean))
