@@ -14,19 +14,38 @@ sys.path.insert(0, os.path.dirname(__file__))
 from cycles_engine_validate import (
     REFERENCE_DATA_DIR, saxton_rawls, OM_FROM_SOC, simulate_soil_temp,
     find_planting_doy, simulate_season, CORN_CANOPY_SHAPE, INITIAL_MOISTURE_FRACTION,
+    CO2_PPM_BY_YEAR, CO2_REF_PPM,
 )
 
 CORN = dict(
     tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
-    rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=0.8818,  # residual after the AG-biomass fix + corn-specific canopy refit +
+    rue=2.332, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
+    calibration_factor=1.1491,  # 2026-10-08 multi-site recalibration: rue x1.06 (2.2 -> 2.332) with this factor x1.05 (1.0944 -> 1.1491), fitted on the 16-site N=150/N=400 table against native Cycles on identical inputs (N150 grain MAE 1.34 -> 1.10, N400 1.46 -> 1.06). The Rock Springs sample mean (10.56) is no longer matched exactly; the multi-site table is the headline. Previously 1.0944, re-derived 2026-10-01 for the real CO2-WUE-scaling mechanism
+    # (wue_co2_scale, see simulate_season()'s own docstring) -- correlation moved 0.691->0.777
+    # from that mechanism alone; previous value 1.1076, re-derived the same day for the real
+    # cold-kill mechanism (see threshold_temp_cold_damage below) -- itself replacing 1.0977,
+    # re-derived 2026-09-30 for the
+    # CORN_CANOPY_SHAPE late-senescence refit (see that constant's own comment in
+    # cycles_engine_validate.py), itself re-derived the same day for the real f_G harvest-index fix
+    # (Kemanian et al. 2007) -- see cycles_engine_validate.py's own HI-computation docstring.
+    # Previous value 0.8490, residual after the AG-biomass fix + corn-specific canopy refit +
     # the 2026-09-23 TTF50_SHOOT_PARTITION refit + the emergence-gate fix + the cold-temperature
-    # radiation-growth reduction + the NET_GROWTH_FRACTION post-limitation growth-conversion fix
-    # (see the comments above thermal_time_increment()); re-derived to keep the mean yield matching
-    # real output exactly, same as every prior calibration_factor update
+    # radiation-growth reduction + the NET_GROWTH_FRACTION post-limitation growth-conversion fix +
+    # the 2026-09-24 curve-number/f_wc swap (real Eq SI.5-SI.7, see retention_param_mm()) + the
+    # 2026-09-25 hydraulic-conductance water-stress mechanism (campbell_water_uptake(), replacing
+    # root_zone_availability()/water_stress_response() as the primary path -- see lwp_stress_onset/
+    # lwp_wilting_point below); re-derived to keep the mean yield matching real output exactly,
+    # same as every prior update. Correlation moved 0.550 -> 0.527 from the water-mechanism switch
+    # alone (this recalibration only fixes the mean, doesn't touch correlation, as always) -- see
+    # QUESTIONS_FOR_DEVS.md and CLAUDE.md for the full before/after account across all four crops
+    # plus the Kansas benchmark, and why this was kept despite the Rock Springs correlation cost.
     canopy_shape=CORN_CANOPY_SHAPE,
     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=40.6875,
     n_max_conc=0.055, n_dilution_slope=0.4, legume=False,  # real GenericCrops.crop values, corn is not a legume
+    n_min_conc=0.002,  # real GenericCrops.crop N_MIN_CONCENTRATION_STRAW (0.2%), added 2026-09-25
+    # for the day-by-day concentration-tracked N-stress mechanism -- see simulate_season()'s
+    # own comment above canopy_n_kg_ha in cycles_engine_validate.py. Never triggers on this
+    # crop's own default (n_rate_kg_ha=None) validation path.
     depletion_fraction=0.55,  # real FAO-56 Table 22 value for maize, field (grain)
     tr_max_mm_day=10,  # real GenericCrops.crop TRANSPIRATION_MAX (CornRM.90); never triggers at
     # Rock Springs (TRp maxes out ~7.4mm/day across the full record) but real and disclosed
@@ -35,6 +54,15 @@ CORN = dict(
     tt_emergence=65,  # real GenericCrops.crop THERMAL_TIME_TO_EMERGENCE (CornRM.90); real Cycles'
     # own daily output shows exactly zero biomass in a PRE_EMERGENCE stage before this point, not
     # a smoothly-ramping small value -- a genuine, if tiny, discrepancy this now closes
+    lwp_stress_onset=-1100, lwp_wilting_point=-2000,  # real GenericCrops.crop LWP_STRESS_ONSET/
+    # LWP_WILTING_POINT (CornRM.90, J/kg), added 2026-09-25 for the real hydraulic-conductance-
+    # based transpiration/water-stress mechanism (campbell_water_uptake(), see
+    # cycles_engine_validate.py) -- presence of both fields (plus the already-real
+    # tr_max_mm_day above) is what selects that mechanism over the older, superseded
+    # depletion_fraction/root_zone_availability fallback for this crop.
+    threshold_temp_cold_damage=3,  # real GenericCrops.crop THRESHOLD_TEMPERATURE_FOR_COLD_DAMAGE
+    # (CornRM.90), added 2026-10-01 for the real cold-kill mechanism -- see
+    # cycles_engine_validate.py's own comment at the kill check for the full account.
 )
 
 SOIL_LAYERS_RAW = [
@@ -106,7 +134,12 @@ def main():
         # no new data needed), run as bare fallow. See simulate_season()'s spinup_rows
         # docstring / CLAUDE.md 2026-09-22 for why this replaced always starting full.
         spinup_rows = [daily[year][d] for d in range(1, plant_doy) if d in daily[year]]
-        result = simulate_season(rows, CORN, spinup_rows=spinup_rows)
+        # Real rising atmospheric CO2's effect on water-use efficiency (wue_co2_scale -- see
+        # simulate_season()'s own docstring) -- added 2026-10-01 after finding corn's own
+        # 37-year real-minus-model residual correlates 0.73 with calendar year, a real
+        # secular bias this mechanism substantially (not fully) corrects.
+        wue_co2_scale = CO2_PPM_BY_YEAR.get(year, CO2_REF_PPM) / CO2_REF_PPM
+        result = simulate_season(rows, CORN, spinup_rows=spinup_rows, wue_co2_scale=wue_co2_scale)
         results[year] = result["grain"]
 
     years = sorted(results)
