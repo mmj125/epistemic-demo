@@ -1915,6 +1915,7 @@ SIXPOOL_TOPSOIL_DEPTH_M = 0.05  # fixed at Cycles' own REAL layer-1 thickness fo
 # a given lookup's layer0 happens to be" isn't the quantity SIXPOOL_KS was fit against).
 
 
+FE_TEMP_POW = 1.0   # 1 = original quadratic; <1 = flatter normalised response (opt-in)
 FE_TEMP_CYCLES_K = 0.0   # 0 = original quadratic; >0 = Cycles-measured temperature curve times this scale
 FE_TEMP_CYCLES_PTS = ((-10.5, 0.112), (-7.5, 0.114), (-4.5, 0.145), (-1.5, 0.157), (1.5, 0.163), (4.5, 0.160),
                       (7.5, 0.166), (10.5, 0.173), (13.5, 0.191), (16.5, 0.215), (19.5, 0.250), (22.5, 0.269),
@@ -1927,6 +1928,13 @@ def sixpool_fe_temp(tmean):
     near-field-capacity days. Unverified above ~26C (Rock Springs' real record never gets
     hotter) -- clamped to 1.0 for any warmer extrapolation rather than let the raw quadratic
     run past its real fitted range (it crosses 1.0 again around 28-29C if left unclamped)."""
+    if FE_TEMP_POW != 1.0:
+        # Flatter temperature response, normalised so the rate at 18 C is unchanged (Cycles' factor rises ~1.7x
+        # between 12 and 24 C where the quadratic below rises ~2.7x): f = f_old^p * f_old(18)^(1-p).
+        _q = lambda x: 0.00095 + 0.01165 * x + 0.000822 * x * x
+        if tmean <= 0:
+            return 0.0
+        return max(0.0, min(1.0, (_q(tmean) ** FE_TEMP_POW) * (_q(18.0) ** (1.0 - FE_TEMP_POW))))
     if FE_TEMP_CYCLES_K:
         # Cycles' own mean FACTOR COMP. by soil temperature (relwet 0.7-1.3, 6 sites, layer 1), scaled by
         # FE_TEMP_CYCLES_K; much flatter than the quadratic below (12->24C: x1.7 vs x2.7).
