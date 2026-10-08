@@ -2764,7 +2764,7 @@ PLANT_MOISTURE_GATE = False   # opt-in; see simulate_season_with_leadin()
 
 
 def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant_window=(110, 131),
-                                plant_min_soil_t=12.0, carry_n=False, **season_kwargs):
+                                plant_min_soil_t=12.0, carry_n=False, initial_mineral_n=None, **season_kwargs):
     """Runs one target season preceded by `lead_years` real prior seasons of the SAME crop and
     management, carrying real soil-water state forward (initial_layers/final_layers plus a bare-
     fallow bridge from the last simulated day to year end), instead of resetting every layer to 50%
@@ -2820,8 +2820,10 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
         de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
         if carry_n:
             if nstate is None:
-                nstate = dict(n_nh4=0.0, n_no3=0.0, tsoil_lag=(rows[0]["tx"] + rows[0]["tn"]) / 2.0,
-                              no3_layers=([0.0] * len(layers) if kw.get("nitrate_per_layer") else None))
+                _nh4_0 = initial_mineral_n["nh4"] if initial_mineral_n else 0.0
+                _no3_0 = list(initial_mineral_n["no3_layers"]) if initial_mineral_n else [0.0] * len(layers)
+                nstate = dict(n_nh4=_nh4_0, n_no3=sum(_no3_0), tsoil_lag=(rows[0]["tx"] + rows[0]["tn"]) / 2.0,
+                              no3_layers=(_no3_0 if kw.get("nitrate_per_layer") else None))
             lch, dn, vl = run_fallow_n_window(layers, spinup, nstate, sixpool_state, lat_deg=crop["lat_deg"], curve_number=season_kwargs.get("curve_number", 75.0), slope_pct=season_kwargs.get("slope_pct", 0.0),
                                               de_state=de_state,
                                               model_denitrification=kw.get("model_denitrification", True),

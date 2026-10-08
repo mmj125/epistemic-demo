@@ -2919,7 +2919,7 @@ PLANT_MOISTURE_GATE = False   # opt-in; see simulate_season_with_leadin()
 
 
 def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant_window=(110, 131),
-                                plant_min_soil_t=12.0, carry_n=False, **season_kwargs):
+                                plant_min_soil_t=12.0, carry_n=False, initial_mineral_n=None, **season_kwargs):
     """Runs one target season preceded by 'lead_years' real prior seasons of the SAME crop and
     management, carrying real soil-water state forward (initial_layers/final_layers plus a bare-
     fallow bridge from the last simulated day to year end), instead of resetting every layer to 50%
@@ -2975,8 +2975,10 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
         de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
         if carry_n:
             if nstate is None:
-                nstate = dict(n_nh4=0.0, n_no3=0.0, tsoil_lag=(rows[0]["tx"] + rows[0]["tn"]) / 2.0,
-                              no3_layers=([0.0] * len(layers) if kw.get("nitrate_per_layer") else None))
+                _nh4_0 = initial_mineral_n["nh4"] if initial_mineral_n else 0.0
+                _no3_0 = list(initial_mineral_n["no3_layers"]) if initial_mineral_n else [0.0] * len(layers)
+                nstate = dict(n_nh4=_nh4_0, n_no3=sum(_no3_0), tsoil_lag=(rows[0]["tx"] + rows[0]["tn"]) / 2.0,
+                              no3_layers=(_no3_0 if kw.get("nitrate_per_layer") else None))
             lch, dn, vl = run_fallow_n_window(layers, spinup, nstate, sixpool_state, lat_deg=crop["lat_deg"], curve_number=season_kwargs.get("curve_number", 75.0), slope_pct=season_kwargs.get("slope_pct", 0.0),
                                               de_state=de_state,
                                               model_denitrification=kw.get("model_denitrification", True),
@@ -4554,12 +4556,15 @@ function writeWeather(site, y0, y1) {
   }
   return s;
 }
+// initial mineral N per layer (kg/ha): the file's own values when given, else the rule used for the tile sites
+function defaultNo3(l) { return l.no3 != null ? l.no3 : Math.min(Math.max(1, Math.round(10 * l.thick / 0.05 * 0.25)), 10); }
+function initialMineralN(layers) { return { nh4: layers.reduce((s, l) => s + (l.nh4 != null ? l.nh4 : 1), 0), no3: layers.map(defaultNo3) }; }
 function writeSoil(layers, cn, slope) {
   let s = `CURVE_NUMBER        ${cn || 75}\nSLOPE               ${slope || 0}\nTOTAL_LAYERS        ${layers.length}\n`;
   s += "LAYER   THICK   CLAY    SAND    SOC     BD      FC      PWP     SON     NO3     NH4     BYP_H   BYP_V\n#       m       %       %       %       Mg/m3   m3/m3   m3/m3   kg/ha   kg/ha   kg/ha   -       -\n";
   layers.forEach((l, i) => {
-    const no3 = Math.min(Math.max(1, Math.round(10 * l.thick / 0.05 * 0.25)), 10);
-    s += `${i + 1}\t${l.thick}\t${l.clay}\t${l.sand}\t${l.soc}\t-999\t-999\t-999\t-999\t${no3}\t1\t0.0\t0.00\n`;
+    const no3 = defaultNo3(l), nh4 = l.nh4 != null ? l.nh4 : 1;
+    s += `${i + 1}\t${l.thick}\t${l.clay}\t${l.sand}\t${l.soc}\t-999\t-999\t-999\t-999\t${no3}\t${nh4}\t0.0\t0.00\n`;
   });
   return s;
 }
@@ -4751,7 +4756,7 @@ document.getElementById("outInput").addEventListener("change", async (e) => {
 });
 
 // ---- engine run (real Pyodide, same engine and settings as the 16-site table) ----
-let pyodide = null, engineResult = null;
+let pyodide = null, engineResult = null, engineTheta0 = null;
 const GLUE = `
 import json
 wx_in = json.loads(h2h_wx_json)
@@ -4778,12 +4783,13 @@ if h2h_crop == "corn":
 else:
     kw = dict()
     win, carry = (120, 140), False
+init_n = dict(nh4=h2h_nh4, no3_layers=[float(x) for x in json.loads(h2h_no3_json)])
 res = {}
 kw = dict(kw, curve_number=h2h_cn, slope_pct=h2h_slope)
 if h2h_hist:
     kw = dict(kw, record_history=True)
 for y in range(h2h_y0, h2h_y1 + 1):
-    r = simulate_season_with_leadin(wx, y, crop, lead_years=2, plant_window=win, carry_n=carry, **kw)
+    r = simulate_season_with_leadin(wx, y, crop, lead_years=2, plant_window=win, carry_n=carry, initial_mineral_n=init_n, **kw)
     o = dict(grain=r["grain"], total=r["total"], plant=r["plant_doy"])
     if h2h_hist:
         o["history"] = r.get("history", [])
@@ -4793,7 +4799,8 @@ for y in range(h2h_y0, h2h_y1 + 1):
         o["volat"] = r.get("n_volatilized_pool_kg_ha", 0.0) + r["fallow_n_volatilized"]
         o["n2o"] = r.get("n2o_emitted_kg_ha", 0.0) + r.get("fallow_n2o", 0.0)
     res[y] = o
-json.dumps(res)
+_t0 = [l["theta"] for l in _ml()]
+json.dumps(dict(res=res, theta0=_t0))
 `;
 async function ensurePyodide(status) {
   if (pyodide) return pyodide;
@@ -4823,11 +4830,12 @@ document.getElementById("runBtn").addEventListener("click", async () => {
     py.globals.set("h2h_wx_json", JSON.stringify(wx));
     py.globals.set("h2h_soil_json", JSON.stringify(currentSite.layers));
     py.globals.set("h2h_lat", currentSite.wxCell[0]);
-    py.globals.set("h2h_hist", false); py.globals.set("h2h_cn", a.cn); py.globals.set("h2h_slope", a.slope); py.globals.set("h2h_crop", a.crop); py.globals.set("h2h_n", a.n); py.globals.set("h2h_y0", a.y0); py.globals.set("h2h_y1", a.y1);
+    py.globals.set("h2h_nh4", initialMineralN(currentSite.layers).nh4); py.globals.set("h2h_no3_json", JSON.stringify(initialMineralN(currentSite.layers).no3)); py.globals.set("h2h_hist", false); py.globals.set("h2h_cn", a.cn); py.globals.set("h2h_slope", a.slope); py.globals.set("h2h_crop", a.crop); py.globals.set("h2h_n", a.n); py.globals.set("h2h_y0", a.y0); py.globals.set("h2h_y1", a.y1);
     status.textContent = `Running ${a.y1 - a.y0 + 1} years...`;
     await new Promise((r) => setTimeout(r, 30));
     const t0 = performance.now();
-    engineResult = JSON.parse(await py.runPythonAsync(GLUE));
+    const outMain = JSON.parse(await py.runPythonAsync(GLUE));
+    engineResult = outMain.res; engineTheta0 = outMain.theta0;
     status.textContent = `Engine run finished in ${((performance.now() - t0) / 1000).toFixed(1)} s.`;
     renderComparison();
   } catch (err) { status.textContent = "Engine run failed: " + err.message; }
@@ -4842,6 +4850,7 @@ function stats(pairs) {
   return { n, cyc: ma, eng: mb, ratio: mb / ma, mae: ae / n, corr: sa > 0 && sb > 0 ? sab / Math.sqrt(sa * sb) : NaN };
 }
 function renderComparison() {
+  checkInputs();
   fillYearSelect(Object.keys(engineResult).map(Number).sort((a, b) => a - b));
   const box = document.getElementById("resultBox"); box.style.display = "block";
   const years = Object.keys(engineResult).map(Number).sort((a, b) => a - b);
@@ -4950,10 +4959,10 @@ document.getElementById("dBtn").addEventListener("click", async () => {
     const py = await ensurePyodide(st);
     const wx = {}; for (let y = Math.max(a.y0, year - 2); y <= year; y++) wx[y] = currentSite.weather[y];
     py.globals.set("h2h_wx_json", JSON.stringify(wx)); py.globals.set("h2h_soil_json", JSON.stringify(currentSite.layers));
-    py.globals.set("h2h_lat", currentSite.wxCell[0]); py.globals.set("h2h_hist", true); py.globals.set("h2h_cn", a.cn); py.globals.set("h2h_slope", a.slope);
+    py.globals.set("h2h_lat", currentSite.wxCell[0]); py.globals.set("h2h_nh4", initialMineralN(currentSite.layers).nh4); py.globals.set("h2h_no3_json", JSON.stringify(initialMineralN(currentSite.layers).no3)); py.globals.set("h2h_hist", true); py.globals.set("h2h_cn", a.cn); py.globals.set("h2h_slope", a.slope);
     py.globals.set("h2h_crop", a.crop); py.globals.set("h2h_n", a.n); py.globals.set("h2h_y0", year); py.globals.set("h2h_y1", year);
     st.textContent = "Running the season...";
-    const res = JSON.parse(await py.runPythonAsync(GLUE)), hist = res[year].history;
+    const res = JSON.parse(await py.runPythonAsync(GLUE)).res, hist = res[year].history;
     const eng = hist.map((h) => [h.doy, spec.eng(h)]).filter((p) => p[1] != null);
     const x0 = hist.length ? hist[0].doy - 5 : 1, x1 = hist.length ? hist[hist.length - 1].doy + 5 : 366;
     const cyc = cyclesSeries(spec.cyc, year);
@@ -5004,7 +5013,9 @@ function parseCyclesSoil(text) {
     const v = p.map(Number); if (v.slice(0, 5).some((x) => !Number.isFinite(x))) continue;
     if (v[4] <= -990) throw new Error("soil file: missing organic carbon in layer " + v[0]);
     if (v.length > 7 && (v[5] > -990 || v[6] > -990 || v[7] > -990)) extra = true;
-    layers.push({ thick: v[1], clay: v[2], sand: v[3], soc: v[4] });
+    const lay = { thick: v[1], clay: v[2], sand: v[3], soc: v[4] };
+    if (v.length > 10 && v[9] > -990 && v[10] > -990) { lay.no3 = v[9]; lay.nh4 = v[10]; }
+    layers.push(lay);
   }
   if (!layers.length) throw new Error("soil file: no layers read");
   return { layers, cn, slope, extra };
@@ -5051,7 +5062,18 @@ function checkInputs() {
   if (water) {
     const nl = water.cols.filter((c) => c === "SMC").length;
     if (nl !== currentSite.layers.length) { bad = true; msgs.push(`Soil layers differ: Cycles has ${nl}, the engine ${currentSite.layers.length}.`); }
-    else msgs.push(`Same number of soil layers (${nl}).`);
+    else {
+      msgs.push(`Same number of soil layers (${nl}).`);
+      if (engineTheta0 && engineTheta0.length === nl) {
+        const first = water.cols.indexOf("SMC"), row = water.rows.find((r) => /^\d{4}-/.test(r[0]));
+        if (row) {
+          const d = engineTheta0.map((t, i) => Math.abs(row[first + i] - t));
+          const mx = Math.max(...d);
+          if (mx > 0.02) { bad = true; msgs.push(`Soil water start check: Cycles' first-day moisture differs from the engine's by up to ${mx.toFixed(3)} m3/m3, so Cycles and the engine derive field capacity or wilting point differently for this soil.`); }
+          else msgs.push(`Soil water start check: Cycles' first-day moisture is within ${mx.toFixed(3)} m3/m3 of the engine's (half of plant-available water from texture), so both derive field capacity and wilting point alike.`);
+        }
+      }
+    }
   }
   box.innerHTML = `<p class="sweep-note" style="color:${bad ? "var(--fail)" : "var(--pass)"}">Input check: ${msgs.join(" ")}</p>`;
 }
