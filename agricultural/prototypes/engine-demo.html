@@ -2724,12 +2724,33 @@ SIXPOOL_TOPSOIL_DEPTH_M = 0.05  # fixed at Cycles' own REAL layer-1 thickness fo
 # a given lookup's layer0 happens to be" isn't the quantity SIXPOOL_KS was fit against).
 
 
+FE_TEMP_CYCLES_K = 0.0   # 0 = original quadratic; >0 = Cycles-measured temperature curve times this scale
+FE_TEMP_CYCLES_PTS = ((-10.5, 0.112), (-7.5, 0.114), (-4.5, 0.145), (-1.5, 0.157), (1.5, 0.163), (4.5, 0.160),
+                      (7.5, 0.166), (10.5, 0.173), (13.5, 0.191), (16.5, 0.215), (19.5, 0.250), (22.5, 0.269),
+                      (25.5, 0.333), (28.5, 0.559))
+
+
 def sixpool_fe_temp(tmean):
     """Real, back-calculated fE temperature response: a quadratic fit against Cycles' own
     FACTOR COMP. column (soilLayersCN.txt), isolated from moisture by restricting the fit to
     near-field-capacity days. Unverified above ~26C (Rock Springs' real record never gets
     hotter) -- clamped to 1.0 for any warmer extrapolation rather than let the raw quadratic
     run past its real fitted range (it crosses 1.0 again around 28-29C if left unclamped)."""
+    if FE_TEMP_CYCLES_K:
+        # Cycles' own mean FACTOR COMP. by soil temperature (relwet 0.7-1.3, 6 sites, layer 1), scaled by
+        # FE_TEMP_CYCLES_K; much flatter than the quadratic below (12->24C: x1.7 vs x2.7).
+        pts = FE_TEMP_CYCLES_PTS
+        if tmean <= pts[0][0]:
+            v = pts[0][1]
+        elif tmean >= pts[-1][0]:
+            v = pts[-1][1] + (pts[-1][1] - pts[-2][1]) / (pts[-1][0] - pts[-2][0]) * (tmean - pts[-1][0])
+        else:
+            v = pts[-1][1]
+            for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+                if tmean <= x1:
+                    v = y0 + (y1 - y0) * (tmean - x0) / (x1 - x0)
+                    break
+        return max(0.0, min(1.0, FE_TEMP_CYCLES_K * v))
     if tmean <= 0:
         return 0.0
     return max(0.0, min(1.0, 0.00095 + 0.01165 * tmean + 0.000822 * tmean * tmean))
@@ -2811,7 +2832,7 @@ SIXPOOL_DIAG = None  # optional list; when set, sixpool_step appends (cs_loss, r
 # - 7.6*RES_RESPIRED_C (kg N per Mg C), R^2 = 0.972, per-site mean residual under 25 kg N. Humified
 # share of decomposed residue C (HUMIFIED/(HUMIFIED+RES RESPIRED)) falls from ~0.53 at low Cs/Csx to
 # ~0.1 by Cs/Csx = 1: ~0.53*(1-r^12) (a flat eps_c*fH with exponent 6 gave 0.35 at r=0.7 and 0 at r>1).
-SIXPOOL_ML_N_A = 140.0  # was 186.8 (fit on respiration terms alone); 140 chosen 2026-10-07 on the 16-site table (N0 corn bias +1.44 -> +0.21, leaching 1.06 -> 0.90, wheat chain 0.25 -> 0.52) at a cost to fertilized corn (N150 bias -0.70 -> -1.01); see QUESTIONS_FOR_DEVS.md
+SIXPOOL_ML_N_A = 110.0  # was 186.8 (fit on respiration terms alone); 140 chosen 2026-10-07 on the 16-site table (N0 corn bias +1.44 -> +0.21, leaching 1.06 -> 0.90, wheat chain 0.25 -> 0.52) at a cost to fertilized corn (N150 bias -0.70 -> -1.01); see QUESTIONS_FOR_DEVS.md
 SIXPOOL_ML_N_B = 78.1
 SIXPOOL_ML_N_C = 7.6
 SIXPOOL_ML_EPS_H = 0.53
@@ -3517,6 +3538,9 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
     return leached, denit, volat
 
 
+PLANT_MOISTURE_GATE = False   # opt-in; see simulate_season_with_leadin()
+
+
 def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant_window=(110, 131),
                                 plant_min_soil_t=12.0, carry_n=False, **season_kwargs):
     """Runs one target season preceded by 'lead_years' real prior seasons of the SAME crop and
@@ -3546,6 +3570,23 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
         doys = sorted(d)
         tsoil = simulate_soil_temp([(d[k]["tx"] + d[k]["tn"]) / 2 for k in doys], k=0.15)
         plant_doy = find_planting_doy(dict(zip(doys, tsoil)), plant_window, plant_min_soil_t)
+        if PLANT_MOISTURE_GATE:
+            # Cycles also waits until the topsoil is wetter than wilting point (back-calculated 2026-10-08
+            # from planting dates at Kansas and Texas, where temperature alone plants 6-8 days early).
+            # Decide on a throwaway copy of the soil run through the same bare-soil water balance the
+            # real spin-up window uses; the condition is read at the end of the previous day.
+            gl = copy.deepcopy(layers) if layers is not None else crop["make_layers"]()
+            gde = dict(de=0.0, tew=compute_tew(gl[0]["fc"], gl[0]["pwp"]), rew=REW_DEFAULT_MM)
+            tmap = dict(zip(doys, tsoil))
+            gated = plant_window[1]
+            for k in range(1, plant_window[1] + 1):
+                if k not in d:
+                    continue
+                if k >= plant_window[0] and tmap.get(k, -99.0) > plant_min_soil_t and gl[0]["theta"] > gl[0]["pwp"]:
+                    gated = k
+                    break
+                run_bare_fallow_window(gl, [d[k]], lat_deg=crop["lat_deg"], de_state=gde)
+            plant_doy = gated
         rows = [d[k] for k in range(plant_doy, 300) if k in d]
         spinup = [d[k] for k in range(1, plant_doy) if k in d]
         kw = dict(season_kwargs)
