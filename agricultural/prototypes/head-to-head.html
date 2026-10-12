@@ -2044,6 +2044,13 @@ def tillage_dr_decay(layers, max_rate_per_day=0.02):
 # i.e. roots return more carbon than their final standing biomass (in-season turnover/rhizodeposition).
 # The engine's root carbon input only credited the final root biomass, ~0.6x of Cycles' (found 2026-10-07).
 ROOT_C_INPUT_FACTOR = 5.0 / 3.0
+# Root carbon input is sized from water-limited growth (False, shipped) or from growth after N stress (True, the
+# physically correct version). Found 2026-10-12: with N stress ignored, the engine fed 2.3 Mg C/ha of root carbon to
+# the six-pool state for a 0.74 Mg/ha N-starved crop (Indiana N=0), so low-nitrogen sites immobilized too much N.
+# Fixing it makes net mineralization match Cycles at most sites but raises N=0 yield bias (+0.01 to +0.96 Mg/ha) because
+# the shipped N_ML_N_A / stress floor were tuned with the bug in place; retuning (N_A 90-170, floor 0.3-0.4, respiration
+# saturation exponent) did not beat the shipped 16-site result, so it stays off until the yield-per-N response is refit.
+ROOT_C_REALIZED_GROWTH = False
 
 CARBON_FRACTION_DM = 0.42  # standard literature fraction of plant dry matter that is carbon;
 # a general, widely-cited value, not Cycles-specific or site-specific.
@@ -2235,6 +2242,9 @@ SIXPOOL_ML_FH_FLOOR = 0.2  # Cycles still humifies ~0.12-0.17 of decomposed resi
 # depth term, 0.563 with the original constants); per-site mean bias within +/-0.27 except Wisconsin -0.39.
 SIXPOOL_ML_DEPTH_Q = 4.44
 SIXPOOL_ML_KS = 0.000680
+SIXPOOL_ML_FD_P = 0.0  # exponent on (Cs/Csx)/SIXPOOL_ML_FD_R0 in the per-layer SOM respiration rate (0 = off); Cycles v1.5.20 annual respiration rate rises ~ with layer-1 saturation ratio (log-log slope 0.95 over 16 sites)
+SIXPOOL_ML_FD_R0 = 0.5
+SIXPOOL_ML_FD_CAP = 1e9  # upper limit on the saturation factor (1.0 = only reduce respiration at low saturation)
 # (An fD-style Cs/Csx saturation term, sixpool_fd_ml with constants 9.95/1.145, was removed 2026-10-08: unused since the
 # per-layer fit found no Cs/Csx dependence in SOM respiration; see sixpool_step's 'fd = 1.0' for the ml_sub branch.)
 
@@ -2407,7 +2417,7 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
         fe *= sixpool_n_factor(state.get("n_min"))
     fh = sixpool_fh(cs, csx)
     if ml_sub:
-        fd = 1.0  # no Cs/Csx dependence in the per-layer fit (see SIXPOOL_ML_KS)
+        fd = 1.0 if SIXPOOL_ML_FD_P == 0.0 else min(SIXPOOL_ML_FD_CAP, (max(0.03, cs / csx if csx > 0 else 0.0) / SIXPOOL_ML_FD_R0) ** SIXPOOL_ML_FD_P)  # was 1.0 (no Cs/Csx dependence)
         ks_use = SIXPOOL_ML_KS * math.exp(-SIXPOOL_ML_DEPTH_Q * state["zmid"])
     else:
         fd = sixpool_fd(cs, csx)
@@ -3905,7 +3915,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 # sixpool_step()'s own docstring for the full structure.
                 relwet_topsoil = ((layers[0]["theta"] - layers[0]["pwp"]) / (layers[0]["fc"] - layers[0]["pwp"])
                                    if layers[0]["fc"] > layers[0]["pwp"] else 1.0)
-                root_c_input_today = (10.0 * dGB_water_limited * (1.0 - shoot_fraction(ttf, crop["fsti"], crop["fstf"]))
+                root_c_input_today = (10.0 * dGB_water_limited * (n_stress_prev if ROOT_C_REALIZED_GROWTH else 1.0) * (1.0 - shoot_fraction(ttf, crop["fsti"], crop["fstf"]))
                                        * CARBON_FRACTION_DM * ROOT_C_INPUT_FACTOR)
                 ft_eff = 1.0 + tillage_ft(tillage_dr, tillage_ftx_val)
                 sixpool_state["n_min"] = ((n_nh4 or 0.0) + (n_no3 or 0.0)) if n_nh4 is not None else n_pool
