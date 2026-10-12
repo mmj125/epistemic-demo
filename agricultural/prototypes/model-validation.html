@@ -3413,6 +3413,7 @@ SIXPOOL_ML_DEPTH_Q = 4.44
 SIXPOOL_ML_KS = 0.000680
 SIXPOOL_ML_FD_P = 0.0  # exponent on (Cs/Csx)/SIXPOOL_ML_FD_R0 in the per-layer SOM respiration rate (0 = off); Cycles v1.5.20 annual respiration rate rises ~ with layer-1 saturation ratio (log-log slope 0.95 over 16 sites)
 SIXPOOL_ML_FD_R0 = 0.5
+SIXPOOL_ML_FD_CAP = 1e9  # upper limit on the saturation factor (1.0 = only reduce respiration at low saturation)
 # (An fD-style Cs/Csx saturation term, sixpool_fd_ml with constants 9.95/1.145, was removed 2026-10-08: unused since the
 # per-layer fit found no Cs/Csx dependence in SOM respiration; see sixpool_step's 'fd = 1.0' for the ml_sub branch.)
 
@@ -3585,7 +3586,7 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
         fe *= sixpool_n_factor(state.get("n_min"))
     fh = sixpool_fh(cs, csx)
     if ml_sub:
-        fd = 1.0 if SIXPOOL_ML_FD_P == 0.0 else (max(0.03, cs / csx if csx > 0 else 0.0) / SIXPOOL_ML_FD_R0) ** SIXPOOL_ML_FD_P  # was 1.0 (no Cs/Csx dependence)
+        fd = 1.0 if SIXPOOL_ML_FD_P == 0.0 else min(SIXPOOL_ML_FD_CAP, (max(0.03, cs / csx if csx > 0 else 0.0) / SIXPOOL_ML_FD_R0) ** SIXPOOL_ML_FD_P)  # was 1.0 (no Cs/Csx dependence)
         ks_use = SIXPOOL_ML_KS * math.exp(-SIXPOOL_ML_DEPTH_Q * state["zmid"])
     else:
         fd = sixpool_fd(cs, csx)
