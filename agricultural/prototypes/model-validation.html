@@ -3413,6 +3413,7 @@ SIXPOOL_ML_FH_FLOOR = 0.2  # Cycles still humifies ~0.12-0.17 of decomposed resi
 SIXPOOL_ML_DEPTH_Q = 4.44
 SIXPOOL_ML_KS = 0.000680
 SIXPOOL_ML_FD_P = 1.0  # exponent on (Cs/Csx)/SIXPOOL_ML_FD_R0 in the per-layer SOM respiration rate (0 = off); Cycles v1.5.20 annual respiration rate rises ~ with layer-1 saturation ratio (log-log slope 0.95 over 16 sites)
+SIXPOOL_ML_FD_FIXED = False  # 2026-10-12 test: hold the saturation ratio at its initial value
 SIXPOOL_ML_FD_R0 = 0.573  # 2026-10-12: FD_P=1 with R0 0.573 matches Cycles SOM respiration across 8 sites (0.14 to 3.3 Mg C/ha/yr); N_A 120, N_B 40
 SIXPOOL_ML_FD_CAP = 1e9  # upper limit on the saturation factor (1.0 = only reduce respiration at low saturation)
 # (An fD-style Cs/Csx saturation term, sixpool_fd_ml with constants 9.95/1.145, was removed 2026-10-08: unused since the
@@ -3587,7 +3588,10 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
         fe *= sixpool_n_factor(state.get("n_min"))
     fh = sixpool_fh(cs, csx)
     if ml_sub:
-        fd = 1.0 if SIXPOOL_ML_FD_P == 0.0 else min(SIXPOOL_ML_FD_CAP, (max(0.03, cs / csx if csx > 0 else 0.0) / SIXPOOL_ML_FD_R0) ** SIXPOOL_ML_FD_P)  # was 1.0 (no Cs/Csx dependence)
+        _ratio = cs / csx if csx > 0 else 0.0
+        if SIXPOOL_ML_FD_FIXED:
+            _ratio = state.setdefault("fd_ref", _ratio)  # saturation ratio at the start: differentiates sites, but does not make respiration fall as Cs^2 over time within a site
+        fd = 1.0 if SIXPOOL_ML_FD_P == 0.0 else min(SIXPOOL_ML_FD_CAP, (max(0.03, _ratio) / SIXPOOL_ML_FD_R0) ** SIXPOOL_ML_FD_P)  # was 1.0 (no Cs/Csx dependence)
         ks_use = SIXPOOL_ML_KS * math.exp(-SIXPOOL_ML_DEPTH_Q * state["zmid"])
     else:
         fd = sixpool_fd(cs, csx)
