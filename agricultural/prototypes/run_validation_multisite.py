@@ -115,13 +115,14 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     if os.environ.get("PER_LAYER","1")=="1": kw["sixpool_per_layer"]=True
     res={}
     carry=os.environ.get("CARRY_N","1")=="1"
-    lead_env=os.environ.get("LEAD_YEARS","2")
+    lead_env=os.environ.get("LEAD_YEARS","continuous")
     first_year=min(wx)
     ystep=int(os.environ.get("YEAR_STEP","1"))
+    cont=simulate_continuous(wx,crop,carry_n=carry,**kw) if lead_env=="continuous" else None   # one run from the first year, as Cycles does
     for y in sorted(wx):
         if (y-first_year)%ystep: continue   # quick mode: every ystep-th year only
-        lead=(y-first_year) if lead_env=="full" else int(lead_env)   # "full" = start from the first weather year, as Cycles does
-        r=simulate_season_with_leadin(wx,y,crop,lead_years=lead,carry_n=carry,**kw)
+        lead=(y-first_year) if lead_env=="full" else (0 if cont is not None else int(lead_env))   # "full" = start from the first weather year, as Cycles does
+        r=cont[y] if cont is not None else simulate_season_with_leadin(wx,y,crop,lead_years=lead,carry_n=carry,**kw)
         if carry and "fallow_n_leached" in r:   # add the off-season windows so totals are calendar-year like Cycles' annualN.txt
             r["n_leached_kg_ha"]=r.get("n_leached_kg_ha",0.0)+r["fallow_n_leached"]
             r["n_denitrified_kg_ha"]=r.get("n_denitrified_kg_ha",0.0)+r["fallow_n_denitrified"]
