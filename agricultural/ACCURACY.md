@@ -26,3 +26,13 @@ Typical miss is a factor of about 3 (rms log error: leaching 1.28, denitrificati
 
 ## What was tried and rejected
 See `prototypes/QUESTIONS_FOR_DEVS.md` for every mechanism tested against this table, including those that did not help (flatter respiration temperature response, drier topsoil floor, nitrogen limitation of decomposition, lower soil nitrogen supply).
+
+## Cycles v1.4.4 versus v1.5.20 (2026-10-12)
+
+All numbers above were measured against v1.4.4. To see whether that matters, `prototypes/compare_cycles_versions.py` runs both versions on identical inputs at the same 16 sites (continuous corn, N=0 and N=150, 1980-2016). v1.5 needs its own input format, so the script translates the files; v1.5 also has two soil inputs v1.4.4 lacks (rock fraction set to 0, pH set to 6.5). Note that `-b` means "batch" in v1.4.4 but "set a break point" in v1.5, so the v1.5 runs use no flag.
+
+- Yield and phenology agree: mean grain ratio v1.5/v1.4.4 is 0.996 (N=0) and 0.998 (N=150); year-to-year correlation between the two versions averages 0.96 or better; planting day within 0.3 days.
+- Nitrogen losses (N=150) differ: leaching +40%, denitrification +30%, nitrous oxide +54%, volatilization -3%. The gap is concentrated at the wet, fine-textured sites (Iowa leaching 41 vs 63 kg N/ha, denitrification 52 vs 79; Minnesota denitrification 64 vs 87; Arkansas leaching 12 vs 21).
+- Not yet separated: whether the nitrogen-loss differences come from model changes in v1.5 or from the two new soil inputs.
+
+So the yield comparison does not depend on the version, but the nitrogen-loss comparison does. The head-to-head page still exports v1.4.4 input files only.
