@@ -30,7 +30,7 @@ if os.environ.get("N_A"): cev.SIXPOOL_ML_N_A = float(os.environ["N_A"])
 if os.environ.get("EPS_H"): cev.SIXPOOL_ML_EPS_H = float(os.environ["EPS_H"])
 if os.environ.get("CRA_TAU"): cev.CRA_MATURATION_TAU_DAYS = float(os.environ["CRA_TAU"])
 if os.environ.get("HUM_CLAY"): cev.SIXPOOL_ML_HUM_CLAY = tuple(float(x) for x in os.environ["HUM_CLAY"].split(","))
-CY="/tmp/cycles-run"  # a local Cycles v1.4.4 release directory (binary + input/), not committed
+CY=os.environ.get("CY_DIR","/tmp/cycles-run15")  # a local Cycles v1.5.20 release directory (binary + input/), not committed. Reference moved from v1.4.4 to v1.5.20 on 2026-10-12.
 SITES=dict(rock_springs=fd.PRESET_SITES["rock_springs"],iowa=fd.PRESET_SITES["iowa"],
            kansas=fd.PRESET_SITES["kansas"],maryland=fd.PRESET_SITES["maryland"],
            # 12 further CONUS sites (added 2026-10-02) so any fit is checked off the original four
@@ -50,37 +50,39 @@ def write_inputs(site,lat,lon,wx,soil_raw,cell_lat):
             r=wx[y][d]; w.write(f"{y}\t{d}\t{r['pp']:.4f}\t{r['tx']:.2f}\t{r['tn']:.2f}\t{r['solar']:.4f}\t{r['rhx']:.2f}\t{r['rhn']:.2f}\t{r['wind']:.3f}\n")
     w.close()
     s=open(f"{CY}/input/{site}.soil","w")
-    s.write(f"CURVE_NUMBER        75\nSLOPE               0\nTOTAL_LAYERS        {len(soil_raw)}\n")
-    s.write("LAYER   THICK   CLAY    SAND    SOC     BD      FC      PWP     SON     NO3     NH4     BYP_H   BYP_V\n#       m       %       %       %       Mg/m3   m3/m3   m3/m3   kg/ha   kg/ha   kg/ha   -       -\n")
+    s.write("CURVE_NUMBER        75\nSLOPE               0\n")
+    s.write("LAYER   THICK   CLAY    SAND    SOC     BD      FC      PWP     SON     NO3     NH4     ROCK    BYP_H   BYP_V   pH\n#       m       %       %       %       Mg/m3   m3/m3   m3/m3   kg/ha   kg/ha   kg/ha   m3/m3   -       -       -\n")
     for i,l in enumerate(soil_raw,1):
-        no3=max(1,round(10*l['thick']/0.05*0.25)) ; s.write(f"{i}\t{l['thick']}\t{l['clay']}\t{l['sand']}\t{l['soc']}\t-999\t-999\t-999\t-999\t{min(no3,10)}\t1\t0.0\t0.00\n")
+        no3=max(1,round(10*l['thick']/0.05*0.25)) ; s.write(f"{i}\t{l['thick']}\t{l['clay']}\t{l['sand']}\t{l['soc']}\t-999\t-999\t-999\t-999\t{min(no3,10)}\t1\t0.0\t0.0\t0.00\t6.5\n")
     s.close()
     base=open(f"{CY}/input/ContinuousCorn.operation").read()
     for N in N_LEVELS:
-        op=base.replace('MASS                150','MASS                %d'%N,1) if N>0 else base
+        op=base.replace('468.75','%.2f'%(N/0.32),1) if N>0 else base
         if N==0:
-            a=op.index("FIXED_FERTILIZATION"); b=op.index("TILLAGE"); op=op[:a]+op[b:]
+            a=op.index("FIXED_FERTILIZATION"); op=op[:a].rstrip()+"\n"
         open(f"{CY}/input/{site}N{N}.operation","w").write(op)
+        import re as _re
         c=open(f"{CY}/input/ContinuousCorn.ctrl").read().replace("ContinuousCorn.operation",f"{site}N{N}.operation").replace("GenericHagerstown.soil",f"{site}.soil").replace("RockSprings.weather",f"{site}.weather")
+        c=_re.sub(r"SOIL_LAYERS\s+\d+",f"SOIL_LAYERS             {len(soil_raw)}",c)
         open(f"{CY}/input/{site}N{N}.ctrl","w").write(c)
 def run_cycles(site,N):
     # Cached 2026-10-08: the Cycles reference for a site/N never changes between engine experiments (same tile inputs),
     # so run the binary once and reuse the parsed result. Delete {CY}/cache_*.json to force a re-run.
-    cache=f"{CY}/cache_{site}N{N}.json"
+    cache=f"{CY}/cache15_{site}N{N}.json"
     if os.path.exists(cache) and os.environ.get("NO_CACHE","0")!="1":
         d=json.load(open(cache)); return {int(k):v for k,v in d["H"].items()},{int(k):v for k,v in d["A"].items()}
     H,A=_run_cycles_uncached(site,N)
     json.dump(dict(H=H,A=A),open(cache,"w")); return H,A
 def _run_cycles_uncached(site,N):
-    subprocess.run(["./Cycles","-b",f"{site}N{N}"],cwd=CY,capture_output=True)
+    subprocess.run(["./Cycles",f"{site}N{N}"],cwd=CY,capture_output=True)   # v1.5: no -b (there it means "set a break point")
     out=f"{CY}/output/{site}N{N}"; H={}
-    for line in open(f"{out}/harvest.txt").readlines()[2:]:
-        p=line.split("\t")
+    for line in open(f"{out}/harvest.csv").readlines()[2:]:
+        p=line.strip().split(",")
         if len(p)<11: continue
-        H[int(p[0][:4])]=dict(total=float(p[3]),grain=float(p[5]),plant=p[2],tr=float(p[8]),evap=float(p[9]))
+        H[int(p[0][:4])]=dict(total=float(p[3]),grain=float(p[5]),plant=p[2],tr=float(p[10]),evap=float("nan"))
     A={}
-    for line in open(f"{out}/annualN.txt").readlines()[2:]:
-        p=line.split("\t")
+    for line in open(f"{out}/annualN.csv").readlines()[2:]:
+        p=line.strip().split(",")
         if len(p)>=12: A[int(p[0])]=dict(leach=float(p[4])+float(p[5]),denit=float(p[8]),volat=float(p[10]),n2o=float(p[11]))
     return H,A
 def doy_of(s):
@@ -105,10 +107,10 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
             sixpool_topsoil_soc_pct=soil_raw[0]["soc"],sixpool_profile_raw=soil_raw)
     if N>0: kw["fertilizer_source"]="uan"
     if os.environ.get("NITRATE_LAYERS","1")=="1": kw["nitrate_per_layer"]=True
-    if os.environ.get("PER_LAYER","0")=="1": kw["sixpool_per_layer"]=True
+    if os.environ.get("PER_LAYER","1")=="1": kw["sixpool_per_layer"]=True
     res={}
     carry=os.environ.get("CARRY_N","1")=="1"
-    lead_env=os.environ.get("LEAD_YEARS","full")
+    lead_env=os.environ.get("LEAD_YEARS","2")
     first_year=min(wx)
     ystep=int(os.environ.get("YEAR_STEP","1"))
     for y in sorted(wx):

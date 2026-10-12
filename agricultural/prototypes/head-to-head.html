@@ -76,7 +76,7 @@
 <div class="panel">
   <div class="panel-header"><h2>Before you start</h2></div>
   <div class="panel-body">
-    <p><b>You need</b> a Cycles v1.4.4 release on your machine (the binary and its <code>input/</code> folder with <code>GenericCrops.crop</code>). Version 1.5.x writes different output files and is not read by this page yet.</p>
+    <p><b>You need</b> the current Cycles release, v1.5.20 (the binary and its <code>input/</code> folder with <code>GenericCrops.crop</code>), or the Colab notebook in step 3, which fetches it for you. This page writes v1.5 input files and reads v1.5 <code>.csv</code> output.</p>
     <p><b>Where this engine is weak.</b> We would rather you read this first than discover it:</p>
     <ul style="font-size:13.5px;line-height:1.7;color:var(--ink-soft);margin:0 0 12px 18px;">
       <li>Fertilized corn (150 kg N/ha) across 16 sites: typical yearly grain error about 1.1 Mg/ha (about 13%), year-to-year correlation about 0.82. Unfertilized corn is much weaker (correlation about 0.3, yield level too high).</li>
@@ -126,9 +126,9 @@
 <div class="panel">
   <div class="panel-header"><h2>3. Load your Cycles output</h2></div>
   <div class="panel-body">
-    <div style="border:1px solid var(--accent,#c60);border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:13px;"><b>Do not select the files you just downloaded.</b> The <code>.weather</code>, <code>.soil</code>, <code>.operation</code> and <code>.ctrl</code> files from step 2 are <i>inputs</i> for the Cycles program. This step needs what Cycles <i>writes after you run it on them</i>: a folder of <code>.txt</code> files (<code>harvest.txt</code>, <code>annualN.txt</code>, ...). You can produce them with the Colab notebook below or with your own copy of Cycles v1.4.4; this page does not include or run Cycles. Without Cycles you can still run step 4 to see the engine's own results.</div>
+    <div style="border:1px solid var(--accent,#c60);border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:13px;"><b>Do not select the files you just downloaded.</b> The <code>.weather</code>, <code>.soil</code>, <code>.operation</code> and <code>.ctrl</code> files from step 2 are <i>inputs</i> for the Cycles program. This step needs what Cycles <i>writes after you run it on them</i>: a folder of <code>.csv</code> files (<code>harvest.csv</code>, <code>annualN.csv</code>, ...). You can produce them with the Colab notebook below or with your own copy of Cycles v1.4.4; this page does not include or run Cycles. Without Cycles you can still run step 4 to see the engine's own results.</div>
     <p><b>No Cycles on your computer?</b> <a href="https://colab.research.google.com/github/mmj125/epistemic-demo/blob/main/agricultural/prototypes/run_cycles_colab.ipynb" target="_blank" rel="noopener">Open the Colab notebook</a>, choose Runtime &gt; Run all, pick the zip you downloaded in step 2, and it hands you back one output zip (needs a Google account, no install). Drop that zip below.</p>
-    <p><b>Cycles already installed?</b> Unzip the step 2 download into your Cycles v1.4.4 folder and run <code>run_cycles.bat</code> (Windows) or <code>bash run_cycles.sh</code> (Mac/Linux). It runs Cycles and makes a <code>*_output.zip</code>. Drop that zip below. You can also pick the individual <code>.txt</code> files or the whole <code>output/&lt;name&gt;</code> folder. Used: <code>harvest.txt</code> and <code>annualN.txt</code> for the comparison, <code>environ.txt</code> and <code>water.txt</code> to check Cycles read the same weather and soil, and the crop/N/water daily files for the overlay in step 5.</p>
+    <p><b>Cycles already installed?</b> Unzip the step 2 download into your Cycles v1.5.20 folder and run <code>run_cycles.bat</code> (Windows) or <code>bash run_cycles.sh</code> (Mac/Linux). It runs Cycles and makes a <code>*_output.zip</code>. Drop that zip below. You can also pick the individual <code>.csv</code> files or the whole <code>output/&lt;name&gt;</code> folder. Used: <code>harvest.csv</code> and <code>annualN.csv</code> for the comparison, <code>dailyEnviron.csv</code> and <code>dailyWater.csv</code> to check Cycles read the same weather and soil, and the crop/N/water daily files for the overlay in step 5.</p>
     <div class="controls" style="margin-bottom:6px;">
       <div class="field"><label for="outInput">Output files or a .zip of the output folder</label><input type="file" id="outInput" multiple></div>
       <div class="field"><label for="outDir">...or the whole output folder</label><input type="file" id="outDir" webkitdirectory></div>
@@ -4606,24 +4606,104 @@ function writeCtrl(name, y0, y1, wxName, soilName) {
     .replace("GenericHagerstown.soil", soilName || (name + ".soil"))
     .replace("RockSprings.weather", wxName || (name + ".weather"));
 }
-function runScripts(name) {
+// ---- Cycles v1.5 input writers (the weather file format is unchanged) ----
+function writeSoil15(layers, cn, slope) {
+  let s = `CURVE_NUMBER        ${cn || 75}\nSLOPE               ${slope || 0}\n`;
+  s += "LAYER   THICK   CLAY    SAND    SOC     BD      FC      PWP     SON     NO3     NH4     ROCK    BYP_H   BYP_V   pH\n#       m       %       %       %       Mg/m3   m3/m3   m3/m3   kg/ha   kg/ha   kg/ha   m3/m3   -       -       -\n";
+  layers.forEach((l, i) => {
+    const no3 = defaultNo3(l), nh4 = l.nh4 != null ? l.nh4 : 1;
+    s += `${i + 1}\t${l.thick}\t${l.clay}\t${l.sand}\t${l.soc}\t-999\t-999\t-999\t-999\t${no3}\t${nh4}\t0.0\t0.0\t0.00\t6.5\n`;
+  });
+  return s;
+}
+function writeCtrl15(name, y0, y1, wxName, soilName, nLayers) {
+  return writeCtrl(name, y0, y1, wxName, soilName)
+    .replace(/SIMULATION_START_DATE\s+\d{4}-01-01/, `SIMULATION_START_YEAR   ${y0}`)
+    .replace(/SIMULATION_END_DATE\s+\d{4}-12-31/, `SIMULATION_END_YEAR     ${y1}`)
+    .replace("## SIMULATION OPTIONS ##\n\n", `## SIMULATION OPTIONS ##\n\nSOIL_LAYERS             ${nLayers}\n`)
+    .replace("HOURLY_INFILTRATION     1", "HYDROLOGY_OPTION        1");
+}
+function writeOperation15(n, soy) {
+  const win = soy ? SOY_WIN : [110, 131], crop = soy ? "SoybeanMG.5" : "CornRM.90";
+  let s = `##############################################################################
+# Continuous ${soy ? "soybean" : "corn"}${!soy && n > 0 ? ", fertilized with " + n + " kg N/ha as UAN" : ""}, no-till except for slight disturbance by planter disks
+##############################################################################
+
+PLANTING
+YEAR                                1
+DOY                                 ${win[0]}
+END_DOY                             ${win[1]}
+CROP                                ${crop}
+MAX_SMC                             -999        # m3/m3
+MIN_SMC                             0.0         # m3/m3
+MAX_SOIL_TEMP                       -999        # degree C
+MIN_SOIL_TEMP                       12.0        # degree C
+USE_AUTO_IRR                        0
+USE_AUTO_FERT                       0
+DENSITY                             1.0
+CLIPPING_START                      1
+CLIPPING_END                        366
+MAXIMUM_SOIL_COVERAGE               100         # (%)
+STANDING_RESIDUE_AT_HARVEST         50          # (%)
+RESIDUE_REMOVED                     0           # (%)
+CLIPPING_BIOMASS_THRESHOLD_LOWER    0.5         # (Mg/ha)
+CLIPPING_BIOMASS_THRESHOLD_UPPER    999         # (Mg/ha)
+CLIPPING_BIOMASS_DESTINY            REMOVE      # (-)
+HARVEST_TIMING                      -999        # (%)
+KILL_AFTER_HARVEST                  1           # (-)
+
+TILLAGE
+YEAR                                1
+DOY                                 +0
+TOOL                                Planter_double_disk_opnr
+CROP_NAME                           N/A
+FRAC_THERMAL_TIME                   0.0
+KILL_EFFICIENCY                     0.0
+`;
+  if (!soy && n > 0) s += `
+FIXED_FERTILIZATION
+YEAR                                1
+DOY                                 +0
+SOURCE                              32-00-00_Urea_Ammonium_Nitrate_Solution
+MASS                                ${(n / 0.32).toFixed(2)}      # kg/ha of product (${n} kg N/ha)
+FORM                                Liquid
+METHOD                              Broadcast
+DEPTH                               0.05        # m
+`;
+  return s;
+}
+function toV15(files, name, y0, y1) {
+  const soy = currentCrop() === "soybean", n = Math.max(0, Math.min(400, Number(document.getElementById("nRate").value) || 0));
+  const out = [];
+  for (const f of files) {
+    if (f.name.endsWith(".soil")) out.push({ name: f.name, text: writeSoil15(currentSite.layers, currentSite.custom ? currentSite.curveNumber : 75, currentSite.custom ? currentSite.slopePct : 0) });
+    else if (f.name.endsWith(".operation")) out.push({ name: f.name, text: writeOperation15(n, soy) });
+    else if (f.name.endsWith(".ctrl")) out.push({ name: f.name, text: writeCtrl15(name, y0, y1, null, null, currentSite.layers.length) });
+    else if (/^(README\.txt|run_cycles\.)/.test(f.name)) continue;
+    else out.push(f);
+  }
+  out.push({ name: "README.txt", text: writeReadme(name, !!currentSite.custom, 15) }, ...runScripts(name, 15));
+  return out;
+}
+function runScripts(name, ver) {
+  ver = 15;
   return [
     { name: "run_cycles.sh", text: `#!/bin/bash
-# Run from the Cycles v1.4.4 folder (the one with the Cycles program and input/). Mac/Linux.
+# Run from the Cycles v${ver === 15 ? "1.5" : "1.4.4"} folder (the one with the Cycles program and input/). Mac/Linux.
 set -e
 cd "$(dirname "$0")"
 cp -f ${name}.* input/ 2>/dev/null || true
 chmod +x ./Cycles 2>/dev/null || true
-./Cycles -b ${name}
+./Cycles ${ver === 15 ? "" : "-b "}${name}
 (cd output && zip -rq ../${name}_output.zip ${name}) || echo "zip not found: select the folder output/${name} in the page instead"
 echo "Done. Load ${name}_output.zip (or the folder output/${name}) in step 3 of the page."
 ` },
     { name: "run_cycles.bat", text: [
       "@echo off",
-      "rem Run from the Cycles v1.4.4 folder (the one with Cycles.exe and input\\). Windows.",
+      "rem Run from the Cycles v" + (ver === 15 ? "1.5" : "1.4.4") + " folder (the one with Cycles.exe and input\\). Windows.",
       "cd /d \"%~dp0\"",
       "for %%e in (weather soil operation ctrl) do if exist " + name + ".%%e copy /y " + name + ".%%e input\\ >nul",
-      "Cycles.exe -b " + name,
+      "Cycles.exe " + (ver === 15 ? "" : "-b ") + name,
       "powershell -command \"Compress-Archive -Force output\\" + name + " " + name + "_output.zip\"",
       "echo Done. Load " + name + "_output.zip in step 3 of the page.",
       "pause", ""].join("\r\n") },
@@ -4647,17 +4727,19 @@ wilting point and bulk density from texture, so any values you gave for those ar
 ammonium in your soil file are not used by the engine. Cycles is CC BY-NC-ND 4.0, copyright its authors; nothing of it is redistributed here.
 `;
 }
-function writeReadme(name, own) {
+function writeReadme(name, own, ver) {
+  ver = 15;
+  const V = ver === 15 ? "1.5" : "1.4.4", F = ver === 15 ? "" : "-b ";
   return `Cycles input files written by the epistemic head-to-head page.
 
 Files:  ${name}.weather  ${name}.soil  ${name}.operation  ${name}.ctrl
 
-EASY WAY: unzip this into your Cycles v1.4.4 folder (the one containing the Cycles program and the input/ folder), then run
+EASY WAY: unzip this into your Cycles v${V} folder (the one containing the Cycles program and the input/ folder), then run
    run_cycles.sh (Mac/Linux:  bash run_cycles.sh)   or   run_cycles.bat (Windows: double-click).
    It copies the files into input/, runs Cycles and zips the output as ${name}_output.zip. Drop that zip into step 3 of the page.
 
 BY HAND: copy all four files into input/ next to GenericCrops.crop (the crop file is NOT included; it ships with Cycles), run
-   ./Cycles -b ${name}
+   ./Cycles ${F}${name}
    and load the files from output/${name}/ (or the whole folder) into step 3.
 
 Notes: ${own ? 'weather is your file, unchanged; the soil file is rewritten from the layers this engine read (thickness, clay, sand, organic carbon, your curve number and slope), so Cycles and the engine see the same inputs.' : 'weather is NLDAS-2 reanalysis resolved to a ~55 km cell, soil is STATSGO2 (nearest map unit).'} The soil file asks Cycles to
@@ -4690,6 +4772,12 @@ function makeZip(files) {
 
 function siteYears() { return currentSite && currentSite.years ? currentSite.years : [1980, 2016]; }
 function buildFiles() {
+  const r = buildFilesV144();
+  const [ymin, ymax] = siteYears();
+  const y0 = Math.max(ymin, Number(document.getElementById("yFrom").value) || ymin), y1 = Math.min(ymax, Number(document.getElementById("yTo").value) || ymax);
+  return { name: r.name, files: toV15(r.files, r.name, y0, y1) };
+}
+function buildFilesV144() {
   const [ymin, ymax] = siteYears();
   const n = Math.max(0, Math.min(400, Number(document.getElementById("nRate").value) || 0));
   const y0 = Math.max(ymin, Number(document.getElementById("yFrom").value) || ymin);
@@ -4794,6 +4882,31 @@ function parseAnnualN(text) {
 }
 function parseDaily(text) { const t = parseCyclesTable(text); return { cols: t.cols, rows: t.rows.map((r) => r.map((x, i) => (i === 0 ? x : Number(x)))) }; }
 const cyclesOut = { harvest: null, annualN: null, daily: {} };
+// ---- Cycles v1.5 writes comma-delimited .csv; rename its columns to the v1.4.4 names the rest of this page reads ----
+const V15_COLS = {
+  harvest: { date: "DATE", planting_date: "PLANT_DATE", total_biomass: "TOTAL BIOMASS", grain_yield: "GRAIN YIELD" },
+  annualN: { year: "YEAR", NO3_leaching: "NO3 LEACHING", NH4_leaching: "NH4 LEACHING", denitrification: "DENITRIFICATION", volatilization: "VOLATILIZATION", N2O_emission: "N2O EMISSION" },
+  environ: { date: "DATE", precipitation: "PRECIPITATION", max_air_temperature: "MAX TMP", min_air_temperature: "MIN TMP" },
+  water: { date: "DATE", transpiration: "TRANSPIRATION" },
+  N: { date: "DATE", profile_soil_NO3: "PROF SOIL NO3", profile_soil_NH4: "PROF SOIL NH4" },
+  crop: { date: "DATE", radiation_interception: "FRAC INTERCEP", aboveground_biomass: "AG BIOMASS", water_stress: "WATER STRESS", nitrogen_stress: "N STRESS" },
+};
+function v15Kind(nm) {
+  if (/^harvest\.csv$/.test(nm)) return "harvest";
+  if (/^annualn\.csv$/.test(nm)) return "annualN";
+  if (/^dailyenviron\.csv$/.test(nm)) return "environ";
+  if (/^dailywater\.csv$/.test(nm)) return "water";
+  if (/^dailyn\.csv$/.test(nm)) return "N";
+  if (/^daily.+\.csv$/.test(nm) && !/^daily(residue|soilc|soillayerscn|weather)/.test(nm)) return "crop";
+  return null;
+}
+function v15ToTable(kind, text) {
+  const lines = text.split(/\r?\n/).filter((l) => l.length > 0);
+  if (lines.length < 3) throw new Error("file has no data rows");
+  const map = V15_COLS[kind];
+  const cols = lines[0].split(",").map((c) => c.trim()).map((c) => (kind === "water" && /^soil_moisture_content\./.test(c)) ? "SMC" : (map[c] || c));
+  return cols.join("\t") + "\n" + lines.slice(1).map((l) => l.split(",").join("\t")).join("\n");
+}
 async function readZip(file) {
   const buf = new Uint8Array(await file.arrayBuffer()), dv = new DataView(buf.buffer);
   let e = buf.length - 22;
@@ -4823,12 +4936,16 @@ async function loadOutputEntries(entries, notes) {
     // browsers add " (1)" to repeat downloads, and some systems change case or hide the extension
     if (/\.(ctrl|operation|soil|weather|crop)$/i.test(f.name)) { notes.push(`${f.name}: this is an INPUT file for Cycles, not output. Run Cycles on it first, then load the .txt files it writes to output/<name>/`); continue; }
     if (/^readme|^run_cycles/i.test(f.name)) continue;
-    const nm = f.name.replace(/\s*\(\d+\)(?=\.[^.]*$|$)/, "").toLowerCase();
+    let nm = f.name.replace(/\s*\(\d+\)(?=\.[^.]*$|$)/, "").toLowerCase();
     try {
       if (/\.zip$/.test(nm)) { await loadOutputEntries(await readZip(f.file), notes); continue; }
       if (/\.(gz|7z|tar)$/.test(nm)) { notes.push(`${f.name}: this archive type cannot be read here, use a .zip or pick the .txt files`); continue; }
-      if (/\.csv$/.test(nm)) { notes.push(`${f.name}: comma-delimited output comes from Cycles v1.5.x, this page needs v1.4.4 (.txt files)`); continue; }
-      const text = f.getText ? await f.getText() : await f.file.text();
+      let text = f.getText ? await f.getText() : await f.file.text();
+      if (/\.csv$/.test(nm)) {
+        const kind = v15Kind(nm);
+        if (!kind) continue;
+        text = v15ToTable(kind, text); nm = kind === "harvest" ? "harvest.txt" : kind === "annualN" ? "annualn.txt" : nm.replace(/\.csv$/, ".txt");
+      }
       if (/^harvest(\.txt)?$/.test(nm)) { cyclesOut.harvest = parseHarvest(text); notes.push(`${f.name}: ${Object.keys(cyclesOut.harvest).length} harvests`); }
       else if (/^annualn(\.txt)?$/.test(nm)) { cyclesOut.annualN = parseAnnualN(text); notes.push(`${f.name}: ${Object.keys(cyclesOut.annualN).length} years`); }
       else if (/\.txt$/.test(nm) || !/\./.test(nm)) {
