@@ -5,7 +5,7 @@ The from-scratch engine (`prototypes/cycles_engine_validate.py`) was compared wi
 ## Corn grain, 16 sites, mean over sites
 | Nitrogen rate | Mean absolute error | Year-to-year correlation | Sites with correlation 0.7 or better |
 |---|---|---|---|
-| 0 kg N/ha | 1.03 Mg/ha | 0.33 | 4 of 16 |
+| 0 kg N/ha | 0.86 Mg/ha | 0.36 | 5 of 16 |
 | 150 kg N/ha | 1.14 Mg/ha (about 14%) | 0.80 | 13 of 16 |
 | 400 kg N/ha | 1.09 Mg/ha | 0.87 | 15 of 16 |
 
