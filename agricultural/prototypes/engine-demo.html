@@ -3333,8 +3333,8 @@ def denitrification_rate(theta):
     return max(0.0, min(1.0, DENITRIF_K0 * theta ** DENITRIF_EXPONENT))
 
 
-DENITRIF_RELSAT_EXPONENT = 7.0   # fitted 2026-10-02 on 16 sites x 2 N rates x 37 years of native Cycles
-DENITRIF_K_REL = 0.017594        # output (N.txt, water.txt, environ.txt); see denitrification_rate_rel()
+DENITRIF_RELSAT_EXPONENT = 3.0   # fitted 2026-10-02 on 16 sites x 2 N rates x 37 years of native Cycles
+DENITRIF_K_REL = 0.0047   # REFIT 2026-10-12 against Cycles v1.5.20 (was exponent 7, K 0.017594 on v1.4.4); the nitrification logistic and N2O factors below were refit the same day from v1.5.20's daily N output at 16 sites        # output (N.txt, water.txt, environ.txt); see denitrification_rate_rel()
 
 
 def denitrification_rate_rel(theta_rel, tsoil_c):
@@ -3358,7 +3358,7 @@ def denitrification_rate_rel(theta_rel, tsoil_c):
                         * max(tsoil_c, 0.0) / 15.0))
 
 
-NITRIF_RMAX = 0.145411  # REFIT 2026-10-02 (same session, per Matt's direct "Go fix the
+NITRIF_RMAX = 0.09414  # REFIT 2026-10-02 (same session, per Matt's direct "Go fix the
 # nitrification speed now" -- the open item flagged by both the NH4-trajectory comparison and
 # the UAN-split fix above, which both found this engine's nitrification clearing NH4 roughly
 # 1.5-2x faster than real Cycles' own does in the regime that matters for a realistic
@@ -3393,8 +3393,8 @@ NITRIF_RMAX = 0.145411  # REFIT 2026-10-02 (same session, per Matt's direct "Go 
 # split fix correctly lowered this engine's NH4 peak, but with nitrification still clearing
 # that lower peak roughly 1.5-1.6x too fast, less NH4 mass ever had time to accumulate for
 # volatilization to act on, regardless of the peak's own correct starting size.
-NITRIF_K = 0.175692
-NITRIF_T0 = 17.022424
+NITRIF_K = 0.24204
+NITRIF_T0 = 14.7585
 
 SOIL_TEMP_LAG_K = 0.15  # reuses simulate_soil_temp()'s own already-validated lag-filter
 # constant (2.65-day mean absolute error against real per-year planting dates) rather than
@@ -3493,9 +3493,9 @@ def volatilization_rate(tsoil, nh4_kg_ha):
 # N2O FROM NITRIF = 0.0025 x NH4 NITRIFICAT (daily median 0.0025 at every site; means 0.0025-0.005 where a few wet
 # days run higher), and N2O FROM DENIT / NO3 DENITRIF = 0.00121 x (profile NO3 kg N/ha)^0.887 (ln R^2 0.69, rms 0.58;
 # 0.017 at ~1 kg N/ha to 0.17 at ~195), capped at 0.5. Cycles reports N2O only; it has no nitric oxide (NO) output.
-N2O_NITRIF_FRAC = 0.0025
-N2O_DENIT_A = 0.00121
-N2O_DENIT_B = 0.887
+N2O_NITRIF_FRAC = 0.00356
+N2O_DENIT_A = 0.00166
+N2O_DENIT_B = 0.816
 N2O_DENIT_CAP = 0.5
 
 

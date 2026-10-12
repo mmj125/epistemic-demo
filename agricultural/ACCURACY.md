@@ -15,7 +15,7 @@ Overall engine mean yield is about 5% below Cycles' at 150 kg N/ha (7.66 vs 8.02
 Corn 0.795, soybean 0.921, winter wheat 0.510 (9 harvests), silage corn 0.124. Only corn and soybean clear the classroom bar (about 0.6 to 0.7).
 
 ## Nitrogen losses at 150 kg N/ha
-Typical miss is a factor of about 3 to 4 (rms log error: leaching 1.34, denitrification 1.34, N2O 1.30, volatilization 0.98). Against v1.5.20 the engine's leaching, denitrification and N2O run low; its rates were fitted to v1.4.4, which loses less nitrogen than v1.5.
+Typical miss: denitrification and nitrous oxide are now within a factor of about 2 to 2.8 after the 2026-10-12 refit to v1.5.20 (rms log error: denitrification 0.86, N2O 1.02); leaching (1.40) and volatilization (0.95) are still off by a factor of 2.5 to 4. Before the refit (rates fitted to v1.4.4) the figures were leaching 1.34, denitrification 1.34, N2O 1.30, volatilization 0.98. The refit changed the denitrification saturation exponent from 7 to 3 (v1.5 depends less steeply on wetness), slowed nitrification, and raised the N2O fractions; corn grain is unchanged (N=150 error 1.17 Mg/ha, correlation 0.80). What remains is in the nitrogen pools and processes, not the rate constants: volatilization at the dry sites (Kansas 76 vs 8 kg N/ha, Carolina 23 vs 6, Georgia 20 vs 8), denitrification at wet sites (Minnesota 87 vs 28, Texas 36 vs 7), and leaching at Arkansas (21 vs 3.5).
 
 ## Known weak spots
 - Unfertilized corn: yield level overshoots (+0.5 Mg/ha) and years are poorly ranked (correlation 0.32).
