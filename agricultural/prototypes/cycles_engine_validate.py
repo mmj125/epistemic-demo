@@ -1870,7 +1870,7 @@ ROOT_C_INPUT_FACTOR = 5.0 / 3.0
 # Fixing it makes net mineralization match Cycles at most sites but raises N=0 yield bias (+0.01 to +0.96 Mg/ha) because
 # the shipped N_ML_N_A / stress floor were tuned with the bug in place; retuning (N_A 90-170, floor 0.3-0.4, respiration
 # saturation exponent) did not beat the shipped 16-site result, so it stays off until the yield-per-N response is refit.
-ROOT_C_REALIZED_GROWTH = False
+ROOT_C_REALIZED_GROWTH = True   # default on since 2026-10-12 (continuous-run refit); see the comment above
 
 CARBON_FRACTION_DM = 0.42  # standard literature fraction of plant dry matter that is carbon;
 # a general, widely-cited value, not Cycles-specific or site-specific.
@@ -2045,8 +2045,8 @@ SIXPOOL_DIAG = None  # optional list; when set, sixpool_step appends (cs_loss, r
 # - 7.6*RES_RESPIRED_C (kg N per Mg C), R^2 = 0.972, per-site mean residual under 25 kg N. Humified
 # share of decomposed residue C (HUMIFIED/(HUMIFIED+RES RESPIRED)) falls from ~0.53 at low Cs/Csx to
 # ~0.1 by Cs/Csx = 1: ~0.53*(1-r^12) (a flat eps_c*fH with exponent 6 gave 0.35 at r=0.7 and 0 at r>1).
-SIXPOOL_ML_N_A = 110.0  # was 186.8 (fit on respiration terms alone); 140 chosen 2026-10-07 on the 16-site table (N0 corn bias +1.44 -> +0.21, leaching 1.06 -> 0.90, wheat chain 0.25 -> 0.52) at a cost to fertilized corn (N150 bias -0.70 -> -1.01); see QUESTIONS_FOR_DEVS.md
-SIXPOOL_ML_N_B = 78.1
+SIXPOOL_ML_N_A = 82.0  # was 186.8 (fit on respiration terms alone); 140 chosen 2026-10-07 on the 16-site table (N0 corn bias +1.44 -> +0.21, leaching 1.06 -> 0.90, wheat chain 0.25 -> 0.52) at a cost to fertilized corn (N150 bias -0.70 -> -1.01); see QUESTIONS_FOR_DEVS.md
+SIXPOOL_ML_N_B = 25.0  # was 78.1 (fit on respiration terms); refit 2026-10-12 together with N_A and realized-growth root carbon on 28 sites run as one continuous Cycles-style chain
 SIXPOOL_ML_N_C = 7.6
 SIXPOOL_ML_EPS_H = 0.53
 # Clay-dependent humified fraction of decomposed residue (opt-in, 2026-10-07): (a, b) in a + b*(1-exp(-5.5*clay_frac)),
@@ -2784,31 +2784,14 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
 PLANT_MOISTURE_GATE = False   # opt-in; see simulate_season_with_leadin()
 
 
-def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant_window=(110, 131),
-                                plant_min_soil_t=12.0, carry_n=False, initial_mineral_n=None, **season_kwargs):
-    """Runs one target season preceded by `lead_years` real prior seasons of the SAME crop and
-    management, carrying real soil-water state forward (initial_layers/final_layers plus a bare-
-    fallow bridge from the last simulated day to year end), instead of resetting every layer to 50%
-    of plant-available water each January. Found 2026-10-02 (run_validation_multisite.py, 16 CONUS
-    sites vs native Cycles v1.4.4): Cycles carries deep-layer water across years, so a fresh start
-    per year starves sandy and dry sites (Carolina 2.3 vs Cycles 9.2 Mg/ha at 150 kg N). N=150
-    mean abs error across 16 sites: 1.95 (fresh) -> 1.38 (1 lead year) -> 1.31 (2 lead years) ->
-    1.31 (full 37-year chain), so two prior years capture the whole effect at 3x the compute.
-
-    carry_n=True (requires nh4_no3_split=True and background_n_model='sixpool' in season_kwargs)
-    ALSO carries the standing NH4/NO3 pools and the six-pool carbon state between seasons and runs
-    run_fallow_n_window() over the Jan-1-to-planting and harvest-to-Dec-31 gaps, so nitrate keeps
-    forming and being lost off-season the way it does in Cycles. weather_by_year is
-    {year: {doy: row}}. Returns the target year's simulate_season() result (plant_doy added; with
-    carry_n also fallow_n_leached/fallow_n_denitrified/fallow_n_volatilized for the target year's
-    own off-season windows). Years before the first available weather year are skipped, so early
-    years just get fewer lead years."""
+def _season_chain(weather_by_year, year_range, crop, plant_window, plant_min_soil_t, carry_n, initial_mineral_n, season_kwargs):
+    """Shared engine of simulate_season_with_leadin() and simulate_continuous(): yields (year, result) for each year in
+    year_range, carrying soil water, mineral N and six-pool carbon forward between years."""
     result = None
     layers = None
     nstate = None
     sixpool_state = None
-    first = min(weather_by_year)
-    for y in range(max(first, year - lead_years), year + 1):
+    for y in year_range:
         d = weather_by_year[y]
         doys = sorted(d)
         tsoil = simulate_soil_temp([(d[k]["tx"] + d[k]["tn"]) / 2 for k in doys], k=0.15)
@@ -2875,8 +2858,46 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
             result["end_n_state"] = dict(nstate)
         else:
             run_bare_fallow_window(layers, bridge, lat_deg=crop["lat_deg"], curve_number=season_kwargs.get("curve_number", 75.0), slope_pct=season_kwargs.get("slope_pct", 0.0), de_state=de_state)
+        yield y, result
+
+
+def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant_window=(110, 131),
+                                plant_min_soil_t=12.0, carry_n=False, initial_mineral_n=None, **season_kwargs):
+    """Runs one target season preceded by `lead_years` real prior seasons of the SAME crop and
+    management, carrying real soil-water state forward (initial_layers/final_layers plus a bare-
+    fallow bridge from the last simulated day to year end), instead of resetting every layer to 50%
+    of plant-available water each January. Found 2026-10-02 (run_validation_multisite.py, 16 CONUS
+    sites vs native Cycles v1.4.4): Cycles carries deep-layer water across years, so a fresh start
+    per year starves sandy and dry sites (Carolina 2.3 vs Cycles 9.2 Mg/ha at 150 kg N). N=150
+    mean abs error across 16 sites: 1.95 (fresh) -> 1.38 (1 lead year) -> 1.31 (2 lead years) ->
+    1.31 (full 37-year chain), so two prior years capture the whole effect at 3x the compute.
+
+    carry_n=True (requires nh4_no3_split=True and background_n_model='sixpool' in season_kwargs)
+    ALSO carries the standing NH4/NO3 pools and the six-pool carbon state between seasons and runs
+    run_fallow_n_window() over the Jan-1-to-planting and harvest-to-Dec-31 gaps, so nitrate keeps
+    forming and being lost off-season the way it does in Cycles. weather_by_year is
+    {year: {doy: row}}. Returns the target year's simulate_season() result (plant_doy added; with
+    carry_n also fallow_n_leached/fallow_n_denitrified/fallow_n_volatilized for the target year's
+    own off-season windows). Years before the first available weather year are skipped, so early
+    years just get fewer lead years."""
+    result = None
+    first = min(weather_by_year)
+    for _y, result in _season_chain(weather_by_year, range(max(first, year - lead_years), year + 1), crop, plant_window,
+                                    plant_min_soil_t, carry_n, initial_mineral_n, season_kwargs):
+        pass
     return result
 
+
+def simulate_continuous(weather_by_year, crop, years=None, plant_window=(110, 131), plant_min_soil_t=12.0, carry_n=False,
+                        initial_mineral_n=None, **season_kwargs):
+    """One continuous multi-year run from the first weather year (or years[0]), the way Cycles runs a 1980-2016 simulation:
+    soil water, mineral N and carbon carry across every year with no re-start. Returns {year: result}. Each year costs one
+    season, where simulate_season_with_leadin(lead_years=full) re-runs the whole history for every target year."""
+    yrs = sorted(weather_by_year) if years is None else list(years)
+    out = {}
+    for y, r in _season_chain(weather_by_year, yrs, crop, plant_window, plant_min_soil_t, carry_n, initial_mineral_n, season_kwargs):
+        out[y] = r
+    return out
 
 def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False,
                      n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
