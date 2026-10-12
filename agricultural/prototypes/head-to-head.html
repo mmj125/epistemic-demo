@@ -76,7 +76,7 @@
 <div class="panel">
   <div class="panel-header"><h2>Before you start</h2></div>
   <div class="panel-body">
-    <p><b>You need</b> a Cycles release on your machine, v1.4.4 or v1.5.x (the binary and its <code>input/</code> folder with <code>GenericCrops.crop</code>). Pick the matching version in step 2: the two use different input files, and v1.5 writes <code>.csv</code> output, which this page reads. Yield and timing agree closely between the two versions; nitrogen losses (leaching, denitrification, N<sub>2</sub>O) run higher in v1.5, see ACCURACY.md.</p>
+    <p><b>You need</b> the current Cycles release, v1.5.20 (the binary and its <code>input/</code> folder with <code>GenericCrops.crop</code>), or the Colab notebook in step 3, which fetches it for you. This page writes v1.5 input files and reads v1.5 <code>.csv</code> output.</p>
     <p><b>Where this engine is weak.</b> We would rather you read this first than discover it:</p>
     <ul style="font-size:13.5px;line-height:1.7;color:var(--ink-soft);margin:0 0 12px 18px;">
       <li>Fertilized corn (150 kg N/ha) across 16 sites: typical yearly grain error about 1.1 Mg/ha (about 13%), year-to-year correlation about 0.82. Unfertilized corn is much weaker (correlation about 0.3, yield level too high).</li>
@@ -112,7 +112,6 @@
     <p id="scenarioText"></p>
     <div class="controls">
       <div class="field"><label for="cropSel">Crop</label><select id="cropSel"><option value="corn">Corn (CornRM.90)</option><option value="soybean">Soybean (SoybeanMG.5)</option></select></div>
-      <div class="field"><label for="verSel">Cycles version</label><select id="verSel"><option value="144">v1.4.4</option><option value="15">v1.5.x (latest)</option></select></div>
       <div class="field" id="nField"><label for="nRate">Nitrogen (kg N/ha)</label><input type="number" id="nRate" value="150" min="0" max="400" step="10"></div>
       <div class="field"><label for="yFrom">First year</label><input type="number" id="yFrom" value="1980" min="1980" max="2016"></div>
       <div class="field"><label for="yTo">Last year</label><input type="number" id="yTo" value="2016" min="1980" max="2016"></div>
@@ -127,9 +126,9 @@
 <div class="panel">
   <div class="panel-header"><h2>3. Load your Cycles output</h2></div>
   <div class="panel-body">
-    <div style="border:1px solid var(--accent,#c60);border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:13px;"><b>Do not select the files you just downloaded.</b> The <code>.weather</code>, <code>.soil</code>, <code>.operation</code> and <code>.ctrl</code> files from step 2 are <i>inputs</i> for the Cycles program. This step needs what Cycles <i>writes after you run it on them</i>: a folder of <code>.txt</code> files (<code>harvest.txt</code>, <code>annualN.txt</code>, ...). You can produce them with the Colab notebook below or with your own copy of Cycles v1.4.4; this page does not include or run Cycles. Without Cycles you can still run step 4 to see the engine's own results.</div>
+    <div style="border:1px solid var(--accent,#c60);border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:13px;"><b>Do not select the files you just downloaded.</b> The <code>.weather</code>, <code>.soil</code>, <code>.operation</code> and <code>.ctrl</code> files from step 2 are <i>inputs</i> for the Cycles program. This step needs what Cycles <i>writes after you run it on them</i>: a folder of <code>.csv</code> files (<code>harvest.csv</code>, <code>annualN.csv</code>, ...). You can produce them with the Colab notebook below or with your own copy of Cycles v1.4.4; this page does not include or run Cycles. Without Cycles you can still run step 4 to see the engine's own results.</div>
     <p><b>No Cycles on your computer?</b> <a href="https://colab.research.google.com/github/mmj125/epistemic-demo/blob/main/agricultural/prototypes/run_cycles_colab.ipynb" target="_blank" rel="noopener">Open the Colab notebook</a>, choose Runtime &gt; Run all, pick the zip you downloaded in step 2, and it hands you back one output zip (needs a Google account, no install). Drop that zip below.</p>
-    <p><b>Cycles already installed?</b> Unzip the step 2 download into your Cycles folder (same version you picked in step 2) and run <code>run_cycles.bat</code> (Windows) or <code>bash run_cycles.sh</code> (Mac/Linux). It runs Cycles and makes a <code>*_output.zip</code>. Drop that zip below. You can also pick the individual <code>.txt</code> files or the whole <code>output/&lt;name&gt;</code> folder. Used: <code>harvest.txt</code> and <code>annualN.txt</code> for the comparison, <code>environ.txt</code> and <code>water.txt</code> to check Cycles read the same weather and soil, and the crop/N/water daily files for the overlay in step 5.</p>
+    <p><b>Cycles already installed?</b> Unzip the step 2 download into your Cycles v1.5.20 folder and run <code>run_cycles.bat</code> (Windows) or <code>bash run_cycles.sh</code> (Mac/Linux). It runs Cycles and makes a <code>*_output.zip</code>. Drop that zip below. You can also pick the individual <code>.csv</code> files or the whole <code>output/&lt;name&gt;</code> folder. Used: <code>harvest.csv</code> and <code>annualN.csv</code> for the comparison, <code>dailyEnviron.csv</code> and <code>dailyWater.csv</code> to check Cycles read the same weather and soil, and the crop/N/water daily files for the overlay in step 5.</p>
     <div class="controls" style="margin-bottom:6px;">
       <div class="field"><label for="outInput">Output files or a .zip of the output folder</label><input type="file" id="outInput" multiple></div>
       <div class="field"><label for="outDir">...or the whole output folder</label><input type="file" id="outDir" webkitdirectory></div>
@@ -4687,6 +4686,7 @@ function toV15(files, name, y0, y1) {
   return out;
 }
 function runScripts(name, ver) {
+  ver = 15;
   return [
     { name: "run_cycles.sh", text: `#!/bin/bash
 # Run from the Cycles v${ver === 15 ? "1.5" : "1.4.4"} folder (the one with the Cycles program and input/). Mac/Linux.
@@ -4728,6 +4728,7 @@ ammonium in your soil file are not used by the engine. Cycles is CC BY-NC-ND 4.0
 `;
 }
 function writeReadme(name, own, ver) {
+  ver = 15;
   const V = ver === 15 ? "1.5" : "1.4.4", F = ver === 15 ? "" : "-b ";
   return `Cycles input files written by the epistemic head-to-head page.
 
@@ -4772,7 +4773,6 @@ function makeZip(files) {
 function siteYears() { return currentSite && currentSite.years ? currentSite.years : [1980, 2016]; }
 function buildFiles() {
   const r = buildFilesV144();
-  if (document.getElementById("verSel").value !== "15") return r;
   const [ymin, ymax] = siteYears();
   const y0 = Math.max(ymin, Number(document.getElementById("yFrom").value) || ymin), y1 = Math.min(ymax, Number(document.getElementById("yTo").value) || ymax);
   return { name: r.name, files: toV15(r.files, r.name, y0, y1) };

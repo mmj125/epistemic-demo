@@ -1,21 +1,21 @@
-# Engine accuracy statement (2026-10-08)
+# Engine accuracy statement (re-baselined to Cycles v1.5.20, 2026-10-12)
 
-The from-scratch engine (`prototypes/cycles_engine_validate.py`) was compared with native Cycles v1.4.4 run on identical inputs: the same tile weather and STATSGO2 soil at 16 CONUS sites, continuous corn, 1980-2016. Differences are model error, not input error. Reproduce with `prototypes/run_validation_multisite.py` (about 80 s, needs a local Cycles v1.4.4 release in `/tmp/cycles-run`).
+The from-scratch engine (`prototypes/cycles_engine_validate.py`) was compared with native Cycles v1.5.20 (the current release) run on identical inputs: the same tile weather and STATSGO2 soil at 16 CONUS sites, continuous corn, 1980-2016. Differences are model error, not input error. Reproduce with `prototypes/run_validation_multisite.py` (about 80 s, needs a local Cycles v1.4.4 release in `/tmp/cycles-run`).
 
 ## Corn grain, 16 sites, mean over sites
 | Nitrogen rate | Mean absolute error | Year-to-year correlation | Sites with correlation 0.7 or better |
 |---|---|---|---|
-| 0 kg N/ha | 1.04 Mg/ha | 0.32 | 4 of 16 |
-| 150 kg N/ha | 1.11 Mg/ha (about 13%) | 0.82 | 13 of 16 |
-| 400 kg N/ha | 1.06 Mg/ha | 0.86 | 15 of 16 |
+| 0 kg N/ha | 1.03 Mg/ha | 0.33 | 4 of 16 |
+| 150 kg N/ha | 1.14 Mg/ha (about 14%) | 0.80 | 13 of 16 |
+| 400 kg N/ha | 1.09 Mg/ha | 0.87 | 15 of 16 |
 
-Water-limited sites (Kansas, Texas, Arkansas) are within a few percent of Cycles' mean yield. Humid sites run about 4 to 7% low.
+Overall engine mean yield is about 5% below Cycles' at 150 kg N/ha (7.66 vs 8.02 Mg/ha). The per-site statements from the v1.4.4 table (water-limited sites within a few percent, humid sites 4 to 7% low) have not been re-checked against v1.5.20.
 
-## Rock Springs sample scenarios
+## Rock Springs sample scenarios (still measured against v1.4.4 output, not yet re-run on v1.5.20)
 Corn 0.795, soybean 0.921, winter wheat 0.510 (9 harvests), silage corn 0.124. Only corn and soybean clear the classroom bar (about 0.6 to 0.7).
 
 ## Nitrogen losses at 150 kg N/ha
-Typical miss is a factor of about 3 (rms log error: leaching 1.28, denitrification 1.20, N2O 1.08, volatilization 0.98).
+Typical miss is a factor of about 3 to 4 (rms log error: leaching 1.34, denitrification 1.34, N2O 1.30, volatilization 0.98). Against v1.5.20 the engine's leaching, denitrification and N2O run low; its rates were fitted to v1.4.4, which loses less nitrogen than v1.5.
 
 ## Known weak spots
 - Unfertilized corn: yield level overshoots (+0.5 Mg/ha) and years are poorly ranked (correlation 0.32).
@@ -29,10 +29,10 @@ See `prototypes/QUESTIONS_FOR_DEVS.md` for every mechanism tested against this t
 
 ## Cycles v1.4.4 versus v1.5.20 (2026-10-12)
 
-All numbers above were measured against v1.4.4. To see whether that matters, `prototypes/compare_cycles_versions.py` runs both versions on identical inputs at the same 16 sites (continuous corn, N=0 and N=150, 1980-2016). v1.5 needs its own input format, so the script translates the files; v1.5 also has two soil inputs v1.4.4 lacks (rock fraction set to 0, pH set to 6.5). Note that `-b` means "batch" in v1.4.4 but "set a break point" in v1.5, so the v1.5 runs use no flag.
+The numbers above are against v1.5.20. Earlier work was measured against v1.4.4; to see whether that mattered, `prototypes/compare_cycles_versions.py` runs both versions on identical inputs at the same 16 sites (continuous corn, N=0 and N=150, 1980-2016). v1.5 needs its own input format, so the script translates the files; v1.5 also has two soil inputs v1.4.4 lacks (rock fraction set to 0, pH set to 6.5). Note that `-b` means "batch" in v1.4.4 but "set a break point" in v1.5, so the v1.5 runs use no flag.
 
 - Yield and phenology agree: mean grain ratio v1.5/v1.4.4 is 0.996 (N=0) and 0.998 (N=150); year-to-year correlation between the two versions averages 0.96 or better; planting day within 0.3 days.
 - Nitrogen losses (N=150) differ: leaching +40%, denitrification +30%, nitrous oxide +54%, volatilization -3%. The gap is concentrated at the wet, fine-textured sites (Iowa leaching 41 vs 63 kg N/ha, denitrification 52 vs 79; Minnesota denitrification 64 vs 87; Arkansas leaching 12 vs 21).
 - The differences are model changes in v1.5, not input differences: changing the pH input (5.5, 6.5, 7.5) leaves every output identical, and rock fraction is set to 0, as in v1.4.4. (Other hydrology options change leaching and denitrification much more, 0: leaching 117, denitrification 19; 2: 107 and 37, at Iowa N=150, but option 1 is what the v1.4.4 hourly-infiltration setting maps to in the v1.5 sample files.)
 
-So the yield comparison does not depend on the version, but the nitrogen-loss comparison does. The head-to-head page now exports either format (a version selector in step 2), reads v1.5 `.csv` output, and the Colab notebook picks the matching Cycles release from the files it is given. Tested end to end against v1.5.20 for corn and soybean at central Iowa.
+So the yield comparison does not depend on the version, but the nitrogen-loss comparison does. The head-to-head page now writes v1.5 input files and reads v1.5 `.csv` output only, and the Colab notebook fetches v1.5.20. Tested end to end against v1.5.20 for corn and soybean at central Iowa. The table above is the 16-site run against v1.5.20 (the earlier v1.4.4 figures were N=0 1.04 Mg/ha and 0.32, N=150 1.11 and 0.82, N=400 1.06 and 0.86).
