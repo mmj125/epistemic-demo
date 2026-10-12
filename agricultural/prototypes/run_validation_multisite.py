@@ -37,6 +37,11 @@ SITES=dict(rock_springs=fd.PRESET_SITES["rock_springs"],iowa=fd.PRESET_SITES["io
            nebraska=(41.0,-98.0),illinois=(40.2,-89.0),ohio=(40.5,-83.5),minnesota=(44.5,-94.5),
            georgia=(32.5,-83.5),texas=(32.0,-97.5),michigan=(43.0,-84.5),carolina=(35.2,-79.0),
            missouri=(38.5,-92.5),indiana=(40.0,-86.5),arkansas=(35.0,-91.5),wisconsin=(44.0,-89.5))
+# 12 held-out sites (added 2026-10-12): never used in any fit; HELDOUT=1 swaps them in for the 16 tuning sites
+HELDOUT_SITES=dict(south_dakota=(44.0,-97.5),north_dakota=(47.0,-97.5),iowa_west=(41.8,-95.8),colorado=(40.2,-103.5),
+                   oklahoma=(36.2,-97.5),kentucky=(37.5,-85.5),tennessee=(35.8,-88.9),mississippi=(33.5,-90.8),
+                   louisiana=(31.0,-92.0),alabama=(32.5,-86.5),virginia=(37.5,-77.5),new_york=(42.8,-76.5))
+if os.environ.get("HELDOUT")=="1": SITES=HELDOUT_SITES
 N_LEVELS=[int(x) for x in os.environ.get('N_LEVELS','0,150').split(',')]
 def lat_of(lat,lon):
     m=fd.load_manifest(); _,_,k=fd.tile_for_point(lat,lon); d,e=fd.load_tile_bytes(m,k)

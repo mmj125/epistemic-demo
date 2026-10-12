@@ -11,8 +11,22 @@ The from-scratch engine (`prototypes/cycles_engine_validate.py`) was compared wi
 
 Overall engine mean yield is about 5% below Cycles' at 150 kg N/ha (7.66 vs 8.02 Mg/ha). The per-site statements from the v1.4.4 table (water-limited sites within a few percent, humid sites 4 to 7% low) have not been re-checked against v1.5.20.
 
-## Rock Springs sample scenarios (still measured against v1.4.4 output, not yet re-run on v1.5.20)
-Corn 0.795, soybean 0.921, winter wheat 0.510 (9 harvests), silage corn 0.124. Only corn and soybean clear the classroom bar (about 0.6 to 0.7).
+## Held-out sites (12 sites never used in any fit, 2026-10-12)
+Same harness, no refitting, 12 further CONUS sites (South Dakota, North Dakota, western Iowa, Colorado, Oklahoma, Kentucky, Tennessee, Mississippi, Louisiana, Alabama, Virginia, New York). Fertilized corn and the nitrogen-loss pathways generalize; unfertilized corn does not.
+
+| Measure | 16 tuning sites | 12 held-out sites |
+|---|---|---|
+| Grain, 150 kg N/ha, mean absolute error | 1.24 Mg/ha | 1.03 Mg/ha |
+| Grain, 150 kg N/ha, correlation (sites at 0.7 or better) | 0.80 (13 of 16) | 0.76 (9 of 12) |
+| Grain, 150 kg N/ha, mean bias | -0.50 | -0.51 |
+| Grain, 0 kg N/ha, mean absolute error | 0.86 Mg/ha | 1.44 Mg/ha |
+| Grain, 0 kg N/ha, mean bias | +0.01 | +0.63 |
+| rms log error: leaching / volatilization / denitrification / N2O | 1.14 / 0.46 / 0.86 / 0.96 | 1.13 / 0.52 / 0.58 / 0.91 |
+
+The unfertilized result is partly overfit: at the new sites the engine overshoots where Cycles' crop is starved (New York 8.3 vs 4.7, Kentucky 5.2 vs 3.2, North Dakota 4.9 vs 2.9 Mg/ha). Weakest fertilized sites: New York (correlation 0.28), Louisiana (0.50), Alabama (0.59).
+
+## Rock Springs sample scenarios, measured against v1.5.20 (2026-10-12)
+Corn 0.732, soybean 0.875, winter wheat 0.338 (12 harvests), silage corn 0.827 (13 harvests). Means: corn 11.45 vs Cycles 10.14 Mg/ha, wheat 3.88 vs 2.69 (crop calibration factors were set against v1.4.4 means and have not been re-derived; correlation does not depend on them). Against v1.4.4 the same scenarios were 0.795, 0.921, 0.510 and 0.124. Corn, soybean and silage corn clear the classroom bar (about 0.6 to 0.7); wheat does not. Reproduce with `prototypes/make_ref15.py` and `REF_DIR=/tmp/cycles-ref15`.
 
 ## Nitrogen losses at 150 kg N/ha
 Typical miss: denitrification and nitrous oxide are now within a factor of about 2 to 2.8 after the 2026-10-12 refit to v1.5.20 (rms log error: denitrification 0.86, N2O 1.02); volatilization was refit the same day with a topsoil moisture term and fell from 0.95 to 0.46 (Kansas 21 vs 76 and Georgia 38 vs 20 kg N/ha are the largest misses); leaching (1.40) is still off by a factor of about 4. Before the refit (rates fitted to v1.4.4) the figures were leaching 1.34, denitrification 1.34, N2O 1.30, volatilization 0.98. The refit changed the denitrification saturation exponent from 7 to 3 (v1.5 depends less steeply on wetness), slowed nitrification, and raised the N2O fractions; corn grain is unchanged (N=150 error 1.17 Mg/ha, correlation 0.80). What remains is in the nitrogen pools and processes, not the rate constants: volatilization at the dry sites (Kansas 76 vs 8 kg N/ha, Carolina 23 vs 6, Georgia 20 vs 8), denitrification at wet sites (Minnesota 87 vs 28, Texas 36 vs 7), and leaching at Arkansas (21 vs 3.5).
