@@ -3952,7 +3952,7 @@ def nitrification_rate(tsoil):
     return max(0.0, min(1.0, NITRIF_RMAX / (1.0 + math.exp(-NITRIF_K * (tsoil - NITRIF_T0)))))
 
 
-VOLATILIZATION_RATE_A = 1.7123583682683128e-05  # back-calculated a second time, 2026-10-02,
+VOLATILIZATION_RATE_A = 1.1e-05  # back-calculated a second time, 2026-10-02,
 # same session, directly asked by Matt: "Compare the NH4 trajectory against Cycles' real
 # column." Did exactly that (real N.txt PROF SOIL NH4 vs this engine's own day-by-day n_nh4
 # for the ContinuousCorn 2012 scenario) and found the pool TRAJECTORY itself is close to a
@@ -4002,8 +4002,8 @@ VOLATILIZATION_RATE_A = 1.7123583682683128e-05  # back-calculated a second time,
 # mechanism (e.g. the fwc/evaporation proxies). Concrete next step if revisited: check whether
 # adding a third variable (days-since-application, soil moisture) explains more of the
 # remaining log-space variance than NH4 concentration alone does.
-VOLATILIZATION_RATE_B = 0.20628423305907934
-VOLATILIZATION_RATE_C = 0.022823629745439243  # the new NH4-concentration term, kg N/ha^-1;
+VOLATILIZATION_RATE_B = 0.1515
+VOLATILIZATION_RATE_C = -0.0034  # the new NH4-concentration term, kg N/ha^-1;
 # see VOLATILIZATION_RATE_A's own docstring for the full derivation. This replaces, as the
 # now-better-grounded mechanism, this engine's two prior volatilization approximations: a flat
 # IPCC Tier-1 default (NH3_FRAC_SYNTHETIC/NH3_FRAC_MANURE, a single number regardless of
@@ -4014,10 +4014,15 @@ VOLATILIZATION_RATE_C = 0.022823629745439243  # the new NH4-concentration term, 
 # soil_ph in simulate_season()'s own docstring: they're kept, not removed, as the documented,
 # simpler fallback for a caller running the lumped (non-split) mineral-N pool, where no real
 # NH4 state exists for this continuous mechanism to act on.
-VOLATILIZATION_RATE_NH4_CAP = 300.0
+VOLATILIZATION_RATE_NH4_CAP = 100.0
+# Topsoil moisture term (2026-10-12, refit on Cycles v1.5.20 daily output, 16 sites, N150): the implied daily
+# rate scales as theta1^-1.65 (dry topsoil volatilizes far more: Georgia/Kansas 0.002-0.007/day vs Iowa 0.0003 at
+# matched temperature). Pooled log-linear fit R2 0.68 -> 0.80. ln A = -12.6176, B = 0.1515/C, C = -0.0034 per kg/ha.
+VOLATILIZATION_RATE_D = -1.6508
+VOLATILIZATION_THETA_DEFAULT = 0.25
 
 
-def volatilization_rate(tsoil, nh4_kg_ha):
+def volatilization_rate(tsoil, nh4_kg_ha, theta1=None):
     """Real, back-calculated daily fraction of the NH4 pool volatilized as ammonia, as a
     function of BOTH topsoil temperature and the pool's own current concentration -- see
     VOLATILIZATION_RATE_A's own docstring for the full derivation and why concentration
@@ -4025,8 +4030,10 @@ def volatilization_rate(tsoil, nh4_kg_ha):
     before use to avoid extrapolating past the real fitted range. Clamped to [0, 1]
     defensively."""
     nh4_capped = min(nh4_kg_ha, VOLATILIZATION_RATE_NH4_CAP)
+    th = max(0.03, theta1 if theta1 is not None else VOLATILIZATION_THETA_DEFAULT)
     return max(0.0, min(1.0, VOLATILIZATION_RATE_A * math.exp(
-        VOLATILIZATION_RATE_B * tsoil + VOLATILIZATION_RATE_C * nh4_capped)))
+        VOLATILIZATION_RATE_B * tsoil + VOLATILIZATION_RATE_C * nh4_capped
+        + VOLATILIZATION_RATE_D * math.log(th))))
 
 
 
@@ -4084,7 +4091,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             sixpool_state["n_min"] = nstate["n_nh4"] + nstate["n_no3"]
             nstate["n_nh4"] = max(0.0, nstate["n_nh4"] + sixpool_step(sixpool_state, tmean, relwet, 0.0, 1.0, layers))
         nit = nstate["n_nh4"] * nitrification_rate(nstate["tsoil_lag"])
-        vol = (nstate["n_nh4"] * volatilization_rate(nstate["tsoil_lag"], nstate["n_nh4"])
+        vol = (nstate["n_nh4"] * volatilization_rate(nstate["tsoil_lag"], nstate["n_nh4"], layers[0]["theta"])
                if model_volatilization else 0.0)
         nstate["n_nh4"] = max(0.0, nstate["n_nh4"] - nit - vol)
         nstate["n_no3"] += nit
@@ -4965,7 +4972,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             # explicit-Euler approximation, the same one already used for every other daily
             # rate in this engine.
             nitrif_amt_today = n_nh4 * nitrification_rate(tsoil_lag)
-            volat_amt_today = n_nh4 * volatilization_rate(tsoil_lag, n_nh4) if model_volatilization else 0.0
+            volat_amt_today = n_nh4 * volatilization_rate(tsoil_lag, n_nh4, layers[0]["theta"]) if model_volatilization else 0.0
             n_nh4 = max(0.0, n_nh4 - nitrif_amt_today - volat_amt_today)
             n_no3 += nitrif_amt_today
             n2o_total += n2o_from_nitrification(nitrif_amt_today)
