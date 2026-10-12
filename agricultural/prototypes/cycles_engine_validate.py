@@ -96,9 +96,10 @@ run the real binary once to get real output to compare against, and point
 REFERENCE_DATA_DIR below at that directory.
 """
 import copy
+import os
 import math
 
-REFERENCE_DATA_DIR = "/tmp/cycles-run"  # set to a local Cycles v1.4.4 sample directory to reproduce validation
+REFERENCE_DATA_DIR = os.environ.get("REF_DIR", "/tmp/cycles-run")  # set to a local Cycles v1.4.4 sample directory to reproduce validation
 
 # Calibration factors live per-crop, in each crop's own dict (see module docstring).
 
