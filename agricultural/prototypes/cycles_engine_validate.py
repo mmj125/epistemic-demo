@@ -1583,7 +1583,10 @@ def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
 # re-running run_validation.py / run_validation_rotation2.py unchanged.
 N_UPTAKE_RATE_PER_DAY = None  # None = uptake limited only by demand (validated default); else also capped at this fraction/day of the reachable mineral N pool (nitrate_per_layer path)
 N_DEMAND_SCALE = 0.75  # fraction of the critical-curve marginal N demand the crop actually takes up: Cycles Iowa corn at 150 kg N holds 224 kg N/ha at maturity vs 295 for the full curve (0.76); unstressed whole-plant concentration runs 0.63-0.9 of the curve across growth (run_validation_multisite.py, 2026-10-02)
+CANOPY_N_COEF = 0.0  # fraction of nitrogen stress passed to the canopy clock (0 = off); Cycles' N-stressed corn keeps interception near 0.12 vs 0.9 unstressed (Missouri N0, 2026-10-12)
 N_STRESS_FULL_RATIO = 0.06
+N_STRESS_FLOOR_RATIO = 0.2  # below N_STRESS_KNEE_RATIO the stress factor falls linearly to 0 at this ratio instead of at N_STRESS_FULL_RATIO (0 = off); Cycles corn never dilutes below ~0.2 of the critical curve
+N_STRESS_KNEE_RATIO = 0.3
 N_STRESS_ZERO_RATIO = 0.62
 NCRIT_FLOOR_MGHA = 1.0  # dilution curve is flat (at N_MAX_CONCENTRATION) below this biomass; standard convention
 
@@ -3353,6 +3356,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                else None)
 
     tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
+    tt_canopy, n_stress_prev = 0.0, 1.0
     ag_biomass_at_flowering = None  # captured the first day tt_cum crosses flowering_tt --
     # see the real f_G harvest-index fix below (Kemanian et al. 2007) for why.
     n_tracking_active = (not crop.get("legume", False)) and (
@@ -3568,11 +3572,12 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             break
         dtt = thermal_time_increment(w["tx"], w["tn"], crop["base_t"], crop["opt_t"], crop["max_t"])
         tt_cum += dtt
+        tt_canopy += dtt * (1.0 - CANOPY_N_COEF * (1.0 - n_stress_prev))
         ttf = tt_cum / crop["tt_maturity"]
         if ttf >= harvest_ttf:
             break
         eie = 0.0 if tt_cum < crop.get("tt_emergence", 0.0) else effective_canopy_cover(
-            canopy_cover(ttf, crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE)),
+            canopy_cover(tt_canopy / crop["tt_maturity"], crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE)),
             crop.get("plant_density_factor", 1.0))
         root_depth = root_max_m * min(1.0, ttf / 0.5)
 
@@ -3775,7 +3780,11 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                             else crop["n_max_conc"] * 100)
             _ratio = n_actual_pct / n_crit_pct if n_crit_pct > 0 else 1.0
             n_stress = max(0.0, min(1.0, (_ratio - N_STRESS_FULL_RATIO) / (N_STRESS_ZERO_RATIO - N_STRESS_FULL_RATIO)))
+            if N_STRESS_FLOOR_RATIO > 0.0 and _ratio < N_STRESS_KNEE_RATIO:
+                _knee = (N_STRESS_KNEE_RATIO - N_STRESS_FULL_RATIO) / (N_STRESS_ZERO_RATIO - N_STRESS_FULL_RATIO)
+                n_stress = max(0.0, _knee * (_ratio - N_STRESS_FLOOR_RATIO) / (N_STRESS_KNEE_RATIO - N_STRESS_FLOOR_RATIO))
             dGB_n_limited = dGB_water_limited * n_stress
+            n_stress_prev = n_stress
             demand_today_kg_ha = dGB_n_limited * 100 * n_marginal_demand_pct(biomass * 10, crop) * N_DEMAND_SCALE
             if n_pool_by_layer is not None:
                 # Real CropSyst-style min(demand, potential_uptake) (Eq. 26, Stockle/Martin/
