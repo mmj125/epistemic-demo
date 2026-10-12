@@ -33,6 +33,6 @@ All numbers above were measured against v1.4.4. To see whether that matters, `pr
 
 - Yield and phenology agree: mean grain ratio v1.5/v1.4.4 is 0.996 (N=0) and 0.998 (N=150); year-to-year correlation between the two versions averages 0.96 or better; planting day within 0.3 days.
 - Nitrogen losses (N=150) differ: leaching +40%, denitrification +30%, nitrous oxide +54%, volatilization -3%. The gap is concentrated at the wet, fine-textured sites (Iowa leaching 41 vs 63 kg N/ha, denitrification 52 vs 79; Minnesota denitrification 64 vs 87; Arkansas leaching 12 vs 21).
-- Not yet separated: whether the nitrogen-loss differences come from model changes in v1.5 or from the two new soil inputs.
+- The differences are model changes in v1.5, not input differences: changing the pH input (5.5, 6.5, 7.5) leaves every output identical, and rock fraction is set to 0, as in v1.4.4. (Other hydrology options change leaching and denitrification much more, 0: leaching 117, denitrification 19; 2: 107 and 37, at Iowa N=150, but option 1 is what the v1.4.4 hourly-infiltration setting maps to in the v1.5 sample files.)
 
-So the yield comparison does not depend on the version, but the nitrogen-loss comparison does. The head-to-head page still exports v1.4.4 input files only.
+So the yield comparison does not depend on the version, but the nitrogen-loss comparison does. The head-to-head page now exports either format (a version selector in step 2), reads v1.5 `.csv` output, and the Colab notebook picks the matching Cycles release from the files it is given. Tested end to end against v1.5.20 for corn and soybean at central Iowa.
