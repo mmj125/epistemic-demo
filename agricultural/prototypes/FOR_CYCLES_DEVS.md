@@ -16,7 +16,7 @@ Short version: a from-scratch Python engine, built only from the published Cycle
 
 ## Where it is weak (please confirm or correct)
 - Unfertilized corn: error about 0.9 Mg/ha, correlation 0.56 to 0.68.
-- Nitrogen losses: leaching about 4x off; volatilization badly off at dry sites (Kansas 21 vs 76 kg N/ha); denitrification within about 2x.
+- Nitrogen losses: mean levels now match Cycles across 16 sites at 150 kg N/ha (leaching 8.8 vs 9.0, denitrification 17 vs 21, N2O 4.2 vs 3.7 kg N/ha), and sites rank the same way (rank correlation 0.7 to 0.9). Site-level scatter remains: Kansas denitrification 46 vs 8 and volatilization 24 vs 76, Texas denitrification 7 vs 36, Arkansas leaching 3 vs 21.
 - Winter wheat does not meet our classroom bar. Pasture and cover crops are not validated.
 
 ## Questions where your answer would help most
