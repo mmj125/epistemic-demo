@@ -1883,6 +1883,7 @@ def tillage_dr_decay(layers, max_rate_per_day=0.02):
 # i.e. roots return more carbon than their final standing biomass (in-season turnover/rhizodeposition).
 # The engine's root carbon input only credited the final root biomass, ~0.6x of Cycles' (found 2026-10-07).
 ROOT_C_INPUT_FACTOR = 5.0 / 3.0
+SIXPOOL_ROOT_HARVEST_FRAC = 0.0  # share of each season's root carbon held back and credited as one pulse at harvest (Cycles' root residue pool jumps at harvest: Indiana 0.22 Mg C/ha in July, 0.69 in September); 0.0 = daily in-season input (old behavior)
 # Root carbon input is sized from water-limited growth (False, shipped) or from growth after N stress (True, the
 # physically correct version). Found 2026-10-12: with N stress ignored, the engine fed 2.3 Mg C/ha of root carbon to
 # the six-pool state for a 0.74 Mg/ha N-starved crop (Indiana N=0), so low-nitrogen sites immobilized too much N.
@@ -3373,6 +3374,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     runoff_total = 0.0
 
     sixpool_state = None
+    root_c_buffer = 0.0
     if background_n_model == "sixpool":
         if sixpool_initial_state is not None:
             sixpool_state = copy.deepcopy(sixpool_initial_state)  # never mutate the caller's own
@@ -3825,6 +3827,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                                    if layers[0]["fc"] > layers[0]["pwp"] else 1.0)
                 root_c_input_today = (10.0 * dGB_water_limited * (n_stress_prev if ROOT_C_REALIZED_GROWTH else 1.0) * (1.0 - shoot_fraction(ttf, crop["fsti"], crop["fstf"]))
                                        * CARBON_FRACTION_DM * ROOT_C_INPUT_FACTOR)
+                if SIXPOOL_ROOT_HARVEST_FRAC:
+                    root_c_buffer += root_c_input_today * SIXPOOL_ROOT_HARVEST_FRAC
+                    root_c_input_today *= (1.0 - SIXPOOL_ROOT_HARVEST_FRAC)
                 ft_eff = 1.0 + tillage_ft(tillage_dr, tillage_ftx_val)
                 sixpool_state["n_min"] = ((n_nh4 or 0.0) + (n_no3 or 0.0)) if n_nh4 is not None else n_pool
                 background_today = sixpool_step(sixpool_state, tmean, relwet_topsoil, root_c_input_today, ft_eff, layers)
@@ -4035,6 +4040,11 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # nothing was ever returning carbon that the live crop's own root growth didn't already
         # provide. See sixpool_offseason_decay's own docstring for the other half of this fix
         # (letting it decompose for real before the next season, not carry forward untouched).
+        if SIXPOOL_ROOT_HARVEST_FRAC and root_c_buffer > 0 and "ml" in sixpool_state:
+            _wts = [math.exp(-x["zmid"] / SIXPOOL_ML_ROOT_DECAY_M) * (x["z0"] >= 0) for x in sixpool_state["ml"]]
+            _ws = sum(_wts) or 1.0
+            for _x, _w in zip(sixpool_state["ml"], _wts):
+                _x["crtz"] += root_c_buffer * _w / _ws
         ag_residue_mg_ha = max(0.0, ag_biomass_mg_ha - grain_mg_ha)
         sixpool_state["cra"] = sixpool_state.get("cra", 0.0) + ag_residue_mg_ha * CARBON_FRACTION_DM
         # Reset cra_age to 0 whenever fresh stover lands -- see CRA_MATURATION_TAU_DAYS's own
