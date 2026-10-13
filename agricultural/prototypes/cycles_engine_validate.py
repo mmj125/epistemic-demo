@@ -271,6 +271,7 @@ def cn_wet(cnb):
     return cnb / (0.4 + 0.006 * cnb)
 
 
+FWC_NO_UPPER_CLIP = False  # step 2: let a layer above field capacity count above 1 (Cycles does); only the total is capped at 1
 FWC_THICKNESS_WEIGHT = False  # step 2 test: weight whole layers above 0.6 m by thickness only (no 1/z)
 
 
@@ -315,14 +316,15 @@ def depth_weighted_ffc(layers, depth_m=0.6):
         if z > depth_m + 1e-9:
             break
         ffc_l = (l["theta"] - l["pwp"]) / (l["fc"] - l["pwp"]) if l["fc"] > l["pwp"] else 0.0
-        ffc_l = max(0.0, min(1.0, ffc_l))
+        ffc_l = max(0.0, ffc_l if FWC_NO_UPPER_CLIP else min(1.0, ffc_l))
         w = (z - z_prev) / z if z > 0 else 0.0
         if FWC_THICKNESS_WEIGHT:
             w = z - z_prev
         weighted_sum += ffc_l * w
         weight_total += w
         z_prev = z
-    return weighted_sum / weight_total if weight_total > 0 else 0.0
+    r = weighted_sum / weight_total if weight_total > 0 else 0.0
+    return min(1.0, r) if FWC_NO_UPPER_CLIP else r
 
 
 def retention_param_mm(layers, curve_number):
