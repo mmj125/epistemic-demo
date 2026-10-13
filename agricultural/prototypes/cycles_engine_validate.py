@@ -1468,7 +1468,7 @@ CO2_PPM_BY_YEAR = {
 CO2_REF_PPM = 368.299
 
 
-THERMAL_TIME_SUBDAILY = False  # 2026-10-13: integrate the development rate over a within-day temperature curve (24 hourly points,
+THERMAL_TIME_SUBDAILY = True  # 2026-10-13: integrate the development rate over a within-day temperature curve (24 hourly points,
 # sinusoid between tn and tx peaking at 15:00) instead of evaluating it once at the daily mean. Against Cycles v1.5.20's own
 # thermal_time column (corn, 7 sites, 17 years) the daily-mean method runs 2-14% high (Kansas +14%, Texas +11%, Rock Springs +2%),
 # the 24-point integral within 0.2-0.8% everywhere.
