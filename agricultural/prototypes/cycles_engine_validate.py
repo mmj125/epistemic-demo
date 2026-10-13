@@ -2369,6 +2369,18 @@ def n_conc_layer1(layers, nh4_kg_ha, no3_layers, no3_total):
     return ((nh4_kg_ha or 0.0) + no3_0) / mass
 
 
+SIXPOOL_N_LIMIT_PER_LAYER = False  # use each layer's own nitrate concentration (NH4 stays with layer 1) instead of layer 1's for every layer
+
+
+def n_conc_layers(layers, nh4_kg_ha, no3_layers, no3_total):
+    out = []
+    for i, l in enumerate(layers):
+        mass = sixpool_bulk_density(l["sat"]) * l["thick"] * 10.0
+        no3_i = no3_layers[i] if no3_layers is not None else (no3_total if i == 0 else 0.0)
+        out.append((((nh4_kg_ha or 0.0) if i == 0 else 0.0) + no3_i) / mass)
+    return out
+
+
 SIXPOOL_NET_MULT = 1.0  # multiplier on the per-layer net N flux (2026-10-13 emulator test: scaled per site to a regression or Cycles' own site mean)
 SIXPOOL_ML_STOICH = False  # per-layer mode: return explicit-stoichiometry net N (released - immobilized at each pool's C:N) instead of the fitted regression (2026-10-13 test)
 
@@ -2545,6 +2557,8 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
         relwet = ((l["theta"] - l["pwp"]) / (l["fc"] - l["pwp"]) if l["fc"] > l["pwp"] else 1.0)
         sub["n_min"] = state.get("n_min")
         sub["n_conc1"] = state.get("n_conc1")
+        if SIXPOOL_N_LIMIT_PER_LAYER and state.get("n_conc_layers") is not None and i > 0:
+            sub["n_conc1"] = state["n_conc_layers"][i]
         if i == 0:
             sub["cra"], sub["crm"], sub["cra_age"] = state["cra"], state["crm"], state["cra_age"]
         ft = ft_eff if sub["z0"] < SIXPOOL_ML_TILL_DEPTH_M else 1.0
@@ -2982,6 +2996,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
                       if layers[0]["fc"] > layers[0]["pwp"] else 1.0)
             sixpool_state["n_min"] = nstate["n_nh4"] + nstate["n_no3"]
             sixpool_state["n_conc1"] = n_conc_layer1(layers, nstate["n_nh4"], no3_layers, nstate["n_no3"])
+            sixpool_state["n_conc_layers"] = n_conc_layers(layers, nstate["n_nh4"], no3_layers, nstate["n_no3"])
             nstate["n_nh4"] = max(0.0, nstate["n_nh4"] + sixpool_step(sixpool_state, tmean, relwet, 0.0, 1.0, layers))
         if NITRIF_FE:
             _rw = ((layers[0]["theta"] - layers[0]["pwp"]) / (layers[0]["fc"] - layers[0]["pwp"])
@@ -4046,6 +4061,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 ft_eff = 1.0 + tillage_ft(tillage_dr, tillage_ftx_val)
                 sixpool_state["n_min"] = ((n_nh4 or 0.0) + (n_no3 or 0.0)) if n_nh4 is not None else n_pool
                 sixpool_state["n_conc1"] = n_conc_layer1(layers, n_nh4 if n_nh4 is not None else 0.0, no3_layers, (n_no3 or 0.0) if n_nh4 is not None else n_pool)
+                sixpool_state["n_conc_layers"] = n_conc_layers(layers, n_nh4 if n_nh4 is not None else 0.0, no3_layers, (n_no3 or 0.0) if n_nh4 is not None else n_pool)
                 background_today = sixpool_step(sixpool_state, tmean, relwet_topsoil, root_c_input_today, ft_eff, layers)
                 # background_today can now be genuinely negative (net immobilization -- see
                 # sixpool_step()'s own docstring, 2026-10-02) -- floored at 0 here because a
