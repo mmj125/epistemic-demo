@@ -590,11 +590,29 @@ CROPSYST_AIRDRY_FRAC = 1.0 / 3.0
 # including the fallow/off-season windows simulate_season() does not pass use_cropsyst_formula to, through the
 # CropSyst formula. Added 2026-10-06 to test it against Cycles' layer-1 drying at Iowa.
 FORCE_CROPSYST_EVAP = True
+EVAP_LAW_CYCLES = False   # 2026-10-13: bare-soil evaporation law identified from designed experiments on Cycles v1.5.20 (see soil_evaporation_cycles)
+EVAP_LAW_PARAMS = (0.25, 0.85, 3.5)   # air-dry as a fraction of wilting point, critical water content as a fraction of field capacity, exponent
 SOIL_EVAP_SCALE = 0.9  # multiplier on the potential soil-evaporation demand (tested 2026-10-13)
 
 
+def soil_evaporation_cycles(layers, pot_evap_mm, theta_start):
+    """Bare-soil evaporation as measured on Cycles v1.5.20 with designed dry-down experiments (bare field, real
+    atmosphere, one wetting then no rain, 9 soils x 2 wetting sizes, 3,388 days): evaporation takes only layer 1 water,
+    runs at the full potential rate while layer 1 holds at least b*fc at the START of the day (before that day's rain),
+    then falls as ((theta - a*pwp) / (b*fc - a*pwp))^n, to zero at a*pwp. Fitted a=0.25, b=0.85, n=3.5 (rms 0.049 of the
+    evaporation/ETo ratio; the CropSyst-style law this replaces: 0.49)."""
+    l0 = layers[0]
+    a, b, n = EVAP_LAW_PARAMS
+    tc, ta = b * l0["fc"], a * l0["pwp"]
+    ratio = 1.0 if theta_start >= tc else max(0.0, (theta_start - ta) / (tc - ta)) ** n
+    avail = max(0.0, (l0["theta"] - ta) * l0["thick"] * 1000)
+    evap = min(ratio * pot_evap_mm, avail)
+    l0["theta"] -= evap / (l0["thick"] * 1000)
+    return evap
+
+
 def soil_evaporation(layers, eto_mm, canopy_cover_frac, precip_mm=0.0, de_state=None,
-                      use_cropsyst_formula=False, fallow=False, summer_time=False):
+                      use_cropsyst_formula=False, fallow=False, summer_time=False, theta_start=None):
     """Bare-soil/residue evaporation. When de_state is given (a dict with 'de'/'tew'/'rew'
     keys, mutated in place across calls to track depletion since the surface was last wetted),
     today's potential demand is reduced by the real FAO-56 two-stage evaporation-reduction
@@ -628,6 +646,8 @@ def soil_evaporation(layers, eto_mm, canopy_cover_frac, precip_mm=0.0, de_state=
     "NOT YET VALIDATED" note before relying on it for anything real."""
     l0 = layers[0]
     demand_mm = eto_mm * (1 - canopy_cover_frac) * SOIL_EVAP_SCALE
+    if EVAP_LAW_CYCLES and theta_start is not None:
+        return soil_evaporation_cycles(layers, demand_mm, theta_start)
     if use_cropsyst_formula or FORCE_CROPSYST_EVAP:
         return soil_evaporation_cropsyst(layers, demand_mm, fallow=fallow, summer_time=summer_time)
     if de_state is not None:
@@ -825,10 +845,11 @@ def run_bare_fallow_window(layers, rows, curve_number=75.0, slope_pct=0.0, lat_d
     simulate_season()'s own spinup block itself uses when it isn't given one either."""
     total_drainage = 0.0
     for w in rows:
+        _th1_0 = layers[0]["theta"]
         drainage_mm, _, _ = infiltrate(layers, w["pp"], curve_number, slope_pct)
         total_drainage += drainage_mm
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], lat_deg)
-        soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state,
+        soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state, theta_start=_th1_0,
                           use_cropsyst_formula=use_cropsyst_evap, fallow=True,
                           summer_time=summer_time_from_doy(w["doy"]))
     return total_drainage
@@ -2800,12 +2821,13 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
     for w in rows:
         _rc = residue_cover_frac(sixpool_state)
         _re = residue_rain_evap_mm(w["pp"], _rc)
+        _th1_0 = layers[0]["theta"]
         drainage_mm, _, n_out = infiltrate(layers, w["pp"] - _re, curve_number, slope_pct, n_by_layer=no3_layers)
         if no3_layers is not None:
             leached += n_out
             nstate["n_no3"] = sum(no3_layers)
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], lat_deg)
-        soil_evaporation(layers, eto * (1.0 - _rc), 0.0, precip_mm=w["pp"] - _re, de_state=de_state, fallow=True,
+        soil_evaporation(layers, eto * (1.0 - _rc), 0.0, precip_mm=w["pp"] - _re, de_state=de_state, fallow=True, theta_start=_th1_0,
                          summer_time=summer_time_from_doy(w["doy"]))
         tmean = (w["tx"] + w["tn"]) / 2.0
         nstate["tsoil_lag"] += SOIL_TEMP_LAG_K * (tmean - nstate["tsoil_lag"])
@@ -3417,10 +3439,11 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         for w in spinup_rows:
             _rc = residue_cover_frac(sixpool_state)
             _re = residue_rain_evap_mm(w["pp"], _rc)
+            _th1_0 = layers[0]["theta"]
             _, spin_runoff, _ = infiltrate(layers, w["pp"] - _re, curve_number, slope_pct)
             runoff_total += spin_runoff
             eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
-            soil_evaporation(layers, eto * (1.0 - _rc), 0.0, precip_mm=w["pp"] - _re, de_state=de_state,
+            soil_evaporation(layers, eto * (1.0 - _rc), 0.0, precip_mm=w["pp"] - _re, de_state=de_state, theta_start=_th1_0,
                               use_cropsyst_formula=(soil_evap_model == "cropsyst"),
                               fallow=True, summer_time=summer_time_from_doy(w["doy"]))
             if sixpool_offseason_decay and sixpool_state is not None:
@@ -3712,6 +3735,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
 
         res_cover_today = residue_cover_frac(sixpool_state)
         res_evap_today = residue_rain_evap_mm(w["pp"], res_cover_today)
+        _th1_0 = layers[0]["theta"]
         drainage_mm, runoff, n_leached_today = infiltrate(layers, w["pp"] + irrigation_mm - res_evap_today, curve_number,
                                                             slope_pct,
                                                             n_by_layer=(no3_layers if no3_layers is not None
@@ -3785,7 +3809,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 n_pool = max(0.0, n_pool - denitrif_today)
             n_denitrified_total += denitrif_today
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
-        soil_evaporation(layers, eto * (1.0 - res_cover_today), eie, precip_mm=w["pp"] + irrigation_mm - res_evap_today, de_state=de_state,
+        soil_evaporation(layers, eto * (1.0 - res_cover_today), eie, precip_mm=w["pp"] + irrigation_mm - res_evap_today, de_state=de_state, theta_start=_th1_0,
                           use_cropsyst_formula=(soil_evap_model == "cropsyst"), fallow=False)
 
         tmean = (w["tx"] + w["tn"]) / 2
