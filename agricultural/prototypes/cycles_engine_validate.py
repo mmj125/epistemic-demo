@@ -2202,6 +2202,9 @@ def sixpool_n_factor(mineral_n_kg_ha):
     return SIXPOOL_NLIM_MIN + (1.0 - SIXPOOL_NLIM_MIN) / (1.0 + math.exp(-(mineral_n_kg_ha - SIXPOOL_NLIM_CENTER) / SIXPOOL_NLIM_WIDTH))
 
 
+SIXPOOL_ML_STOICH = False  # per-layer mode: return explicit-stoichiometry net N (released - immobilized at each pool's C:N) instead of the fitted regression (2026-10-13 test)
+
+
 def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=None):
     """Advances the six-pool state by one day (mutating it in place) and returns the day's net
     nitrogen mineralized (kg N/ha) -- the quantity simulate_season() adds directly into
@@ -2302,6 +2305,10 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
                   + cs_loss * 1000 / SIXPOOL_CN_CS)
     n_immobilized = (cm_gain_from_residue * 1000 / SIXPOOL_CN_CM
                       + cs_gain * 1000 / SIXPOOL_CN_CS)
+    if ml_sub and SIXPOOL_ML_STOICH:
+        if SIXPOOL_DIAG is not None:
+            SIXPOOL_DIAG.append((cs_loss, gross_residue_decomp, co2_residue, n_released - n_immobilized, 0.0, cm_loss, decomp_ra, decomp_rtz, cm_gain_from_residue, cs_gain, co2_cm))
+        return n_released - n_immobilized
     if ml_sub:
         _nboost = 1.0
         if SIXPOOL_ML_N_SAT_Q != 0.0:
