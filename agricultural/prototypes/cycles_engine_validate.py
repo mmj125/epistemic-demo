@@ -590,7 +590,7 @@ CROPSYST_AIRDRY_FRAC = 1.0 / 3.0
 # including the fallow/off-season windows simulate_season() does not pass use_cropsyst_formula to, through the
 # CropSyst formula. Added 2026-10-06 to test it against Cycles' layer-1 drying at Iowa.
 FORCE_CROPSYST_EVAP = True
-SOIL_EVAP_SCALE = 1.0  # multiplier on the potential soil-evaporation demand (tested 2026-10-13)
+SOIL_EVAP_SCALE = 0.9  # multiplier on the potential soil-evaporation demand (tested 2026-10-13)
 
 
 def soil_evaporation(layers, eto_mm, canopy_cover_frac, precip_mm=0.0, de_state=None,
