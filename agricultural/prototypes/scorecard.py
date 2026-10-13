@@ -73,16 +73,23 @@ def metrics(path):
     return out
 
 
-def tripwires():
+def _run_script(name, overrides):
+    shim = ("import sys, runpy; sys.path.insert(0, %r); import cycles_engine_validate as E\n" % HERE
+            + "".join("setattr(E, %r, eval(%r))\n" % tuple(a.split("=", 1)) for a in overrides)
+            + "runpy.run_path(%r, run_name='__main__')" % os.path.join(HERE, name))
+    return subprocess.run([sys.executable, "-c", shim], cwd=HERE, capture_output=True, text=True).stdout
+
+
+def tripwires(overrides=()):
     t = {}
-    r = subprocess.run([sys.executable, os.path.join(HERE, "run_validation.py")], cwd=HERE, capture_output=True, text=True).stdout
+    r = _run_script("run_validation.py", overrides)
     m = re.search(r"Year-to-year correlation:\s*([-\d.]+)", r)
     t["rs_corn"] = float(m.group(1)) if m else float("nan")
-    r = subprocess.run([sys.executable, os.path.join(HERE, "run_validation_rotation2.py")], cwd=HERE, capture_output=True, text=True).stdout
+    r = _run_script("run_validation_rotation2.py", overrides)
     cs = re.findall(r"correlation:\s*([-\d.]+)", r)
     for name, v in zip(("rs_soybean", "rs_wheat", "rs_silage"), cs):
         t[name] = float(v)
-    r = subprocess.run([sys.executable, os.path.join(HERE, "pattern_assertions.py")], cwd=HERE, capture_output=True, text=True).stdout
+    r = _run_script("pattern_assertions.py", overrides)
     m = re.search(r"(\d+)/(\d+) checks passed", r)
     t["patterns_passed"] = int(m.group(1)) if m else -1
     return t
@@ -140,7 +147,7 @@ def main():
     for setname, held in (("tuning", "0"), ("heldout", "1")):
         procs.append(subprocess.Popen([sys.executable, __file__, "--worker", tmp[setname], held, "1" if quick else "0"] + overrides,
                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
-    trip = None if notrip else tripwires()
+    trip = None if notrip else tripwires(overrides)
     for p in procs:
         p.wait()
     res = {s: metrics(tmp[s]) for s in tmp}
