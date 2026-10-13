@@ -2333,7 +2333,7 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
         _nboost = 1.0
         if SIXPOOL_ML_N_SAT_Q != 0.0:
             _nboost = (max(0.03, state.setdefault("n_ref_ratio", cs / csx if csx > 0 else 0.0)) / SIXPOOL_ML_FD_R0) ** SIXPOOL_ML_N_SAT_Q  # site constant: N supply differs across sites with initial carbon saturation, without a Cs^2 feedback over time
-        n_net = (SIXPOOL_ML_N_A * _nboost * (cs_loss + (co2_cm if SIXPOOL_ML_N_USE_TOTAL else 0.0)) - SIXPOOL_ML_N_B * cm_gain_from_residue
+        n_net = (SIXPOOL_ML_N_A * SIXPOOL_NET_MULT * _nboost * (cs_loss + (co2_cm if SIXPOOL_ML_N_USE_TOTAL else 0.0)) - SIXPOOL_ML_N_B * cm_gain_from_residue
                  - SIXPOOL_ML_N_C * (gross_residue_decomp - cm_gain_from_residue))
         if SIXPOOL_DIAG is not None:
             SIXPOOL_DIAG.append((cs_loss, gross_residue_decomp, co2_residue, n_net, 0.0, cm_loss, decomp_ra, decomp_rtz, cm_gain_from_residue, cs_gain, co2_cm))
@@ -2401,7 +2401,7 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
             state["cra"], state["crm"], state["cra_age"] = sub["cra"], sub["crm"], sub["cra_age"]
     state["cs"] = sum(x["cs"] for x in subs)
     state["cm"] = sum(x["cm"] for x in subs)
-    return total * SIXPOOL_NET_MULT
+    return total
 
 
 def n_critical_pct(biomass_mgha, crop):
