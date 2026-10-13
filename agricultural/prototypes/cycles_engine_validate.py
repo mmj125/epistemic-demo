@@ -1736,6 +1736,7 @@ CANOPY_WATER_W0 = None  # step 6: canopy clock rate = clamp((water_stress_mult -
 CANOPY_N_COEF = 0.0  # fraction of nitrogen stress passed to the canopy clock (0 = off); Cycles' N-stressed corn keeps interception near 0.12 vs 0.9 unstressed (Missouri N0, 2026-10-12)
 N_STRESS_FULL_RATIO = 0.06
 N_STRESS_FLOOR_RATIO = 0.2  # below N_STRESS_KNEE_RATIO the stress factor falls linearly to 0 at this ratio instead of at N_STRESS_FULL_RATIO (0 = off); Cycles corn never dilutes below ~0.2 of the critical curve
+N_UPTAKE_FLOOR_MGKG = 1.0   # step 14: minimum root-zone nitrate concentration the crop can draw down to (mg N/kg soil)
 N_STRESS_AG_BASIS = False
 N_AG_FRACTION = 0.88
 N_STRESS_R0, N_STRESS_R1, N_STRESS_SMAX, N_STRESS_Q = 0.641, 0.281, 0.764, 0.90
@@ -4117,7 +4118,16 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     # Plant takes up NH4 (surface pool) plus only the nitrate in layers its roots
                     # have actually reached (same real-root-depth access n_root_limited uses).
                     access = layer_depth_fraction_within(layers, root_depth)
-                    reach_no3 = sum(no3_layers[i] * access[i] for i in range(len(layers)))
+                    if N_UPTAKE_FLOOR_MGKG:
+                        # step 14: the crop cannot pull nitrate below a floor concentration. In Cycles' own output the root-zone
+                        # mean nitrate concentration separates N-stressed from unstressed days: 57% stress below 0.5 mg/kg,
+                        # 26% at 0.5-1, 0-4% above 1 (14 sites, N=0 and N=150, 80k season days).
+                        _avail = [max(0.0, no3_layers[i] - N_UPTAKE_FLOOR_MGKG * sixpool_bulk_density(layers[i]["sat"]) * layers[i]["thick"] * 10.0) * access[i]
+                                  for i in range(len(layers))]
+                        reach_no3 = sum(_avail)
+                    else:
+                        _avail = [no3_layers[i] * access[i] for i in range(len(layers))]
+                        reach_no3 = sum(_avail)
                     reachable = n_nh4 + reach_no3
                     _cap = reachable if N_UPTAKE_RATE_PER_DAY is None else reachable * N_UPTAKE_RATE_PER_DAY
                     n_uptake_kg_ha = min(_cap, demand_today_kg_ha)
@@ -4125,7 +4135,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                         frac = n_uptake_kg_ha / reachable
                         n_nh4 = max(0.0, n_nh4 - n_nh4 * frac)
                         for i in range(len(layers)):
-                            no3_layers[i] = max(0.0, no3_layers[i] - no3_layers[i] * access[i] * frac)
+                            no3_layers[i] = max(0.0, no3_layers[i] - _avail[i] * frac)
                     n_no3 = sum(no3_layers)
                     n_pool = n_nh4 + n_no3
                 else:
