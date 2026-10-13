@@ -1736,6 +1736,9 @@ CANOPY_WATER_W0 = None  # step 6: canopy clock rate = clamp((water_stress_mult -
 CANOPY_N_COEF = 0.0  # fraction of nitrogen stress passed to the canopy clock (0 = off); Cycles' N-stressed corn keeps interception near 0.12 vs 0.9 unstressed (Missouri N0, 2026-10-12)
 N_STRESS_FULL_RATIO = 0.06
 N_STRESS_FLOOR_RATIO = 0.2  # below N_STRESS_KNEE_RATIO the stress factor falls linearly to 0 at this ratio instead of at N_STRESS_FULL_RATIO (0 = off); Cycles corn never dilutes below ~0.2 of the critical curve
+N_STRESS_AG_BASIS = False
+N_AG_FRACTION = 0.88
+N_STRESS_R0, N_STRESS_R1, N_STRESS_SMAX, N_STRESS_Q = 0.641, 0.281, 0.764, 0.90
 N_STRESS_KNEE_RATIO = 0.3
 N_STRESS_ZERO_RATIO = 0.7  # was 0.62; refit 2026-10-12 with SIXPOOL_ML_N_A 76 on 28 sites (fertilized corn bias -0.36 to +0.11)
 NCRIT_FLOOR_MGHA = 1.0  # dilution curve is flat (at N_MAX_CONCENTRATION) below this biomass; standard convention
@@ -4072,11 +4075,19 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             n_min_pct = crop.get("n_min_conc", 0.0) * 100
             n_actual_pct = (canopy_n_kg_ha / (biomass * 100) if biomass > 1e-6
                             else crop["n_max_conc"] * 100)
-            _ratio = n_actual_pct / n_crit_pct if n_crit_pct > 0 else 1.0
-            n_stress = max(0.0, min(1.0, (_ratio - N_STRESS_FULL_RATIO) / (N_STRESS_ZERO_RATIO - N_STRESS_FULL_RATIO)))
-            if N_STRESS_FLOOR_RATIO > 0.0 and _ratio < N_STRESS_KNEE_RATIO:
-                _knee = (N_STRESS_KNEE_RATIO - N_STRESS_FULL_RATIO) / (N_STRESS_ZERO_RATIO - N_STRESS_FULL_RATIO)
-                n_stress = max(0.0, _knee * (_ratio - N_STRESS_FLOOR_RATIO) / (N_STRESS_KNEE_RATIO - N_STRESS_FLOOR_RATIO))
+            if N_STRESS_AG_BASIS:
+                # step 14: Cycles' stress is a function of the ABOVEGROUND nitrogen concentration over the critical curve at the
+                # plant's biomass (167k daily corn records, 28 sites): 0.764 x ((0.641 - r)/0.36)^0.9 between r = 0.641 and 0.281,
+                # flat below. Aboveground N is 0.87 to 0.89 of the plant total throughout the season.
+                _ag_pct = (N_AG_FRACTION * canopy_n_kg_ha / (ag_biomass * 100)) if ag_biomass > 1e-6 else crop["n_max_conc"] * 100
+                _ratio = _ag_pct / n_crit_pct if n_crit_pct > 0 else 1.0
+                n_stress = 1.0 - N_STRESS_SMAX * max(0.0, min(1.0, (N_STRESS_R0 - _ratio) / (N_STRESS_R0 - N_STRESS_R1))) ** N_STRESS_Q
+            else:
+                _ratio = n_actual_pct / n_crit_pct if n_crit_pct > 0 else 1.0
+                n_stress = max(0.0, min(1.0, (_ratio - N_STRESS_FULL_RATIO) / (N_STRESS_ZERO_RATIO - N_STRESS_FULL_RATIO)))
+                if N_STRESS_FLOOR_RATIO > 0.0 and _ratio < N_STRESS_KNEE_RATIO:
+                    _knee = (N_STRESS_KNEE_RATIO - N_STRESS_FULL_RATIO) / (N_STRESS_ZERO_RATIO - N_STRESS_FULL_RATIO)
+                    n_stress = max(0.0, _knee * (_ratio - N_STRESS_FLOOR_RATIO) / (N_STRESS_KNEE_RATIO - N_STRESS_FLOOR_RATIO))
             dGB_n_limited = dGB_water_limited * n_stress
             n_stress_prev = n_stress
             demand_today_kg_ha = dGB_n_limited * 100 * n_marginal_demand_pct(biomass * 10, crop) * N_DEMAND_SCALE
