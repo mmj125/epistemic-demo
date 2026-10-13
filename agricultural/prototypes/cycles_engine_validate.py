@@ -2581,9 +2581,9 @@ def denitrification_rate(theta):
 
 
 DENITRIF_RELSAT_EXPONENT = 3.0   # fitted 2026-10-02 on 16 sites x 2 N rates x 37 years of native Cycles
-DENITRIF_LAYER1_ONLY = False  # 2026-10-13: denitrify only the layer-1 nitrate (per-layer path) instead of applying the layer-1 rate to the whole profile
+DENITRIF_LAYER1_ONLY = True  # 2026-10-13: denitrify only the layer-1 nitrate (per-layer path) instead of applying the layer-1 rate to the whole profile
 DENITRIF_DEPTH_CAP_M = None  # if set, layer-1 denitrification is scaled by min(1, cap/thickness of layer 1)
-DENITRIF_K_REL = 0.0059   # REFIT 2026-10-12 against Cycles v1.5.20 (was exponent 7, K 0.017594 on v1.4.4); the nitrification logistic and N2O factors below were refit the same day from v1.5.20's daily N output at 16 sites        # output (N.txt, water.txt, environ.txt); see denitrification_rate_rel()
+DENITRIF_K_REL = 0.012   # REFIT 2026-10-12 against Cycles v1.5.20 (was exponent 7, K 0.017594 on v1.4.4); the nitrification logistic and N2O factors below were refit the same day from v1.5.20's daily N output at 16 sites        # output (N.txt, water.txt, environ.txt); see denitrification_rate_rel()
 
 
 def _denit_depth_factor(layers):
