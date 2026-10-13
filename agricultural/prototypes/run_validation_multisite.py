@@ -96,6 +96,8 @@ def corr(a,b):
     ma,mb=statistics.mean(a),statistics.mean(b); sa=math.sqrt(sum((x-ma)**2 for x in a)); sb=math.sqrt(sum((x-mb)**2 for x in b))
     return sum((a[i]-ma)*(b[i]-mb) for i in range(len(a)))/(sa*sb) if sa and sb else float('nan')
 def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
+    if os.environ.get('NETMULT_JSON'):
+        import json as _j; cev.SIXPOOL_NET_MULT=_j.load(open(os.environ['NETMULT_JSON'])).get(site,1.0)
     crop=dict(rv.CORN); crop["lat_deg"]=cell_lat
     if os.environ.get("LWP_WILT"): crop["lwp_wilting_point"]=float(os.environ["LWP_WILT"])
     for _k,_e in (("calibration_factor","GRAIN_MULT"),("rue","RUE_MULT"),("wue","WUE_MULT")):
