@@ -4380,3 +4380,10 @@ Implied daily nitrification (nitrification / prior-day profile NH4, soil T 15-25
 - Texture is not it: Wisconsin (96% sand) and Carolina (sand) are fast; Kansas (69% sand, 15% clay) is slow.
 - Moisture matters only at the dry end inside a site (Iowa 2.3 -> 5.0, Minnesota 1.6 -> 7.5 from driest to wetter fifth), and Kansas stays at 1.2-1.3%/day even in its wettest fifth.
 So the slowdown is a site property that is not in the input files we export (pH 6.5 everywhere, same initial NO3/NH4). Open question: does v1.5.20 derive pH or another site quantity from the soil file, or from climate/rotation history?
+
+2026-10-13 resolved (answers the question above): nitrification follows Cycles' composite environmental factor
+dailySoilLayersCN.csv carries composite_factor.N per layer. Implied nitrification (per NH4-weighted layer) is almost linear in it: rate = 0.1155 * cf^1.08 pooled over 16 sites (105,497 site-days). Kansas has a composite factor of 0.17 against about 0.49 at typical sites, which is most of why it nitrifies slowly. The engine's own fE (already fitted to this column) now drives nitrification (NITRIF_FE = (0.1155, 1.08)) in place of the temperature-only logistic. With it, volatilization was refit (rate constant A 1.1e-5 -> 0.55e-5) and denitrification K (0.0047 -> 0.0059).
+Tuning sites, N=150: volatilization rms log 0.41 -> 0.34, denitrification 0.73 -> 0.68, N2O 0.74 -> 0.76, leaching 0.79, grain MAE 1.20 -> 1.23. Kansas: denitrification 39.6 -> 28.3 (Cycles 7.9), N2O 15.8 -> 8.7 (3.6), volatilization 22 -> about 38 (76).
+Held-out sites: volatilization 0.46 -> 0.38, denitrification 0.54 -> 0.48, N2O 0.70 -> 0.71, leaching 0.52 -> 0.60 (at most 1.2 kg N/ha change at any site, low-leach sites inflate the log error), grain MAE 1.06 -> 1.08.
+Rock Springs: corn 0.795, soybean 0.921, silage corn 0.124, wheat 0.538 (calibration_factor 0.8712 -> 1.0573 to restore the mean); pattern checks 15/16.
+Still open: Kansas denitrification and N2O are still 3-5x high, and Kansas volatilization is low, so the factor does not explain everything there.
