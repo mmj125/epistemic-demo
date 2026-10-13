@@ -2355,6 +2355,19 @@ def sixpool_n_factor(mineral_n_kg_ha):
     return SIXPOOL_NLIM_MIN + (1.0 - SIXPOOL_NLIM_MIN) / (1.0 + math.exp(-(mineral_n_kg_ha - SIXPOOL_NLIM_CENTER) / SIXPOOL_NLIM_WIDTH))
 
 
+SIXPOOL_N_LIMIT_MM = False  # 2026-10-13: Cycles decomposition is limited by layer-1 mineral N concentration (measured on 28 sites, 53k days: residue decomposition relative to potential is flat above ~3 mg/kg and falls steeply below, 0.33 of plateau under 0.5 mg/kg, 0.6 at 0.5-1, 0.81 at 1-2)
+SIXPOOL_N_HALF_MGKG = 0.45  # half-saturation of c/(c+K)
+SIXPOOL_N_POT_MULT = 1.0    # decomposition rates are potential (unlimited-N) rates times this when the limit is on
+
+
+def n_conc_layer1(layers, nh4_kg_ha, no3_layers, no3_total):
+    """Layer-1 mineral N concentration (mg N/kg soil) from the engine's NH4 surface pool and layer-1 nitrate."""
+    l = layers[0]
+    mass = sixpool_bulk_density(l["sat"]) * l["thick"] * 10.0   # kg soil per ha divided by 1e6 -> (kg N/ha)/(mg/kg) factor
+    no3_0 = no3_layers[0] if no3_layers is not None else no3_total * min(1.0, l["thick"] / 1.0)
+    return ((nh4_kg_ha or 0.0) + no3_0) / mass
+
+
 SIXPOOL_NET_MULT = 1.0  # multiplier on the per-layer net N flux (2026-10-13 emulator test: scaled per site to a regression or Cycles' own site mean)
 SIXPOOL_ML_STOICH = False  # per-layer mode: return explicit-stoichiometry net N (released - immobilized at each pool's C:N) instead of the fitted regression (2026-10-13 test)
 
@@ -2397,6 +2410,9 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
     fe = sixpool_fe(tmean, relwet, ml_sub)
     if SIXPOOL_N_LIMIT:
         fe *= sixpool_n_factor(state.get("n_min"))
+    if SIXPOOL_N_LIMIT_MM and state.get("n_conc1") is not None:
+        _c = state["n_conc1"]
+        fe *= SIXPOOL_N_POT_MULT * _c / (_c + SIXPOOL_N_HALF_MGKG)
     fh = sixpool_fh(cs, csx)
     if ml_sub:
         _ratio = cs / csx if csx > 0 else 0.0
@@ -2527,6 +2543,7 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
         t_layer = sub["tm"] + g * (sub["tl"] - sub["tm"])
         relwet = ((l["theta"] - l["pwp"]) / (l["fc"] - l["pwp"]) if l["fc"] > l["pwp"] else 1.0)
         sub["n_min"] = state.get("n_min")
+        sub["n_conc1"] = state.get("n_conc1")
         if i == 0:
             sub["cra"], sub["crm"], sub["cra_age"] = state["cra"], state["crm"], state["cra_age"]
         ft = ft_eff if sub["z0"] < SIXPOOL_ML_TILL_DEPTH_M else 1.0
@@ -2963,6 +2980,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             relwet = ((layers[0]["theta"] - layers[0]["pwp"]) / (layers[0]["fc"] - layers[0]["pwp"])
                       if layers[0]["fc"] > layers[0]["pwp"] else 1.0)
             sixpool_state["n_min"] = nstate["n_nh4"] + nstate["n_no3"]
+            sixpool_state["n_conc1"] = n_conc_layer1(layers, nstate["n_nh4"], no3_layers, nstate["n_no3"])
             nstate["n_nh4"] = max(0.0, nstate["n_nh4"] + sixpool_step(sixpool_state, tmean, relwet, 0.0, 1.0, layers))
         if NITRIF_FE:
             _rw = ((layers[0]["theta"] - layers[0]["pwp"]) / (layers[0]["fc"] - layers[0]["pwp"])
@@ -4026,6 +4044,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     root_c_input_today *= (1.0 - SIXPOOL_ROOT_HARVEST_FRAC)
                 ft_eff = 1.0 + tillage_ft(tillage_dr, tillage_ftx_val)
                 sixpool_state["n_min"] = ((n_nh4 or 0.0) + (n_no3 or 0.0)) if n_nh4 is not None else n_pool
+                sixpool_state["n_conc1"] = n_conc_layer1(layers, n_nh4 if n_nh4 is not None else 0.0, no3_layers, (n_no3 or 0.0) if n_nh4 is not None else n_pool)
                 background_today = sixpool_step(sixpool_state, tmean, relwet_topsoil, root_c_input_today, ft_eff, layers)
                 # background_today can now be genuinely negative (net immobilization -- see
                 # sixpool_step()'s own docstring, 2026-10-02) -- floored at 0 here because a
