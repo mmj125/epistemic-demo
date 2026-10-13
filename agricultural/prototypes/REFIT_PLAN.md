@@ -102,3 +102,4 @@ One command that prints, for 16 tuning and 12 held-out sites at 0, 150 and 400 k
 | 14d | 2026-10-13 | Monthly net mineralization compare | Default: right shape, 0.8x. Refit: right annual total, summer 1.3-1.6x, autumn negative. Explains N=0 over-feed. Nothing adopted. |
 | 14e | 2026-10-13 | Both fixes: respiration response, immobilization spread | Cycles immobilization ~5% of gross, shape of respiration term already right. Direct A/B/C = 71/35/6 scores worse at N=0 (MAE +0.06/+0.11); B,C alone neutral. Nothing adopted. |
 | 15a | 2026-10-13 | N_UPTAKE_FLOOR_MGKG 1.0 -> 0.3 | Adopted. Leaching error roughly halved, yield neutral. Iowa supply gap open. |
+| 15b | 2026-10-13 | Corn grain factor on 28 sites | Single factor trades N=150 bias for N=400 bias (MAE 1.159 -> 1.174 at 0.96). Not adopted. Real gap is early saturation: 150 to 400 response 0.25 vs 0.51 Mg/ha per 100 kg N. |
