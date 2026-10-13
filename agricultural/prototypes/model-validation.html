@@ -4072,6 +4072,13 @@ def _denit_depth_factor(layers):
     return min(1.0, DENITRIF_DEPTH_CAP_M / layers[0]["thick"])
 
 
+DENITRIF_THRESHOLD_FORM = True
+DENITRIF_THR_K = 0.003880   # exp(-5.548)
+DENITRIF_THR_REL = 0.514
+DENITRIF_THR_POW = 0.974
+DENITRIF_THR_TEXP = 0.637
+
+
 def denitrification_rate_rel(theta_rel, tsoil_c):
     """Daily fractional denitrification of the NO3 pool as a function of topsoil RELATIVE saturation
     (theta/sat of layer 1) and soil temperature. Replaces denitrification_rate() (absolute layer-2
@@ -4089,6 +4096,12 @@ def denitrification_rate_rel(theta_rel, tsoil_c):
     the temperature term zeroes out."""
     if theta_rel <= 0:
         return 0.0
+    if DENITRIF_THRESHOLD_FORM:
+        # step 12: fitted on Cycles' own daily layer-1 nitrate, water and soil temperature at 28 sites (teacher forced):
+        # denitrification starts at a relative saturation of 0.514 and rises about linearly; site-total rms log error 0.54
+        # against 1.06 for the power form below
+        return max(0.0, min(1.0, DENITRIF_THR_K * max(0.0, min(theta_rel, 1.2) - DENITRIF_THR_REL) ** DENITRIF_THR_POW
+                            * max(tsoil_c, 0.0) ** DENITRIF_THR_TEXP))
     return max(0.0, min(1.0, DENITRIF_K_REL * min(theta_rel, 1.2) ** DENITRIF_RELSAT_EXPONENT
                         * max(tsoil_c, 0.0) / 15.0))
 
