@@ -2553,7 +2553,14 @@ def denitrification_rate(theta):
 
 
 DENITRIF_RELSAT_EXPONENT = 3.0   # fitted 2026-10-02 on 16 sites x 2 N rates x 37 years of native Cycles
+DENITRIF_DEPTH_CAP_M = None  # if set, layer-1 denitrification is scaled by min(1, cap/thickness of layer 1)
 DENITRIF_K_REL = 0.0059   # REFIT 2026-10-12 against Cycles v1.5.20 (was exponent 7, K 0.017594 on v1.4.4); the nitrification logistic and N2O factors below were refit the same day from v1.5.20's daily N output at 16 sites        # output (N.txt, water.txt, environ.txt); see denitrification_rate_rel()
+
+
+def _denit_depth_factor(layers):
+    if not DENITRIF_DEPTH_CAP_M:
+        return 1.0
+    return min(1.0, DENITRIF_DEPTH_CAP_M / layers[0]["thick"])
 
 
 def denitrification_rate_rel(theta_rel, tsoil_c):
@@ -2799,7 +2806,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             leached += lost
         if model_denitrification:
             _no3_pre = nstate["n_no3"]
-            d = nstate["n_no3"] * denitrification_rate_rel(layers[0]["theta"] / layers[0]["sat"], nstate["tsoil_lag"])
+            d = nstate["n_no3"] * denitrification_rate_rel(layers[0]["theta"] / layers[0]["sat"], nstate["tsoil_lag"]) * _denit_depth_factor(layers)
             nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_denitrification(d, _no3_pre)
             nstate["n_no3"] = max(0.0, nstate["n_no3"] - d)
             if no3_layers is not None:
@@ -3711,7 +3718,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         if model_denitrification and n_pool is not None:
             denitrif_frac_today = denitrification_rate_rel(
                 layers[0]["theta"] / layers[0]["sat"],
-                tsoil_lag if tsoil_lag is not None else (w["tx"] + w["tn"]) / 2.0)
+                tsoil_lag if tsoil_lag is not None else (w["tx"] + w["tn"]) / 2.0) * _denit_depth_factor(layers)
             if n_pool_by_layer is not None:
                 pool_sum = sum(n_pool_by_layer)
                 denitrif_today = pool_sum * denitrif_frac_today
