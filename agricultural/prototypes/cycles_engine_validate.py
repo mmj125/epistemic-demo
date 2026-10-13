@@ -2357,6 +2357,7 @@ def sixpool_n_factor(mineral_n_kg_ha):
 
 SIXPOOL_N_LIMIT_MM = False  # 2026-10-13: Cycles decomposition is limited by layer-1 mineral N concentration (measured on 28 sites, 53k days: residue decomposition relative to potential is flat above ~3 mg/kg and falls steeply below, 0.33 of plateau under 0.5 mg/kg, 0.6 at 0.5-1, 0.81 at 1-2)
 SIXPOOL_N_HALF_MGKG = 0.45  # half-saturation of c/(c+K)
+SIXPOOL_N_FMIN = 0.3   # floor: Cycles' decomposition stays at about a third of its plateau even below 0.5 mg/kg (a zero floor stalls the whole system)
 SIXPOOL_N_POT_MULT = 1.0    # decomposition rates are potential (unlimited-N) rates times this when the limit is on
 
 
@@ -2412,7 +2413,7 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
         fe *= sixpool_n_factor(state.get("n_min"))
     if SIXPOOL_N_LIMIT_MM and state.get("n_conc1") is not None:
         _c = state["n_conc1"]
-        fe *= SIXPOOL_N_POT_MULT * _c / (_c + SIXPOOL_N_HALF_MGKG)
+        fe *= SIXPOOL_N_POT_MULT * (SIXPOOL_N_FMIN + (1.0 - SIXPOOL_N_FMIN) * _c / (_c + SIXPOOL_N_HALF_MGKG))
     fh = sixpool_fh(cs, csx)
     if ml_sub:
         _ratio = cs / csx if csx > 0 else 0.0
