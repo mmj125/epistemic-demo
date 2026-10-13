@@ -271,6 +271,9 @@ def cn_wet(cnb):
     return cnb / (0.4 + 0.006 * cnb)
 
 
+FWC_THICKNESS_WEIGHT = False  # step 2 test: weight whole layers above 0.6 m by thickness only (no 1/z)
+
+
 def depth_weighted_ffc(layers, depth_m=0.6):
     """Real, sourced f_wc (2026-09-24) -- Cycles' own SI Eq. SI.7 curve-number moisture-
     adjustment factor, described only in words in both Cycles sources ("1 for soil saturated
@@ -314,6 +317,8 @@ def depth_weighted_ffc(layers, depth_m=0.6):
         ffc_l = (l["theta"] - l["pwp"]) / (l["fc"] - l["pwp"]) if l["fc"] > l["pwp"] else 0.0
         ffc_l = max(0.0, min(1.0, ffc_l))
         w = (z - z_prev) / z if z > 0 else 0.0
+        if FWC_THICKNESS_WEIGHT:
+            w = z - z_prev
         weighted_sum += ffc_l * w
         weight_total += w
         z_prev = z

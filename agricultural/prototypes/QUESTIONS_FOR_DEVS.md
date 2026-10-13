@@ -4453,3 +4453,13 @@ Designed experiments on Cycles v1.5.20 (bare field, constant atmosphere or the s
 - Sublimation from the pack equals the reference evapotranspiration of the day, ratio 1.00 in every case (wind, humidity, sunshine and temperature varied), limited by what is left of the pack. Soil evaporation is zero on days with snow.
 Implemented as snow_adjust() (SNOW_MODEL = True, pack stored on layers[0]['swe_mm']). Against Cycles on the same designed weather: max daily error 0.07 mm, rms 0.002-0.011 mm, totals within 0.5 mm over 1,900 mm.
 Full model (scorecard, snowpack on vs off): yield unchanged (N=150 corr 0.799 -> 0.805 tuning); held-out leaching miss 0.76 -> 0.69 at 150 kg N and 1.09 -> 0.89 at 400 kg N, mean absolute error at 400 kg N 29.5 -> 25.6 kg N/ha; tuning leaching miss 0.60 -> 0.57 at 400 kg N; no measure worse by more than 0.012; Rock Springs corn 0.822, soybean 0.907, wheat 0.648, silage corn 0.099; pattern checks 15/16.
+
+## 2026-10-13 Step 2 of the refit: infiltration and runoff (bare field, rain pulses)
+
+Designed experiment: bare field, 25 mm rain every 12 days plus 80 mm and 3 x 15 mm events, at 6 sites (Georgia, Iowa, Kansas, South Dakota, Carolina, Illinois), 137 events with measurable runoff. Implied retention S backed out of Cycles' daily runoff, then mapped to the f_wc that the SI's CN_dry/CN_wet interpolation would need.
+- Wet end matches exactly: Cycles S at full wetness is 37.3 mm = engine S x slope_factor(0) (1.1).
+- Dry end does not: Cycles never reaches the dry curve number. At layer 1 sitting at wilting point (Georgia), implied f_wc stays 0.5 to 1.0 and S reaches only 40 to 85 mm; the engine's S is 100 to 130.
+- The implied factor follows deeper-layer water over months, not layer 1 (S 41 -> 85 over a year while layer 1 stayed at 0.052).
+- Closest simple law found: thickness-weighted mean of (theta - pwp)/(fc - pwp) over whole layers above 0.6 m. Event runoff rms 1.22 mm against 1.34 for the current law; very sensitive to where layer boundaries fall.
+- Integrated: no scorecard measure moves by more than 0.03, so not adopted. Runoff is a small flux (about 6% of rain over warm-season events).
+- Lesson for later steps: run parallel experiments under distinct Cycles run names (a shared name let six runs clobber each other's output in this round).
