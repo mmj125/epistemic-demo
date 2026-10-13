@@ -2581,6 +2581,7 @@ def denitrification_rate(theta):
 
 
 DENITRIF_RELSAT_EXPONENT = 3.0   # fitted 2026-10-02 on 16 sites x 2 N rates x 37 years of native Cycles
+DENITRIF_LAYER1_ONLY = False  # 2026-10-13: denitrify only the layer-1 nitrate (per-layer path) instead of applying the layer-1 rate to the whole profile
 DENITRIF_DEPTH_CAP_M = None  # if set, layer-1 denitrification is scaled by min(1, cap/thickness of layer 1)
 DENITRIF_K_REL = 0.0059   # REFIT 2026-10-12 against Cycles v1.5.20 (was exponent 7, K 0.017594 on v1.4.4); the nitrification logistic and N2O factors below were refit the same day from v1.5.20's daily N output at 16 sites        # output (N.txt, water.txt, environ.txt); see denitrification_rate_rel()
 
@@ -2834,14 +2835,26 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             leached += lost
         if model_denitrification:
             _no3_pre = nstate["n_no3"]
-            d = nstate["n_no3"] * denitrification_rate_rel(layers[0]["theta"] / layers[0]["sat"], nstate["tsoil_lag"]) * _denit_depth_factor(layers)
-            nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_denitrification(d, _no3_pre)
-            nstate["n_no3"] = max(0.0, nstate["n_no3"] - d)
-            if no3_layers is not None:
+            if DENITRIF_LAYER1_ONLY and no3_layers is not None:
+                d = no3_layers[0] * denitrification_rate_rel(layers[0]["theta"] / layers[0]["sat"], nstate["tsoil_lag"]) * _denit_depth_factor(layers)
+                nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_denitrification(d, _no3_pre)
+                no3_layers[0] -= d
+                nstate["n_no3"] = max(0.0, nstate["n_no3"] - d)
+                denit += d
+                return_early = True
+            else:
+                return_early = False
+                d = nstate["n_no3"] * denitrification_rate_rel(layers[0]["theta"] / layers[0]["sat"], nstate["tsoil_lag"]) * _denit_depth_factor(layers)
+                nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_denitrification(d, _no3_pre)
+                nstate["n_no3"] = max(0.0, nstate["n_no3"] - d)
+            if return_early:
+                pass
+            elif no3_layers is not None:
                 f_d = d / (nstate["n_no3"] + d) if (nstate["n_no3"] + d) > 0 else 0.0
                 for i in range(len(no3_layers)):
                     no3_layers[i] *= (1.0 - f_d)
-            denit += d
+            if not return_early:
+                denit += d
     return leached, denit, volat
 
 
@@ -3755,12 +3768,18 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     for i in range(len(layers)):
                         n_pool_by_layer[i] -= denitrif_today * (n_pool_by_layer[i] / pool_sum)
             elif n_no3 is not None:
-                denitrif_today = n_no3 * denitrif_frac_today
-                n2o_total += n2o_from_denitrification(denitrif_today, n_no3)
-                n_no3 = max(0.0, n_no3 - denitrif_today)
-                if no3_layers is not None:
-                    for i in range(len(no3_layers)):
-                        no3_layers[i] *= (1.0 - denitrif_frac_today)
+                if DENITRIF_LAYER1_ONLY and no3_layers is not None:
+                    denitrif_today = no3_layers[0] * denitrif_frac_today
+                    n2o_total += n2o_from_denitrification(denitrif_today, n_no3)
+                    no3_layers[0] -= denitrif_today
+                    n_no3 = max(0.0, n_no3 - denitrif_today)
+                else:
+                    denitrif_today = n_no3 * denitrif_frac_today
+                    n2o_total += n2o_from_denitrification(denitrif_today, n_no3)
+                    n_no3 = max(0.0, n_no3 - denitrif_today)
+                    if no3_layers is not None:
+                        for i in range(len(no3_layers)):
+                            no3_layers[i] *= (1.0 - denitrif_frac_today)
             else:
                 denitrif_today = n_pool * denitrif_frac_today
                 n_pool = max(0.0, n_pool - denitrif_today)
