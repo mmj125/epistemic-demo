@@ -595,7 +595,7 @@ EVAP_LAW_PARAMS = (0.25, 0.85, 3.5)   # air-dry as a fraction of wilting point, 
 SOIL_EVAP_SCALE = 0.9  # multiplier on the potential soil-evaporation demand (tested 2026-10-13)
 
 
-SNOW_MODEL = False   # 2026-10-13: snowpack measured from designed experiments on Cycles v1.5.20 (see snow_adjust); off by default
+SNOW_MODEL = True   # 2026-10-13: snowpack measured from designed experiments on Cycles v1.5.20 (see snow_adjust); off by default
 SNOW_RAIN_TEMP_C = 1.0    # precipitation is rain at a daily mean temperature >= this, snow below it
 SNOW_MELT_BASE_C = -1.0   # melt base temperature
 SNOW_MELT_DDF = 2.5       # mm per degree C

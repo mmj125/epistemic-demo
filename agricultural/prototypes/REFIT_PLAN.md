@@ -68,3 +68,11 @@ One command that prints, for 16 tuning and 12 held-out sites at 0, 150 and 400 k
 - Roughly 16 steps; each is one to three rounds of the size we have been doing. Milestone 1 (steps 0 to 6) is about a third of the work and is the real decision point.
 - The risk that this ends no better than now is real: Cycles' remaining differences (dry-site root access, water-stress response) may not be fully measurable from its output. The stop rules limit the loss.
 - The gain, if it works: the corrections are mechanism-level and measured, so the model can be explained to the Cycles developers term by term, and it should hold up at sites we have not seen.
+
+## Ledger
+
+| Step | Module | Law (measured on Cycles) | Module error | Integrated effect | Decision |
+|---|---|---|---|---|---|
+| 0 | Scorecard | scorecard.py, baseline saved | n/a | n/a | done |
+| 1 | Snowpack | rain at mean T >= 1 C; melt 2.5(mean+1) or 2.5(tmax+1)^2/(tmax-tmin); sublimation = ETo; no soil evaporation under snow | max 0.07 mm/day | held-out leaching 0.76 -> 0.69 (150), 1.09 -> 0.89 (400); yield, Rock Springs unchanged | adopted (SNOW_MODEL = True) |
+| 4 (early) | Bare-soil evaporation | full rate above 0.85 fc at start of day, ((th - 0.25 pwp)/(0.85 fc - 0.25 pwp))^3.5 below | rms 0.049 | worse alone (N=150 MAE 1.17 -> 1.28); waits for steps 2, 3, 5 | held (EVAP_LAW_CYCLES off) |
