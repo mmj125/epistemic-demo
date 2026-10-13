@@ -1468,7 +1468,25 @@ CO2_PPM_BY_YEAR = {
 CO2_REF_PPM = 368.299
 
 
+THERMAL_TIME_SUBDAILY = False  # 2026-10-13: integrate the development rate over a within-day temperature curve (24 hourly points,
+# sinusoid between tn and tx peaking at 15:00) instead of evaluating it once at the daily mean. Against Cycles v1.5.20's own
+# thermal_time column (corn, 7 sites, 17 years) the daily-mean method runs 2-14% high (Kansas +14%, Texas +11%, Rock Springs +2%),
+# the 24-point integral within 0.2-0.8% everywhere.
+
+
+def _dev_rate(t, base_t, opt_t, max_t):
+    if t <= base_t or t >= max_t:
+        return 0.0
+    if t <= opt_t:
+        return t - base_t
+    return (opt_t - base_t) * (max_t - t) / (max_t - opt_t)
+
+
 def thermal_time_increment(tx, tn, base_t, opt_t, max_t):
+    if THERMAL_TIME_SUBDAILY:
+        mean, amp = (tx + tn) / 2, (tx - tn) / 2
+        return sum(_dev_rate(mean + amp * math.cos(2 * math.pi * (h + 0.5 - 15) / 24), base_t, opt_t, max_t)
+                   for h in range(24)) / 24
     tmean = (tx + tn) / 2
     if tmean <= base_t or tmean >= max_t:
         return 0.0
