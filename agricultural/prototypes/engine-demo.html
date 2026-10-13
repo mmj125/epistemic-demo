@@ -2277,7 +2277,25 @@ CO2_PPM_BY_YEAR = {
 CO2_REF_PPM = 368.299
 
 
+THERMAL_TIME_SUBDAILY = True  # 2026-10-13: integrate the development rate over a within-day temperature curve (24 hourly points,
+# sinusoid between tn and tx peaking at 15:00) instead of evaluating it once at the daily mean. Against Cycles v1.5.20's own
+# thermal_time column (corn, 7 sites, 17 years) the daily-mean method runs 2-14% high (Kansas +14%, Texas +11%, Rock Springs +2%),
+# the 24-point integral within 0.2-0.8% everywhere.
+
+
+def _dev_rate(t, base_t, opt_t, max_t):
+    if t <= base_t or t >= max_t:
+        return 0.0
+    if t <= opt_t:
+        return t - base_t
+    return (opt_t - base_t) * (max_t - t) / (max_t - opt_t)
+
+
 def thermal_time_increment(tx, tn, base_t, opt_t, max_t):
+    if THERMAL_TIME_SUBDAILY:
+        mean, amp = (tx + tn) / 2, (tx - tn) / 2
+        return sum(_dev_rate(mean + amp * math.cos(2 * math.pi * (h + 0.5 - 15) / 24), base_t, opt_t, max_t)
+                   for h in range(24)) / 24
     tmean = (tx + tn) / 2
     if tmean <= base_t or tmean >= max_t:
         return 0.0
@@ -2674,6 +2692,7 @@ def tillage_dr_decay(layers, max_rate_per_day=0.02):
 # i.e. roots return more carbon than their final standing biomass (in-season turnover/rhizodeposition).
 # The engine's root carbon input only credited the final root biomass, ~0.6x of Cycles' (found 2026-10-07).
 ROOT_C_INPUT_FACTOR = 5.0 / 3.0
+SIXPOOL_ROOT_HARVEST_FRAC = 0.0  # share of each season's root carbon held back and credited as one pulse at harvest (Cycles' root residue pool jumps at harvest: Indiana 0.22 Mg C/ha in July, 0.69 in September); 0.0 = daily in-season input (old behavior)
 # Root carbon input is sized from water-limited growth (False, shipped) or from growth after N stress (True, the
 # physically correct version). Found 2026-10-12: with N stress ignored, the engine fed 2.3 Mg C/ha of root carbon to
 # the six-pool state for a 0.74 Mg/ha N-starved crop (Indiana N=0), so low-nitrogen sites immobilized too much N.
@@ -3011,6 +3030,9 @@ def sixpool_n_factor(mineral_n_kg_ha):
     return SIXPOOL_NLIM_MIN + (1.0 - SIXPOOL_NLIM_MIN) / (1.0 + math.exp(-(mineral_n_kg_ha - SIXPOOL_NLIM_CENTER) / SIXPOOL_NLIM_WIDTH))
 
 
+SIXPOOL_ML_STOICH = False  # per-layer mode: return explicit-stoichiometry net N (released - immobilized at each pool's C:N) instead of the fitted regression (2026-10-13 test)
+
+
 def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=None):
     """Advances the six-pool state by one day (mutating it in place) and returns the day's net
     nitrogen mineralized (kg N/ha) -- the quantity simulate_season() adds directly into
@@ -3111,6 +3133,10 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
                   + cs_loss * 1000 / SIXPOOL_CN_CS)
     n_immobilized = (cm_gain_from_residue * 1000 / SIXPOOL_CN_CM
                       + cs_gain * 1000 / SIXPOOL_CN_CS)
+    if ml_sub and SIXPOOL_ML_STOICH:
+        if SIXPOOL_DIAG is not None:
+            SIXPOOL_DIAG.append((cs_loss, gross_residue_decomp, co2_residue, n_released - n_immobilized, 0.0, cm_loss, decomp_ra, decomp_rtz, cm_gain_from_residue, cs_gain, co2_cm))
+        return n_released - n_immobilized
     if ml_sub:
         _nboost = 1.0
         if SIXPOOL_ML_N_SAT_Q != 0.0:
@@ -4157,6 +4183,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     runoff_total = 0.0
 
     sixpool_state = None
+    root_c_buffer = 0.0
     if background_n_model == "sixpool":
         if sixpool_initial_state is not None:
             sixpool_state = copy.deepcopy(sixpool_initial_state)  # never mutate the caller's own
@@ -4609,6 +4636,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                                    if layers[0]["fc"] > layers[0]["pwp"] else 1.0)
                 root_c_input_today = (10.0 * dGB_water_limited * (n_stress_prev if ROOT_C_REALIZED_GROWTH else 1.0) * (1.0 - shoot_fraction(ttf, crop["fsti"], crop["fstf"]))
                                        * CARBON_FRACTION_DM * ROOT_C_INPUT_FACTOR)
+                if SIXPOOL_ROOT_HARVEST_FRAC:
+                    root_c_buffer += root_c_input_today * SIXPOOL_ROOT_HARVEST_FRAC
+                    root_c_input_today *= (1.0 - SIXPOOL_ROOT_HARVEST_FRAC)
                 ft_eff = 1.0 + tillage_ft(tillage_dr, tillage_ftx_val)
                 sixpool_state["n_min"] = ((n_nh4 or 0.0) + (n_no3 or 0.0)) if n_nh4 is not None else n_pool
                 background_today = sixpool_step(sixpool_state, tmean, relwet_topsoil, root_c_input_today, ft_eff, layers)
@@ -4819,6 +4849,11 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # nothing was ever returning carbon that the live crop's own root growth didn't already
         # provide. See sixpool_offseason_decay's own docstring for the other half of this fix
         # (letting it decompose for real before the next season, not carry forward untouched).
+        if SIXPOOL_ROOT_HARVEST_FRAC and root_c_buffer > 0 and "ml" in sixpool_state:
+            _wts = [math.exp(-x["zmid"] / SIXPOOL_ML_ROOT_DECAY_M) * (x["z0"] >= 0) for x in sixpool_state["ml"]]
+            _ws = sum(_wts) or 1.0
+            for _x, _w in zip(sixpool_state["ml"], _wts):
+                _x["crtz"] += root_c_buffer * _w / _ws
         ag_residue_mg_ha = max(0.0, ag_biomass_mg_ha - grain_mg_ha)
         sixpool_state["cra"] = sixpool_state.get("cra", 0.0) + ag_residue_mg_ha * CARBON_FRACTION_DM
         # Reset cra_age to 0 whenever fresh stover lands -- see CRA_MATURATION_TAU_DAYS's own
@@ -4852,7 +4887,7 @@ def make_layers():
 
 CORN = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
     rue=2.332, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=1.1491, canopy_shape=CORN_CANOPY_SHAPE,  # re-derived 2026-10-01 for the real
+    calibration_factor=1.0916, canopy_shape=CORN_CANOPY_SHAPE,  # re-derived 2026-10-01 for the real
     # CO2-WUE-scaling mechanism (wue_co2_scale) -- previous value 1.1076, itself re-derived the
     # same day for the real
     # cold-kill mechanism (threshold_temp_cold_damage, see below); previous value 1.0977, recalibrated 2026-09-25 for the
@@ -4900,7 +4935,7 @@ CORN_LONG_SEASON["flowering_tt"] = 1300
 
 SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43,
     rue=1.3, wue=4.5, hi_x=0.4, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
-    calibration_factor=1.4541,  # re-derived 2026-10-01 for the real cold-kill mechanism
+    calibration_factor=1.4357,  # re-derived 2026-10-01 for the real cold-kill mechanism
     # (threshold_temp_cold_damage, see below) -- the single largest correlation jump of any
     # mechanism this project has shipped (0.871 -> 0.950 at Rock Springs); previous value
     # 1.4297, recalibrated 2026-09-30 for the real f_G harvest-index fix (was 1.1894, itself recalibrated 2026-09-25 for the hydraulic-conductance
@@ -4929,7 +4964,7 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
     rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
     hi_use_thermal_time_fraction=True,  # real exemption 2026-09-30, see cycles_engine_validate.py
-    calibration_factor=0.6795, canopy_shape=(5, -14, -15, 16),  # re-derived 2026-10-01 for the real
+    calibration_factor=0.6577, canopy_shape=(5, -14, -15, 16),  # re-derived 2026-10-01 for the real
     # CO2-WUE-scaling mechanism (wue_co2_scale) -- rescaled by the same ratio the validated dict
     # (run_validation_rotation2.py's own WHEAT, 0.7528->0.7502) moved by, since this dict's own
     # cover-crop role is never independently validated against real Cycles output. Previous value
