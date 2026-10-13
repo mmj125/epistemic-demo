@@ -1917,7 +1917,7 @@ CANOPY_WATER_W0 = None  # step 6: canopy clock rate = clamp((water_stress_mult -
 CANOPY_N_COEF = 0.0  # fraction of nitrogen stress passed to the canopy clock (0 = off); Cycles' N-stressed corn keeps interception near 0.12 vs 0.9 unstressed (Missouri N0, 2026-10-12)
 N_STRESS_FULL_RATIO = 0.06
 N_STRESS_FLOOR_RATIO = 0.2  # below N_STRESS_KNEE_RATIO the stress factor falls linearly to 0 at this ratio instead of at N_STRESS_FULL_RATIO (0 = off); Cycles corn never dilutes below ~0.2 of the critical curve
-N_UPTAKE_FLOOR_MGKG = 1.0   # step 14: minimum root-zone nitrate concentration the crop can draw down to (mg N/kg soil)
+N_UPTAKE_FLOOR_MGKG = 0.3   # 2026-10-13 (was 1.0, 28-site sweep 0..1.0): minimum root-zone nitrate concentration the crop can draw down to (mg N/kg soil)
 N_STRESS_AG_BASIS = False
 N_AG_FRACTION = 0.88
 N_STRESS_R0, N_STRESS_R1, N_STRESS_SMAX, N_STRESS_Q = 0.641, 0.281, 0.764, 0.90
@@ -4350,7 +4350,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         if record_history:
             history.append(dict(doy=w["doy"], ttf=round(ttf, 4), canopy=round(eie, 4),
                                  water_stress=round(water_stress, 4), n_stress=round(n_stress, 4), n_pool=round(n_pool, 2) if n_pool is not None else None,
-                                 ag_mg_ha=round(ag_biomass * 10, 4),
+                                 ag_mg_ha=round(ag_biomass * 10, 4), n_plant=round(canopy_n_kg_ha, 2),
                                  theta=[round(l["theta"], 4) for l in layers],
                                  n_no3=round(n_no3, 3) if n_no3 is not None else None,
                                  n_nh4=round(n_nh4, 3) if n_nh4 is not None else None))
