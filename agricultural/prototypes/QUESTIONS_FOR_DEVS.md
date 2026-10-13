@@ -4371,3 +4371,12 @@ Cycles' unfertilized corn declines for decades (New York 13.6 to 2.8 Mg/ha over 
 
 ## 2026-10-13: what slows nitrification at Kansas and Iowa?
 In v1.5.20 output (150 kg N/ha continuous corn, tile weather and STATSGO2 soil) the implied daily nitrification rate at 15 to 25 C (nitrification divided by prior-day profile NH4) is 7 to 8% at most of 16 sites, but 1.5 to 2.2% at western Kansas and 3.4 to 5% at central Iowa. It does not vary with layer-1 water content or the NH4 pool size and does not follow clay or sand. It leaves NH4 in the soil for months at Kansas (mean 59 kg N/ha), which sets that site's volatilization (76 kg N/ha/yr). Is nitrification computed per layer with its own moisture or a depth rule, and is there a site or soil input (pH, carbon, bypass flow) that scales it?
+
+2026-10-13 addendum: nitrification slowdown, more variables ruled out
+Implied daily nitrification (nitrification / prior-day profile NH4, soil T 15-25 C, NH4 > 8 kg/ha), 16 sites, N=150:
+- NH4 placement is not it: Kansas holds 84% of its NH4 in layer 1 (Rock Springs 76%, Wisconsin 80%), yet runs 0.9%/day against 7.8% and 8.3%.
+- NH4 concentration is not it: Kansas layer-1 NH4 11.7 mg/kg; Missouri 18.9 mg/kg nitrifies at 6.9%/day.
+- Soil organic carbon is not it: Kansas and Rock Springs both have 1.74% in layer 1.
+- Texture is not it: Wisconsin (96% sand) and Carolina (sand) are fast; Kansas (69% sand, 15% clay) is slow.
+- Moisture matters only at the dry end inside a site (Iowa 2.3 -> 5.0, Minnesota 1.6 -> 7.5 from driest to wetter fifth), and Kansas stays at 1.2-1.3%/day even in its wettest fifth.
+So the slowdown is a site property that is not in the input files we export (pH 6.5 everywhere, same initial NO3/NH4). Open question: does v1.5.20 derive pH or another site quantity from the soil file, or from climate/rotation history?
