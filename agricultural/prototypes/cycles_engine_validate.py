@@ -271,7 +271,7 @@ def cn_wet(cnb):
     return cnb / (0.4 + 0.006 * cnb)
 
 
-FWC_NO_UPPER_CLIP = False  # step 2: let a layer above field capacity count above 1 (Cycles does); only the total is capped at 1
+FWC_NO_UPPER_CLIP = True  # step 2: let a layer above field capacity count above 1 (Cycles does); only the total is capped at 1
 FWC_THICKNESS_WEIGHT = False  # step 2 test: weight whole layers above 0.6 m by thickness only (no 1/z)
 
 
@@ -597,10 +597,10 @@ CROPSYST_AIRDRY_FRAC = 1.0 / 3.0
 # including the fallow/off-season windows simulate_season() does not pass use_cropsyst_formula to, through the
 # CropSyst formula. Added 2026-10-06 to test it against Cycles' layer-1 drying at Iowa.
 FORCE_CROPSYST_EVAP = True
-EVAP_LAW_CYCLES = False   # 2026-10-13: bare-soil evaporation law identified from designed experiments on Cycles v1.5.20 (see soil_evaporation_cycles)
+EVAP_LAW_CYCLES = True   # 2026-10-13: bare-soil evaporation law identified from designed experiments on Cycles v1.5.20 (see soil_evaporation_cycles)
 EVAP_LAW_TAIL = 0.0   # fraction of the unmet evaporative demand taken from layer 2 (step 4 test)
-EVAP_LAW_PARAMS = (0.25, 0.85, 3.5)   # air-dry as a fraction of wilting point, critical water content as a fraction of field capacity, exponent
-SOIL_EVAP_SCALE = 0.9  # multiplier on the potential soil-evaporation demand (tested 2026-10-13)
+EVAP_LAW_PARAMS = (0.5, 0.7, 2.0)   # air-dry as a fraction of wilting point, critical water content as a fraction of field capacity, exponent
+SOIL_EVAP_SCALE = 1.0  # multiplier on the potential soil-evaporation demand (tested 2026-10-13)
 
 
 SNOW_MODEL = True   # 2026-10-13: snowpack measured from designed experiments on Cycles v1.5.20 (see snow_adjust); off by default
@@ -645,7 +645,7 @@ def snow_adjust(layers, w, lat_deg):
     return w2
 
 
-EVAP_ZONE_DEPTH_M = None   # step 4: when set, the Cycles law acts on the thickness-weighted state of the top EVAP_ZONE_DEPTH_M of the profile
+EVAP_ZONE_DEPTH_M = 0.2   # step 4: when set, the Cycles law acts on the thickness-weighted state of the top EVAP_ZONE_DEPTH_M of the profile
 
 
 def soil_evaporation_zone(layers, pot_evap_mm, zone_start):
@@ -1133,7 +1133,7 @@ def total_root_conductance(wumax_mm_day, lwp_stress_onset):
     return (1.5 * wumax_m_day) / denom if denom else 0.0
 
 
-EVAPORATIVE_LAYER_DEPTH_M = 0.10  # real, sourced (2026-09-30): Stockle, Martin & Campbell
+EVAPORATIVE_LAYER_DEPTH_M = 0.0  # real, sourced (2026-09-30): Stockle, Martin & Campbell
 # 1994 (cropsyst.pdf, the original CropSyst manual), "Soil evaporation" section -- "soil
 # evaporation is modeled by assuming that the evaporation rate... is equal to potential
 # evaporation (PE) if the water content of the top 10 cm of soil (evaporative layer) is
@@ -1150,7 +1150,7 @@ EVAPORATIVE_LAYER_DEPTH_M = 0.10  # real, sourced (2026-09-30): Stockle, Martin 
 
 
 ROOT_TRI_POW = 1.0  # exponent on the triangular root density (1 = linear taper to zero at root depth; <1 flatter, 0 uniform); under test 2026-10-08
-ROOT_DENSITY_DECAY_M = None  # None = triangular density (validated default); a length in m = exponential density exp(-z/L), under test 2026-10-06 (L=0.35 best on 10-site relative-wetness fit, not yet adopted)
+ROOT_DENSITY_DECAY_M = 0.3  # None = triangular density (validated default); a length in m = exponential density exp(-z/L), under test 2026-10-06 (L=0.35 best on 10-site relative-wetness fit, not yet adopted)
 
 
 def root_length_fraction_by_layer(layers, root_depth_m):
