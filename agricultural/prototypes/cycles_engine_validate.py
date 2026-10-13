@@ -590,6 +590,7 @@ CROPSYST_AIRDRY_FRAC = 1.0 / 3.0
 # including the fallow/off-season windows simulate_season() does not pass use_cropsyst_formula to, through the
 # CropSyst formula. Added 2026-10-06 to test it against Cycles' layer-1 drying at Iowa.
 FORCE_CROPSYST_EVAP = True
+SOIL_EVAP_SCALE = 1.0  # multiplier on the potential soil-evaporation demand (tested 2026-10-13)
 
 
 def soil_evaporation(layers, eto_mm, canopy_cover_frac, precip_mm=0.0, de_state=None,
@@ -626,7 +627,7 @@ def soil_evaporation(layers, eto_mm, canopy_cover_frac, precip_mm=0.0, de_state=
     soil_evaporation_cropsyst()'s own docstring for the source and shape, and its own
     "NOT YET VALIDATED" note before relying on it for anything real."""
     l0 = layers[0]
-    demand_mm = eto_mm * (1 - canopy_cover_frac)
+    demand_mm = eto_mm * (1 - canopy_cover_frac) * SOIL_EVAP_SCALE
     if use_cropsyst_formula or FORCE_CROPSYST_EVAP:
         return soil_evaporation_cropsyst(layers, demand_mm, fallow=fallow, summer_time=summer_time)
     if de_state is not None:
