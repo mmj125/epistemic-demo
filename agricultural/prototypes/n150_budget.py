@@ -1,10 +1,12 @@
 """Where does the fertilizer go? Per-site mean annual N budget at N=0 and N=150, engine vs Cycles v1.5.20, and the
-fertilizer-driven difference (N150 minus N0). Usage: python3 n150_budget.py [site ...]; writes /tmp/w/n150_budget2.json"""
+fertilizer-driven difference (N150 minus N0). Usage: python3 n150_budget.py [site ...]; writes /tmp/w/n150_budget_'+os.environ.get('TAG','x')+'.json"""
 import sys,os,csv,json,numpy as np
 sys.path.insert(0,'.');os.environ.setdefault("LEAD_YEARS","continuous")
 import cycles_engine_validate as E, run_validation_multisite as m
 from multiprocessing import Pool
 E.ROOT_C_REALIZED_GROWTH=True
+for _a in os.environ.get('OVR','').split(';'):
+    if _a: setattr(E,_a.split('=')[0],eval(_a.split('=',1)[1]))
 ALL=dict(m.SITES);ALL.update(m.HELDOUT_SITES)
 def one(site):
     lat,lon=ALL[site]
@@ -33,7 +35,7 @@ def one(site):
 if __name__=="__main__":
     sites=sys.argv[1:] or list(ALL)
     with Pool(8) as p: res=dict(p.map(one,sites))
-    json.dump(res,open('/tmp/w/n150_budget2.json','w'))
+    json.dump(res,open('/tmp/w/n150_budget_'+os.environ.get('TAG','x')+'.json','w'))
     keys=('bio','grain','uptake','leach','denit','volat','n2o')
     print('mean over sites, kg N/ha/yr   (N150 - N0) engine | Cycles')
     for k in keys:
