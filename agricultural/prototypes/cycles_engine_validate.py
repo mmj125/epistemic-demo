@@ -598,6 +598,7 @@ CROPSYST_AIRDRY_FRAC = 1.0 / 3.0
 # CropSyst formula. Added 2026-10-06 to test it against Cycles' layer-1 drying at Iowa.
 FORCE_CROPSYST_EVAP = True
 EVAP_LAW_CYCLES = False   # 2026-10-13: bare-soil evaporation law identified from designed experiments on Cycles v1.5.20 (see soil_evaporation_cycles)
+EVAP_LAW_TAIL = 0.0   # fraction of the unmet evaporative demand taken from layer 2 (step 4 test)
 EVAP_LAW_PARAMS = (0.25, 0.85, 3.5)   # air-dry as a fraction of wilting point, critical water content as a fraction of field capacity, exponent
 SOIL_EVAP_SCALE = 0.9  # multiplier on the potential soil-evaporation demand (tested 2026-10-13)
 
@@ -644,6 +645,47 @@ def snow_adjust(layers, w, lat_deg):
     return w2
 
 
+EVAP_ZONE_DEPTH_M = None   # step 4: when set, the Cycles law acts on the thickness-weighted state of the top EVAP_ZONE_DEPTH_M of the profile
+
+
+def soil_evaporation_zone(layers, pot_evap_mm, zone_start):
+    """Step 4: Cycles evaporates from the top ~0.2 m of the profile, not from layer 1 as such (with layer 1 of 0.15 m or
+    thicker it is mostly layer 1; with thin layers it spans several). The same law as soil_evaporation_cycles acts on the
+    zone's thickness-weighted water content, fc and wilting point; the water comes out of every zone layer in equal
+    volumetric steps (shares of loss by layer matched the 13 test sites to 0.04 on average at 0.2 m).
+    zone_start is the zone's mean water content at the start of the day."""
+    a, b, n = EVAP_LAW_PARAMS
+    zlayers, tot = [], 0.0
+    for l in layers:
+        t = min(l["thick"], max(0.0, EVAP_ZONE_DEPTH_M - tot))
+        if t <= 0:
+            break
+        zlayers.append((l, t)); tot += t
+    zfc = sum(l["fc"] * t for l, t in zlayers) / tot
+    zpwp = sum(l["pwp"] * t for l, t in zlayers) / tot
+    tc, ta = b * zfc, a * zpwp
+    ratio = 1.0 if zone_start >= tc else max(0.0, (zone_start - ta) / (tc - ta)) ** n
+    zth = sum(l["theta"] * t for l, t in zlayers) / tot
+    avail = max(0.0, (zth - ta) * tot * 1000)
+    evap = min(ratio * pot_evap_mm, avail)
+    dtheta = evap / (tot * 1000)
+    for l, t in zlayers:
+        l["theta"] -= dtheta * t / l["thick"]   # the zone takes only its part of a thicker layer
+    return evap
+
+
+def zone_mean_theta(layers):
+    if EVAP_ZONE_DEPTH_M is None:
+        return layers[0]["theta"]
+    tot, w = 0.0, 0.0
+    for l in layers:
+        t = min(l["thick"], max(0.0, EVAP_ZONE_DEPTH_M - tot))
+        if t <= 0:
+            break
+        w += l["theta"] * t; tot += t
+    return w / tot
+
+
 def soil_evaporation_cycles(layers, pot_evap_mm, theta_start):
     """Bare-soil evaporation as measured on Cycles v1.5.20 with designed dry-down experiments (bare field, real
     atmosphere, one wetting then no rain, 9 soils x 2 wetting sizes, 3,388 days): evaporation takes only layer 1 water,
@@ -657,6 +699,13 @@ def soil_evaporation_cycles(layers, pot_evap_mm, theta_start):
     avail = max(0.0, (l0["theta"] - ta) * l0["thick"] * 1000)
     evap = min(ratio * pot_evap_mm, avail)
     l0["theta"] -= evap / (l0["thick"] * 1000)
+    if EVAP_LAW_TAIL > 0.0 and len(layers) > 1:
+        # step 4: Cycles keeps evaporating slowly when layer 1 is dry, and the water comes from layer 2
+        l1 = layers[1]
+        avail2 = max(0.0, (l1["theta"] - l1["pwp"]) * l1["thick"] * 1000)
+        ev2 = min(EVAP_LAW_TAIL * max(0.0, pot_evap_mm - evap), avail2)
+        l1["theta"] -= ev2 / (l1["thick"] * 1000)
+        evap += ev2
     return evap
 
 
@@ -698,6 +747,8 @@ def soil_evaporation(layers, eto_mm, canopy_cover_frac, precip_mm=0.0, de_state=
     l0 = layers[0]
     demand_mm = eto_mm * (1 - canopy_cover_frac) * SOIL_EVAP_SCALE
     if EVAP_LAW_CYCLES and theta_start is not None:
+        if EVAP_ZONE_DEPTH_M is not None:
+            return soil_evaporation_zone(layers, demand_mm, theta_start)
         return soil_evaporation_cycles(layers, demand_mm, theta_start)
     if use_cropsyst_formula or FORCE_CROPSYST_EVAP:
         return soil_evaporation_cropsyst(layers, demand_mm, fallow=fallow, summer_time=summer_time)
@@ -898,7 +949,7 @@ def run_bare_fallow_window(layers, rows, curve_number=75.0, slope_pct=0.0, lat_d
     for w in rows:
         if SNOW_MODEL:
             w = snow_adjust(layers, w, lat_deg)
-        _th1_0 = layers[0]["theta"]
+        _th1_0 = zone_mean_theta(layers)
         drainage_mm, _, _ = infiltrate(layers, w["pp"], curve_number, slope_pct)
         total_drainage += drainage_mm
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], lat_deg)
@@ -2876,7 +2927,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             w = snow_adjust(layers, w, lat_deg)
         _rc = residue_cover_frac(sixpool_state)
         _re = residue_rain_evap_mm(w["pp"], _rc)
-        _th1_0 = layers[0]["theta"]
+        _th1_0 = zone_mean_theta(layers)
         drainage_mm, _, n_out = infiltrate(layers, w["pp"] - _re, curve_number, slope_pct, n_by_layer=no3_layers)
         if no3_layers is not None:
             leached += n_out
@@ -3496,7 +3547,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 w = snow_adjust(layers, w, crop["lat_deg"])
             _rc = residue_cover_frac(sixpool_state)
             _re = residue_rain_evap_mm(w["pp"], _rc)
-            _th1_0 = layers[0]["theta"]
+            _th1_0 = zone_mean_theta(layers)
             _, spin_runoff, _ = infiltrate(layers, w["pp"] - _re, curve_number, slope_pct)
             runoff_total += spin_runoff
             eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
@@ -3794,7 +3845,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
 
         res_cover_today = residue_cover_frac(sixpool_state)
         res_evap_today = residue_rain_evap_mm(w["pp"], res_cover_today)
-        _th1_0 = layers[0]["theta"]
+        _th1_0 = zone_mean_theta(layers)
         drainage_mm, runoff, n_leached_today = infiltrate(layers, w["pp"] + irrigation_mm - res_evap_today, curve_number,
                                                             slope_pct,
                                                             n_by_layer=(no3_layers if no3_layers is not None
