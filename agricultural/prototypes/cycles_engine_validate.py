@@ -1565,7 +1565,7 @@ CORN_CANOPY_SHAPE = (6, -20, -5.35, 4.10)  # re-refit 2026-09-30 (was (6,-20,-12
 # UNCALIBRATED total/aboveground biomass runs 26-32% higher than real Cycles even when the
 # CALIBRATED grain number matches well -- this is a real, verified fix to that specific, honestly-
 # disclosed problem, not a cosmetic change to a number nobody was checking.
-NET_GROWTH_FRACTION = 0.92
+NET_GROWTH_FRACTION = 0.95
 
 # Real NOAA Mauna Loa/Scripps annual mean atmospheric CO2 (ppm), 1980-2016 -- the exact years
 # this engine's validation harnesses use. Source: NOAA Global Monitoring Laboratory
@@ -1729,6 +1729,7 @@ def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
 N_UPTAKE_RATE_PER_DAY = None  # None = uptake limited only by demand (validated default); else also capped at this fraction/day of the reachable mineral N pool (nitrate_per_layer path)
 N_DEMAND_SCALE = 0.75  # fraction of the critical-curve marginal N demand the crop actually takes up: Cycles Iowa corn at 150 kg N holds 224 kg N/ha at maturity vs 295 for the full curve (0.76); unstressed whole-plant concentration runs 0.63-0.9 of the curve across growth (run_validation_multisite.py, 2026-10-02)
 GROWTH_PREV_CANOPY = True   # step 6: radiation-limited growth uses the canopy at the start of the day (previous day's)
+VPD_DAYTIME_ALPHA = 0.7   # step 6b: saturation pressure at alpha*tmax+(1-alpha)*tmin (0.7 reproduces Cycles' reported VPD to rms 0.09 kPa over 4 sites)
 VPD_FAO56 = True   # step 6
 CANOPY_WATER_POW = 1.0   # step 6 (replaces the W0 line): canopy clock rate = water_stress_mult ** POW (Cycles: 0.9 at 2.5% stress, 0.6 at 27%, 0.37 at 60%, 0.06 at 90%)
 CANOPY_WATER_W0 = None  # step 6: canopy clock rate = clamp((water_stress_mult - W0)/(1 - W0), 0, 1); None = off. Measured on Cycles: ~1 at no stress, ~0 near 50% stress
@@ -3941,7 +3942,11 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             es_x = 0.6108 * math.exp(17.27 * w["tx"] / (w["tx"] + 237.3))
             es_n = 0.6108 * math.exp(17.27 * w["tn"] / (w["tn"] + 237.3))
             ea = (es_n * w["rhx"] + es_x * w["rhn"]) / 200
-            Da = max(0.05, (es_x + es_n) / 2 - ea)
+            if VPD_DAYTIME_ALPHA is None:
+                Da = max(0.05, (es_x + es_n) / 2 - ea)
+            else:
+                _t = VPD_DAYTIME_ALPHA * w["tx"] + (1.0 - VPD_DAYTIME_ALPHA) * w["tn"]
+                Da = max(0.05, 0.6108 * math.exp(17.27 * _t / (_t + 237.3)) - ea)
         else:
             es = 0.6108 * math.exp(17.27 * tmean / (tmean + 237.3))
             ea = es * (w["rhx"] + w["rhn"]) / 200
