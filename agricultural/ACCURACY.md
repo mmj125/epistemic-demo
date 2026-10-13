@@ -5,13 +5,28 @@ The from-scratch engine (`prototypes/cycles_engine_validate.py`) was compared wi
 ## Corn grain, 16 sites, mean over sites
 | Nitrogen rate | Mean absolute error | Year-to-year correlation | Sites with correlation 0.7 or better |
 |---|---|---|---|
-| 0 kg N/ha | 0.95 Mg/ha | 0.49 | 5 of 16 |
-| 150 kg N/ha | 1.22 Mg/ha (about 15%) | 0.80 | 13 of 16 |
-| 400 kg N/ha | 1.06 Mg/ha (not re-run after the 2026-10-12 supply fix) | 0.88 | 15 of 16 |
+| 0 kg N/ha | 0.85 Mg/ha | 0.71 | 10 of 16 |
+| 150 kg N/ha | 1.20 Mg/ha (about 15%) | 0.81 | 13 of 16 |
+| 400 kg N/ha | 1.06 Mg/ha (not re-run after the 2026-10-13 supply fix) | 0.88 | 15 of 16 |
 
 Since 2026-10-12 the engine is run as one continuous chain from 1980, the way Cycles runs a 1980-2016 simulation (`simulate_continuous`), instead of a fresh start with two lead-in years. Soil nitrogen declines over decades under continuous unfertilized corn in Cycles (New York 13.6 to 2.8 Mg/ha over 20 years); a two-year lead-in could not reproduce that, which was the main cause of the earlier unfertilized overshoot.
 
 Overall engine mean yield is about 5% below Cycles' at 150 kg N/ha (7.66 vs 8.02 Mg/ha). The per-site statements from the v1.4.4 table (water-limited sites within a few percent, humid sites 4 to 7% low) have not been re-checked against v1.5.20.
+
+## Soil nitrogen supply rebuilt on Cycles' own respiration definition, 2026-10-13
+Cause found by comparing month by month with Cycles: Cycles' "SOM respired carbon" column is soil plus microbial respiration, and the net-nitrogen coefficients (186.8, 78.1, 7.6, fitted on that column) were being applied to the engine's soil-only respiration. That starved the fall flush of nitrogen after harvest (Arkansas September to December: 10 vs 54 kg N/ha), so the engine's nitrate pool drained to zero while Cycles' stayed at 100 to 200 kg N/ha. Now net nitrogen is driven by soil plus microbial respiration (`SIXPOOL_ML_N_USE_TOTAL`), with coefficients 65 and 33, and `N_STRESS_ZERO_RATIO` 0.7. Results, 150 kg N/ha:
+
+| Measure | Before (2026-10-12) | After |
+|---|---|---|
+| Tuning sites, unfertilized grain MAE / correlation / sites at 0.7+ | 0.95 / 0.49 / 5 | 0.85 / 0.71 / 10 |
+| Tuning sites, 150 kg N grain MAE / correlation | 1.22 / 0.80 | 1.20 / 0.81 |
+| Tuning sites, rms log error: leaching / denitrification / N2O | 1.19 / 0.92 / 0.94 | 0.79 / 0.73 / 0.74 |
+| Held-out sites (never fitted), rms log error: leaching / denitrification / N2O | 1.09 / 0.72 / 0.94 | 0.52 / 0.54 / 0.70 |
+| Held-out, unfertilized grain MAE (correlation) | 0.98 (0.66) | 0.85 (0.71) |
+| Held-out, 150 kg N grain MAE (bias) | 1.03 (-0.19) | 1.06 (-0.50) |
+| Mean losses, Cycles vs engine (tuning): leaching / denitrification / N2O (kg N/ha) | 9.0 vs 8.8 / 21.4 vs 17.1 / 3.7 vs 4.2 | 9.0 vs 8.0 / 21.4 vs 16.7 / 3.7 vs 3.2 |
+
+Winter wheat at Rock Springs moved from 0.280 to 0.368 with the new stress ratio; corn 0.732, soybean 0.875 and silage corn 0.827 are unchanged. 15 of 16 pattern checks pass. A careful earlier finding stands: the old "supply depends on carbon saturation" fix (2026-10-12, below) removed the low bias in loss means; this change keeps that and removes most of the site scatter.
 
 ## Nitrogen losses were biased low; fixed 2026-10-12 (supply now depends on soil carbon saturation)
 Before: at 150 kg N/ha the engine's mean losses were 2 to 3 times too low (leaching 3.3 vs Cycles 9.0, denitrification 9.5 vs 21.4, N2O 1.7 vs 3.7 kg N/ha over 16 sites), which would teach that fertilizer is safer than it is. Cause (found by comparing monthly net mineralization and annual carbon terms with Cycles): the engine's soil nitrogen supply was too flat across sites. Cycles' soil-organic-matter respiration varies 23-fold across sites (0.14 to 3.3 Mg C/ha/yr) and rises about in proportion to the layer's carbon saturation ratio; the engine varied about 5-fold. Fix: respiration now scales with that ratio (`SIXPOOL_ML_FD_P = 1`, `FD_R0 = 0.573`), with net-N coefficients 120 and 40. Result at the 16 tuning sites, 150 kg N/ha, means Cycles vs engine: leaching 9.0 vs 8.8, denitrification 21.3 vs 17.1, N2O 3.7 vs 4.2 kg N/ha (bias removed). Held-out 12 sites: leaching 4.8 vs 3.1 (was 1.8), denitrification 18.6 vs 20.0 (was 12.3), N2O 4.3 vs 5.8 (was 2.3). Grain unchanged (150 kg N: 1.22 Mg/ha tuning, 1.03 held-out; 0 kg N: 0.95 tuning, 0.98 held-out vs 0.87 before). Site rankings of losses were already good (rank correlation 0.72 to 0.93). What remains is site-specific scatter, not bias: Kansas denitrification 46 vs 7.9 and volatilization 24 vs 76 (soil too wet and nitrate handling in dry soil), Texas denitrification 7 vs 36, Arkansas leaching 3 vs 21, Illinois leaching 20 vs 9.

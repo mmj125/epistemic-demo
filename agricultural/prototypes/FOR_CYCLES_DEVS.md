@@ -11,12 +11,12 @@ Short version: a from-scratch Python engine, built only from the published Cycle
 
 ## Where it is accurate (Cycles v1.5.20, identical inputs, continuous corn 1980-2016)
 - 16 tuning sites plus 12 held-out sites never used in fitting.
-- Fertilized corn grain (150 kg N/ha): mean error about 1.0 to 1.2 Mg/ha (about 15%), year-to-year correlation about 0.8.
+- Fertilized corn grain (150 kg N/ha): mean error about 1.1 to 1.2 Mg/ha (about 15%), year-to-year correlation about 0.8.
 - Rock Springs sample scenarios, correlation: corn 0.73, soybean 0.88, silage corn 0.83, winter wheat 0.28.
 
 ## Where it is weak (please confirm or correct)
-- Unfertilized corn: error about 0.9 Mg/ha, correlation 0.56 to 0.68.
-- Nitrogen losses: mean levels now match Cycles across 16 sites at 150 kg N/ha (leaching 8.8 vs 9.0, denitrification 17 vs 21, N2O 4.2 vs 3.7 kg N/ha), and sites rank the same way (rank correlation 0.7 to 0.9). Site-level scatter remains: Kansas denitrification 46 vs 8 and volatilization 24 vs 76, Texas denitrification 7 vs 36, Arkansas leaching 3 vs 21.
+- Unfertilized corn: error about 0.85 Mg/ha, correlation about 0.7 at 10 of 16 sites.
+- Nitrogen losses: mean levels now match Cycles across 16 sites at 150 kg N/ha (leaching 8.8 vs 9.0, denitrification 17 vs 21, N2O 4.2 vs 3.7 kg N/ha), and sites rank the same way (rank correlation 0.7 to 0.9). Typical site-level miss is now about a factor of 2 (rms log error 0.5 to 0.8 on leaching, denitrification and N2O; held-out sites 0.5 to 0.7). Largest remaining misses: Kansas denitrification 46 vs 8 and volatilization 24 vs 76, Texas denitrification 7 vs 36, Arkansas leaching 3 vs 21.
 - Winter wheat does not meet our classroom bar. Pasture and cover crops are not validated.
 
 ## Questions where your answer would help most
