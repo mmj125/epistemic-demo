@@ -1565,7 +1565,7 @@ CORN_CANOPY_SHAPE = (6, -20, -5.35, 4.10)  # re-refit 2026-09-30 (was (6,-20,-12
 # UNCALIBRATED total/aboveground biomass runs 26-32% higher than real Cycles even when the
 # CALIBRATED grain number matches well -- this is a real, verified fix to that specific, honestly-
 # disclosed problem, not a cosmetic change to a number nobody was checking.
-NET_GROWTH_FRACTION = 0.785
+NET_GROWTH_FRACTION = 0.92
 
 # Real NOAA Mauna Loa/Scripps annual mean atmospheric CO2 (ppm), 1980-2016 -- the exact years
 # this engine's validation harnesses use. Source: NOAA Global Monitoring Laboratory
@@ -1728,6 +1728,10 @@ def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
 # re-running run_validation.py / run_validation_rotation2.py unchanged.
 N_UPTAKE_RATE_PER_DAY = None  # None = uptake limited only by demand (validated default); else also capped at this fraction/day of the reachable mineral N pool (nitrate_per_layer path)
 N_DEMAND_SCALE = 0.75  # fraction of the critical-curve marginal N demand the crop actually takes up: Cycles Iowa corn at 150 kg N holds 224 kg N/ha at maturity vs 295 for the full curve (0.76); unstressed whole-plant concentration runs 0.63-0.9 of the curve across growth (run_validation_multisite.py, 2026-10-02)
+GROWTH_PREV_CANOPY = True   # step 6: radiation-limited growth uses the canopy at the start of the day (previous day's)
+VPD_FAO56 = True   # step 6
+CANOPY_WATER_POW = 1.0   # step 6 (replaces the W0 line): canopy clock rate = water_stress_mult ** POW (Cycles: 0.9 at 2.5% stress, 0.6 at 27%, 0.37 at 60%, 0.06 at 90%)
+CANOPY_WATER_W0 = None  # step 6: canopy clock rate = clamp((water_stress_mult - W0)/(1 - W0), 0, 1); None = off. Measured on Cycles: ~1 at no stress, ~0 near 50% stress
 CANOPY_N_COEF = 0.0  # fraction of nitrogen stress passed to the canopy clock (0 = off); Cycles' N-stressed corn keeps interception near 0.12 vs 0.9 unstressed (Missouri N0, 2026-10-12)
 N_STRESS_FULL_RATIO = 0.06
 N_STRESS_FLOOR_RATIO = 0.2  # below N_STRESS_KNEE_RATIO the stress factor falls linearly to 0 at this ratio instead of at N_STRESS_FULL_RATIO (0 = off); Cycles corn never dilutes below ~0.2 of the critical curve
@@ -3598,6 +3602,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
 
     tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
     tt_canopy, n_stress_prev = 0.0, 1.0
+    water_stress_prev = 1.0
+    eie_prev_day = 0.0
     ag_biomass_at_flowering = None  # captured the first day tt_cum crosses flowering_tt --
     # see the real f_G harvest-index fix below (Kemanian et al. 2007) for why.
     n_tracking_active = (not crop.get("legume", False)) and (
@@ -3815,7 +3821,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             break
         dtt = thermal_time_increment(w["tx"], w["tn"], crop["base_t"], crop["opt_t"], crop["max_t"])
         tt_cum += dtt
-        tt_canopy += dtt * (1.0 - CANOPY_N_COEF * (1.0 - n_stress_prev))
+        _wf = water_stress_prev ** CANOPY_WATER_POW if CANOPY_WATER_POW is not None else 1.0 if CANOPY_WATER_W0 is None else max(0.0, min(1.0, (water_stress_prev - CANOPY_WATER_W0) / (1.0 - CANOPY_WATER_W0)))
+        tt_canopy += dtt * (1.0 - CANOPY_N_COEF * (1.0 - n_stress_prev)) * _wf
         ttf = tt_cum / crop["tt_maturity"]
         if ttf >= harvest_ttf:
             break
@@ -3926,10 +3933,19 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         temp_factor = transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
         rad_temp_factor = radiation_temp_factor(tmean, crop["tr_min_t"], crop.get("rad_temp_floor", 0.0),
                                                  crop.get("rad_temp_plateau_t", crop["tr_threshold_t"]))
-        GR = crop["rue"] * rad_temp_factor * eie * w["solar"]
-        es = 0.6108 * math.exp(17.27 * tmean / (tmean + 237.3))
-        ea = es * (w["rhx"] + w["rhn"]) / 200
-        Da = max(0.05, es - ea)
+        GR = crop["rue"] * rad_temp_factor * (eie_prev_day if GROWTH_PREV_CANOPY else eie) * w["solar"]
+        if VPD_FAO56:
+            # step 6: Cycles' vapor pressure deficit is the FAO-56 one: mean of the saturation pressures at tmax and tmin,
+            # less the actual pressure from the humidity extremes. With it the implied transpiration-use efficiency of Cycles'
+            # corn is 8.7 g/kg at all 12 sites tested (the crop file value); with saturation at the mean temperature it ran 7.3-8.0
+            es_x = 0.6108 * math.exp(17.27 * w["tx"] / (w["tx"] + 237.3))
+            es_n = 0.6108 * math.exp(17.27 * w["tn"] / (w["tn"] + 237.3))
+            ea = (es_n * w["rhx"] + es_x * w["rhn"]) / 200
+            Da = max(0.05, (es_x + es_n) / 2 - ea)
+        else:
+            es = 0.6108 * math.exp(17.27 * tmean / (tmean + 237.3))
+            ea = es * (w["rhx"] + w["rhn"]) / 200
+            Da = max(0.05, es - ea)
         TRp = (1 + (crop["kc"] - 1) * eie) * eie * eto
         TRp *= temp_factor
 
@@ -3945,6 +3961,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             water_stress = water_stress_response(avail_frac, crop.get("depletion_fraction", 0.5))
             TR_actual = min(TRp * water_stress, crop.get("tr_max_mm_day", math.inf))
             extract_transpiration(layers, root_depth, TR_actual)
+        water_stress_prev = water_stress
         # tr_max_mm_day: real, disclosed per-crop TRANSPIRATION_MAX from GenericCrops.crop
         # (corn/silage corn 10, soybean/wheat 8 mm/day), a physical ceiling on daily
         # transpiration -- for the fallback branch above it's an explicit clamp; for the
@@ -3956,6 +3973,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
 
         GT = crop["wue"] * wue_co2_scale / math.sqrt(Da) * TR_actual
         dGB_water_limited = max(0.0, min(GR, GT)) * NET_GROWTH_FRACTION / 1000
+        eie_prev_day = eie
 
         n_stress = 1.0
         if n_pool is not None:
