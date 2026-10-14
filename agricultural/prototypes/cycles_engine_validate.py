@@ -1626,9 +1626,9 @@ def canopy_cover(ttf_norm, eix=1.0, shape=DEFAULT_CANOPY_SHAPE):
     return eix / (1 + math.exp(a + b * ttf_norm) + math.exp(c + d * ttf_norm))
 
 
-CANOPY_TWO_CLOCK = False   # 2026-10-14: expansion term on the stress-slowed canopy clock, senescence term on real thermal time (Cycles' unstressed corn matches eix 0.95 and the paper's decline -16 + 16x on thermal-time fraction)
-CANOPY_SHAPE_FORCE = None
-CANOPY_EIX_FORCE = None
+CANOPY_TWO_CLOCK = True   # 2026-10-14: expansion term on the stress-slowed canopy clock, senescence term on real thermal time (Cycles' unstressed corn matches eix 0.95 and the paper's decline -16 + 16x on thermal-time fraction)
+CANOPY_SHAPE_FORCE = (6, -20, -16, 16)   # default since 2026-10-14 (simultaneous calibration): the paper's own senescence constants, applied to all crops
+CANOPY_EIX_FORCE = 0.99
 
 
 def canopy_cover_two(x_clock, x_thermal, eix=1.0, shape=DEFAULT_CANOPY_SHAPE):
@@ -1737,13 +1737,13 @@ def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
 # behavior is byte-identical to before this feature existed -- verified by
 # re-running run_validation.py / run_validation_rotation2.py unchanged.
 N_UPTAKE_RATE_PER_DAY = None  # None = uptake limited only by demand (validated default); else also capped at this fraction/day of the reachable mineral N pool (nitrate_per_layer path)
-N_DEMAND_SCALE = 0.75  # fraction of the critical-curve marginal N demand the crop actually takes up: Cycles Iowa corn at 150 kg N holds 224 kg N/ha at maturity vs 295 for the full curve (0.76); unstressed whole-plant concentration runs 0.63-0.9 of the curve across growth (run_validation_multisite.py, 2026-10-02)
+N_DEMAND_SCALE = 0.91  # fraction of the critical-curve marginal N demand the crop actually takes up: Cycles Iowa corn at 150 kg N holds 224 kg N/ha at maturity vs 295 for the full curve (0.76); unstressed whole-plant concentration runs 0.63-0.9 of the curve across growth (run_validation_multisite.py, 2026-10-02)
 GROWTH_PREV_CANOPY = True   # step 6: radiation-limited growth uses the canopy at the start of the day (previous day's)
 VPD_DAYTIME_ALPHA = 0.7   # step 6b: saturation pressure at alpha*tmax+(1-alpha)*tmin (0.7 reproduces Cycles' reported VPD to rms 0.09 kPa over 4 sites)
 VPD_FAO56 = True   # step 6
-CANOPY_WATER_POW = 1.0   # step 6 (replaces the W0 line): canopy clock rate = water_stress_mult ** POW (Cycles: 0.9 at 2.5% stress, 0.6 at 27%, 0.37 at 60%, 0.06 at 90%)
+CANOPY_WATER_POW = 1.35   # step 6 (replaces the W0 line): canopy clock rate = water_stress_mult ** POW (Cycles: 0.9 at 2.5% stress, 0.6 at 27%, 0.37 at 60%, 0.06 at 90%)
 CANOPY_WATER_W0 = None  # step 6: canopy clock rate = clamp((water_stress_mult - W0)/(1 - W0), 0, 1); None = off. Measured on Cycles: ~1 at no stress, ~0 near 50% stress
-CANOPY_N_POW = None   # 2026-10-14: canopy clock rate = water**CANOPY_WATER_POW * n_stress**CANOPY_N_POW (measured on 86k day-pairs of Cycles daily interception: 1.35 and 3.85, rms 0.20); None = use the linear CANOPY_N_COEF form
+CANOPY_N_POW = 3.25   # 2026-10-14: canopy clock rate = water**CANOPY_WATER_POW * n_stress**CANOPY_N_POW (measured on 86k day-pairs of Cycles daily interception: 1.35 and 3.85, rms 0.20); None = use the linear CANOPY_N_COEF form
 CANOPY_N_COEF = 0.5  # fraction of nitrogen stress passed to the canopy clock (0 = off); Cycles' N-stressed corn keeps interception near 0.12 vs 0.9 unstressed (Missouri N0, 2026-10-12)
 N_STRESS_FULL_RATIO = 0.06
 N_STRESS_FLOOR_RATIO = 0.2  # below N_STRESS_KNEE_RATIO the stress factor falls linearly to 0 at this ratio instead of at N_STRESS_FULL_RATIO (0 = off); Cycles corn never dilutes below ~0.2 of the critical curve
@@ -1751,8 +1751,8 @@ N_UPTAKE_FLOOR_MGKG = 0.3   # 2026-10-13 (was 1.0, 28-site sweep 0..1.0): minimu
 N_STRESS_AG_BASIS = False
 N_AG_FRACTION = 0.88
 N_STRESS_R0, N_STRESS_R1, N_STRESS_SMAX, N_STRESS_Q = 0.641, 0.281, 0.764, 0.90
-N_STRESS_KNEE_RATIO = 0.3
-N_STRESS_ZERO_RATIO = 0.7  # was 0.62; refit 2026-10-12 with SIXPOOL_ML_N_A 76 on 28 sites (fertilized corn bias -0.36 to +0.11)
+N_STRESS_KNEE_RATIO = 0.26
+N_STRESS_ZERO_RATIO = 0.86  # was 0.62; refit 2026-10-12 with SIXPOOL_ML_N_A 76 on 28 sites (fertilized corn bias -0.36 to +0.11)
 NCRIT_FLOOR_MGHA = 1.0  # dilution curve is flat (at N_MAX_CONCENTRATION) below this biomass; standard convention
 
 # Background soil-supplied nitrogen from organic matter mineralization -- a real,
@@ -2210,7 +2210,7 @@ SIXPOOL_DIAG = None  # optional list; when set, sixpool_step appends (cs_loss, r
 # - 7.6*RES_RESPIRED_C (kg N per Mg C), R^2 = 0.972, per-site mean residual under 25 kg N. Humified
 # share of decomposed residue C (HUMIFIED/(HUMIFIED+RES RESPIRED)) falls from ~0.53 at low Cs/Csx to
 # ~0.1 by Cs/Csx = 1: ~0.53*(1-r^12) (a flat eps_c*fH with exponent 6 gave 0.35 at r=0.7 and 0 at r>1).
-SIXPOOL_ML_N_A = 61.0  # was 186.8 (fit on respiration terms alone); 140 chosen 2026-10-07 on the 16-site table (N0 corn bias +1.44 -> +0.21, leaching 1.06 -> 0.90, wheat chain 0.25 -> 0.52) at a cost to fertilized corn (N150 bias -0.70 -> -1.01); see QUESTIONS_FOR_DEVS.md
+SIXPOOL_ML_N_A = 72.0  # was 186.8 (fit on respiration terms alone); 140 chosen 2026-10-07 on the 16-site table (N0 corn bias +1.44 -> +0.21, leaching 1.06 -> 0.90, wheat chain 0.25 -> 0.52) at a cost to fertilized corn (N150 bias -0.70 -> -1.01); see QUESTIONS_FOR_DEVS.md
 SIXPOOL_ML_N_B = 33.0  # was 78.1 (fit on respiration terms); refit 2026-10-12 together with N_A and realized-growth root carbon on 28 sites run as one continuous Cycles-style chain
 SIXPOOL_ML_N_C = 7.6
 SIXPOOL_ML_EPS_H = 0.53
