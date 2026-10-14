@@ -1626,6 +1626,16 @@ def canopy_cover(ttf_norm, eix=1.0, shape=DEFAULT_CANOPY_SHAPE):
     return eix / (1 + math.exp(a + b * ttf_norm) + math.exp(c + d * ttf_norm))
 
 
+CANOPY_TWO_CLOCK = False   # 2026-10-14: expansion term on the stress-slowed canopy clock, senescence term on real thermal time (Cycles' unstressed corn matches eix 0.95 and the paper's decline -16 + 16x on thermal-time fraction)
+CANOPY_SHAPE_FORCE = None
+CANOPY_EIX_FORCE = None
+
+
+def canopy_cover_two(x_clock, x_thermal, eix=1.0, shape=DEFAULT_CANOPY_SHAPE):
+    a, b, c, d = shape
+    return eix / (1 + math.exp(a + b * max(0.0, x_clock)) + math.exp(c + d * max(0.0, x_thermal)))
+
+
 def effective_canopy_cover(ei, pdf=1.0):
     """Real Eq. 7, Kemanian et al. 2024: adjusts the base canopy cover fraction (ei, from
     canopy_cover()/Eq. 6 above) for planting density, since the paper's own hardcoded default
@@ -3888,9 +3898,13 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         ttf = tt_cum / crop["tt_maturity"]
         if ttf >= harvest_ttf:
             break
-        eie = 0.0 if tt_cum < crop.get("tt_emergence", 0.0) else effective_canopy_cover(
-            canopy_cover(tt_canopy / crop["tt_maturity"], crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE)),
-            crop.get("plant_density_factor", 1.0))
+        _shape = CANOPY_SHAPE_FORCE if CANOPY_SHAPE_FORCE is not None else crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE)
+        _eix = CANOPY_EIX_FORCE if CANOPY_EIX_FORCE is not None else crop.get("eix", 1.0)
+        if CANOPY_TWO_CLOCK:
+            _ei = canopy_cover_two(tt_canopy / crop["tt_maturity"], tt_cum / crop["tt_maturity"], _eix, _shape)
+        else:
+            _ei = canopy_cover(tt_canopy / crop["tt_maturity"], _eix, _shape)
+        eie = 0.0 if tt_cum < crop.get("tt_emergence", 0.0) else effective_canopy_cover(_ei, crop.get("plant_density_factor", 1.0))
         if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("canopy", ()):
             eie = _FORCE_CUR["canopy"][w["doy"]]
         root_depth = root_max_m * min(1.0, ttf / 0.5)
