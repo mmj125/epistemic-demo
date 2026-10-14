@@ -3076,6 +3076,8 @@ def _season_chain(weather_by_year, year_range, crop, plant_window, plant_min_soi
             plant_doy = gated
         rows = [d[k] for k in range(plant_doy, 300) if k in d]
         spinup = [d[k] for k in range(1, plant_doy) if k in d]
+        global _FORCE_CUR
+        _FORCE_CUR = FORCE_SERIES.get(y) if FORCE_SERIES else None
         kw = dict(season_kwargs)
         if "wue_co2_scale" not in kw:
             kw["wue_co2_scale"] = CO2_PPM_BY_YEAR.get(y, CO2_REF_PPM) / CO2_REF_PPM
@@ -3147,6 +3149,10 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
                                     plant_min_soil_t, carry_n, initial_mineral_n, season_kwargs):
         pass
     return result
+
+
+FORCE_SERIES = None   # module-swap diagnostic (2026-10-14): {year: {"canopy": {doy: v}, "water": {doy: mult}, "nstress": {doy: mult}}} from Cycles' own daily output; None = off
+_FORCE_CUR = None
 
 
 def simulate_continuous(weather_by_year, crop, years=None, plant_window=(110, 131), plant_min_soil_t=12.0, carry_n=False,
@@ -3881,6 +3887,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         eie = 0.0 if tt_cum < crop.get("tt_emergence", 0.0) else effective_canopy_cover(
             canopy_cover(tt_canopy / crop["tt_maturity"], crop.get("eix", 1.0), crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE)),
             crop.get("plant_density_factor", 1.0))
+        if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("canopy", ()):
+            eie = _FORCE_CUR["canopy"][w["doy"]]
         root_depth = root_max_m * min(1.0, ttf / 0.5)
 
         # Tillage's soil-moisture mixing happens once, on tillage_doy itself, before
@@ -4017,6 +4025,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             water_stress = water_stress_response(avail_frac, crop.get("depletion_fraction", 0.5))
             TR_actual = min(TRp * water_stress, crop.get("tr_max_mm_day", math.inf))
             extract_transpiration(layers, root_depth, TR_actual)
+        if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("water", ()):
+            water_stress = _FORCE_CUR["water"][w["doy"]]
+            TR_actual = TRp * water_stress
         water_stress_prev = water_stress
         # tr_max_mm_day: real, disclosed per-crop TRANSPIRATION_MAX from GenericCrops.crop
         # (corn/silage corn 10, soybean/wheat 8 mm/day), a physical ceiling on daily
@@ -4125,6 +4136,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 if N_STRESS_FLOOR_RATIO > 0.0 and _ratio < N_STRESS_KNEE_RATIO:
                     _knee = (N_STRESS_KNEE_RATIO - N_STRESS_FULL_RATIO) / (N_STRESS_ZERO_RATIO - N_STRESS_FULL_RATIO)
                     n_stress = max(0.0, _knee * (_ratio - N_STRESS_FLOOR_RATIO) / (N_STRESS_KNEE_RATIO - N_STRESS_FLOOR_RATIO))
+            if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("nstress", ()):
+                n_stress = _FORCE_CUR["nstress"][w["doy"]]
             dGB_n_limited = dGB_water_limited * n_stress
             n_stress_prev = n_stress
             demand_today_kg_ha = dGB_n_limited * 100 * n_marginal_demand_pct(biomass * 10, crop) * N_DEMAND_SCALE
