@@ -4044,7 +4044,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         eie_prev_day = eie
 
         n_stress = 1.0
-        if n_pool is not None and _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("minn", ()) and n_nh4 is not None and no3_layers is not None:
+        if n_pool is not None and _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("minn", ()) and w["doy"] == min(_FORCE_CUR["minn"]) and n_nh4 is not None and no3_layers is not None:
             _f_no3, _f_nh4 = _FORCE_CUR["minn"][w["doy"]]
             n_nh4 = _f_nh4
             _cur = sum(no3_layers)
@@ -4085,6 +4085,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 sixpool_state["n_conc1"] = n_conc_layer1(layers, n_nh4 if n_nh4 is not None else 0.0, no3_layers, (n_no3 or 0.0) if n_nh4 is not None else n_pool)
                 sixpool_state["n_conc_layers"] = n_conc_layers(layers, n_nh4 if n_nh4 is not None else 0.0, no3_layers, (n_no3 or 0.0) if n_nh4 is not None else n_pool)
                 background_today = sixpool_step(sixpool_state, tmean, relwet_topsoil, root_c_input_today, ft_eff, layers)
+                if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("netmin", ()):
+                    background_today = _FORCE_CUR["netmin"][w["doy"]]
                 # background_today can now be genuinely negative (net immobilization -- see
                 # sixpool_step()'s own docstring, 2026-10-02) -- floored at 0 here because a
                 # real mineral-N pool can't go physically negative (immobilization is
