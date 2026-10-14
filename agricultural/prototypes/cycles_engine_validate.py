@@ -4044,6 +4044,16 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         eie_prev_day = eie
 
         n_stress = 1.0
+        if n_pool is not None and _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("minn", ()) and n_nh4 is not None and no3_layers is not None:
+            _f_no3, _f_nh4 = _FORCE_CUR["minn"][w["doy"]]
+            n_nh4 = _f_nh4
+            _cur = sum(no3_layers)
+            if _cur > 1e-9:
+                no3_layers[:] = [v * _f_no3 / _cur for v in no3_layers]
+            else:
+                no3_layers[:] = [_f_no3] + [0.0] * (len(no3_layers) - 1)
+            n_no3 = sum(no3_layers)
+            n_pool = n_nh4 + n_no3
         if n_pool is not None:
             if w["doy"] in applications_by_doy:
                 if n_pool_by_layer is not None:

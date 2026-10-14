@@ -6,13 +6,16 @@ import cycles_engine_validate as E, run_validation_multisite as m
 from multiprocessing import Pool
 E.ROOT_C_REALIZED_GROWTH=True
 ALL=dict(m.SITES);ALL.update(m.HELDOUT_SITES)
-COND={'base':(),'A canopy':('canopy',),'B water':('water',),'C nitrogen':('nstress',),'D A+B+C':('canopy','water','nstress'),'AC canopy+N':('canopy','nstress')}
+OVR={'F minN+canopylaw':dict(CANOPY_N_POW=3.85,CANOPY_WATER_POW=1.35)}
+COND={'base':(),'E mineral N':('minn',),'F minN+canopylaw':('minn',)}
 def force(site,N,keys):
     F={}
+    NN={r['date']:(float(r['profile_soil_NO3']),float(r['profile_soil_NH4'])) for r in csv.DictReader(open(f'/tmp/cycles-run15/output/{site}N{N}/dailyN.csv')) if r['date'][0]!='#'}
     for x in csv.DictReader(open(f'/tmp/cycles-run15/output/{site}N{N}/dailyCornRM.90.csv')):
         if x['date'][0]=='#' or x['biomass']=='-999':continue
         d=datetime.date.fromisoformat(x['date']);y=d.year;doy=d.timetuple().tm_yday
-        f=F.setdefault(y,{'canopy':{},'water':{},'nstress':{}})
+        f=F.setdefault(y,{'canopy':{},'water':{},'nstress':{},'minn':{}})
+        if 'minn' in keys and x['date'] in NN: f['minn'][doy]=NN[x['date']]
         if 'canopy' in keys: f['canopy'][doy]=float(x['radiation_interception'])
         if 'water' in keys: f['water'][doy]=1-float(x['water_stress'])/100
         if 'nstress' in keys: f['nstress'][doy]=1-float(x['nitrogen_stress'])/100
@@ -22,7 +25,9 @@ def one(args):
     lat,lon=ALL[site]
     wx,_=m.fd.resolve_field_weather(lat,lon);soil,_,_=m.fd.resolve_field_soil(lat,lon);cl=m.lat_of(lat,lon)
     E.FORCE_SERIES=force(site,N,keys) if keys else None
+    for k,v in OVR.get(name,{}).items(): setattr(E,k,v)
     r=m.engine(site,wx,soil,cl,N,'leadin')
+    for k in OVR.get(name,{}): setattr(E,k,None if k=='CANOPY_N_POW' else 1.0)
     H={}
     for x in csv.DictReader(open(f'/tmp/cycles-run15/output/{site}N{N}/harvest.csv')):
         if x['date'][0]!='#':H[int(x['date'][:4])]=float(x['grain_yield'])
