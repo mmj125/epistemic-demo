@@ -6,8 +6,8 @@ import cycles_engine_validate as E, run_validation_multisite as m
 from multiprocessing import Pool
 E.ROOT_C_REALIZED_GROWTH=True
 ALL=dict(m.SITES);ALL.update(m.HELDOUT_SITES)
-OVR={'G supply+canopylaw':dict(CANOPY_N_POW=3.85,CANOPY_WATER_POW=1.35)}
-COND={'base':(),'E start pool':('minn',),'F in-season netmin':('netmin',),'G supply+canopylaw':('minn','netmin')}
+OVR={'H law clock forced stress':dict(CANOPY_N_POW=3.85,CANOPY_WATER_POW=1.35),'I H + minn start':dict(CANOPY_N_POW=3.85,CANOPY_WATER_POW=1.35),'G supply+canopylaw':dict(CANOPY_N_POW=3.85,CANOPY_WATER_POW=1.35)}
+COND={'base':(),'H law clock forced stress':('wclock',),'I H + minn start':('wclock','minn')}
 def force(site,N,keys):
     F={}
     NM={r['date']:float(r['net_mineralization']) for r in csv.DictReader(open(f'/tmp/cycles-run15/output/{site}N{N}/dailyN.csv')) if r['date'][0]!='#'}
@@ -15,8 +15,10 @@ def force(site,N,keys):
     for x in csv.DictReader(open(f'/tmp/cycles-run15/output/{site}N{N}/dailyCornRM.90.csv')):
         if x['date'][0]=='#' or x['biomass']=='-999':continue
         d=datetime.date.fromisoformat(x['date']);y=d.year;doy=d.timetuple().tm_yday
-        f=F.setdefault(y,{'canopy':{},'water':{},'nstress':{},'minn':{},'netmin':{}})
+        f=F.setdefault(y,{'canopy':{},'water':{},'nstress':{},'minn':{},'netmin':{},'wclock':{},'nclock':{}})
         if 'minn' in keys and x['date'] in NN: f['minn'][doy]=NN[x['date']]
+        if 'wclock' in keys:
+            f['wclock'][doy]=1-float(x['water_stress'])/100;f['nclock'][doy]=1-float(x['nitrogen_stress'])/100
         if 'netmin' in keys and x['date'] in NM: f['netmin'][doy]=NM[x['date']]
         if 'canopy' in keys: f['canopy'][doy]=float(x['radiation_interception'])
         if 'water' in keys: f['water'][doy]=1-float(x['water_stress'])/100
