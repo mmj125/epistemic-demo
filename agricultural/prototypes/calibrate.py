@@ -10,7 +10,7 @@ ALL=dict(m.SITES);ALL.update(m.HELDOUT_SITES)
 TUNE=list(m.SITES);HELD=list(m.HELDOUT_SITES)
 SPEC={ # name: (start, lo, hi, step)
  'gm':(1.05,0.9,1.2,0.03),'npow':(3.85,1.0,5.0,0.6),'wpow':(1.35,0.8,2.0,0.2),'c':(-16.0,-18.0,-8.0,1.5),'d':(16.0,8.0,20.0,2.0),
- 'eix':(0.95,0.88,1.0,0.02),'zr':(0.70,0.50,0.95,0.08),'knee':(0.30,0.15,0.50,0.05),'nds':(0.75,0.50,1.00,0.08),'A':(66.0,50.0,85.0,6.0)}
+ 'eix':(0.95,0.88,1.0,0.02),'zr':(0.70,0.50,0.95,0.08),'knee':(0.30,0.26,0.50,0.05),'nds':(0.75,0.50,1.00,0.08),'A':(66.0,50.0,85.0,6.0)}
 def apply(p):
     E.CANOPY_TWO_CLOCK=True;E.CANOPY_N_POW=p['npow'];E.CANOPY_WATER_POW=p['wpow'];E.CANOPY_SHAPE_FORCE=(6,-20,p['c'],p['d']);E.CANOPY_EIX_FORCE=p['eix']
     E.N_STRESS_ZERO_RATIO=p['zr'];E.N_STRESS_KNEE_RATIO=p['knee'];E.N_DEMAND_SCALE=p['nds'];E.SIXPOOL_ML_N_A=p['A'];os.environ['GRAIN_MULT']=str(p['gm'])
@@ -32,7 +32,11 @@ def job(a):
     else: apply(p)
     lat,lon=ALL[site]
     wx,_=m.fd.resolve_field_weather(lat,lon);soil,_,_=m.fd.resolve_field_soil(lat,lon);cl=m.lat_of(lat,lon)
-    r=m.engine(site,wx,soil,cl,N,'leadin');H,A=ref(site,N)
+    try:
+        r=m.engine(site,wx,soil,cl,N,'leadin')
+    except Exception:
+        return dict(site=site,N=N,mae=9.0,bias=0.0,corr=0.0,em=0.0,cm=1.0,le=0.0,lc=0.0)
+    H,A=ref(site,N)
     ys=[y for y in r if y in H and y in A]
     g=np.array([H[y] for y in ys]);e=np.array([r[y]['grain'] for y in ys])
     c=float(np.corrcoef(g,e)[0,1]) if g.std()>1e-9 and e.std()>1e-9 else 0.0
@@ -53,7 +57,9 @@ if __name__=="__main__":
     pool=Pool(4);t0=time.time()
     base_t,bd=objective(pool,None,TUNE);base_h,bh=objective(pool,None,HELD)
     print('BASELINE tuning J %.3f held J %.3f'%(base_t,base_h),flush=True)
-    p={k:v[0] for k,v in SPEC.items()};best,detail=objective(pool,p,TUNE);n=1
+    p={k:v[0] for k,v in SPEC.items()}
+    if len(sys.argv)>2 and sys.argv[2]=='resume': p=json.load(open('/tmp/w/calib_best.json'))['p'];p['knee']=max(p['knee'],0.26)
+    best,detail=objective(pool,p,TUNE);n=1
     print('START J %.3f'%best,{k:round(v,3) for k,v in p.items()},flush=True)
     step={k:v[3] for k,v in SPEC.items()};log=[(n,best,dict(p))]
     while n<budget and max(step[k]/SPEC[k][3] for k in step)>0.2:
