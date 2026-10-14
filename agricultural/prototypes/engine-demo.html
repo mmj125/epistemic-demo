@@ -4702,6 +4702,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         _wf = water_stress_prev ** CANOPY_WATER_POW if CANOPY_WATER_POW is not None else 1.0 if CANOPY_WATER_W0 is None else max(0.0, min(1.0, (water_stress_prev - CANOPY_WATER_W0) / (1.0 - CANOPY_WATER_W0)))
         if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("wclock", ()):
             _wf = _FORCE_CUR["wclock"][w["doy"]] ** CANOPY_WATER_POW
+        if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("nclock", ()):
             n_stress_prev = _FORCE_CUR["nclock"][w["doy"]]
         tt_canopy += dtt * ((n_stress_prev ** CANOPY_N_POW) if CANOPY_N_POW is not None else (1.0 - CANOPY_N_COEF * (1.0 - n_stress_prev))) * _wf
         ttf = tt_cum / crop["tt_maturity"]
