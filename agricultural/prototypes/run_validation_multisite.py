@@ -48,6 +48,7 @@ HELDOUT_SITES=dict(south_dakota=(44.0,-97.5),north_dakota=(47.0,-97.5),iowa_west
                    louisiana=(31.0,-92.0),alabama=(32.5,-86.5),virginia=(37.5,-77.5),new_york=(42.8,-76.5))
 if os.environ.get("HELDOUT")=="1": SITES=HELDOUT_SITES
 if os.environ.get("BIGSET"): SITES={k:tuple(v) for k,v in json.load(open(os.environ["BIGSET"])).items()}   # 2026-10-15: scaled-up random site set from bigset.py
+CROPSEL=os.environ.get('CROPSEL','corn')   # 'soy' = continuous soybean (SoybeanMG.5, no N), 2026-10-15
 N_LEVELS=[int(x) for x in os.environ.get('N_LEVELS','0,150').split(',')]
 def lat_of(lat,lon):
     m=fd.load_manifest(); _,_,k=fd.tile_for_point(lat,lon); d,e=fd.load_tile_bytes(m,k)
@@ -66,11 +67,11 @@ def write_inputs(site,lat,lon,wx,soil_raw,cell_lat):
     for i,l in enumerate(soil_raw,1):
         no3=max(1,round(10*l['thick']/0.05*0.25)) ; s.write(f"{i}\t{l['thick']}\t{l['clay']}\t{l['sand']}\t{l['soc']}\t-999\t-999\t-999\t-999\t{min(no3,10)}\t1\t0.0\t0.0\t0.00\t6.5\n")
     s.close()
-    base=open(f"{CY}/input/ContinuousCorn.operation").read()
+    base=open(f"{CY}/input/{'h2h_central_iowa_soy' if CROPSEL=='soy' else 'ContinuousCorn'}.operation").read()
     for N in N_LEVELS:
         op=base.replace('468.75','%.2f'%(N/0.32),1) if N>0 else base
         if N==0:
-            a=op.index("FIXED_FERTILIZATION"); op=op[:a].rstrip()+"\n"
+            a=op.find("FIXED_FERTILIZATION"); op=(op[:a].rstrip()+"\n") if a>=0 else op
         open(f"{CY}/input/{site}N{N}.operation","w").write(op)
         import re as _re
         c=open(f"{CY}/input/ContinuousCorn.ctrl").read().replace("ContinuousCorn.operation",f"{site}N{N}.operation").replace("GenericHagerstown.soil",f"{site}.soil").replace("RockSprings.weather",f"{site}.weather")
@@ -106,7 +107,9 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     if os.environ.get('NETMULT_JSON'):
         import json as _j; cev.SIXPOOL_NET_MULT=_j.load(open(os.environ['NETMULT_JSON'])).get(site,1.0)
     crop=dict(rv.CORN); crop["lat_deg"]=cell_lat
-    if os.environ.get("REGIONAL","1")=="1":   # 2026-10-15 (default ON since the fresh-site validation, REFIT_PLAN row 38): regionalized net-N multiplier and grain factor from site covariates (regional_params.py)
+    if CROPSEL=='soy':
+        import run_validation_rotation2 as _r2; crop=dict(_r2.SOYBEAN); crop['lat_deg']=cell_lat
+    if os.environ.get("REGIONAL","1")=="1" and CROPSEL!='soy':   # 2026-10-15 (default ON since the fresh-site validation, REFIT_PLAN row 38): regionalized net-N multiplier and grain factor from site covariates (regional_params.py)
         import importlib; _rp=importlib.import_module(os.environ.get('REGMOD','regional_params'))
         _m,_g=_rp.regional_params(wx,soil_raw,REG_LON); cev.SIXPOOL_NET_MULT=_m; crop["calibration_factor"]=crop["calibration_factor"]*_g
     if os.environ.get("LWP_WILT"): crop["lwp_wilting_point"]=float(os.environ["LWP_WILT"])
@@ -124,11 +127,12 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     kw=dict(n_rate_kg_ha=N,nh4_no3_split=True,model_denitrification=True,model_volatilization=True,
             background_n_model="sixpool",sixpool_topsoil_clay_pct=soil_raw[0]["clay"],
             sixpool_topsoil_soc_pct=soil_raw[0]["soc"],sixpool_profile_raw=soil_raw)
+    if CROPSEL=='soy': kw={}
     if N>0: kw["fertilizer_source"]="uan"
-    if os.environ.get("NITRATE_LAYERS","1")=="1": kw["nitrate_per_layer"]=True
-    if os.environ.get("PER_LAYER","1")=="1": kw["sixpool_per_layer"]=True
+    if CROPSEL!='soy' and os.environ.get("NITRATE_LAYERS","1")=="1": kw["nitrate_per_layer"]=True
+    if CROPSEL!='soy' and os.environ.get("PER_LAYER","1")=="1": kw["sixpool_per_layer"]=True
     res={}
-    carry=os.environ.get("CARRY_N","1")=="1"
+    carry=os.environ.get("CARRY_N","1")=="1" and CROPSEL!='soy'
     lead_env=os.environ.get("LEAD_YEARS","continuous")
     first_year=min(wx)
     ystep=int(os.environ.get("YEAR_STEP","1"))
@@ -153,9 +157,10 @@ if __name__=="__main__":
         if _only and site not in _only: continue
         wx,wd=fd.resolve_field_weather(lat,lon); soil,sd,name=fd.resolve_field_soil(lat,lon); cl=lat_of(lat,lon)
         REG_LON=lon
-        write_inputs(site,lat,lon,wx,soil,cl)
+        fsite=site+('soy' if CROPSEL=='soy' else '')
+        write_inputs(fsite,lat,lon,wx,soil,cl)
         for N in N_LEVELS:
-            H,A=run_cycles(site,N)
+            H,A=run_cycles(fsite,N)
             for mode in ["leadin"]:
                 E=engine(site,wx,soil,cl,N,mode)
                 ys=sorted(set(H)&set(E))
