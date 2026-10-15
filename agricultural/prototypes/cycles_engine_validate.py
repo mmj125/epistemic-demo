@@ -1743,7 +1743,7 @@ def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
 # behavior is byte-identical to before this feature existed -- verified by
 # re-running run_validation.py / run_validation_rotation2.py unchanged.
 N_UPTAKE_RATE_PER_DAY = None  # None = uptake limited only by demand (validated default); else also capped at this fraction/day of the reachable mineral N pool (nitrate_per_layer path)
-N_DEMAND_SCALE = 0.91  # fraction of the critical-curve marginal N demand the crop actually takes up: Cycles Iowa corn at 150 kg N holds 224 kg N/ha at maturity vs 295 for the full curve (0.76); unstressed whole-plant concentration runs 0.63-0.9 of the curve across growth (run_validation_multisite.py, 2026-10-02)
+N_DEMAND_SCALE = 1.2549  # refit 2026-10-15 with the stoichiometry path (row 44); was 0.91  # fraction of the critical-curve marginal N demand the crop actually takes up: Cycles Iowa corn at 150 kg N holds 224 kg N/ha at maturity vs 295 for the full curve (0.76); unstressed whole-plant concentration runs 0.63-0.9 of the curve across growth (run_validation_multisite.py, 2026-10-02)
 GROWTH_PREV_CANOPY = True   # step 6: radiation-limited growth uses the canopy at the start of the day (previous day's)
 VPD_DAYTIME_ALPHA = 0.7   # step 6b: saturation pressure at alpha*tmax+(1-alpha)*tmin (0.7 reproduces Cycles' reported VPD to rms 0.09 kPa over 4 sites)
 VPD_FAO56 = True   # step 6
@@ -2236,7 +2236,7 @@ SIXPOOL_ML_EPS_H = 0.53
 # Clay-dependent humified fraction of decomposed residue (opt-in, 2026-10-07): (a, b) in a + b*(1-exp(-5.5*clay_frac)),
 # the C-Farm Eq. 4a clay shape (Kemanian & Stockle 2010) fitted to Cycles' humified/(humified+residue respired) over 16 sites:
 # 0.370 + 0.152 g, rms 0.034 vs 0.047 for one constant. None keeps the flat SIXPOOL_ML_EPS_H.
-SIXPOOL_ML_HUM_CLAY = (0.370, 0.152)  # default since 2026-10-07: 16-site table with N_A 140 improved fertilized corn error 1.59 -> 1.55 and leaching, denitrification, N2O slightly; None restores the flat EPS_H
+SIXPOOL_ML_HUM_CLAY = (0.34145, 0.152)  # default since 2026-10-07: 16-site table with N_A 140 improved fertilized corn error 1.59 -> 1.55 and leaching, denitrification, N2O slightly; None restores the flat EPS_H
 SIXPOOL_ML_FH_P = 12.0
 SIXPOOL_ML_FH_FLOOR = 0.2  # Cycles still humifies ~0.12-0.17 of decomposed residue C at Cs/Csx >= 1 (Iowa 1980-83)
 # Per-layer Cs decomposition (2026-10-02, supersedes the fD-form fit above, which fit the same data at
@@ -2245,7 +2245,7 @@ SIXPOOL_ML_FH_FLOOR = 0.2  # Cycles still humifies ~0.12-0.17 of decomposed resi
 # resp = KS * sum_i fE_i * Cs_i * exp(-Q * zmid_i), rms log error 0.204 (0.347 with the SI fD form and no
 # depth term, 0.563 with the original constants); per-site mean bias within +/-0.27 except Wisconsin -0.39.
 SIXPOOL_ML_DEPTH_Q = 0.108  # 2026-10-15 designed fallow experiment (row 42): Cycles' respiration has almost no depth decay once Cs/Csx saturation is modeled; was 4.44
-SIXPOOL_ML_KS = 0.00015045  # 2026-10-15 joint refit (row 43); was 0.000680
+SIXPOOL_ML_KS = 0.00020816  # 2026-10-15 joint refit (row 43); was 0.000680
 SIXPOOL_ML_FD_P = 1.0  # exponent on (Cs/Csx)/SIXPOOL_ML_FD_R0 in the per-layer SOM respiration rate (0 = off); Cycles v1.5.20 annual respiration rate rises ~ with layer-1 saturation ratio (log-log slope 0.95 over 16 sites)
 SIXPOOL_ML_N_USE_TOTAL = True  # True: net N is driven by Cs plus microbial respiration, the same definition as Cycles' SOM respired C column that the 186.8/78.1/7.6 coefficients were fitted on
 SIXPOOL_ML_N_SAT_Q = 0.0  # exponent on the initial saturation ratio in the net-N term (0 = off)
@@ -2387,12 +2387,12 @@ def sixpool_n_factor(mineral_n_kg_ha):
 
 SIXPOOL_N_LIMIT_MM = True  # 2026-10-13: Cycles decomposition is limited by layer-1 mineral N concentration (measured on 28 sites, 53k days: residue decomposition relative to potential is flat above ~3 mg/kg and falls steeply below, 0.33 of plateau under 0.5 mg/kg, 0.6 at 0.5-1, 0.81 at 1-2)
 SIXPOOL_N_HALF_CLAY = 0.0   # see sixpool_step(); 0 = off
-SIXPOOL_N_HALF_MGKG = 0.45  # half-saturation of c/(c+K)
-SIXPOOL_N_FMIN = 0.3   # floor: Cycles' decomposition stays at about a third of its plateau even below 0.5 mg/kg (a zero floor stalls the whole system)
+SIXPOOL_N_HALF_MGKG = 0.623485  # refit 2026-10-15 (row 44); was 0.45  # half-saturation of c/(c+K)
+SIXPOOL_N_FMIN = 0.516973  # refit 2026-10-15 (row 44); was 0.3   # floor: Cycles' decomposition stays at about a third of its plateau even below 0.5 mg/kg (a zero floor stalls the whole system)
 SIXPOOL_N_FMIN_RES = None   # see sixpool_step: separate gate for residue decomposition (None = same gate as SOM)
 SIXPOOL_N_POT_MULT_RES = 1.6
 SIXPOOL_N_HALF_RES_MULT = 1.0
-SIXPOOL_N_POT_MULT = 1.6    # decomposition rates are potential (unlimited-N) rates times this when the limit is on
+SIXPOOL_N_POT_MULT = 1.17694  # refit 2026-10-15 with the stoichiometry path (row 44); was 1.6    # decomposition rates are potential (unlimited-N) rates times this when the limit is on
 
 
 def n_conc_layer1(layers, nh4_kg_ha, no3_layers, no3_total):
@@ -2416,7 +2416,7 @@ def n_conc_layers(layers, nh4_kg_ha, no3_layers, no3_total):
 
 
 SIXPOOL_NET_MULT = 1.0  # multiplier on the per-layer net N flux (2026-10-13 emulator test: scaled per site to a regression or Cycles' own site mean)
-SIXPOOL_ML_STOICH = False  # per-layer mode: return explicit-stoichiometry net N (released - immobilized at each pool's C:N) instead of the fitted regression (2026-10-13 test)
+SIXPOOL_ML_STOICH = True  # 2026-10-15 default (REFIT_PLAN row 44): explicit per-pool C:N stoichiometry reproduces Cycles' fertilizer response of net mineralization (falls with fertilizer at low SOC) that the regression form could not; held-out -11.1% with refit constants. Was False  # per-layer mode: return explicit-stoichiometry net N (released - immobilized at each pool's C:N) instead of the fitted regression (2026-10-13 test)
 
 
 def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=None):
