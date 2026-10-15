@@ -2404,6 +2404,7 @@ SIXPOOL_DIAG = None  # optional list; when set, sixpool_step appends (cs_loss, r
 SIXPOOL_ML_N_A = 72.0  # was 186.8 (fit on respiration terms alone); 140 chosen 2026-10-07 on the 16-site table (N0 corn bias +1.44 -> +0.21, leaching 1.06 -> 0.90, wheat chain 0.25 -> 0.52) at a cost to fertilized corn (N150 bias -0.70 -> -1.01); see QUESTIONS_FOR_DEVS.md
 SIXPOOL_ML_N_B = 33.0  # was 78.1 (fit on respiration terms); refit 2026-10-12 together with N_A and realized-growth root carbon on 28 sites run as one continuous Cycles-style chain
 SIXPOOL_ML_N_C = 7.6
+SIXPOOL_ML_N_B_CLAY = 0.0   # 2026-10-15 opt-in: immobilization coefficient B scales as 1 + k*(clay-0.25)/0.25 (Cycles' net-N response to fertilizer falls with clay: +27 on sand to +13 on heavy clay kg N/ha; the engine's did not)
 SIXPOOL_ML_EPS_H = 0.53
 # Clay-dependent humified fraction of decomposed residue (opt-in, 2026-10-07): (a, b) in a + b*(1-exp(-5.5*clay_frac)),
 # the C-Farm Eq. 4a clay shape (Kemanian & Stockle 2010) fitted to Cycles' humified/(humified+residue respired) over 16 sites:
@@ -2700,7 +2701,7 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
         _nboost = 1.0
         if SIXPOOL_ML_N_SAT_Q != 0.0:
             _nboost = (max(0.03, state.setdefault("n_ref_ratio", cs / csx if csx > 0 else 0.0)) / SIXPOOL_ML_FD_R0) ** SIXPOOL_ML_N_SAT_Q  # site constant: N supply differs across sites with initial carbon saturation, without a Cs^2 feedback over time
-        n_net = (SIXPOOL_ML_N_A * SIXPOOL_NET_MULT * _nboost * (cs_loss + (co2_cm if SIXPOOL_ML_N_USE_TOTAL else 0.0)) - SIXPOOL_ML_N_B * cm_gain_from_residue
+        n_net = (SIXPOOL_ML_N_A * SIXPOOL_NET_MULT * _nboost * (cs_loss + (co2_cm if SIXPOOL_ML_N_USE_TOTAL else 0.0)) - SIXPOOL_ML_N_B * max(0.0, 1.0 + SIXPOOL_ML_N_B_CLAY * (state.get("clay", 0.25) - 0.25) / 0.25) * cm_gain_from_residue
                  - SIXPOOL_ML_N_C * (gross_residue_decomp - cm_gain_from_residue))
         if SIXPOOL_DIAG is not None:
             SIXPOOL_DIAG.append((cs_loss, gross_residue_decomp, co2_residue, n_net, 0.0, cm_loss, decomp_ra, decomp_rtz, cm_gain_from_residue, cs_gain, co2_cm))
