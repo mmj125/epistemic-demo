@@ -2,7 +2,7 @@
 import sys,json,glob,pickle,numpy as np
 sys.path.insert(0,'.')
 exec(open('regionalize.py').read().split("best={}")[0])
-sites2,best=pickle.load(open('/tmp/w/regionalize_best.pkl','rb'))
+sites2,best=pickle.load(open('/tmp/w/regionalize_best'+os.environ.get('PK','')+'.pkl','rb'))
 S={}
 for sj in ('big240','old28'):S.update({k:tuple(v) for k,v in json.load(open(f'/tmp/w/{sj}.json')).items()})
 cp='/tmp/w/cov2.pkl'

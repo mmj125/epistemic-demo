@@ -9,7 +9,9 @@ def load(tag):
     D={}
     for f in glob.glob(f'/tmp/w/{tag}_*_[0-9].json'):D.update(json.load(open(f)))
     return D
-B,L,H=load('base2'),load('nm07'),load('nm14')
+import os
+TB,TL,TH=os.environ.get('TAGS','base2,nm07,nm14').split(',')
+B,L,H=load(TB),load(TL),load(TH)
 sites=sorted(set(k.split('|')[0] for k in B));Ns=(0,150,400)
 def pairs(D,s,N):return np.array(D[f'{s}|N{N}|leadin']['res']['grain']['pairs'])   # [Cycles, engine]
 M=np.linspace(0.6,1.4,17);G=np.linspace(0.8,1.25,19)
@@ -34,4 +36,4 @@ J0=np.mean([np.mean([np.abs(pairs(B,s,N)[:,1]-pairs(B,s,N)[:,0]).mean() for N in
 Jo=np.mean([best[s][2] for s in sites])
 print('baseline J %.4f   per-site-optimal (m,g) J %.4f  (upper bound %.1f%%)'%(J0,Jo,100*(J0-Jo)/J0))
 m_=np.array([best[s][0] for s in sites]);g_=np.array([best[s][1] for s in sites]);print('optimal m: mean %.2f sd %.2f ; g: mean %.3f sd %.3f'%(m_.mean(),m_.std(),g_.mean(),g_.std()))
-pickle.dump((sites,best),open('/tmp/w/regionalize_best.pkl','wb'))
+pickle.dump((sites,best),open('/tmp/w/regionalize_best'+os.environ.get('PK','')+'.pkl','wb'))
