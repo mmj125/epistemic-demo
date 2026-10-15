@@ -198,7 +198,7 @@ def saxton_rawls(sand_pct, clay_pct, om_pct):
                 ksat_mm_day=ksat_mm_h * 24)
 
 
-KHE_SCALE = 0.27909  # 2026-10-15 joint N-loss refit (row 46); was 1.0  # multiplier on the capacitance-weighted conductivity in redistribute() (1.0 = validated default); under test 2026-10-06
+KHE_SCALE = 1.0  # (the N-loss refit's 0.279 cost yield, row 46)  # multiplier on the capacitance-weighted conductivity in redistribute() (1.0 = validated default); under test 2026-10-06
 
 
 def campbell_khe(theta_s, theta_sfc, theta_sat, ksat, psi_e, b):
@@ -1743,7 +1743,7 @@ def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
 # behavior is byte-identical to before this feature existed -- verified by
 # re-running run_validation.py / run_validation_rotation2.py unchanged.
 N_UPTAKE_RATE_PER_DAY = None  # None = uptake limited only by demand (validated default); else also capped at this fraction/day of the reachable mineral N pool (nitrate_per_layer path)
-N_DEMAND_SCALE = 0.87308  # 2026-10-15 joint N-loss refit (row 46); was 1.2549  # refit 2026-10-15 with the stoichiometry path (row 44); was 0.91  # fraction of the critical-curve marginal N demand the crop actually takes up: Cycles Iowa corn at 150 kg N holds 224 kg N/ha at maturity vs 295 for the full curve (0.76); unstressed whole-plant concentration runs 0.63-0.9 of the curve across growth (run_validation_multisite.py, 2026-10-02)
+N_DEMAND_SCALE = 1.2549  # (the N-loss refit's 0.87308 cost yield: fresh +6.0%, row 46)  # refit 2026-10-15 with the stoichiometry path (row 44); was 0.91  # fraction of the critical-curve marginal N demand the crop actually takes up: Cycles Iowa corn at 150 kg N holds 224 kg N/ha at maturity vs 295 for the full curve (0.76); unstressed whole-plant concentration runs 0.63-0.9 of the curve across growth (run_validation_multisite.py, 2026-10-02)
 GROWTH_PREV_CANOPY = True   # step 6: radiation-limited growth uses the canopy at the start of the day (previous day's)
 VPD_DAYTIME_ALPHA = 0.7   # step 6b: saturation pressure at alpha*tmax+(1-alpha)*tmin (0.7 reproduces Cycles' reported VPD to rms 0.09 kPa over 4 sites)
 VPD_FAO56 = True   # step 6

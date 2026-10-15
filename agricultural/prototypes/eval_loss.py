@@ -2,7 +2,7 @@
 import sys,os,json,glob,numpy as np
 def load(tag):
     D={}
-    for f in glob.glob(f'/tmp/w/{tag}_*_[0-9].json'):D.update(json.load(open(f)))
+    for f in glob.glob(f'/tmp/w/{tag}_*[0-9].json'):D.update(json.load(open(f)))
     return D
 ex=set(json.load(open(os.environ['EXCL']))) if os.environ.get('EXCL') else set()
 for tag in sys.argv[1:]:
