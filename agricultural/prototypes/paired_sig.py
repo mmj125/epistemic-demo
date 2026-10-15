@@ -4,7 +4,8 @@ def load(tag):
     D={}
     for f in glob.glob(f'/tmp/w/{tag}_*_[0-9].json'):D.update(json.load(open(f)))
     return D
-B=load('base2');sites=sorted(set(k.split('|')[0] for k in B));Ns=(0,150,400)
+import os
+B=load(os.environ.get('BASE','base2'));sites=sorted(set(k.split('|')[0] for k in B));Ns=(0,150,400)
 def pairs(D,s,N):return np.array(D[f'{s}|N{N}|leadin']['res']['grain']['pairs'])
 def sitej(D,g):return np.array([np.mean([np.abs(pairs(D,s,N)[:,1]*g-pairs(D,s,N)[:,0]).mean() for N in Ns]) for s in sites])
 def best(D):
