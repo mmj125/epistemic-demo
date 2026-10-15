@@ -38,10 +38,12 @@ def make_layers():
     return layers
 
 
-SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43,
+SOYBEAN = dict(
+               c1_water=True,  # 2026-10-15 c1 package (REFIT_PLAN rows 39-41)
+               tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43,
                rue=1.3, wue=4.5, hi_x=0.4, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
                kc=1.0, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=LAT,
-               make_layers=make_layers, calibration_factor=1.3960,  # unchanged by the real
+               make_layers=make_layers, calibration_factor=1.5080,  # 2026-10-15 x1.08 for the c1 package (multi-site mean match on 94 fresh soybean sites; Rock Springs mean now 4.9 vs 4.70, correlation unaffected). Was 1.3960;  # unchanged by the real
                # CO2-WUE-scaling mechanism added 2026-10-01 (wue_co2_scale, see
                # simulate_season()'s own docstring) -- model mean moved by <0.001 Mg/ha, a real
                # but negligible effect here (correlation 0.9545->0.9471, within noise), unlike

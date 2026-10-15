@@ -1748,6 +1748,8 @@ VPD_POW = 0.5   # 2026-10-15 opt-in: transpiration-limited growth ~ Da**(-VPD_PO
 VPD_D0 = 0.75
 HEAT_T0 = None   # 2026-10-15 opt-in heat penalty on growth: factor 1 - HEAT_A*(Tmean - HEAT_T0)^2 above HEAT_T0 (Cycles temperature_factor over 192k corn days: 0.99 below 28 C, 0.957 at 29, 0.891 at 31, 0.787 at 33, 0.672 at 35; fit T0 26, A 0.0044); None = off
 HEAT_A = 0.0044
+C1_HEAT_T0 = 26.0   # c1 package values (crops with crop['c1_water']=True): heat penalty onset and VPD exponent, validated nested on 268 + 94 sites
+C1_VPD_POW = 0.65
 HEAT_GT = False   # also apply the factor to transpiration-limited growth
 CANOPY_N_POW = 3.25   # 2026-10-14: canopy clock rate = water**CANOPY_WATER_POW * n_stress**CANOPY_N_POW (measured on 86k day-pairs of Cycles daily interception: 1.35 and 3.85, rms 0.20); None = use the linear CANOPY_N_COEF form
 CANOPY_N_COEF = 0.5  # fraction of nitrogen stress passed to the canopy clock (0 = off); Cycles' N-stressed corn keeps interception near 0.12 vs 0.9 unstressed (Missouri N0, 2026-10-12)
@@ -4049,7 +4051,11 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         rad_temp_factor = radiation_temp_factor(tmean, crop["tr_min_t"], crop.get("rad_temp_floor", 0.0),
                                                  crop.get("rad_temp_plateau_t", crop["tr_threshold_t"]))
         GR = crop["rue"] * rad_temp_factor * (eie_prev_day if GROWTH_PREV_CANOPY else eie) * w["solar"]
-        _heat_f = 1.0 if HEAT_T0 is None else max(0.0, 1.0 - HEAT_A * max(0.0, tmean - HEAT_T0) ** 2)
+        # 2026-10-15 c1 water-regime package (REFIT_PLAN rows 39-40): per-crop opt-in via crop["c1_water"]; corn and soybean carry it
+        _t0 = C1_HEAT_T0 if crop.get("c1_water") else HEAT_T0
+        _vpd_pow = C1_VPD_POW if crop.get("c1_water") else VPD_POW
+        _heat_gt = True if crop.get("c1_water") else HEAT_GT
+        _heat_f = 1.0 if _t0 is None else max(0.0, 1.0 - HEAT_A * max(0.0, tmean - _t0) ** 2)
         GR *= _heat_f
         if VPD_FAO56:
             # step 6: Cycles' vapor pressure deficit is the FAO-56 one: mean of the saturation pressures at tmax and tmin,
@@ -4096,9 +4102,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         TR_actual = min(TR_actual, crop.get("tr_max_mm_day", math.inf))
 
         GT = crop["wue"] * wue_co2_scale / math.sqrt(Da) * TR_actual
-        if VPD_POW != 0.5:
-            GT *= (Da / VPD_D0) ** (0.5 - VPD_POW)
-        if HEAT_GT:
+        if _vpd_pow != 0.5:
+            GT *= (Da / VPD_D0) ** (0.5 - _vpd_pow)
+        if _heat_gt:
             GT *= _heat_f
         dGB_water_limited = max(0.0, min(GR, GT)) * NET_GROWTH_FRACTION / 1000 * (1.0 + GROWTH_TTF_SLOPE * (ttf - 0.5))
         if DIAG_GROWTH is not None: DIAG_GROWTH.append((w["doy"], GR, GT, dGB_water_limited))

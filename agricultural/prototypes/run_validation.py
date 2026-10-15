@@ -18,6 +18,7 @@ from cycles_engine_validate import (
 )
 
 CORN = dict(
+    c1_water=True,  # 2026-10-15 c1 water-regime package (REFIT_PLAN rows 39-41)
     tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
     rue=2.2, wue=8.7, hi_x=0.760, hi_o=0.151, hi_slope=1.479, fsti=0.45, fstf=0.95,
     calibration_factor=1.026,  # 2026-10-13 re-centered after the measured harvest-index law (hi_x 0.760, hi_o 0.151, slope 1.479, fitted on 518 Cycles corn seasons, rms 0.0034); was 1.0916 with the old 0.8/0.15/1.0
