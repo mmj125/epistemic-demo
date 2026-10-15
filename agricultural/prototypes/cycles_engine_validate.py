@@ -3164,6 +3164,7 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
 
 FORCE_SERIES = None   # module-swap diagnostic (2026-10-14): {year: {"canopy": {doy: v}, "water": {doy: mult}, "nstress": {doy: mult}}} from Cycles' own daily output; None = off
 _FORCE_CUR = None
+DIAG_GROWTH = None   # temporary diagnostic list (floor_growth.py): appends (doy, GR, GT, dGB_water_limited) per day; None = off
 
 
 def simulate_continuous(weather_by_year, crop, years=None, plant_window=(110, 131), plant_min_soil_t=12.0, carry_n=False,
@@ -4059,6 +4060,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
 
         GT = crop["wue"] * wue_co2_scale / math.sqrt(Da) * TR_actual
         dGB_water_limited = max(0.0, min(GR, GT)) * NET_GROWTH_FRACTION / 1000
+        if DIAG_GROWTH is not None: DIAG_GROWTH.append((w["doy"], GR, GT, dGB_water_limited))
         eie_prev_day = eie
 
         n_stress = 1.0
