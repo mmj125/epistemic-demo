@@ -2409,8 +2409,8 @@ SIXPOOL_DIAG = None  # optional list; when set, sixpool_step appends (cs_loss, r
 # - 7.6*RES_RESPIRED_C (kg N per Mg C), R^2 = 0.972, per-site mean residual under 25 kg N. Humified
 # share of decomposed residue C (HUMIFIED/(HUMIFIED+RES RESPIRED)) falls from ~0.53 at low Cs/Csx to
 # ~0.1 by Cs/Csx = 1: ~0.53*(1-r^12) (a flat eps_c*fH with exponent 6 gave 0.35 at r=0.7 and 0 at r>1).
-SIXPOOL_ML_N_A = 72.0  # was 186.8 (fit on respiration terms alone); 140 chosen 2026-10-07 on the 16-site table (N0 corn bias +1.44 -> +0.21, leaching 1.06 -> 0.90, wheat chain 0.25 -> 0.52) at a cost to fertilized corn (N150 bias -0.70 -> -1.01); see QUESTIONS_FOR_DEVS.md
-SIXPOOL_ML_N_B = 33.0  # was 78.1 (fit on respiration terms); refit 2026-10-12 together with N_A and realized-growth root carbon on 28 sites run as one continuous Cycles-style chain
+SIXPOOL_ML_N_A = 90.564  # 2026-10-15 joint refit with the SI fD respiration law (opt_joint.py, REFIT_PLAN row 43); was 72.0  # was 186.8 (fit on respiration terms alone); 140 chosen 2026-10-07 on the 16-site table (N0 corn bias +1.44 -> +0.21, leaching 1.06 -> 0.90, wheat chain 0.25 -> 0.52) at a cost to fertilized corn (N150 bias -0.70 -> -1.01); see QUESTIONS_FOR_DEVS.md
+SIXPOOL_ML_N_B = 37.689  # 2026-10-15 joint refit (row 43); was 33.0  # was 78.1 (fit on respiration terms); refit 2026-10-12 together with N_A and realized-growth root carbon on 28 sites run as one continuous Cycles-style chain
 SIXPOOL_ML_N_C = 7.6
 SIXPOOL_ML_N_B_CLAY = 0.0   # 2026-10-15 opt-in: immobilization coefficient B scales as 1 + k*(clay-0.25)/0.25 (Cycles' net-N response to fertilizer falls with clay: +27 on sand to +13 on heavy clay kg N/ha; the engine's did not)
 SIXPOOL_ML_EPS_H = 0.53
@@ -2425,12 +2425,12 @@ SIXPOOL_ML_FH_FLOOR = 0.2  # Cycles still humifies ~0.12-0.17 of decomposed resi
 # 528 site-years, with a free fD shape collapsed to a constant (b -> 0), so the best form is
 # resp = KS * sum_i fE_i * Cs_i * exp(-Q * zmid_i), rms log error 0.204 (0.347 with the SI fD form and no
 # depth term, 0.563 with the original constants); per-site mean bias within +/-0.27 except Wisconsin -0.39.
-SIXPOOL_ML_DEPTH_Q = 4.44
-SIXPOOL_ML_KS = 0.000680
+SIXPOOL_ML_DEPTH_Q = 0.108  # 2026-10-15 designed fallow experiment (row 42): Cycles' respiration has almost no depth decay once Cs/Csx saturation is modeled; was 4.44
+SIXPOOL_ML_KS = 0.00015045  # 2026-10-15 joint refit (row 43); was 0.000680
 SIXPOOL_ML_FD_P = 1.0  # exponent on (Cs/Csx)/SIXPOOL_ML_FD_R0 in the per-layer SOM respiration rate (0 = off); Cycles v1.5.20 annual respiration rate rises ~ with layer-1 saturation ratio (log-log slope 0.95 over 16 sites)
 SIXPOOL_ML_N_USE_TOTAL = True  # True: net N is driven by Cs plus microbial respiration, the same definition as Cycles' SOM respired C column that the 186.8/78.1/7.6 coefficients were fitted on
 SIXPOOL_ML_N_SAT_Q = 0.0  # exponent on the initial saturation ratio in the net-N term (0 = off)
-SIXPOOL_ML_FD_SI = None  # 2026-10-13: the SI form fitted to Cycles annual respiration (see comment above); None restores the power law
+SIXPOOL_ML_FD_SI = (4.26, 2.53)  # 2026-10-15 default: the SI Eq. SI.13 saturating form fitted to Cycles' per-layer respiration in designed fallow runs (row 42), rms 0.20 vs 0.54 for the power law; was None  # 2026-10-13: the SI form fitted to Cycles annual respiration (see comment above); None restores the power law
 SIXPOOL_ML_FD_FIXED = False  # 2026-10-12 test: hold the saturation ratio at its initial value
 SIXPOOL_ML_FD_R0 = 0.573  # 2026-10-12: FD_P=1 with R0 0.573 matches Cycles SOM respiration across 8 sites (0.14 to 3.3 Mg C/ha/yr); N_A 120, N_B 40
 SIXPOOL_ML_FD_CAP = 1e9  # upper limit on the saturation factor (1.0 = only reduce respiration at low saturation)
