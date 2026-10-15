@@ -96,6 +96,7 @@ def _run_cycles_uncached(site,N):
         p=line.strip().split(",")
         if len(p)>=12: A[int(p[0])]=dict(leach=float(p[4])+float(p[5]),denit=float(p[8]),volat=float(p[10]),n2o=float(p[11]))
     return H,A
+REG_LON=None
 def doy_of(s):
     import datetime; y,m,d=map(int,s.split("-")); return datetime.date(y,m,d).timetuple().tm_yday
 def corr(a,b):
@@ -105,6 +106,9 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     if os.environ.get('NETMULT_JSON'):
         import json as _j; cev.SIXPOOL_NET_MULT=_j.load(open(os.environ['NETMULT_JSON'])).get(site,1.0)
     crop=dict(rv.CORN); crop["lat_deg"]=cell_lat
+    if os.environ.get("REGIONAL")=="1":   # 2026-10-15: regionalized net-N multiplier and grain factor from site covariates (regional_params.py)
+        import regional_params as _rp
+        _m,_g=_rp.regional_params(wx,soil_raw,REG_LON); cev.SIXPOOL_NET_MULT=_m; crop["calibration_factor"]=crop["calibration_factor"]*_g
     if os.environ.get("LWP_WILT"): crop["lwp_wilting_point"]=float(os.environ["LWP_WILT"])
     if os.environ.get("GRAINSITE_JSON"):   # 2026-10-15: per-site grain calibration multiplier (regionalized)
         import json as _j2; crop["calibration_factor"]=crop["calibration_factor"]*_j2.load(open(os.environ["GRAINSITE_JSON"])).get(site,1.0)
@@ -148,6 +152,7 @@ if __name__=="__main__":
     for site,(lat,lon) in SITES.items():
         if _only and site not in _only: continue
         wx,wd=fd.resolve_field_weather(lat,lon); soil,sd,name=fd.resolve_field_soil(lat,lon); cl=lat_of(lat,lon)
+        REG_LON=lon
         write_inputs(site,lat,lon,wx,soil,cl)
         for N in N_LEVELS:
             H,A=run_cycles(site,N)
