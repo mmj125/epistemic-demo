@@ -24,6 +24,7 @@ for tag in sys.argv[1:]:
     D=load(tag);sites=sorted(set(k.split('|')[0] for k in D));g=lambda s,N,v:D[f'{s}|N{N}|leadin']['res'][v]
     print('== %s  sites %d'%(tag,len(sites)))
     for N in (0,150,400):
+        if f'{sites[0]}|N{N}|leadin' not in D:continue
         a=np.array([g(s,N,'grain')['mae'] for s in sites]);b=np.array([g(s,N,'grain')['model']-g(s,N,'grain')['real'] for s in sites])
         c=np.array([g(s,N,'grain')['corr'] for s in sites]);c=np.nanmean(c)
         clay=np.array([C[s][1] for s in sites]);gt=np.array([C[s][0] for s in sites])

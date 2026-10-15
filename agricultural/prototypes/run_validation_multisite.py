@@ -31,7 +31,10 @@ if os.environ.get("EPS_H"): cev.SIXPOOL_ML_EPS_H = float(os.environ["EPS_H"])
 if os.environ.get("CRA_TAU"): cev.CRA_MATURATION_TAU_DAYS = float(os.environ["CRA_TAU"])
 if os.environ.get("HUM_CLAY"): cev.SIXPOOL_ML_HUM_CLAY = tuple(float(x) for x in os.environ["HUM_CLAY"].split(","))
 for _o in os.environ.get("ENGINE_OVR","").split(";"):   # 2026-10-15: generic engine-constant overrides for scaled-up runs, NAME=VALUE;NAME=VALUE
-    if _o: setattr(cev,_o.split("=",1)[0],eval(_o.split("=",1)[1]))
+    if _o:
+        _k,_v=_o.split("=",1)
+        if _k.startswith("CROP."): rv.CORN[_k[5:]]=eval(_v)   # crop-dict constant, e.g. CROP.tr_threshold_t=13
+        else: setattr(cev,_k,eval(_v))
 CY=os.environ.get("CY_DIR","/tmp/cycles-run15")  # a local Cycles v1.5.20 release directory (binary + input/), not committed. Reference moved from v1.4.4 to v1.5.20 on 2026-10-12.
 SITES=dict(rock_springs=fd.PRESET_SITES["rock_springs"],iowa=fd.PRESET_SITES["iowa"],
            kansas=fd.PRESET_SITES["kansas"],maryland=fd.PRESET_SITES["maryland"],
@@ -123,6 +126,8 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     lead_env=os.environ.get("LEAD_YEARS","continuous")
     first_year=min(wx)
     ystep=int(os.environ.get("YEAR_STEP","1"))
+    if os.environ.get("FORCE_KEYS"):   # 2026-10-15: teacher-forcing diagnostic on any site set
+        import forcelib; cev.FORCE_SERIES=forcelib.force(site,N,os.environ["FORCE_KEYS"].split(","))
     cont=simulate_continuous(wx,crop,carry_n=carry,**kw) if lead_env=="continuous" else None   # one run from the first year, as Cycles does
     for y in sorted(wx):
         if (y-first_year)%ystep: continue   # quick mode: every ystep-th year only
@@ -152,6 +157,7 @@ if __name__=="__main__":
                                   ("plant_doy",lambda y:doy_of(H[y]["plant"]),lambda y:E[y]["plant_doy"])]:
                     a=[gr(y) for y in ys]; b=[ge(y) for y in ys]
                     row[var]=dict(real=statistics.mean(a),model=statistics.mean(b),mae=statistics.mean(abs(x-z) for x,z in zip(a,b)),corr=corr(a,b),n=len(ys))
+                    if var=="grain": row[var]["pairs"]=[[round(x,4),round(z,4)] for x,z in zip(a,b)]   # (Cycles, engine) per year, for global re-centering in eval_big.py
                 if True:
                     for k,ek in [("leach","n_leached_kg_ha"),("volat","n_volatilized_pool_kg_ha"),("denit","n_denitrified_kg_ha"),("n2o","n2o_emitted_kg_ha")]:
                         yy=[y for y in ys if y in A]; a=[A[y][k] for y in yy]; b=[E[y].get(ek,0.0) for y in yy]
