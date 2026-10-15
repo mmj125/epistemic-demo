@@ -14,1870 +14,1789 @@ G_RANGE = (0.8, 1.25)
 
 
 def _m_0(x):
-    if x["gs_rh"] <= 65.95455:
-        if x["clay_top"] <= 25.70833:
-            if x["gs_rh"] <= 58.43460:
-                return 0.04515
+    if x["soc_prof"] <= 0.34314:
+        if x["gs_tmean"] <= 26.90429:
+            if x["gs_tmean"] <= 25.50566:
+                return 0.01195
             else:
-                return 0.01307
+                return -0.02153
         else:
-            if x["gs_solar"] <= 23.00030:
-                return 0.00584
+            if x["gs_solar"] <= 23.11272:
+                return 0.05720
             else:
-                return 0.02928
+                return 0.01334
     else:
-        if x["soc_prof"] <= 0.41861:
-            if x["gs_tmean"] <= 20.03981:
-                return -0.05382
+        if x["gs_rh"] <= 51.89205:
+            if x["clay_top"] <= 18.08333:
+                return 0.00119
             else:
-                return -0.01352
+                return -0.03465
         else:
-            if x["gs_rh"] <= 74.88929:
-                return -0.00287
+            if x["gs_rh"] <= 52.68970:
+                return 0.08047
             else:
-                return 0.03471
+                return -0.00496
 
 def _m_1(x):
-    if x["lon"] <= -95.90000:
-        if x["gs_tmean"] <= 21.33679:
-            if x["clay_top"] <= 11.75000:
-                return 0.03098
+    if x["soc_prof"] <= 0.24539:
+        if x["soc_prof"] <= 0.24095:
+            if x["gs_solar"] <= 21.94750:
+                return -0.01240
             else:
-                return 0.04725
+                return 0.02814
         else:
-            if x["gs_solar"] <= 22.38114:
-                return -0.00891
+            if x["clay_top"] <= 19.75000:
+                return 0.04514
             else:
-                return 0.02493
+                return 0.08979
     else:
-        if x["soc_prof"] <= 0.41861:
-            if x["gs_tmean"] <= 22.16811:
-                return -0.03524
+        if x["lon"] <= -97.25000:
+            if x["clay_top"] <= 30.41667:
+                return -0.01153
             else:
-                return -0.00276
+                return -0.03031
         else:
-            if x["clay_top"] <= 19.08333:
-                return 0.01575
+            if x["gs_rh"] <= 61.59763:
+                return 0.04724
             else:
-                return -0.00475
+                return -0.00184
 
 def _m_2(x):
-    if x["lon"] <= -93.55000:
-        if x["lon"] <= -100.68500:
-            if x["soc_prof"] <= 0.22404:
-                return 0.00830
+    if x["gs_rh"] <= 68.39460:
+        if x["soc_prof"] <= 0.24889:
+            if x["soc_prof"] <= 0.21821:
+                return 0.00127
             else:
-                return 0.03993
+                return 0.04817
         else:
-            if x["gs_solar"] <= 23.84219:
-                return 0.01466
+            if x["clay_top"] <= 14.58333:
+                return 0.00450
             else:
-                return -0.05748
+                return -0.01412
     else:
-        if x["soc_prof"] <= 0.26725:
-            if x["gs_tmean"] <= 26.04487:
-                return -0.03902
+        if x["gs_rh"] <= 68.99336:
+            if x["soc_prof"] <= 0.24047:
+                return -0.00990
             else:
-                return 0.01253
+                return 0.06110
         else:
-            if x["soc_prof"] <= 1.30711:
-                return -0.00407
+            if x["lon"] <= -83.75000:
+                return 0.01057
             else:
-                return 0.03624
+                return -0.00547
 
 def _m_3(x):
-    if x["gs_rh"] <= 62.26838:
-        if x["clay_top"] <= 23.83333:
-            if x["gs_tmean"] <= 26.51080:
-                return 0.03297
+    if x["gs_rh"] <= 51.89205:
+        if x["gs_solar"] <= 24.78028:
+            if x["gs_rh"] <= 44.97292:
+                return -0.03251
             else:
-                return -0.04437
+                return -0.01738
         else:
-            if x["gs_solar"] <= 24.06953:
-                return 0.00474
+            if x["gs_solar"] <= 24.87105:
+                return 0.02722
             else:
-                return 0.03194
+                return -0.00057
     else:
-        if x["clay_top"] <= 41.08333:
-            if x["gs_tmean"] <= 19.73505:
-                return -0.01521
+        if x["gs_rh"] <= 52.71303:
+            if x["gs_solar"] <= 22.75113:
+                return 0.06945
             else:
-                return 0.00167
+                return 0.08337
         else:
-            if x["gs_rh"] <= 71.49448:
-                return -0.01509
+            if x["gs_solar"] <= 18.33586:
+                return 0.08797
             else:
-                return -0.05317
+                return 0.00257
 
 def _m_4(x):
-    if x["gs_rh"] <= 61.80224:
-        if x["clay_top"] <= 25.45833:
-            if x["gs_tmean"] <= 21.92429:
-                return 0.03439
+    if x["soc_prof"] <= 0.24665:
+        if x["clay_top"] <= 26.00000:
+            if x["clay_top"] <= 5.58333:
+                return 0.00336
             else:
-                return 0.01826
+                return 0.03899
         else:
-            if x["gs_solar"] <= 24.04877:
-                return 0.00268
+            if x["clay_top"] <= 32.83333:
+                return -0.02767
             else:
-                return 0.02873
+                return 0.02379
     else:
-        if x["soc_prof"] <= 0.20291:
-            if x["lon"] <= -78.25000:
-                return -0.04801
-            else:
-                return -0.01282
+        if x["gs_tmean"] <= 14.49956:
+            return 0.08265
         else:
-            if x["soc_prof"] <= 0.65941:
-                return -0.00457
+            if x["gs_solar"] <= 22.03502:
+                return 0.00184
             else:
-                return 0.01294
+                return -0.00976
 
 def _m_5(x):
-    if x["gs_rh"] <= 65.95455:
-        if x["clay_top"] <= 47.50000:
-            if x["clay_top"] <= 7.58333:
-                return 0.03553
+    if x["clay_top"] <= 21.35000:
+        if x["gs_tmean"] <= 26.80160:
+            if x["clay_top"] <= 20.83333:
+                return 0.00168
             else:
-                return 0.01182
-        else:
-            if x["gs_rh"] <= 53.42080:
-                return -0.03242
-            else:
-                return 0.02127
-    else:
-        if x["soc_prof"] <= 0.26813:
-            if x["clay_top"] <= 23.50000:
-                return -0.00889
-            else:
-                return -0.04443
-        else:
-            if x["lon"] <= -77.97390:
-                return -0.00450
-            else:
-                return 0.01556
-
-def _m_6(x):
-    if x["soc_prof"] <= 0.41861:
-        if x["gs_tmean"] <= 20.03981:
-            if x["gs_tmean"] <= 16.91333:
-                return -0.00665
-            else:
-                return -0.03845
+                return 0.05048
         else:
             if x["clay_top"] <= 9.58333:
-                return 0.03087
+                return 0.02820
             else:
-                return -0.00579
+                return 0.07190
     else:
-        if x["gs_rh"] <= 75.10561:
-            if x["gs_rh"] <= 61.59763:
-                return 0.01538
+        if x["clay_top"] <= 23.41667:
+            if x["gs_solar"] <= 21.38833:
+                return -0.03371
             else:
-                return -0.00092
+                return -0.01870
         else:
-            if x["lon"] <= -80.50000:
-                return 0.04294
+            if x["gs_rh"] <= 68.02521:
+                return -0.00967
             else:
-                return 0.02125
+                return 0.00788
+
+def _m_6(x):
+    if x["gs_tmean"] <= 14.19534:
+        return 0.07000
+    else:
+        if x["gs_rh"] <= 77.76644:
+            if x["clay_top"] <= 5.91667:
+                return 0.01876
+            else:
+                return -0.00327
+        else:
+            if x["lon"] <= -73.75000:
+                return -0.03293
+            else:
+                return -0.04718
 
 def _m_7(x):
-    if x["gs_rh"] <= 67.99411:
-        if x["clay_top"] <= 32.75000:
-            if x["lon"] <= -100.50000:
-                return 0.01966
+    if x["clay_top"] <= 45.83333:
+        if x["gs_rh"] <= 77.76644:
+            if x["gs_rh"] <= 52.15183:
+                return -0.01193
             else:
-                return 0.00801
+                return 0.00386
         else:
-            if x["gs_rh"] <= 49.79734:
-                return -0.07681
+            if x["gs_solar"] <= 22.76205:
+                return -0.02807
             else:
-                return 0.00249
+                return -0.04011
     else:
-        if x["clay_top"] <= 28.95833:
-            if x["gs_tmean"] <= 23.98452:
-                return -0.00584
+        if x["soc_prof"] <= 0.35822:
+            if x["lon"] <= -90.50000:
+                return -0.01182
             else:
-                return 0.01350
+                return 0.00397
         else:
-            if x["gs_solar"] <= 22.35689:
-                return -0.02393
+            if x["lon"] <= -100.25000:
+                return -0.01439
             else:
-                return 0.00422
+                return -0.02927
 
 def _m_8(x):
-    if x["clay_top"] <= 42.50000:
-        if x["soc_prof"] <= 0.24288:
-            if x["gs_tmean"] <= 26.73176:
-                return -0.01473
+    if x["clay_top"] <= 29.37500:
+        if x["clay_top"] <= 28.70833:
+            if x["soc_prof"] <= 1.30711:
+                return 0.00259
             else:
-                return 0.02518
+                return -0.02856
         else:
-            if x["clay_top"] <= 20.83333:
-                return 0.01333
+            if x["soc_prof"] <= 0.51228:
+                return -0.02404
             else:
-                return 0.00255
+                return 0.04442
     else:
-        if x["gs_rh"] <= 70.24485:
-            if x["gs_solar"] <= 23.87749:
-                return 0.00108
+        if x["gs_solar"] <= 20.58110:
+            if x["lon"] <= -93.75000:
+                return -0.03167
             else:
-                return -0.06453
+                return 0.03212
         else:
-            if x["gs_solar"] <= 21.20608:
-                return -0.02816
+            if x["gs_tmean"] <= 22.60930:
+                return -0.02941
             else:
-                return -0.04219
+                return -0.00285
 
 def _m_9(x):
-    if x["gs_rh"] <= 62.26838:
-        if x["soc_prof"] <= 0.22614:
-            if x["gs_rh"] <= 53.19767:
-                return -0.02890
+    if x["gs_rh"] <= 72.17796:
+        if x["gs_tmean"] <= 18.98434:
+            if x["gs_solar"] <= 19.78858:
+                return -0.00903
             else:
-                return 0.02111
+                return -0.03107
         else:
-            if x["gs_solar"] <= 24.09546:
-                return 0.00940
+            if x["gs_rh"] <= 71.48373:
+                return 0.00307
             else:
-                return 0.03248
+                return 0.03548
     else:
-        if x["gs_tmean"] <= 26.24938:
-            if x["soc_prof"] <= 0.42224:
-                return -0.01332
+        if x["clay_top"] <= 15.75000:
+            if x["gs_solar"] <= 18.95999:
+                return -0.02958
             else:
-                return 0.00097
+                return 0.01302
         else:
-            if x["clay_top"] <= 24.08333:
-                return 0.02364
+            if x["gs_rh"] <= 76.02661:
+                return -0.02528
             else:
-                return -0.00095
+                return 0.01037
 
 def _m_10(x):
-    if x["gs_solar"] <= 22.53439:
-        if x["clay_top"] <= 34.41667:
-            if x["soc_prof"] <= 0.65941:
-                return -0.00373
+    if x["gs_solar"] <= 22.68978:
+        if x["gs_solar"] <= 21.69541:
+            if x["soc_prof"] <= 1.03954:
+                return -0.00791
             else:
-                return 0.01313
+                return 0.01017
         else:
-            if x["lon"] <= -101.00000:
-                return -0.03753
+            if x["gs_solar"] <= 22.02998:
+                return 0.02664
             else:
-                return -0.01963
+                return 0.00294
     else:
-        if x["soc_prof"] <= 0.17994:
-            return -0.03776
-        else:
-            if x["clay_top"] <= 23.33333:
-                return 0.01877
+        if x["soc_prof"] <= 0.23957:
+            if x["gs_tmean"] <= 26.18644:
+                return 0.03441
             else:
-                return 0.00420
+                return -0.01407
+        else:
+            if x["lon"] <= -79.25000:
+                return -0.01655
+            else:
+                return 0.03551
 
 def _m_11(x):
-    if x["soc_prof"] <= 0.26725:
-        if x["clay_top"] <= 18.08333:
-            if x["gs_tmean"] <= 20.62582:
-                return -0.01202
-            else:
-                return 0.01467
-        else:
-            if x["gs_tmean"] <= 27.15434:
-                return -0.02191
-            else:
-                return 0.01023
-    else:
-        if x["clay_top"] <= 11.58333:
-            if x["gs_tmean"] <= 16.37524:
-                return 0.03469
-            else:
-                return 0.01184
-        else:
-            if x["gs_tmean"] <= 18.64298:
-                return -0.02203
-            else:
-                return 0.00214
-
-def _m_12(x):
-    if x["soc_prof"] <= 0.65941:
-        if x["soc_prof"] <= 0.62308:
-            if x["clay_top"] <= 5.25000:
-                return 0.01620
-            else:
-                return -0.00304
-        else:
-            if x["soc_prof"] <= 0.64432:
-                return -0.03947
-            else:
-                return -0.01137
-    else:
-        if x["clay_top"] <= 38.37500:
-            if x["soc_prof"] <= 1.92569:
-                return 0.00897
-            else:
-                return 0.02511
-        else:
-            if x["gs_rh"] <= 53.42080:
-                return -0.02997
-            else:
-                return 0.00707
-
-def _m_13(x):
-    if x["lon"] <= -100.68500:
-        if x["soc_prof"] <= 0.22404:
-            if x["lon"] <= -102.75000:
-                return -0.03021
-            else:
-                return 0.00847
-        else:
-            if x["soc_prof"] <= 1.16078:
-                return 0.02103
-            else:
-                return -0.00065
-    else:
-        if x["clay_top"] <= 42.50000:
-            if x["gs_tmean"] <= 19.96807:
-                return -0.00659
-            else:
-                return 0.00267
-        else:
-            if x["gs_solar"] <= 23.87749:
-                return -0.00952
-            else:
-                return -0.04329
-
-def _m_14(x):
-    if x["gs_rh"] <= 68.02154:
-        if x["clay_top"] <= 47.50000:
-            if x["gs_solar"] <= 20.00105:
-                return -0.02074
-            else:
-                return 0.00732
-        else:
-            if x["gs_solar"] <= 23.65203:
-                return -0.00628
-            else:
-                return -0.04622
-    else:
-        if x["soc_prof"] <= 0.83474:
-            if x["gs_solar"] <= 18.73793:
-                return 0.02228
-            else:
-                return -0.00679
-        else:
-            if x["gs_tmean"] <= 21.99224:
-                return 0.00419
-            else:
-                return 0.02479
-
-def _m_15(x):
-    if x["gs_solar"] <= 22.45153:
-        if x["clay_top"] <= 33.08333:
-            if x["lon"] <= -85.25000:
-                return -0.00445
-            else:
-                return 0.00479
-        else:
-            if x["gs_solar"] <= 22.12558:
-                return -0.01199
-            else:
-                return -0.02784
-    else:
-        if x["soc_prof"] <= 0.22251:
-            if x["gs_solar"] <= 23.58747:
-                return 0.00998
-            else:
-                return -0.02321
-        else:
-            if x["lon"] <= -101.25000:
-                return 0.01780
-            else:
-                return 0.00739
-
-def _m_16(x):
-    if x["clay_top"] <= 23.58333:
-        if x["gs_tmean"] <= 23.87864:
-            if x["soc_prof"] <= 0.31924:
-                return -0.00958
-            else:
-                return 0.00410
-        else:
-            if x["soc_prof"] <= 0.20349:
-                return -0.01185
-            else:
-                return 0.01186
-    else:
-        if x["soc_prof"] <= 0.26813:
-            if x["gs_tmean"] <= 27.49491:
-                return -0.02212
-            else:
-                return 0.00388
-        else:
-            if x["gs_tmean"] <= 19.17090:
-                return -0.03471
-            else:
-                return 0.00009
-
-def _m_17(x):
-    if x["lon"] <= -100.68500:
-        if x["soc_prof"] <= 0.25791:
-            if x["soc_prof"] <= 0.23957:
-                return 0.00532
-            else:
-                return -0.02842
-        else:
-            if x["gs_solar"] <= 24.09546:
-                return 0.01144
-            else:
-                return 0.01966
-    else:
-        if x["soc_prof"] <= 1.17901:
-            if x["clay_top"] <= 5.25000:
-                return 0.01306
-            else:
-                return -0.00268
-        else:
-            if x["gs_solar"] <= 23.87749:
-                return 0.01267
-            else:
-                return -0.04041
-
-def _m_18(x):
-    if x["gs_solar"] <= 20.27445:
-        if x["soc_prof"] <= 0.42419:
-            if x["clay_top"] <= 7.00000:
-                return 0.00529
-            else:
-                return -0.02270
-        else:
-            if x["clay_top"] <= 6.83333:
-                return -0.02018
-            else:
-                return 0.00758
-    else:
-        if x["soc_prof"] <= 0.14416:
-            if x["gs_rh"] <= 68.74304:
-                return -0.03076
-            else:
-                return -0.00447
-        else:
-            if x["gs_tmean"] <= 14.49956:
-                return -0.03427
-            else:
-                return 0.00346
-
-def _m_19(x):
-    if x["clay_top"] <= 46.70833:
-        if x["gs_tmean"] <= 26.71963:
-            if x["gs_tmean"] <= 26.70018:
-                return 0.00007
-            else:
-                return -0.04844
-        else:
-            if x["gs_solar"] <= 21.46699:
-                return 0.05629
-            else:
-                return 0.00779
-    else:
-        if x["clay_top"] <= 69.16667:
-            if x["gs_solar"] <= 23.64913:
-                return -0.00631
-            else:
-                return -0.02727
-        else:
-            return -0.03558
-
-def _m_20(x):
-    if x["gs_tmean"] <= 27.06850:
-        if x["clay_top"] <= 18.33333:
-            if x["gs_tmean"] <= 19.78850:
-                return -0.00272
-            else:
-                return 0.00807
-        else:
-            if x["soc_prof"] <= 0.24665:
-                return -0.01708
-            else:
-                return -0.00180
-    else:
-        if x["gs_tmean"] <= 27.88833:
-            if x["gs_solar"] <= 22.71350:
-                return 0.00843
-            else:
-                return 0.01687
-        else:
-            if x["soc_prof"] <= 0.67220:
-                return 0.00027
-            else:
-                return 0.00659
-
-def _m_21(x):
-    if x["clay_top"] <= 6.08333:
-        if x["lon"] <= -83.50000:
-            if x["lon"] <= -99.50000:
-                return 0.01078
-            else:
-                return 0.02457
-        else:
-            if x["lon"] <= -71.25000:
-                return -0.00293
-            else:
-                return 0.02507
-    else:
-        if x["gs_solar"] <= 20.18400:
-            if x["lon"] <= -81.50000:
-                return -0.01901
-            else:
-                return 0.00228
-        else:
-            if x["soc_prof"] <= 0.17721:
-                return -0.02289
-            else:
-                return 0.00117
-
-def _m_22(x):
-    if x["gs_solar"] <= 18.51279:
-        if x["gs_rh"] <= 73.39624:
-            return 0.01599
-        else:
-            return 0.03471
-    else:
-        if x["gs_solar"] <= 22.75846:
-            if x["soc_prof"] <= 0.18277:
-                return 0.02929
-            else:
-                return -0.00209
-        else:
-            if x["gs_solar"] <= 24.70491:
-                return 0.00636
-            else:
-                return -0.02301
-
-def _m_23(x):
-    if x["gs_tmean"] <= 15.47918:
-        if x["gs_tmean"] <= 14.52605:
-            return -0.00661
-        else:
-            if x["clay_top"] <= 11.50000:
-                return 0.03352
-            else:
-                return 0.01359
-    else:
-        if x["gs_tmean"] <= 19.18779:
-            if x["soc_prof"] <= 0.44651:
-                return -0.01599
-            else:
-                return 0.00153
-        else:
-            if x["lon"] <= -77.75000:
-                return -0.00069
-            else:
-                return 0.01393
-
-def _m_24(x):
-    if x["gs_tmean"] <= 26.73176:
-        if x["gs_tmean"] <= 26.70018:
-            if x["clay_top"] <= 5.25000:
-                return 0.01153
-            else:
-                return -0.00127
-        else:
-            if x["lon"] <= -94.25000:
-                return -0.02186
-            else:
-                return -0.03837
-    else:
-        if x["gs_rh"] <= 75.74647:
-            if x["gs_solar"] <= 21.46699:
-                return 0.04688
-            else:
-                return 0.00821
-        else:
-            if x["clay_top"] <= 69.16667:
-                return -0.00782
-            else:
-                return -0.02973
-
-def _m_25(x):
-    if x["soc_prof"] <= 1.92569:
-        if x["gs_tmean"] <= 15.47918:
-            if x["gs_rh"] <= 77.05529:
-                return 0.02869
-            else:
-                return 0.00697
-        else:
-            if x["gs_tmean"] <= 17.72780:
-                return -0.01261
-            else:
-                return 0.00016
-    else:
-        if x["gs_solar"] <= 23.50912:
-            if x["lon"] <= -94.25000:
-                return -0.00703
-            else:
-                return 0.02109
-        else:
-            return 0.04703
-
-def _m_26(x):
-    if x["gs_rh"] <= 43.80740:
-        if x["soc_prof"] <= 0.26371:
-            return 0.02731
-        else:
-            if x["gs_solar"] <= 24.16383:
-                return 0.01651
-            else:
-                return 0.01718
-    else:
-        if x["gs_solar"] <= 19.45826:
-            if x["soc_prof"] <= 0.48946:
-                return 0.00190
-            else:
-                return 0.01989
-        else:
-            if x["clay_top"] <= 5.25000:
-                return 0.01243
-            else:
-                return -0.00085
-
-def _m_27(x):
-    if x["soc_prof"] <= 0.14416:
-        if x["gs_tmean"] <= 24.52806:
-            return -0.01608
-        else:
-            if x["gs_tmean"] <= 25.18187:
-                return -0.02521
-            else:
-                return -0.02310
-    else:
-        if x["gs_rh"] <= 77.80659:
-            if x["lon"] <= -77.97390:
-                return 0.00036
-            else:
-                return 0.01020
-        else:
-            if x["clay_top"] <= 4.83333:
-                return 0.00389
-            else:
-                return -0.02874
-
-def _m_28(x):
-    if x["clay_top"] <= 13.75000:
-        if x["clay_top"] <= 9.33333:
-            if x["soc_prof"] <= 0.59810:
-                return -0.00040
-            else:
-                return -0.03859
-        else:
-            if x["gs_rh"] <= 45.49913:
-                return -0.01680
-            else:
-                return 0.01343
-    else:
-        if x["lon"] <= -78.25000:
-            if x["lon"] <= -100.75000:
-                return 0.00626
-            else:
-                return -0.00361
-        else:
-            if x["soc_prof"] <= 0.22755:
-                return 0.04521
-            else:
-                return 0.00744
-
-def _m_29(x):
-    if x["clay_top"] <= 42.66667:
-        if x["soc_prof"] <= 1.83270:
-            if x["gs_solar"] <= 18.30654:
-                return 0.03264
-            else:
-                return -0.00041
-        else:
-            if x["gs_rh"] <= 68.72630:
-                return 0.00055
-            else:
-                return 0.02913
-    else:
-        if x["gs_solar"] <= 23.65203:
-            if x["gs_solar"] <= 22.27203:
-                return -0.01026
-            else:
-                return 0.00352
-        else:
-            if x["soc_prof"] <= 1.40800:
-                return -0.01228
-            else:
-                return -0.04046
-
-def _m_30(x):
-    if x["soc_prof"] <= 0.65941:
-        if x["soc_prof"] <= 0.62282:
-            if x["gs_rh"] <= 77.76644:
-                return -0.00084
-            else:
-                return -0.01690
-        else:
-            if x["soc_prof"] <= 0.64432:
-                return -0.03039
-            else:
-                return -0.00801
-    else:
-        if x["gs_rh"] <= 54.35539:
-            if x["lon"] <= -101.75000:
-                return 0.00751
-            else:
-                return -0.01630
-        else:
-            if x["lon"] <= -99.25000:
-                return 0.04666
-            else:
-                return 0.00602
-
-def _m_31(x):
-    if x["gs_tmean"] <= 26.73176:
-        if x["gs_tmean"] <= 26.70018:
-            if x["clay_top"] <= 38.37500:
-                return -0.00050
-            else:
-                return -0.00760
-        else:
-            if x["clay_top"] <= 18.33333:
-                return -0.02005
-            else:
-                return -0.03184
-    else:
-        if x["gs_tmean"] <= 26.75541:
-            if x["lon"] <= -84.00000:
-                return 0.02315
-            else:
-                return 0.03807
-        else:
-            if x["lon"] <= -92.75000:
-                return 0.00845
-            else:
-                return -0.00425
-
-def _m_32(x):
-    if x["clay_top"] <= 30.50000:
-        if x["soc_prof"] <= 0.83474:
-            if x["soc_prof"] <= 0.55617:
-                return 0.00118
-            else:
-                return -0.00620
-        else:
-            if x["lon"] <= -75.25000:
-                return 0.01016
-            else:
-                return -0.02378
-    else:
-        if x["gs_solar"] <= 22.27939:
-            if x["gs_solar"] <= 22.25100:
-                return -0.00576
-            else:
-                return -0.05290
-        else:
-            if x["gs_tmean"] <= 28.04185:
-                return 0.00458
-            else:
-                return -0.01912
-
-def _m_33(x):
-    if x["gs_tmean"] <= 17.08957:
-        if x["gs_tmean"] <= 14.52605:
-            if x["soc_prof"] <= 0.25186:
-                return -0.00814
-            else:
-                return -0.02146
-        else:
-            if x["lon"] <= -90.75000:
-                return -0.00447
-            else:
-                return 0.01732
-    else:
-        if x["lon"] <= -74.25000:
-            if x["gs_solar"] <= 19.33346:
-                return 0.02142
-            else:
-                return 0.00014
-        else:
-            if x["gs_rh"] <= 74.08674:
-                return -0.00480
-            else:
-                return -0.02035
-
-def _m_34(x):
-    if x["gs_rh"] <= 72.94903:
-        if x["gs_tmean"] <= 21.49575:
-            if x["gs_solar"] <= 20.47465:
-                return 0.00153
-            else:
-                return 0.01077
-        else:
-            if x["soc_prof"] <= 0.53727:
-                return 0.00140
-            else:
-                return -0.00638
-    else:
-        if x["soc_prof"] <= 0.41345:
-            if x["gs_tmean"] <= 20.04754:
-                return -0.01477
-            else:
-                return -0.00030
-        else:
-            if x["gs_tmean"] <= 16.37524:
-                return 0.02476
-            else:
-                return 0.00068
-
-def _m_35(x):
-    if x["soc_prof"] <= 0.20173:
-        if x["gs_tmean"] <= 26.73176:
-            if x["clay_top"] <= 3.66667:
-                return 0.01225
-            else:
-                return -0.01209
-        else:
-            if x["gs_solar"] <= 22.26285:
-                return 0.03221
-            else:
-                return 0.00293
-    else:
-        if x["lon"] <= -100.93500:
-            if x["soc_prof"] <= 0.22404:
-                return -0.00160
-            else:
-                return 0.01050
-        else:
-            if x["clay_top"] <= 10.75000:
-                return 0.00737
-            else:
-                return -0.00047
-
-def _m_36(x):
-    if x["lon"] <= -77.97390:
-        if x["gs_solar"] <= 19.76111:
-            if x["soc_prof"] <= 0.35451:
-                return -0.02015
-            else:
-                return 0.00243
-        else:
-            if x["clay_top"] <= 23.58333:
+    if x["clay_top"] <= 35.75000:
+        if x["clay_top"] <= 34.91667:
+            if x["gs_rh"] <= 77.80659:
                 return 0.00258
             else:
-                return -0.00207
-    else:
-        if x["clay_top"] <= 29.12500:
-            if x["gs_solar"] <= 22.76205:
-                return 0.00487
-            else:
-                return -0.01718
+                return -0.02690
         else:
-            return 0.04010
+            if x["gs_tmean"] <= 23.47983:
+                return 0.05701
+            else:
+                return 0.05150
+    else:
+        if x["gs_tmean"] <= 24.26344:
+            if x["gs_tmean"] <= 15.71671:
+                return 0.03820
+            else:
+                return -0.02562
+        else:
+            if x["gs_tmean"] <= 24.98517:
+                return 0.04491
+            else:
+                return -0.00704
+
+def _m_12(x):
+    if x["soc_prof"] <= 0.18314:
+        if x["gs_solar"] <= 22.30725:
+            if x["lon"] <= -79.50000:
+                return -0.03901
+            else:
+                return -0.03622
+        else:
+            if x["clay_top"] <= 20.25000:
+                return -0.03476
+            else:
+                return -0.00661
+    else:
+        if x["gs_solar"] <= 18.33586:
+            return 0.07570
+        else:
+            if x["clay_top"] <= 30.91667:
+                return 0.00318
+            else:
+                return -0.00708
+
+def _m_13(x):
+    if x["clay_top"] <= 13.25000:
+        if x["soc_prof"] <= 0.57564:
+            if x["gs_rh"] <= 79.10591:
+                return 0.02066
+            else:
+                return -0.03067
+        else:
+            if x["gs_rh"] <= 75.92945:
+                return -0.03960
+            else:
+                return 0.01032
+    else:
+        if x["gs_solar"] <= 19.76111:
+            if x["clay_top"] <= 22.25000:
+                return -0.03874
+            else:
+                return -0.02450
+        else:
+            if x["gs_solar"] <= 22.75095:
+                return 0.00215
+            else:
+                return -0.00957
+
+def _m_14(x):
+    if x["gs_rh"] <= 52.15183:
+        if x["clay_top"] <= 6.75000:
+            return 0.02577
+        else:
+            if x["clay_top"] <= 10.58333:
+                return -0.03142
+            else:
+                return -0.00984
+    else:
+        if x["gs_rh"] <= 52.71303:
+            if x["soc_prof"] <= 0.63390:
+                return 0.06094
+            else:
+                return 0.05486
+        else:
+            if x["gs_solar"] <= 21.74099:
+                return -0.00216
+            else:
+                return 0.00531
+
+def _m_15(x):
+    if x["soc_prof"] <= 0.28935:
+        if x["soc_prof"] <= 0.27328:
+            if x["soc_prof"] <= 0.26725:
+                return 0.00794
+            else:
+                return -0.03389
+        else:
+            if x["lon"] <= -84.75000:
+                return 0.01496
+            else:
+                return 0.08470
+    else:
+        if x["gs_tmean"] <= 14.49956:
+            return 0.05703
+        else:
+            if x["gs_solar"] <= 22.73617:
+                return -0.00040
+            else:
+                return -0.01147
+
+def _m_16(x):
+    if x["clay_top"] <= 9.33333:
+        if x["lon"] <= -87.00000:
+            if x["lon"] <= -100.50000:
+                return 0.02843
+            else:
+                return 0.05584
+        else:
+            if x["gs_tmean"] <= 17.78363:
+                return -0.01017
+            else:
+                return 0.01976
+    else:
+        if x["soc_prof"] <= 0.17994:
+            if x["gs_solar"] <= 23.47997:
+                return -0.03486
+            else:
+                return -0.02912
+        else:
+            if x["gs_tmean"] <= 19.23688:
+                return -0.00935
+            else:
+                return 0.00227
+
+def _m_17(x):
+    if x["lon"] <= -80.25000:
+        if x["lon"] <= -88.25000:
+            if x["soc_prof"] <= 0.19400:
+                return 0.04108
+            else:
+                return -0.00251
+        else:
+            if x["gs_rh"] <= 72.17796:
+                return 0.01834
+            else:
+                return -0.00809
+    else:
+        if x["soc_prof"] <= 0.31583:
+            if x["soc_prof"] <= 0.27428:
+                return -0.01237
+            else:
+                return 0.04150
+        else:
+            if x["gs_rh"] <= 75.90020:
+                return -0.02660
+            else:
+                return -0.00236
+
+def _m_18(x):
+    if x["gs_solar"] <= 18.33586:
+        return 0.06266
+    else:
+        if x["clay_top"] <= 4.04167:
+            if x["lon"] <= -100.00000:
+                return 0.02572
+            else:
+                return -0.03084
+        else:
+            if x["soc_prof"] <= 1.17901:
+                return 0.00114
+            else:
+                return -0.01385
+
+def _m_19(x):
+    if x["soc_prof"] <= 0.18277:
+        if x["lon"] <= -83.25000:
+            if x["clay_top"] <= 17.16667:
+                return -0.04824
+            else:
+                return -0.03160
+        else:
+            if x["clay_top"] <= 33.33333:
+                return -0.01111
+            else:
+                return -0.03352
+    else:
+        if x["soc_prof"] <= 0.24547:
+            if x["gs_rh"] <= 71.37082:
+                return 0.02337
+            else:
+                return 0.00145
+        else:
+            if x["soc_prof"] <= 0.27328:
+                return -0.02125
+            else:
+                return -0.00008
+
+def _m_20(x):
+    if x["lon"] <= -83.75000:
+        if x["gs_rh"] <= 69.22594:
+            if x["lon"] <= -91.75000:
+                return 0.00014
+            else:
+                return -0.01889
+        else:
+            if x["gs_rh"] <= 69.82914:
+                return 0.03791
+            else:
+                return 0.00423
+    else:
+        if x["gs_rh"] <= 69.76253:
+            if x["soc_prof"] <= 0.24043:
+                return -0.00752
+            else:
+                return 0.04188
+        else:
+            if x["gs_rh"] <= 70.64818:
+                return -0.03718
+            else:
+                return -0.00783
+
+def _m_21(x):
+    if x["gs_solar"] <= 18.41809:
+        return -0.05036
+    else:
+        if x["lon"] <= -75.65000:
+            if x["gs_solar"] <= 21.69541:
+                return -0.00622
+            else:
+                return 0.00245
+        else:
+            if x["gs_tmean"] <= 18.08991:
+                return -0.00445
+            else:
+                return 0.04055
+
+def _m_22(x):
+    if x["lon"] <= -100.93500:
+        if x["clay_top"] <= 6.75000:
+            if x["gs_rh"] <= 51.39689:
+                return 0.01276
+            else:
+                return 0.02871
+        else:
+            if x["gs_rh"] <= 51.47525:
+                return -0.00846
+            else:
+                return -0.02258
+    else:
+        if x["soc_prof"] <= 0.65941:
+            if x["lon"] <= -99.50000:
+                return 0.02406
+            else:
+                return -0.00065
+        else:
+            if x["soc_prof"] <= 1.30711:
+                return 0.01808
+            else:
+                return -0.00469
+
+def _m_23(x):
+    if x["lon"] <= -76.75000:
+        if x["lon"] <= -80.25000:
+            if x["lon"] <= -87.75000:
+                return -0.00204
+            else:
+                return 0.00920
+        else:
+            if x["gs_tmean"] <= 17.81982:
+                return 0.03923
+            else:
+                return -0.01928
+    else:
+        if x["soc_prof"] <= 0.56184:
+            if x["soc_prof"] <= 0.30558:
+                return 0.02308
+            else:
+                return -0.00686
+        else:
+            if x["gs_rh"] <= 75.93030:
+                return 0.05857
+            else:
+                return 0.03054
+
+def _m_24(x):
+    if x["gs_solar"] <= 18.24117:
+        return -0.05430
+    else:
+        if x["gs_solar"] <= 18.44741:
+            return 0.05331
+        else:
+            if x["gs_rh"] <= 68.02521:
+                return -0.00393
+            else:
+                return 0.00260
+
+def _m_25(x):
+    if x["gs_solar"] <= 20.38540:
+        if x["gs_solar"] <= 20.32635:
+            if x["clay_top"] <= 31.75000:
+                return -0.00085
+            else:
+                return 0.04384
+        else:
+            if x["gs_tmean"] <= 20.79168:
+                return 0.04337
+            else:
+                return 0.08095
+    else:
+        if x["gs_tmean"] <= 23.36467:
+            if x["gs_tmean"] <= 22.03336:
+                return -0.00390
+            else:
+                return -0.01706
+        else:
+            if x["gs_tmean"] <= 24.95618:
+                return 0.01086
+            else:
+                return -0.00511
+
+def _m_26(x):
+    if x["gs_solar"] <= 18.24117:
+        return -0.04603
+    else:
+        if x["gs_solar"] <= 18.33586:
+            return 0.04544
+        else:
+            if x["lon"] <= -80.75000:
+                return 0.00055
+            else:
+                return -0.00725
+
+def _m_27(x):
+    if x["soc_prof"] <= 0.18277:
+        if x["gs_tmean"] <= 21.86831:
+            return 0.02580
+        else:
+            if x["gs_solar"] <= 22.30725:
+                return -0.02868
+            else:
+                return -0.01278
+    else:
+        if x["gs_rh"] <= 79.10591:
+            if x["gs_rh"] <= 76.38527:
+                return 0.00068
+            else:
+                return 0.01478
+        else:
+            if x["lon"] <= -71.75000:
+                return -0.04391
+            else:
+                return -0.01317
+
+def _m_28(x):
+    if x["clay_top"] <= 10.25000:
+        if x["lon"] <= -86.75000:
+            if x["gs_rh"] <= 46.98984:
+                return -0.02132
+            else:
+                return 0.03435
+        else:
+            if x["gs_rh"] <= 77.79172:
+                return 0.00730
+            else:
+                return -0.02181
+    else:
+        if x["gs_tmean"] <= 19.23688:
+            if x["soc_prof"] <= 0.28804:
+                return 0.00915
+            else:
+                return -0.01414
+        else:
+            if x["gs_tmean"] <= 19.73505:
+                return 0.04127
+            else:
+                return 0.00007
+
+def _m_29(x):
+    if x["clay_top"] <= 29.20833:
+        if x["clay_top"] <= 23.58333:
+            if x["gs_tmean"] <= 26.78712:
+                return -0.00449
+            else:
+                return 0.02467
+        else:
+            if x["gs_tmean"] <= 20.51846:
+                return -0.01093
+            else:
+                return 0.01408
+    else:
+        if x["gs_tmean"] <= 22.60930:
+            if x["gs_solar"] <= 20.58110:
+                return 0.00514
+            else:
+                return -0.02193
+        else:
+            if x["clay_top"] <= 32.58333:
+                return -0.01723
+            else:
+                return 0.00298
+
+def _m_30(x):
+    if x["clay_top"] <= 15.66667:
+        if x["soc_prof"] <= 0.48946:
+            if x["gs_tmean"] <= 19.41089:
+                return 0.01619
+            else:
+                return 0.00289
+        else:
+            if x["gs_rh"] <= 55.60979:
+                return 0.03056
+            else:
+                return -0.00999
+    else:
+        if x["clay_top"] <= 20.25000:
+            if x["gs_solar"] <= 22.42387:
+                return -0.02233
+            else:
+                return 0.00409
+        else:
+            if x["clay_top"] <= 21.10000:
+                return 0.01751
+            else:
+                return -0.00455
+
+def _m_31(x):
+    if x["gs_tmean"] <= 26.93249:
+        if x["gs_tmean"] <= 26.63914:
+            if x["clay_top"] <= 4.04167:
+                return -0.02217
+            else:
+                return -0.00014
+        else:
+            if x["gs_tmean"] <= 26.75541:
+                return -0.03051
+            else:
+                return -0.00028
+    else:
+        if x["clay_top"] <= 21.20833:
+            if x["gs_tmean"] <= 26.95705:
+                return 0.05863
+            else:
+                return 0.02952
+        else:
+            if x["gs_tmean"] <= 26.96994:
+                return -0.04426
+            else:
+                return 0.00626
+
+def _m_32(x):
+    if x["gs_tmean"] <= 24.94658:
+        if x["gs_tmean"] <= 24.92551:
+            if x["gs_rh"] <= 69.39021:
+                return -0.00325
+            else:
+                return 0.00575
+        else:
+            return 0.07325
+    else:
+        if x["lon"] <= -89.20000:
+            if x["soc_prof"] <= 0.24405:
+                return 0.00893
+            else:
+                return -0.00491
+        else:
+            if x["lon"] <= -84.25000:
+                return -0.02927
+            else:
+                return -0.00252
+
+def _m_33(x):
+    if x["gs_solar"] <= 21.51446:
+        if x["soc_prof"] <= 1.15878:
+            if x["soc_prof"] <= 0.87487:
+                return -0.00305
+            else:
+                return -0.02953
+        else:
+            if x["clay_top"] <= 31.00000:
+                return 0.02313
+            else:
+                return -0.01016
+    else:
+        if x["gs_solar"] <= 22.02998:
+            if x["clay_top"] <= 35.25000:
+                return 0.02113
+            else:
+                return -0.03046
+        else:
+            if x["clay_top"] <= 5.75000:
+                return 0.01998
+            else:
+                return -0.00133
+
+def _m_34(x):
+    if x["gs_solar"] <= 18.24117:
+        return -0.03853
+    else:
+        if x["gs_tmean"] <= 28.35528:
+            if x["gs_tmean"] <= 28.30575:
+                return 0.00190
+            else:
+                return 0.04651
+        else:
+            if x["soc_prof"] <= 0.41820:
+                return -0.03587
+            else:
+                return -0.01119
+
+def _m_35(x):
+    if x["clay_top"] <= 4.04167:
+        if x["clay_top"] <= 3.25000:
+            if x["gs_solar"] <= 22.02503:
+                return 0.02261
+            else:
+                return -0.00863
+        else:
+            if x["gs_rh"] <= 76.44098:
+                return -0.03979
+            else:
+                return -0.01275
+    else:
+        if x["clay_top"] <= 6.00000:
+            if x["gs_rh"] <= 77.67796:
+                return 0.03152
+            else:
+                return -0.03673
+        else:
+            if x["clay_top"] <= 18.33333:
+                return -0.00450
+            else:
+                return 0.00299
+
+def _m_36(x):
+    if x["clay_top"] <= 4.04167:
+        if x["clay_top"] <= 3.25000:
+            if x["gs_rh"] <= 74.31022:
+                return 0.01922
+            else:
+                return -0.00734
+        else:
+            if x["soc_prof"] <= 0.21079:
+                return -0.02944
+            else:
+                return -0.04257
+    else:
+        if x["gs_tmean"] <= 25.80320:
+            if x["gs_tmean"] <= 25.41059:
+                return 0.00054
+            else:
+                return 0.02148
+        else:
+            if x["gs_tmean"] <= 26.93249:
+                return -0.01318
+            else:
+                return 0.00310
 
 def _m_37(x):
-    if x["lon"] <= -74.25000:
-        if x["clay_top"] <= 23.25000:
-            if x["soc_prof"] <= 0.50155:
-                return 0.00476
+    if x["lon"] <= -73.50000:
+        if x["lon"] <= -80.25000:
+            if x["lon"] <= -81.25000:
+                return -0.00062
             else:
-                return -0.00080
+                return 0.02115
         else:
-            if x["clay_top"] <= 24.75000:
-                return -0.00872
+            if x["gs_rh"] <= 75.30788:
+                return -0.01521
             else:
-                return 0.00059
+                return 0.00845
     else:
-        if x["gs_tmean"] <= 17.08957:
-            if x["soc_prof"] <= 0.47925:
-                return -0.00171
+        if x["gs_tmean"] <= 17.63468:
+            if x["gs_tmean"] <= 17.24175:
+                return 0.00126
             else:
-                return 0.01960
+                return -0.01444
         else:
-            if x["gs_tmean"] <= 18.09716:
-                return -0.00913
+            if x["gs_rh"] <= 74.98168:
+                return 0.03318
             else:
-                return -0.01710
+                return 0.05924
 
 def _m_38(x):
-    if x["soc_prof"] <= 0.24665:
-        if x["clay_top"] <= 17.66667:
-            if x["soc_prof"] <= 0.22927:
-                return -0.00094
+    if x["gs_rh"] <= 79.10591:
+        if x["gs_solar"] <= 21.46955:
+            if x["gs_solar"] <= 20.99142:
+                return 0.00055
             else:
-                return 0.01520
+                return -0.01044
         else:
-            if x["soc_prof"] <= 0.22694:
-                return -0.00346
+            if x["gs_solar"] <= 22.02998:
+                return 0.01181
             else:
-                return -0.01955
+                return -0.00242
     else:
-        if x["gs_solar"] <= 23.31424:
-            if x["lon"] <= -72.75000:
-                return 0.00039
-            else:
-                return 0.01281
+        if x["soc_prof"] <= 0.26824:
+            return -0.04019
         else:
-            if x["gs_tmean"] <= 27.95665:
-                return 0.01123
-            else:
-                return -0.00744
+            return -0.01698
 
 def _m_39(x):
-    if x["soc_prof"] <= 2.02754:
-        if x["lon"] <= -91.75000:
-            if x["gs_solar"] <= 19.96207:
-                return -0.01882
+    if x["gs_rh"] <= 70.57545:
+        if x["gs_rh"] <= 70.48439:
+            if x["soc_prof"] <= 0.35139:
+                return -0.00608
             else:
-                return -0.00079
+                return 0.00101
         else:
-            if x["gs_rh"] <= 71.20047:
-                return 0.00423
+            if x["lon"] <= -91.75000:
+                return -0.03636
             else:
-                return -0.00046
+                return -0.03194
     else:
-        if x["gs_tmean"] <= 21.99224:
-            if x["gs_solar"] <= 20.44500:
-                return -0.00441
+        if x["gs_rh"] <= 70.62445:
+            if x["gs_solar"] <= 20.90587:
+                return 0.07378
             else:
-                return -0.00935
+                return 0.04997
         else:
-            if x["gs_tmean"] <= 27.36296:
-                return 0.03934
+            if x["lon"] <= -88.75000:
+                return 0.01426
             else:
-                return -0.00526
+                return -0.00045
 
 def _m(x):
-    return -0.070239 + _m_0(x) + _m_1(x) + _m_2(x) + _m_3(x) + _m_4(x) + _m_5(x) + _m_6(x) + _m_7(x) + _m_8(x) + _m_9(x) + _m_10(x) + _m_11(x) + _m_12(x) + _m_13(x) + _m_14(x) + _m_15(x) + _m_16(x) + _m_17(x) + _m_18(x) + _m_19(x) + _m_20(x) + _m_21(x) + _m_22(x) + _m_23(x) + _m_24(x) + _m_25(x) + _m_26(x) + _m_27(x) + _m_28(x) + _m_29(x) + _m_30(x) + _m_31(x) + _m_32(x) + _m_33(x) + _m_34(x) + _m_35(x) + _m_36(x) + _m_37(x) + _m_38(x) + _m_39(x)
+    return -0.274112 + _m_0(x) + _m_1(x) + _m_2(x) + _m_3(x) + _m_4(x) + _m_5(x) + _m_6(x) + _m_7(x) + _m_8(x) + _m_9(x) + _m_10(x) + _m_11(x) + _m_12(x) + _m_13(x) + _m_14(x) + _m_15(x) + _m_16(x) + _m_17(x) + _m_18(x) + _m_19(x) + _m_20(x) + _m_21(x) + _m_22(x) + _m_23(x) + _m_24(x) + _m_25(x) + _m_26(x) + _m_27(x) + _m_28(x) + _m_29(x) + _m_30(x) + _m_31(x) + _m_32(x) + _m_33(x) + _m_34(x) + _m_35(x) + _m_36(x) + _m_37(x) + _m_38(x) + _m_39(x)
 
 def _g_0(x):
     if x["clay_top"] <= 49.37500:
         if x["clay_top"] <= 22.08333:
-            if x["gs_rh"] <= 67.67646:
-                return 0.01178
+            if x["gs_rh"] <= 68.22807:
+                return 0.01194
             else:
-                return 0.00448
+                return 0.00414
         else:
             if x["gs_solar"] <= 24.12150:
-                return -0.00113
+                return -0.00108
             else:
-                return -0.03550
+                return -0.03081
     else:
         if x["lon"] <= -91.50000:
             if x["gs_rh"] <= 55.02903:
-                return -0.04538
+                return -0.04283
             else:
-                return -0.03221
+                return -0.03066
         else:
-            if x["lon"] <= -89.50000:
-                return -0.00582
+            if x["gs_rh"] <= 72.04575:
+                return -0.00569
             else:
-                return -0.03193
+                return -0.02944
 
 def _g_1(x):
     if x["clay_top"] <= 42.33333:
-        if x["clay_top"] <= 21.86667:
-            if x["gs_rh"] <= 50.02618:
+        if x["gs_rh"] <= 44.63091:
+            if x["gs_tmean"] <= 24.12080:
                 return 0.01622
             else:
-                return 0.00442
+                return 0.02282
         else:
-            if x["gs_tmean"] <= 28.42429:
-                return -0.00143
+            if x["gs_solar"] <= 24.32107:
+                return 0.00206
             else:
-                return 0.02174
+                return -0.02706
     else:
-        if x["lon"] <= -96.00000:
-            if x["gs_tmean"] <= 27.15204:
-                return -0.02745
+        if x["lon"] <= -90.90000:
+            if x["gs_tmean"] <= 27.19352:
+                return -0.02440
             else:
-                return -0.03967
+                return -0.03746
         else:
-            if x["lon"] <= -90.90000:
-                return -0.01631
+            if x["lon"] <= -84.25000:
+                return -0.00273
             else:
-                return -0.00080
+                return -0.00672
 
 def _g_2(x):
-    if x["clay_top"] <= 42.33333:
-        if x["gs_tmean"] <= 17.83668:
-            if x["soc_prof"] <= 0.31732:
-                return 0.00629
+    if x["clay_top"] <= 38.70833:
+        if x["clay_top"] <= 22.08333:
+            if x["gs_rh"] <= 71.37950:
+                return 0.00752
             else:
-                return 0.01236
+                return 0.00114
         else:
             if x["lon"] <= -102.75000:
-                return 0.01704
+                return 0.01733
             else:
-                return -0.00024
+                return -0.00128
     else:
-        if x["soc_prof"] <= 1.01578:
-            if x["clay_top"] <= 50.04167:
-                return 0.00018
+        if x["soc_prof"] <= 1.08126:
+            if x["gs_solar"] <= 23.56742:
+                return -0.00789
             else:
-                return -0.01312
+                return 0.02397
         else:
-            if x["soc_prof"] <= 1.88950:
-                return -0.03594
+            if x["gs_solar"] <= 21.80870:
+                return -0.00827
             else:
-                return -0.02800
+                return -0.03197
 
 def _g_3(x):
-    if x["clay_top"] <= 48.37500:
+    if x["clay_top"] <= 44.83333:
         if x["clay_top"] <= 22.25000:
-            if x["gs_rh"] <= 69.07892:
-                return 0.00913
+            if x["gs_rh"] <= 71.44770:
+                return 0.00768
             else:
-                return 0.00214
+                return 0.00063
         else:
-            if x["gs_solar"] <= 22.75846:
-                return 0.00011
+            if x["gs_tmean"] <= 28.46560:
+                return -0.00155
             else:
-                return -0.00821
+                return 0.02416
     else:
-        if x["soc_prof"] <= 0.54968:
-            if x["soc_prof"] <= 0.27867:
-                return -0.02633
+        if x["lon"] <= -90.90000:
+            if x["soc_prof"] <= 0.54968:
+                return -0.02073
             else:
-                return -0.00628
+                return -0.02943
         else:
-            if x["lon"] <= -101.75000:
-                return -0.03248
+            if x["gs_rh"] <= 74.79782:
+                return -0.00219
             else:
-                return -0.02874
+                return -0.02772
 
 def _g_4(x):
-    if x["clay_top"] <= 38.16667:
-        if x["gs_tmean"] <= 17.84031:
-            if x["gs_tmean"] <= 16.91333:
-                return 0.00690
+    if x["clay_top"] <= 38.70833:
+        if x["gs_rh"] <= 44.70313:
+            if x["clay_top"] <= 28.50000:
+                return 0.01725
             else:
-                return 0.01199
+                return 0.01143
         else:
-            if x["gs_rh"] <= 44.70313:
-                return 0.01433
+            if x["lon"] <= -102.25000:
+                return -0.01567
             else:
-                return 0.00040
+                return 0.00158
     else:
-        if x["gs_solar"] <= 24.12150:
-            if x["soc_prof"] <= 1.09703:
-                return -0.00173
+        if x["gs_tmean"] <= 27.00927:
+            if x["clay_top"] <= 38.95833:
+                return -0.03795
             else:
-                return -0.01903
+                return -0.00608
         else:
-            if x["gs_tmean"] <= 27.57193:
-                return -0.02752
+            if x["gs_solar"] <= 23.06146:
+                return -0.00850
             else:
-                return -0.03395
+                return -0.02579
 
 def _g_5(x):
     if x["clay_top"] <= 48.37500:
         if x["clay_top"] <= 22.08333:
-            if x["soc_prof"] <= 2.24444:
-                return 0.00350
+            if x["gs_solar"] <= 23.42254:
+                return 0.00241
             else:
-                return -0.01738
+                return 0.01129
         else:
-            if x["gs_rh"] <= 46.48308:
-                return -0.01937
+            if x["gs_solar"] <= 22.77147:
+                return -0.00045
             else:
-                return -0.00098
+                return -0.00658
     else:
         if x["clay_top"] <= 53.16667:
-            if x["clay_top"] <= 51.08333:
-                return -0.01769
+            if x["lon"] <= -89.90000:
+                return -0.01196
             else:
-                return -0.00404
+                return -0.02265
         else:
-            if x["gs_solar"] <= 21.98767:
-                return -0.01362
+            if x["clay_top"] <= 61.25000:
+                return -0.01986
             else:
-                return -0.02468
+                return -0.02640
 
 def _g_6(x):
     if x["clay_top"] <= 42.33333:
-        if x["gs_tmean"] <= 18.06454:
-            if x["lon"] <= -88.75000:
-                return 0.01319
+        if x["gs_rh"] <= 44.63091:
+            if x["soc_prof"] <= 0.84278:
+                return 0.01235
             else:
-                return 0.00598
+                return 0.01689
         else:
-            if x["gs_rh"] <= 44.63091:
-                return 0.01255
+            if x["lon"] <= -102.25000:
+                return -0.01331
             else:
-                return -0.00049
+                return 0.00097
     else:
-        if x["lon"] <= -91.50000:
-            if x["clay_top"] <= 47.50000:
-                return -0.02642
+        if x["lon"] <= -90.90000:
+            if x["gs_rh"] <= 52.12926:
+                return -0.02154
             else:
-                return -0.01510
+                return -0.01323
         else:
-            if x["gs_tmean"] <= 18.25804:
-                return -0.01617
+            if x["gs_tmean"] <= 22.31084:
+                return -0.00293
             else:
-                return 0.00064
+                return 0.00180
 
 def _g_7(x):
-    if x["gs_tmean"] <= 27.29711:
-        if x["gs_rh"] <= 53.85781:
-            if x["soc_prof"] <= 1.10331:
-                return -0.00248
+    if x["clay_top"] <= 36.75000:
+        if x["gs_tmean"] <= 15.47918:
+            if x["clay_top"] <= 6.25000:
+                return 0.02218
             else:
-                return -0.03094
+                return 0.00940
         else:
-            if x["gs_tmean"] <= 17.08957:
-                return 0.00659
+            if x["gs_rh"] <= 44.67283:
+                return 0.01001
             else:
-                return 0.00090
+                return 0.00025
     else:
-        if x["gs_tmean"] <= 27.84861:
-            if x["soc_prof"] <= 1.13875:
-                return -0.02696
+        if x["gs_rh"] <= 50.88362:
+            if x["clay_top"] <= 40.62500:
+                return -0.03041
             else:
-                return -0.01779
+                return -0.01947
         else:
-            if x["gs_rh"] <= 49.85396:
-                return 0.01796
+            if x["gs_tmean"] <= 27.15204:
+                return -0.00193
             else:
-                return -0.00998
+                return -0.01560
 
 def _g_8(x):
     if x["clay_top"] <= 49.37500:
-        if x["clay_top"] <= 23.75000:
-            if x["gs_solar"] <= 23.62513:
-                return 0.00139
+        if x["clay_top"] <= 21.95000:
+            if x["soc_prof"] <= 2.53734:
+                return 0.00223
             else:
-                return 0.01006
+                return -0.01513
         else:
-            if x["gs_rh"] <= 59.23038:
-                return -0.00853
+            if x["gs_solar"] <= 24.12391:
+                return -0.00094
             else:
-                return -0.00001
+                return -0.01705
     else:
-        if x["gs_tmean"] <= 24.03145:
-            if x["lon"] <= -101.75000:
-                return -0.02101
+        if x["gs_rh"] <= 76.20530:
+            if x["lon"] <= -99.75000:
+                return -0.01385
             else:
-                return -0.01655
+                return -0.00437
         else:
-            if x["gs_tmean"] <= 27.00927:
-                return 0.00010
+            if x["soc_prof"] <= 0.23278:
+                return -0.02033
             else:
-                return -0.01308
+                return -0.01853
 
 def _g_9(x):
-    if x["clay_top"] <= 42.33333:
-        if x["clay_top"] <= 22.08333:
-            if x["gs_rh"] <= 70.15108:
-                return 0.00502
+    if x["clay_top"] <= 21.10000:
+        if x["gs_rh"] <= 71.37082:
+            if x["gs_tmean"] <= 26.93658:
+                return 0.00397
             else:
-                return -0.00019
+                return 0.01862
         else:
-            if x["gs_rh"] <= 46.48308:
-                return -0.02368
+            if x["soc_prof"] <= 0.26773:
+                return -0.00400
             else:
-                return -0.00006
+                return 0.00148
     else:
-        if x["lon"] <= -96.00000:
-            if x["lon"] <= -97.25000:
-                return -0.01152
+        if x["lon"] <= -96.75000:
+            if x["gs_solar"] <= 21.89873:
+                return 0.00285
             else:
-                return -0.02163
+                return -0.00657
         else:
-            if x["gs_tmean"] <= 18.25804:
-                return -0.01326
+            if x["gs_tmean"] <= 20.07064:
+                return -0.00508
             else:
-                return -0.00004
+                return 0.00059
 
 def _g_10(x):
     if x["gs_rh"] <= 44.63091:
-        if x["clay_top"] <= 23.33333:
-            return 0.00700
+        if x["lon"] <= -103.25000:
+            return 0.00293
         else:
             if x["gs_solar"] <= 24.11556:
-                return 0.01816
+                return 0.01398
             else:
-                return 0.01735
+                return 0.00916
     else:
-        if x["gs_rh"] <= 50.20904:
+        if x["gs_rh"] <= 49.95878:
             if x["gs_tmean"] <= 23.11082:
-                return -0.02577
+                return -0.01984
             else:
-                return -0.00526
+                return -0.00280
         else:
             if x["gs_rh"] <= 51.27954:
-                return 0.01369
+                return 0.01089
             else:
-                return -0.00000
+                return -0.00009
 
 def _g_11(x):
-    if x["clay_top"] <= 49.37500:
-        if x["gs_tmean"] <= 27.64324:
-            if x["gs_tmean"] <= 27.29711:
-                return 0.00056
+    if x["clay_top"] <= 41.00000:
+        if x["gs_tmean"] <= 27.54776:
+            if x["clay_top"] <= 39.41667:
+                return 0.00040
             else:
-                return -0.01700
+                return 0.01793
         else:
-            if x["lon"] <= -99.25000:
-                return 0.02057
+            if x["gs_solar"] <= 23.75828:
+                return 0.00381
             else:
-                return -0.00016
+                return 0.02474
     else:
-        if x["soc_prof"] <= 0.27867:
-            if x["soc_prof"] <= 0.22534:
-                return -0.01564
+        if x["lon"] <= -88.50000:
+            if x["gs_rh"] <= 76.20530:
+                return -0.00697
             else:
-                return -0.01127
+                return -0.01616
         else:
-            if x["gs_rh"] <= 65.88873:
-                return -0.00915
+            if x["lon"] <= -86.00000:
+                return 0.00318
             else:
-                return -0.00164
+                return -0.00165
 
 def _g_12(x):
-    if x["clay_top"] <= 36.75000:
-        if x["clay_top"] <= 21.10000:
-            if x["gs_rh"] <= 71.44770:
-                return 0.00384
+    if x["clay_top"] <= 28.91667:
+        if x["gs_tmean"] <= 28.42429:
+            if x["lon"] <= -70.25000:
+                return 0.00069
             else:
-                return -0.00046
+                return 0.01217
         else:
-            if x["gs_solar"] <= 23.61100:
-                return -0.00008
+            if x["gs_tmean"] <= 28.48800:
+                return 0.01131
             else:
-                return -0.00898
+                return 0.01894
     else:
         if x["gs_solar"] <= 24.12150:
             if x["gs_solar"] <= 23.78489:
-                return -0.00448
+                return -0.00301
             else:
-                return 0.01339
+                return 0.01381
         else:
             if x["gs_tmean"] <= 27.57193:
-                return -0.01318
+                return -0.01426
             else:
-                return -0.02560
+                return -0.02368
 
 def _g_13(x):
     if x["clay_top"] <= 49.37500:
         if x["gs_rh"] <= 44.63091:
-            if x["clay_top"] <= 23.33333:
-                return 0.00577
+            if x["clay_top"] <= 20.58333:
+                return 0.00512
             else:
-                return 0.01419
+                return 0.00977
         else:
-            if x["lon"] <= -102.25000:
-                return -0.01082
+            if x["gs_rh"] <= 46.48308:
+                return -0.01165
+            else:
+                return 0.00080
+    else:
+        if x["gs_tmean"] <= 24.03145:
+            if x["clay_top"] <= 57.50000:
+                return -0.01182
+            else:
+                return -0.00837
+        else:
+            if x["gs_tmean"] <= 27.00927:
+                return 0.00046
+            else:
+                return -0.00935
+
+def _g_14(x):
+    if x["gs_tmean"] <= 27.29711:
+        if x["gs_tmean"] <= 14.83027:
+            if x["lon"] <= -70.50000:
+                return 0.00826
+            else:
+                return 0.01713
+        else:
+            if x["gs_tmean"] <= 22.84065:
+                return -0.00115
+            else:
+                return 0.00147
+    else:
+        if x["gs_tmean"] <= 27.69210:
+            if x["gs_tmean"] <= 27.57321:
+                return -0.01255
+            else:
+                return -0.02025
+        else:
+            if x["gs_rh"] <= 52.07718:
+                return 0.01454
+            else:
+                return -0.00825
+
+def _g_15(x):
+    if x["gs_rh"] <= 44.63091:
+        if x["gs_tmean"] <= 24.12080:
+            return 0.00991
+        else:
+            if x["soc_prof"] <= 0.21628:
+                return 0.00553
+            else:
+                return 0.00619
+    else:
+        if x["lon"] <= -102.25000:
+            if x["gs_solar"] <= 22.94045:
+                return -0.00225
+            else:
+                return -0.01606
+        else:
+            if x["gs_rh"] <= 48.12409:
+                return 0.00718
+            else:
+                return -0.00034
+
+def _g_16(x):
+    if x["clay_top"] <= 38.70833:
+        if x["clay_top"] <= 38.16667:
+            if x["clay_top"] <= 14.08333:
+                return 0.00212
+            else:
+                return -0.00036
+        else:
+            return 0.01880
+    else:
+        if x["soc_prof"] <= 1.08126:
+            if x["clay_top"] <= 40.83333:
+                return 0.01379
+            else:
+                return -0.00232
+        else:
+            if x["gs_rh"] <= 50.30302:
+                return -0.02317
+            else:
+                return -0.00763
+
+def _g_17(x):
+    if x["gs_rh"] <= 72.17796:
+        if x["gs_tmean"] <= 18.27916:
+            if x["clay_top"] <= 10.58333:
+                return 0.01480
+            else:
+                return 0.00533
+        else:
+            if x["gs_tmean"] <= 27.19352:
+                return 0.00090
+            else:
+                return -0.00392
+    else:
+        if x["clay_top"] <= 28.95833:
+            if x["soc_prof"] <= 0.31986:
+                return -0.00319
+            else:
+                return 0.00063
+        else:
+            if x["gs_rh"] <= 76.02680:
+                return -0.00575
+            else:
+                return -0.01091
+
+def _g_18(x):
+    if x["gs_solar"] <= 22.71889:
+        if x["gs_rh"] <= 50.11860:
+            return -0.01983
+        else:
+            if x["gs_rh"] <= 71.43904:
+                return 0.00179
+            else:
+                return -0.00103
+    else:
+        if x["gs_rh"] <= 48.12409:
+            if x["gs_solar"] <= 24.06953:
+                return -0.00553
+            else:
+                return 0.00743
+        else:
+            if x["gs_solar"] <= 23.84219:
+                return -0.00243
+            else:
+                return -0.01206
+
+def _g_19(x):
+    if x["gs_rh"] <= 73.36197:
+        if x["clay_top"] <= 14.08333:
+            if x["gs_rh"] <= 67.97516:
+                return 0.00659
+            else:
+                return 0.00016
+        else:
+            if x["gs_rh"] <= 58.43460:
+                return -0.00263
+            else:
+                return 0.00068
+    else:
+        if x["soc_prof"] <= 0.27119:
+            if x["clay_top"] <= 10.00000:
+                return -0.00202
+            else:
+                return -0.00760
+        else:
+            if x["clay_top"] <= 33.12500:
+                return -0.00010
+            else:
+                return -0.00668
+
+def _g_20(x):
+    if x["clay_top"] <= 38.70833:
+        if x["clay_top"] <= 38.50000:
+            if x["clay_top"] <= 38.16667:
+                return 0.00027
+            else:
+                return -0.01719
+        else:
+            return 0.01733
+    else:
+        if x["soc_prof"] <= 1.09703:
+            if x["gs_rh"] <= 76.20530:
+                return -0.00031
+            else:
+                return -0.00672
+        else:
+            if x["gs_rh"] <= 50.30302:
+                return -0.01646
+            else:
+                return -0.00639
+
+def _g_21(x):
+    if x["soc_prof"] <= 0.26725:
+        if x["gs_tmean"] <= 15.03973:
+            if x["lon"] <= -70.50000:
+                return 0.00765
+            else:
+                return 0.01519
+        else:
+            if x["gs_tmean"] <= 24.40615:
+                return -0.00343
             else:
                 return 0.00078
     else:
-        if x["gs_tmean"] <= 27.00927:
-            if x["gs_tmean"] <= 24.03145:
-                return -0.00852
+        if x["soc_prof"] <= 2.90700:
+            if x["clay_top"] <= 12.91667:
+                return 0.00425
             else:
-                return 0.00172
+                return 0.00069
         else:
-            if x["lon"] <= -100.25000:
-                return -0.00793
-            else:
-                return -0.01111
-
-def _g_14(x):
-    if x["gs_solar"] <= 23.08900:
-        if x["gs_rh"] <= 50.04760:
-            if x["lon"] <= -102.25000:
-                return -0.00894
-            else:
-                return -0.03163
-        else:
-            if x["gs_rh"] <= 69.69607:
-                return 0.00231
-            else:
-                return -0.00021
-    else:
-        if x["gs_rh"] <= 44.10748:
-            if x["clay_top"] <= 23.33333:
-                return 0.00506
-            else:
-                return 0.01206
-        else:
-            if x["soc_prof"] <= 0.22251:
-                return -0.01499
-            else:
-                return -0.00425
-
-def _g_15(x):
-    if x["gs_solar"] <= 22.25564:
-        if x["gs_rh"] <= 69.17131:
-            if x["gs_solar"] <= 21.61212:
-                return 0.00095
-            else:
-                return 0.00685
-        else:
-            if x["gs_solar"] <= 19.55509:
-                return 0.00428
-            else:
-                return -0.00146
-    else:
-        if x["gs_tmean"] <= 23.29497:
-            if x["gs_tmean"] <= 21.73156:
-                return -0.00324
-            else:
-                return -0.01761
-        else:
-            if x["lon"] <= -101.25000:
-                return 0.00502
-            else:
-                return -0.00211
-
-def _g_16(x):
-    if x["soc_prof"] <= 2.54869:
-        if x["clay_top"] <= 13.12500:
-            if x["clay_top"] <= 4.41667:
-                return -0.00291
-            else:
-                return 0.00357
-        else:
-            if x["gs_solar"] <= 22.71930:
-                return 0.00019
-            else:
-                return -0.00276
-    else:
-        if x["gs_solar"] <= 22.72888:
-            return -0.01490
-        else:
-            if x["gs_rh"] <= 53.42080:
-                return -0.00916
-            else:
-                return -0.00579
-
-def _g_17(x):
-    if x["soc_prof"] <= 0.50647:
-        if x["gs_tmean"] <= 27.25972:
-            if x["gs_tmean"] <= 27.02491:
-                return -0.00087
-            else:
-                return 0.01485
-        else:
-            if x["lon"] <= -98.75000:
-                return -0.01666
-            else:
-                return -0.00359
-    else:
-        if x["soc_prof"] <= 0.53727:
-            if x["gs_solar"] <= 23.27152:
-                return 0.00606
-            else:
-                return 0.01860
-        else:
-            if x["gs_rh"] <= 48.29161:
-                return 0.01073
-            else:
-                return 0.00052
-
-def _g_18(x):
-    if x["gs_rh"] <= 44.63091:
-        if x["clay_top"] <= 28.50000:
-            if x["soc_prof"] <= 0.18700:
-                return 0.00250
-            else:
-                return 0.00605
-        else:
-            return 0.01187
-    else:
-        if x["lon"] <= -102.25000:
-            if x["gs_tmean"] <= 21.58416:
-                return -0.00343
-            else:
-                return -0.01470
-        else:
-            if x["gs_rh"] <= 48.12409:
-                return 0.00998
-            else:
-                return 0.00008
-
-def _g_19(x):
-    if x["clay_top"] <= 49.37500:
-        if x["lon"] <= -83.75000:
-            if x["gs_tmean"] <= 28.48800:
-                return 0.00067
-            else:
-                return 0.01462
-        else:
-            if x["gs_solar"] <= 18.33586:
-                return 0.00715
-            else:
-                return -0.00231
-    else:
-        if x["clay_top"] <= 65.00000:
-            if x["gs_rh"] <= 52.12926:
-                return -0.00933
-            else:
-                return -0.00544
-        else:
-            if x["soc_prof"] <= 0.24589:
-                return -0.00655
-            else:
-                return 0.00150
-
-def _g_20(x):
-    if x["lon"] <= -100.93500:
-        if x["clay_top"] <= 38.16667:
-            if x["clay_top"] <= 6.75000:
-                return -0.01247
-            else:
-                return -0.00007
-        else:
-            if x["clay_top"] <= 40.62500:
-                return -0.02130
-            else:
-                return -0.00759
-    else:
-        if x["gs_rh"] <= 51.86330:
-            if x["gs_rh"] <= 50.50941:
-                return 0.01116
-            else:
-                return 0.02023
-        else:
-            if x["gs_tmean"] <= 27.08527:
-                return 0.00059
-            else:
-                return -0.00471
-
-def _g_21(x):
-    if x["lon"] <= -83.75000:
-        if x["soc_prof"] <= 0.27140:
-            if x["gs_tmean"] <= 21.86831:
-                return -0.00452
-            else:
-                return -0.00000
-        else:
-            if x["soc_prof"] <= 0.72232:
-                return 0.00275
-            else:
-                return -0.00072
-    else:
-        if x["gs_tmean"] <= 16.37524:
-            if x["gs_rh"] <= 77.01514:
-                return 0.01166
-            else:
-                return 0.00403
-        else:
-            if x["clay_top"] <= 10.50000:
-                return 0.00048
-            else:
-                return -0.00341
+            return -0.01388
 
 def _g_22(x):
-    if x["gs_rh"] <= 59.94599:
-        if x["gs_solar"] <= 23.39032:
-            if x["gs_solar"] <= 21.98767:
-                return -0.00123
+    if x["gs_tmean"] <= 28.63149:
+        if x["gs_tmean"] <= 28.43900:
+            if x["gs_rh"] <= 59.94599:
+                return -0.00186
             else:
-                return -0.00768
+                return 0.00033
         else:
-            if x["soc_prof"] <= 0.40007:
-                return -0.00189
+            if x["clay_top"] <= 26.25000:
+                return 0.00676
             else:
-                return 0.00540
+                return 0.01250
     else:
-        if x["gs_rh"] <= 60.08925:
-            return 0.01993
-        else:
-            if x["gs_rh"] <= 72.17796:
-                return 0.00138
-            else:
-                return -0.00148
+        return -0.01273
 
 def _g_23(x):
-    if x["clay_top"] <= 23.75000:
-        if x["soc_prof"] <= 2.26067:
-            if x["soc_prof"] <= 1.03954:
-                return 0.00053
-            else:
-                return 0.00761
+    if x["gs_tmean"] <= 15.47918:
+        if x["clay_top"] <= 6.25000:
+            return 0.01286
         else:
-            return -0.01219
+            if x["clay_top"] <= 11.50000:
+                return 0.00641
+            else:
+                return 0.00141
     else:
-        if x["gs_solar"] <= 24.10607:
-            if x["gs_rh"] <= 46.96324:
-                return 0.01174
+        if x["gs_rh"] <= 75.88146:
+            if x["gs_rh"] <= 59.94599:
+                return -0.00172
             else:
-                return -0.00105
+                return 0.00029
         else:
-            if x["gs_tmean"] <= 27.48463:
-                return -0.00746
+            if x["soc_prof"] <= 0.45242:
+                return -0.00487
             else:
-                return -0.01355
+                return -0.00075
 
 def _g_24(x):
-    if x["gs_solar"] <= 19.55509:
-        if x["lon"] <= -70.50000:
-            if x["lon"] <= -84.00000:
-                return 0.00775
+    if x["soc_prof"] <= 2.90700:
+        if x["clay_top"] <= 21.10000:
+            if x["gs_tmean"] <= 26.95705:
+                return 0.00078
             else:
-                return 0.00295
+                return 0.00820
         else:
-            return 0.01283
+            if x["gs_tmean"] <= 19.96807:
+                return -0.00359
+            else:
+                return -0.00036
     else:
-        if x["gs_rh"] <= 72.17796:
-            if x["soc_prof"] <= 0.21125:
-                return 0.00352
-            else:
-                return -0.00019
-        else:
-            if x["soc_prof"] <= 0.27575:
-                return -0.00388
-            else:
-                return -0.00054
+        return -0.01189
 
 def _g_25(x):
-    if x["gs_tmean"] <= 18.50613:
-        if x["gs_rh"] <= 73.20366:
-            if x["gs_solar"] <= 20.22143:
-                return 0.00933
+    if x["gs_tmean"] <= 24.22955:
+        if x["gs_solar"] <= 21.89873:
+            if x["gs_solar"] <= 21.85274:
+                return -0.00003
             else:
-                return 0.00195
+                return 0.01035
         else:
-            if x["lon"] <= -73.50000:
-                return -0.00085
+            if x["gs_rh"] <= 44.14941:
+                return 0.00487
             else:
-                return 0.00570
+                return -0.00663
     else:
-        if x["gs_rh"] <= 44.63091:
-            if x["clay_top"] <= 28.50000:
-                return 0.00338
+        if x["gs_solar"] <= 24.12690:
+            if x["gs_rh"] <= 51.97809:
+                return 0.01349
             else:
-                return 0.01102
+                return 0.00075
         else:
-            if x["gs_rh"] <= 46.48308:
-                return -0.01058
+            if x["clay_top"] <= 18.25000:
+                return 0.00095
             else:
-                return -0.00025
+                return -0.00756
 
 def _g_26(x):
     if x["gs_tmean"] <= 27.29711:
-        if x["gs_rh"] <= 56.22170:
-            if x["soc_prof"] <= 1.06551:
-                return -0.00032
+        if x["gs_solar"] <= 19.26543:
+            if x["gs_rh"] <= 67.74963:
+                return 0.01330
             else:
-                return -0.01611
+                return 0.00270
         else:
-            if x["lon"] <= -98.50000:
-                return 0.00807
+            if x["soc_prof"] <= 0.23252:
+                return -0.00223
             else:
-                return 0.00044
+                return 0.00032
     else:
         if x["gs_tmean"] <= 27.69210:
-            if x["gs_rh"] <= 55.86653:
-                return -0.00992
+            if x["soc_prof"] <= 1.13875:
+                return -0.01071
             else:
-                return -0.01327
+                return -0.00312
         else:
             if x["gs_rh"] <= 52.07718:
-                return 0.01312
+                return 0.01105
             else:
-                return -0.00504
+                return -0.00467
 
 def _g_27(x):
-    if x["gs_rh"] <= 71.43904:
-        if x["lon"] <= -99.75000:
-            if x["soc_prof"] <= 1.06551:
-                return -0.00006
+    if x["gs_rh"] <= 76.46008:
+        if x["gs_solar"] <= 19.34075:
+            if x["soc_prof"] <= 0.41712:
+                return 0.01086
             else:
-                return -0.00623
+                return 0.00201
         else:
-            if x["lon"] <= -78.50000:
-                return 0.00146
+            if x["soc_prof"] <= 2.90700:
+                return 0.00034
             else:
-                return -0.00547
+                return -0.01027
     else:
-        if x["gs_solar"] <= 19.39023:
-            if x["lon"] <= -72.25000:
-                return 0.00187
+        if x["lon"] <= -75.40000:
+            if x["soc_prof"] <= 0.30881:
+                return -0.00373
             else:
-                return 0.00795
+                return -0.01005
         else:
-            if x["soc_prof"] <= 0.27575:
-                return -0.00355
+            if x["lon"] <= -72.75000:
+                return 0.00164
             else:
-                return -0.00050
+                return -0.00306
 
 def _g_28(x):
-    if x["soc_prof"] <= 0.50647:
-        if x["gs_rh"] <= 59.14099:
-            if x["gs_rh"] <= 44.63091:
-                return 0.00536
+    if x["clay_top"] <= 23.75000:
+        if x["gs_tmean"] <= 27.00604:
+            if x["soc_prof"] <= 0.17750:
+                return -0.01132
             else:
-                return -0.00551
+                return 0.00070
         else:
-            if x["gs_rh"] <= 60.08925:
-                return 0.01688
-            else:
-                return -0.00040
+            return 0.01301
     else:
-        if x["soc_prof"] <= 0.61323:
-            if x["gs_solar"] <= 23.41228:
-                return 0.00332
+        if x["clay_top"] <= 26.91667:
+            if x["soc_prof"] <= 0.22167:
+                return -0.01100
             else:
-                return 0.01924
+                return -0.00187
         else:
-            if x["gs_rh"] <= 52.15183:
-                return -0.00672
+            if x["soc_prof"] <= 0.38005:
+                return 0.00210
             else:
-                return 0.00102
+                return -0.00135
 
 def _g_29(x):
     if x["gs_tmean"] <= 27.25768:
         if x["gs_rh"] <= 48.12409:
-            if x["lon"] <= -101.75000:
-                return 0.00276
+            if x["soc_prof"] <= 0.45323:
+                return 0.00362
             else:
-                return 0.02136
+                return 0.01798
         else:
-            if x["gs_rh"] <= 56.87943:
-                return -0.00358
+            if x["gs_rh"] <= 57.18165:
+                return -0.00322
             else:
-                return 0.00053
+                return 0.00042
     else:
         if x["soc_prof"] <= 0.20127:
-            return 0.01320
+            return 0.00948
         else:
-            if x["soc_prof"] <= 1.30800:
-                return -0.00681
+            if x["lon"] <= -102.50000:
+                return 0.00261
             else:
-                return -0.00145
+                return -0.00519
 
 def _g_30(x):
-    if x["clay_top"] <= 24.58333:
-        if x["soc_prof"] <= 2.53734:
-            if x["soc_prof"] <= 0.24399:
-                return -0.00110
+    if x["soc_prof"] <= 0.23966:
+        if x["soc_prof"] <= 0.21125:
+            if x["gs_tmean"] <= 15.03973:
+                return 0.00694
             else:
-                return 0.00143
+                return -0.00055
         else:
-            return -0.01052
+            if x["gs_rh"] <= 61.08851:
+                return -0.01137
+            else:
+                return -0.00183
     else:
-        if x["gs_rh"] <= 46.48308:
-            if x["gs_tmean"] <= 25.66471:
-                return -0.01201
+        if x["clay_top"] <= 7.16667:
+            if x["lon"] <= -84.25000:
+                return 0.00203
             else:
-                return -0.00115
+                return 0.00551
         else:
-            if x["gs_rh"] <= 48.12409:
-                return 0.00843
+            if x["gs_rh"] <= 76.04898:
+                return 0.00028
             else:
-                return -0.00112
+                return -0.00301
 
 def _g_31(x):
     if x["gs_rh"] <= 50.20904:
-        if x["gs_rh"] <= 44.63091:
-            if x["clay_top"] <= 28.50000:
-                return 0.00193
+        if x["gs_rh"] <= 48.97208:
+            if x["gs_rh"] <= 44.63091:
+                return 0.00357
             else:
-                return 0.01000
+                return -0.00262
         else:
-            if x["gs_solar"] <= 22.27939:
-                return -0.01472
+            if x["gs_rh"] <= 49.95878:
+                return -0.01080
             else:
-                return -0.00439
+                return -0.00407
     else:
-        if x["gs_rh"] <= 69.69607:
-            if x["gs_tmean"] <= 24.80976:
-                return 0.00013
+        if x["gs_rh"] <= 50.63460:
+            if x["gs_tmean"] <= 20.62828:
+                return 0.00747
             else:
-                return 0.00278
+                return 0.00773
         else:
-            if x["clay_top"] <= 10.58333:
-                return 0.00155
+            if x["gs_tmean"] <= 23.80229:
+                return -0.00047
             else:
-                return -0.00136
+                return 0.00114
 
 def _g_32(x):
-    if x["soc_prof"] <= 0.55617:
-        if x["gs_rh"] <= 58.43837:
-            if x["gs_rh"] <= 44.63091:
-                return 0.00330
+    if x["gs_rh"] <= 53.75434:
+        if x["gs_solar"] <= 24.06953:
+            if x["soc_prof"] <= 0.23316:
+                return -0.00950
             else:
-                return -0.00449
-        else:
-            if x["gs_rh"] <= 60.08925:
-                return 0.00833
-            else:
-                return -0.00039
-    else:
-        if x["gs_solar"] <= 24.04877:
-            if x["gs_rh"] <= 52.15183:
-                return -0.00472
-            else:
-                return 0.00134
+                return -0.00222
         else:
             if x["gs_solar"] <= 24.12150:
-                return 0.01399
+                return 0.01209
             else:
-                return -0.00421
-
-def _g_33(x):
-    if x["clay_top"] <= 23.75000:
-        if x["gs_rh"] <= 68.00529:
-            if x["lon"] <= -101.75000:
-                return -0.00100
-            else:
-                return 0.00446
-        else:
-            if x["lon"] <= -70.50000:
-                return -0.00024
-            else:
-                return 0.00877
+                return -0.00021
     else:
-        if x["lon"] <= -96.75000:
-            if x["soc_prof"] <= 0.20070:
-                return 0.01165
-            else:
-                return -0.00280
-        else:
-            if x["gs_tmean"] <= 22.42997:
-                return -0.00131
-            else:
-                return 0.00135
-
-def _g_34(x):
-    if x["lon"] <= -80.75000:
-        if x["gs_solar"] <= 21.47164:
-            if x["gs_solar"] <= 19.70412:
-                return 0.00467
+        if x["lon"] <= -98.75000:
+            if x["gs_solar"] <= 22.21542:
+                return 0.00694
             else:
                 return -0.00094
         else:
-            if x["gs_solar"] <= 22.25564:
-                return 0.00263
+            if x["gs_rh"] <= 59.23038:
+                return -0.00525
             else:
-                return -0.00023
-    else:
-        if x["clay_top"] <= 11.00000:
-            if x["lon"] <= -70.50000:
-                return 0.00130
-            else:
-                return 0.00745
-        else:
-            if x["gs_solar"] <= 22.17340:
-                return -0.00316
-            else:
-                return -0.00828
+                return 0.00032
 
-def _g_35(x):
-    if x["lon"] <= -70.75000:
-        if x["soc_prof"] <= 0.19165:
-            if x["soc_prof"] <= 0.17994:
-                return 0.00163
+def _g_33(x):
+    if x["clay_top"] <= 23.16667:
+        if x["gs_rh"] <= 68.22807:
+            if x["lon"] <= -100.93500:
+                return -0.00005
             else:
-                return 0.01022
+                return 0.00495
         else:
-            if x["gs_tmean"] <= 27.25768:
-                return 0.00013
+            if x["gs_solar"] <= 22.18164:
+                return -0.00060
             else:
-                return -0.00342
+                return 0.00258
     else:
-        if x["soc_prof"] <= 0.39184:
-            return -0.00807
-        else:
-            return -0.00834
-
-def _g_36(x):
-    if x["clay_top"] <= 24.58333:
-        if x["lon"] <= -89.20000:
-            if x["soc_prof"] <= 1.03954:
-                return 0.00155
-            else:
-                return 0.01054
-        else:
-            if x["gs_solar"] <= 20.71729:
-                return 0.00106
-            else:
-                return -0.00153
-    else:
-        if x["lon"] <= -102.25000:
-            if x["soc_prof"] <= 0.60239:
-                return -0.00522
-            else:
-                return -0.01092
-        else:
-            if x["lon"] <= -101.75000:
-                return 0.00930
-            else:
-                return -0.00081
-
-def _g_37(x):
-    if x["gs_rh"] <= 42.11940:
-        if x["soc_prof"] <= 0.26371:
-            return 0.00226
-        else:
-            if x["gs_rh"] <= 40.00294:
-                return 0.00593
-            else:
-                return 0.00922
-    else:
-        if x["soc_prof"] <= 0.50647:
-            if x["gs_rh"] <= 58.43837:
-                return -0.00317
-            else:
-                return -0.00025
-        else:
-            if x["gs_solar"] <= 24.06420:
-                return 0.00046
-            else:
-                return 0.01601
-
-def _g_38(x):
-    if x["lon"] <= -81.75000:
-        if x["lon"] <= -102.25000:
-            if x["gs_solar"] <= 21.18777:
-                return -0.01230
-            else:
-                return -0.00132
-        else:
-            if x["gs_rh"] <= 48.12409:
-                return 0.00654
-            else:
-                return 0.00040
-    else:
-        if x["clay_top"] <= 10.50000:
-            if x["clay_top"] <= 2.58333:
-                return -0.00659
-            else:
-                return 0.00156
-        else:
-            if x["lon"] <= -76.75000:
+        if x["clay_top"] <= 32.75000:
+            if x["gs_solar"] <= 23.30198:
                 return -0.00107
             else:
-                return -0.00411
+                return -0.00515
+        else:
+            if x["gs_solar"] <= 23.72651:
+                return -0.00031
+            else:
+                return 0.00617
+
+def _g_34(x):
+    if x["gs_solar"] <= 21.60217:
+        if x["clay_top"] <= 10.75000:
+            if x["clay_top"] <= 9.75000:
+                return 0.00042
+            else:
+                return 0.00511
+        else:
+            if x["lon"] <= -102.00000:
+                return -0.00842
+            else:
+                return -0.00105
+    else:
+        if x["gs_solar"] <= 21.92051:
+            if x["lon"] <= -91.50000:
+                return 0.00807
+            else:
+                return 0.00043
+        else:
+            if x["gs_tmean"] <= 23.37642:
+                return -0.00385
+            else:
+                return 0.00055
+
+def _g_35(x):
+    if x["soc_prof"] <= 0.19165:
+        if x["gs_tmean"] <= 26.88122:
+            if x["gs_solar"] <= 21.59969:
+                return -0.00162
+            else:
+                return 0.00294
+        else:
+            if x["gs_rh"] <= 61.61585:
+                return 0.00883
+            else:
+                return 0.01003
+    else:
+        if x["gs_tmean"] <= 27.25768:
+            if x["gs_rh"] <= 73.36197:
+                return 0.00057
+            else:
+                return -0.00127
+        else:
+            if x["gs_tmean"] <= 27.69210:
+                return -0.00769
+            else:
+                return -0.00153
+
+def _g_36(x):
+    if x["clay_top"] <= 10.58333:
+        if x["clay_top"] <= 5.58333:
+            if x["gs_tmean"] <= 23.82286:
+                return -0.00227
+            else:
+                return 0.00338
+        else:
+            if x["gs_solar"] <= 21.05864:
+                return 0.00489
+            else:
+                return 0.00009
+    else:
+        if x["gs_rh"] <= 71.45638:
+            if x["clay_top"] <= 21.18333:
+                return 0.00170
+            else:
+                return -0.00015
+        else:
+            if x["clay_top"] <= 12.75000:
+                return -0.00707
+            else:
+                return -0.00101
+
+def _g_37(x):
+    if x["gs_rh"] <= 42.92048:
+        if x["gs_tmean"] <= 26.51080:
+            if x["gs_rh"] <= 40.58420:
+                return 0.00657
+            else:
+                return 0.00713
+        else:
+            if x["soc_prof"] <= 0.81350:
+                return 0.00276
+            else:
+                return 0.00291
+    else:
+        if x["lon"] <= -100.25000:
+            if x["soc_prof"] <= 1.10331:
+                return -0.00106
+            else:
+                return -0.01091
+        else:
+            if x["gs_rh"] <= 51.86330:
+                return 0.01183
+            else:
+                return 0.00005
+
+def _g_38(x):
+    if x["gs_tmean"] <= 28.48031:
+        if x["soc_prof"] <= 2.90700:
+            if x["clay_top"] <= 12.91667:
+                return 0.00136
+            else:
+                return -0.00003
+        else:
+            return -0.00818
+    else:
+        return 0.00930
 
 def _g_39(x):
-    if x["soc_prof"] <= 0.27140:
-        if x["lon"] <= -73.00000:
-            if x["gs_rh"] <= 71.55468:
-                return -0.00076
+    if x["gs_rh"] <= 51.27954:
+        if x["lon"] <= -100.93500:
+            if x["soc_prof"] <= 0.46468:
+                return -0.00141
             else:
-                return -0.00355
+                return 0.00316
         else:
-            if x["lon"] <= -70.50000:
-                return 0.00181
+            if x["gs_tmean"] <= 26.34694:
+                return 0.01428
             else:
-                return 0.00719
+                return 0.01006
     else:
-        if x["gs_rh"] <= 51.27954:
-            if x["gs_solar"] <= 24.12150:
-                return 0.00491
+        if x["gs_rh"] <= 53.75434:
+            if x["clay_top"] <= 15.50000:
+                return 0.00128
             else:
-                return -0.00169
+                return -0.00735
         else:
-            if x["gs_solar"] <= 22.52684:
-                return 0.00043
+            if x["gs_tmean"] <= 28.13579:
+                return -0.00011
             else:
-                return -0.00230
+                return -0.00464
 
 def _g(x):
-    return 0.079364 + _g_0(x) + _g_1(x) + _g_2(x) + _g_3(x) + _g_4(x) + _g_5(x) + _g_6(x) + _g_7(x) + _g_8(x) + _g_9(x) + _g_10(x) + _g_11(x) + _g_12(x) + _g_13(x) + _g_14(x) + _g_15(x) + _g_16(x) + _g_17(x) + _g_18(x) + _g_19(x) + _g_20(x) + _g_21(x) + _g_22(x) + _g_23(x) + _g_24(x) + _g_25(x) + _g_26(x) + _g_27(x) + _g_28(x) + _g_29(x) + _g_30(x) + _g_31(x) + _g_32(x) + _g_33(x) + _g_34(x) + _g_35(x) + _g_36(x) + _g_37(x) + _g_38(x) + _g_39(x)
+    return 0.062360 + _g_0(x) + _g_1(x) + _g_2(x) + _g_3(x) + _g_4(x) + _g_5(x) + _g_6(x) + _g_7(x) + _g_8(x) + _g_9(x) + _g_10(x) + _g_11(x) + _g_12(x) + _g_13(x) + _g_14(x) + _g_15(x) + _g_16(x) + _g_17(x) + _g_18(x) + _g_19(x) + _g_20(x) + _g_21(x) + _g_22(x) + _g_23(x) + _g_24(x) + _g_25(x) + _g_26(x) + _g_27(x) + _g_28(x) + _g_29(x) + _g_30(x) + _g_31(x) + _g_32(x) + _g_33(x) + _g_34(x) + _g_35(x) + _g_36(x) + _g_37(x) + _g_38(x) + _g_39(x)
 
 def site_covariates(wx, soil_raw, lon):
     """Six covariates from the full-record weather dict {year: {doy: row}} and the soil layer list (thick, clay, sand, soc per layer)."""
@@ -1901,6 +1820,6 @@ def site_covariates(wx, soil_raw, lon):
 def regional_params(wx, soil_raw, lon):
     """Returns (net_n_multiplier, grain_factor) for a site."""
     x = site_covariates(wx, soil_raw, lon)
-    m = min(M_RANGE[1], max(M_RANGE[0], math.exp(_m(x))))
+    m = 1.0  # inert: with the explicit-stoichiometry net N (SIXPOOL_ML_STOICH) the multiplier is not used, so only the grain factor is regionalized
     g = min(G_RANGE[1], max(G_RANGE[0], math.exp(_g(x))))
     return m, g
