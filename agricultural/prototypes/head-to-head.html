@@ -4199,6 +4199,20 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 denitrif_today = n_pool * denitrif_frac_today
                 n_pool = max(0.0, n_pool - denitrif_today)
             n_denitrified_total += denitrif_today
+        if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("loss", ()) and no3_layers is not None and n_no3 is not None:
+            # diagnostic (2026-10-15): replace the engine's daily nitrate-pathway loss (leaching + denitrification) by Cycles' value
+            _eng_loss = n_leached_today + (denitrif_today if model_denitrification else 0.0)
+            _delta = _FORCE_CUR["loss"][w["doy"]] - _eng_loss
+            _tot = sum(no3_layers)
+            if _tot > 1e-9:
+                _d = max(-_tot * 0.0, min(_delta, _tot))
+                if _d > 0:
+                    for _i in range(len(no3_layers)):
+                        no3_layers[_i] -= _d * no3_layers[_i] / _tot
+                    n_no3 = max(0.0, n_no3 - _d)
+                else:
+                    no3_layers[0] += -_delta
+                    n_no3 += -_delta
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
         soil_evaporation(layers, eto * (1.0 - res_cover_today), eie, precip_mm=w["pp"] + irrigation_mm - res_evap_today, de_state=de_state, theta_start=_th1_0, snow_day=w.get('snow_day', False),
                           use_cropsyst_formula=(soil_evap_model == "cropsyst"), fallow=False)
