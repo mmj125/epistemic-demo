@@ -4154,6 +4154,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             # does change any crop (wheat, by default; corn/silage corn/soybean if a caller
             # turns nitrogen on, e.g. model-validation.html's own controls) that already wires
             # nitrogen in, since every one of them was running this same buggy math.
+            if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("plantn", ()):
+                canopy_n_kg_ha = _FORCE_CUR["plantn"][w["doy"]]   # diagnostic: plant N content forced to Cycles' own (force_uptake.py)
             n_crit_pct = n_critical_pct(biomass * 10, crop)
             n_min_pct = crop.get("n_min_conc", 0.0) * 100
             n_actual_pct = (canopy_n_kg_ha / (biomass * 100) if biomass > 1e-6
