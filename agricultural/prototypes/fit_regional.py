@@ -1,6 +1,6 @@
 """Fit the compact regionalized-parameter model on all reference sites and write regional_params.py (2026-10-15).
 Targets: log net-N supply multiplier m and log grain factor g per site (regionalize.py), predicted from six site covariates by small gradient-boosted trees, exported as plain Python. Usage: python3 fit_regional.py"""
-import sys,pickle,numpy as np
+import sys,os,pickle,numpy as np
 sys.argv=['x']
 exec(open('regionalize2.py').read().split("J0=np.mean")[0])
 FEATS=['soc_prof','clay_top','gs_tmean','gs_solar','lon','gs_rh']
@@ -49,4 +49,4 @@ def regional_params(wx, soil_raw, lon):
     g = min(G_RANGE[1], max(G_RANGE[0], math.exp(_g(x))))
     return m, g
 '''
-open('regional_params.py','w').write(src);print('written',len(src),'bytes')
+open(os.environ.get('OUTMOD','regional_params')+'.py','w').write(src);print('written',len(src),'bytes')
