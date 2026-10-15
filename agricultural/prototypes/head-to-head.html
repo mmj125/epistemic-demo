@@ -850,9 +850,15 @@ def soil_evaporation_zone(layers, pot_evap_mm, zone_start):
     avail = max(0.0, (zth - ta) * tot * 1000)
     evap = min(ratio * pot_evap_mm, avail)
     dtheta = evap / (tot * 1000)
+    # 2026-10-15: no zone layer may be drawn below its own air-dry water content. With thin top layers the zone's mean can stay high
+    # (a rain-fed layer 1) while layers 2-3 are drained every day by the equal-volumetric-step rule until negative (found in the
+    # designed fallow experiment, REFIT_PLAN row 42). The cap is inactive whenever the zone is uniformly wet, so normal runs are unchanged.
+    taken = 0.0
     for l, t in zlayers:
-        l["theta"] -= dtheta * t / l["thick"]   # the zone takes only its part of a thicker layer
-    return evap
+        take = min(dtheta, max(0.0, l["theta"] - a * l["pwp"]))
+        l["theta"] -= take * t / l["thick"]   # the zone takes only its part of a thicker layer
+        taken += take * t * 1000
+    return taken
 
 
 def zone_mean_theta(layers):
