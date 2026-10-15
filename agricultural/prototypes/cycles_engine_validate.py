@@ -2389,6 +2389,9 @@ SIXPOOL_N_LIMIT_MM = True  # 2026-10-13: Cycles decomposition is limited by laye
 SIXPOOL_N_HALF_CLAY = 0.0   # see sixpool_step(); 0 = off
 SIXPOOL_N_HALF_MGKG = 0.45  # half-saturation of c/(c+K)
 SIXPOOL_N_FMIN = 0.3   # floor: Cycles' decomposition stays at about a third of its plateau even below 0.5 mg/kg (a zero floor stalls the whole system)
+SIXPOOL_N_FMIN_RES = None   # see sixpool_step: separate gate for residue decomposition (None = same gate as SOM)
+SIXPOOL_N_POT_MULT_RES = 1.6
+SIXPOOL_N_HALF_RES_MULT = 1.0
 SIXPOOL_N_POT_MULT = 1.6    # decomposition rates are potential (unlimited-N) rates times this when the limit is on
 
 
@@ -2452,12 +2455,20 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
     cs, cm, cra, crtz, crm, csx = state["cs"], state["cm"], state["cra"], state["crtz"], state["crm"], state["csx"]
     ml_sub = state.get("ml_sub", False)
     fe = sixpool_fe(tmean, relwet, ml_sub)
+    fe_res = None
     if SIXPOOL_N_LIMIT:
         fe *= sixpool_n_factor(state.get("n_min"))
     if SIXPOOL_N_LIMIT_MM and state.get("n_conc1") is not None:
         _c = state["n_conc1"]
         _khalf = SIXPOOL_N_HALF_MGKG * math.exp(-SIXPOOL_N_HALF_CLAY * (state.get("clay", 0.25) - 0.25) / 0.25)   # 2026-10-15 opt-in clay dependence of the N gate: heavy clay saturates at lower concentration, so fertilizer raises net N less
-        fe *= SIXPOOL_N_POT_MULT * (SIXPOOL_N_FMIN + (1.0 - SIXPOOL_N_FMIN) * _c / (_c + _khalf))
+        _gate = SIXPOOL_N_POT_MULT * (SIXPOOL_N_FMIN + (1.0 - SIXPOOL_N_FMIN) * _c / (_c + _khalf))
+        # 2026-10-15 opt-in separate, stronger N limitation of RESIDUE decomposition (C:N 30-86) than of soil organic matter (C:N ~10):
+        # designed fertilized runs (REFIT_PLAN row 44) show Cycles' net mineralization FALLS with fertilizer at low SOC / cool sites because
+        # immobilization rises ~10x while gross mineralization rises ~3x; one shared gate cannot do that.
+        if SIXPOOL_N_FMIN_RES is not None:
+            _gate_res = SIXPOOL_N_POT_MULT_RES * (SIXPOOL_N_FMIN_RES + (1.0 - SIXPOOL_N_FMIN_RES) * _c / (_c + _khalf * SIXPOOL_N_HALF_RES_MULT))
+            fe_res = fe * _gate_res
+        fe *= _gate
     fh = sixpool_fh(cs, csx)
     if ml_sub:
         _ratio = cs / csx if csx > 0 else 0.0
@@ -2483,9 +2494,10 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
     # the harvest-crediting reset (simulate_season()) that also resets this to 0.0 at the
     # same moment the fresh pulse lands, so the two always stay in sync.
 
-    decomp_ra = fe * SIXPOOL_KRA * cra_maturity * cra
-    decomp_rtz = fe * SIXPOOL_K_RTZ * crtz
-    decomp_rm = fe * SIXPOOL_KRM * crm
+    _fer = fe if fe_res is None else fe_res
+    decomp_ra = _fer * SIXPOOL_KRA * cra_maturity * cra
+    decomp_rtz = _fer * SIXPOOL_K_RTZ * crtz
+    decomp_rm = _fer * SIXPOOL_KRM * crm
     cra = max(0.0, cra - decomp_ra)
     crtz = max(0.0, crtz - decomp_rtz)
     crm = max(0.0, crm - decomp_rm)
