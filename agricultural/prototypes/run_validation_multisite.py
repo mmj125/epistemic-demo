@@ -30,6 +30,8 @@ if os.environ.get("N_A"): cev.SIXPOOL_ML_N_A = float(os.environ["N_A"])
 if os.environ.get("EPS_H"): cev.SIXPOOL_ML_EPS_H = float(os.environ["EPS_H"])
 if os.environ.get("CRA_TAU"): cev.CRA_MATURATION_TAU_DAYS = float(os.environ["CRA_TAU"])
 if os.environ.get("HUM_CLAY"): cev.SIXPOOL_ML_HUM_CLAY = tuple(float(x) for x in os.environ["HUM_CLAY"].split(","))
+for _o in os.environ.get("ENGINE_OVR","").split(";"):   # 2026-10-15: generic engine-constant overrides for scaled-up runs, NAME=VALUE;NAME=VALUE
+    if _o: setattr(cev,_o.split("=",1)[0],eval(_o.split("=",1)[1]))
 CY=os.environ.get("CY_DIR","/tmp/cycles-run15")  # a local Cycles v1.5.20 release directory (binary + input/), not committed. Reference moved from v1.4.4 to v1.5.20 on 2026-10-12.
 SITES=dict(rock_springs=fd.PRESET_SITES["rock_springs"],iowa=fd.PRESET_SITES["iowa"],
            kansas=fd.PRESET_SITES["kansas"],maryland=fd.PRESET_SITES["maryland"],
@@ -42,6 +44,7 @@ HELDOUT_SITES=dict(south_dakota=(44.0,-97.5),north_dakota=(47.0,-97.5),iowa_west
                    oklahoma=(36.2,-97.5),kentucky=(37.5,-85.5),tennessee=(35.8,-88.9),mississippi=(33.5,-90.8),
                    louisiana=(31.0,-92.0),alabama=(32.5,-86.5),virginia=(37.5,-77.5),new_york=(42.8,-76.5))
 if os.environ.get("HELDOUT")=="1": SITES=HELDOUT_SITES
+if os.environ.get("BIGSET"): SITES={k:tuple(v) for k,v in json.load(open(os.environ["BIGSET"])).items()}   # 2026-10-15: scaled-up random site set from bigset.py
 N_LEVELS=[int(x) for x in os.environ.get('N_LEVELS','0,150').split(',')]
 def lat_of(lat,lon):
     m=fd.load_manifest(); _,_,k=fd.tile_for_point(lat,lon); d,e=fd.load_tile_bytes(m,k)
