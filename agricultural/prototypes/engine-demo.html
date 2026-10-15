@@ -2562,6 +2562,8 @@ N_STRESS_AG_BASIS = False
 N_AG_FRACTION = 0.88
 N_STRESS_R0, N_STRESS_R1, N_STRESS_SMAX, N_STRESS_Q = 0.641, 0.281, 0.764, 0.90
 N_STRESS_KNEE_RATIO = 0.26
+O2_STRESS_SCALE = None   # 2026-10-15 opt-in waterlogging stress scale (0.71 fitted); None = off
+O2_STRESS_POW = 2.0
 GROWTH_TTF_SLOPE = 0.0   # 2026-10-15 fit: daily growth multiplier 1 + slope*(ttf-0.5); Cycles' efficiency rises through the season (engine +15-19% early, -5-11% late)
 N_STRESS_GROWTH_POW = 1.0   # 2026-10-15 fit: growth uses n_stress**pow; Cycles grows ~13% more under N stress than (1-stress) x unstressed growth
 N_STRESS_ZERO_RATIO = 0.86  # was 0.62; refit 2026-10-12 with SIXPOOL_ML_N_A 76 on 28 sites (fertilized corn bias -0.36 to +0.11)
@@ -4881,6 +4883,19 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         GT = crop["wue"] * wue_co2_scale / math.sqrt(Da) * TR_actual
         dGB_water_limited = max(0.0, min(GR, GT)) * NET_GROWTH_FRACTION / 1000 * (1.0 + GROWTH_TTF_SLOPE * (ttf - 0.5))
         if DIAG_GROWTH is not None: DIAG_GROWTH.append((w["doy"], GR, GT, dGB_water_limited))
+        if O2_STRESS_SCALE is not None:
+            # 2026-10-15 waterlogging (oxygen) stress. Cycles reports a daily o2_factor (0 = none) that rises with root-zone wetness; this engine had
+            # no such mechanism and overshot Cycles by +0.7 to +1.6 Mg/ha in site-years where Cycles' season-mean o2_factor was 0.05 or more.
+            # Fit on 28 sites: o2 = scale * root-weighted mean of ((theta - fc) / (sat - fc))**pow (held-out-site R2 about 0.4).
+            _top, _num, _den = 0.0, 0.0, 0.0
+            for _l in layers:
+                _ov = max(0.0, min(root_depth, _top + _l["thick"]) - _top)
+                _top += _l["thick"]
+                if _ov > 0.0 and _l["sat"] > _l["fc"]:
+                    _num += _ov * min(1.0, max(0.0, (_l["theta"] - _l["fc"]) / (_l["sat"] - _l["fc"]))) ** O2_STRESS_POW
+                _den += _ov
+            if _den > 0.0:
+                dGB_water_limited *= 1.0 - min(0.95, O2_STRESS_SCALE * _num / _den)
         eie_prev_day = eie
 
         n_stress = 1.0
