@@ -106,6 +106,8 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
         import json as _j; cev.SIXPOOL_NET_MULT=_j.load(open(os.environ['NETMULT_JSON'])).get(site,1.0)
     crop=dict(rv.CORN); crop["lat_deg"]=cell_lat
     if os.environ.get("LWP_WILT"): crop["lwp_wilting_point"]=float(os.environ["LWP_WILT"])
+    if os.environ.get("GRAINSITE_JSON"):   # 2026-10-15: per-site grain calibration multiplier (regionalized)
+        import json as _j2; crop["calibration_factor"]=crop["calibration_factor"]*_j2.load(open(os.environ["GRAINSITE_JSON"])).get(site,1.0)
     for _k,_e in (("calibration_factor","GRAIN_MULT"),("rue","RUE_MULT"),("wue","WUE_MULT")):
         if os.environ.get(_e): crop[_k]=crop[_k]*float(os.environ[_e])
     def ml():
