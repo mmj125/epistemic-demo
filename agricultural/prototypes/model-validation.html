@@ -3093,6 +3093,7 @@ VPD_DAYTIME_ALPHA = 0.7   # step 6b: saturation pressure at alpha*tmax+(1-alpha)
 VPD_FAO56 = True   # step 6
 CANOPY_WATER_POW = 1.35   # step 6 (replaces the W0 line): canopy clock rate = water_stress_mult ** POW (Cycles: 0.9 at 2.5% stress, 0.6 at 27%, 0.37 at 60%, 0.06 at 90%)
 CANOPY_WATER_W0 = None  # step 6: canopy clock rate = clamp((water_stress_mult - W0)/(1 - W0), 0, 1); None = off. Measured on Cycles: ~1 at no stress, ~0 near 50% stress
+CANOPY_N_RATIO_LOGISTIC = None   # 2026-10-15 opt-in (center, width): canopy clock rate = logistic of the plant N concentration ratio instead of n_stress**pow. Cycles' implied rate vs AG N ratio: 0.01 at .35, .06 at .45, .39 at .55, .79 at .65, .92 at .75, .99 at .85 (engine clock was .05/.10/.19/.37/.62/1.0)
 CANOPY_N_POW = 3.25   # 2026-10-14: canopy clock rate = water**CANOPY_WATER_POW * n_stress**CANOPY_N_POW (measured on 86k day-pairs of Cycles daily interception: 1.35 and 3.85, rms 0.20); None = use the linear CANOPY_N_COEF form
 CANOPY_N_COEF = 0.5  # fraction of nitrogen stress passed to the canopy clock (0 = off); Cycles' N-stressed corn keeps interception near 0.12 vs 0.9 unstressed (Missouri N0, 2026-10-12)
 N_STRESS_FULL_RATIO = 0.06
@@ -5024,6 +5025,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
 
     tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
     tt_canopy, n_stress_prev = 0.0, 1.0
+    n_ratio_prev = 1.0
     water_stress_prev = 1.0
     eie_prev_day = 0.0
     ag_biomass_at_flowering = None  # captured the first day tt_cum crosses flowering_tt --
@@ -5248,7 +5250,11 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             _wf = _FORCE_CUR["wclock"][w["doy"]] ** CANOPY_WATER_POW
         if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("nclock", ()):
             n_stress_prev = _FORCE_CUR["nclock"][w["doy"]]
-        tt_canopy += dtt * ((n_stress_prev ** CANOPY_N_POW) if CANOPY_N_POW is not None else (1.0 - CANOPY_N_COEF * (1.0 - n_stress_prev))) * _wf
+        if CANOPY_N_RATIO_LOGISTIC is not None:
+            _nf = 1.0 / (1.0 + math.exp(-(n_ratio_prev - CANOPY_N_RATIO_LOGISTIC[0]) / CANOPY_N_RATIO_LOGISTIC[1]))
+        else:
+            _nf = (n_stress_prev ** CANOPY_N_POW) if CANOPY_N_POW is not None else (1.0 - CANOPY_N_COEF * (1.0 - n_stress_prev))
+        tt_canopy += dtt * _nf * _wf
         ttf = tt_cum / crop["tt_maturity"]
         if ttf >= harvest_ttf:
             break
@@ -5504,6 +5510,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             # does change any crop (wheat, by default; corn/silage corn/soybean if a caller
             # turns nitrogen on, e.g. model-validation.html's own controls) that already wires
             # nitrogen in, since every one of them was running this same buggy math.
+            if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("plantn", ()):
+                canopy_n_kg_ha = _FORCE_CUR["plantn"][w["doy"]]   # diagnostic: plant N content forced to Cycles' own (force_uptake.py)
             n_crit_pct = n_critical_pct(biomass * 10, crop)
             n_min_pct = crop.get("n_min_conc", 0.0) * 100
             n_actual_pct = (canopy_n_kg_ha / (biomass * 100) if biomass > 1e-6
@@ -5525,6 +5533,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 n_stress = _FORCE_CUR["nstress"][w["doy"]]
             dGB_n_limited = dGB_water_limited * (n_stress ** N_STRESS_GROWTH_POW)
             n_stress_prev = n_stress
+            n_ratio_prev = _ratio
             demand_today_kg_ha = dGB_n_limited * 100 * n_marginal_demand_pct(biomass * 10, crop) * N_DEMAND_SCALE
             if n_pool_by_layer is not None:
                 # Real CropSyst-style min(demand, potential_uptake) (Eq. 26, Stockle/Martin/
