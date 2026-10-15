@@ -3093,7 +3093,7 @@ def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
 # behavior is byte-identical to before this feature existed -- verified by
 # re-running run_validation.py / run_validation_rotation2.py unchanged.
 N_UPTAKE_RATE_PER_DAY = None  # None = uptake limited only by demand (validated default); else also capped at this fraction/day of the reachable mineral N pool (nitrate_per_layer path)
-N_DEMAND_SCALE = 1.2549  # (the N-loss refit's 0.87308 cost yield: fresh +6.0%, row 46)  # refit 2026-10-15 with the stoichiometry path (row 44); was 0.91  # fraction of the critical-curve marginal N demand the crop actually takes up: Cycles Iowa corn at 150 kg N holds 224 kg N/ha at maturity vs 295 for the full curve (0.76); unstressed whole-plant concentration runs 0.63-0.9 of the curve across growth (run_validation_multisite.py, 2026-10-02)
+N_DEMAND_SCALE = 0.874562  # 2026-10-15 N-loss fit (row 46): leaching at N=400 went from 0.26x to 1.01x of Cycles on held-out sites with yield unchanged; was 1.2549
 GROWTH_PREV_CANOPY = True   # step 6: radiation-limited growth uses the canopy at the start of the day (previous day's)
 VPD_DAYTIME_ALPHA = 0.7   # step 6b: saturation pressure at alpha*tmax+(1-alpha)*tmin (0.7 reproduces Cycles' reported VPD to rms 0.09 kPa over 4 sites)
 VPD_FAO56 = True   # step 6
@@ -4153,10 +4153,10 @@ def _denit_depth_factor(layers):
 
 
 DENITRIF_THRESHOLD_FORM = True
-DENITRIF_THR_K = 0.003880   # exp(-5.548)
-DENITRIF_THR_REL = 0.514
-DENITRIF_THR_POW = 0.974
-DENITRIF_THR_TEXP = 0.637
+DENITRIF_THR_K = 0.0101053  # 2026-10-15 N-loss fit (opt_loss2.py, REFIT_PLAN row 46); was 0.003880   # exp(-5.548)
+DENITRIF_THR_REL = 0.46582
+DENITRIF_THR_POW = 1.26959
+DENITRIF_THR_TEXP = 0.372158
 
 
 def denitrification_rate_rel(theta_rel, tsoil_c):
@@ -4338,8 +4338,8 @@ def volatilization_rate(tsoil, nh4_kg_ha, theta1=None):
 # N2O FROM NITRIF = 0.0025 x NH4 NITRIFICAT (daily median 0.0025 at every site; means 0.0025-0.005 where a few wet
 # days run higher), and N2O FROM DENIT / NO3 DENITRIF = 0.00121 x (profile NO3 kg N/ha)^0.887 (ln R^2 0.69, rms 0.58;
 # 0.017 at ~1 kg N/ha to 0.17 at ~195), capped at 0.5. Cycles reports N2O only; it has no nitric oxide (NO) output.
-N2O_NITRIF_FRAC = 0.007978
-N2O_DENIT_A = 0.0011645
+N2O_NITRIF_FRAC = 0.00983948
+N2O_DENIT_A = 0.00073326
 N2O_DENIT_B = 0.816
 N2O_DENIT_CAP = 0.5
 
@@ -5878,7 +5878,7 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
 WHEAT = dict(threshold_temp_cold_damage=-10, tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
     rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
     hi_use_thermal_time_fraction=True,  # real exemption 2026-09-30, see cycles_engine_validate.py
-    calibration_factor=1.1099, canopy_shape=(5, -14, -15, 16),  # re-derived 2026-10-01 for the real CO2-WUE-scaling mechanism (wue_co2_scale) -- previous value 0.7528, itself CORRECTED 2026-09-29 (was
+    calibration_factor=1.2052, canopy_shape=(5, -14, -15, 16),  # re-derived 2026-10-01 for the real CO2-WUE-scaling mechanism (wue_co2_scale) -- previous value 0.7528, itself CORRECTED 2026-09-29 (was
     # 0.7506 as of 2026-09-28) -- see gap-list item 26, and cycles_engine_validate.py's
     # ROTHC_WEATHER_FACTOR_NORM for the 2026-09-29 background-nitrogen fix that moved this. Wheat is still deliberately
     # exempted from the hydraulic-conductance mechanism (wheat's real water stress genuinely
