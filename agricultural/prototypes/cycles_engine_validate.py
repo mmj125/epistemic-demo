@@ -1752,6 +1752,8 @@ N_STRESS_AG_BASIS = False
 N_AG_FRACTION = 0.88
 N_STRESS_R0, N_STRESS_R1, N_STRESS_SMAX, N_STRESS_Q = 0.641, 0.281, 0.764, 0.90
 N_STRESS_KNEE_RATIO = 0.26
+GROWTH_TTF_SLOPE = 0.0   # 2026-10-15 fit: daily growth multiplier 1 + slope*(ttf-0.5); Cycles' efficiency rises through the season (engine +15-19% early, -5-11% late)
+N_STRESS_GROWTH_POW = 1.0   # 2026-10-15 fit: growth uses n_stress**pow; Cycles grows ~13% more under N stress than (1-stress) x unstressed growth
 N_STRESS_ZERO_RATIO = 0.86  # was 0.62; refit 2026-10-12 with SIXPOOL_ML_N_A 76 on 28 sites (fertilized corn bias -0.36 to +0.11)
 NCRIT_FLOOR_MGHA = 1.0  # dilution curve is flat (at N_MAX_CONCENTRATION) below this biomass; standard convention
 
@@ -4059,7 +4061,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         TR_actual = min(TR_actual, crop.get("tr_max_mm_day", math.inf))
 
         GT = crop["wue"] * wue_co2_scale / math.sqrt(Da) * TR_actual
-        dGB_water_limited = max(0.0, min(GR, GT)) * NET_GROWTH_FRACTION / 1000
+        dGB_water_limited = max(0.0, min(GR, GT)) * NET_GROWTH_FRACTION / 1000 * (1.0 + GROWTH_TTF_SLOPE * (ttf - 0.5))
         if DIAG_GROWTH is not None: DIAG_GROWTH.append((w["doy"], GR, GT, dGB_water_limited))
         eie_prev_day = eie
 
@@ -4171,7 +4173,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     n_stress = max(0.0, _knee * (_ratio - N_STRESS_FLOOR_RATIO) / (N_STRESS_KNEE_RATIO - N_STRESS_FLOOR_RATIO))
             if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("nstress", ()):
                 n_stress = _FORCE_CUR["nstress"][w["doy"]]
-            dGB_n_limited = dGB_water_limited * n_stress
+            dGB_n_limited = dGB_water_limited * (n_stress ** N_STRESS_GROWTH_POW)
             n_stress_prev = n_stress
             demand_today_kg_ha = dGB_n_limited * 100 * n_marginal_demand_pct(biomass * 10, crop) * N_DEMAND_SCALE
             if n_pool_by_layer is not None:
@@ -4242,7 +4244,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             n_uptake_total += n_uptake_kg_ha
             canopy_n_kg_ha += n_uptake_kg_ha
 
-        dGB = dGB_water_limited * n_stress
+        dGB = dGB_water_limited * (n_stress ** N_STRESS_GROWTH_POW)
         biomass += dGB
         ag_biomass += dGB * shoot_fraction(ttf, crop["fsti"], crop["fstf"])
         if ag_biomass_at_flowering is None and tt_cum >= crop["flowering_tt"]:
