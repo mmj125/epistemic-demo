@@ -1754,6 +1754,7 @@ VPD_POW = 0.5   # 2026-10-15 opt-in: transpiration-limited growth ~ Da**(-VPD_PO
 VPD_D0 = 0.75
 HEAT_T0 = None   # 2026-10-15 opt-in heat penalty on growth: factor 1 - HEAT_A*(Tmean - HEAT_T0)^2 above HEAT_T0 (Cycles temperature_factor over 192k corn days: 0.99 below 28 C, 0.957 at 29, 0.891 at 31, 0.787 at 33, 0.672 at 35; fit T0 26, A 0.0044); None = off
 HEAT_A = 0.0044
+WUE_CO2_EXP = 1.0   # 2026-10-16 (REFIT_PLAN row 50): exponent on the CO2 ratio in the water-use-efficiency scale; 1.0 reproduces the old behavior
 C1_HEAT_T0 = 26.0   # c1 package values (crops with crop['c1_water']=True): heat penalty onset and VPD exponent, validated nested on 268 + 94 sites
 C1_VPD_POW = 0.65
 HEAT_GT = False   # also apply the factor to transpiration-limited growth
@@ -3125,7 +3126,7 @@ def _season_chain(weather_by_year, year_range, crop, plant_window, plant_min_soi
         _DIAG_YEAR = y
         kw = dict(season_kwargs)
         if "wue_co2_scale" not in kw:
-            kw["wue_co2_scale"] = CO2_PPM_BY_YEAR.get(y, CO2_REF_PPM) / CO2_REF_PPM
+            kw["wue_co2_scale"] = (CO2_PPM_BY_YEAR.get(y, CO2_REF_PPM) / CO2_REF_PPM) ** WUE_CO2_EXP
         if layers is None:
             layers = crop["make_layers"]()
         fallow_tot = [0.0, 0.0, 0.0]
