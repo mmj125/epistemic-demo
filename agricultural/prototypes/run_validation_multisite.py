@@ -111,7 +111,7 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     crop=dict(rv.CORN); crop["lat_deg"]=cell_lat
     if CROPSEL=='soy':
         import run_validation_rotation2 as _r2; crop=dict(_r2.SOYBEAN); crop['lat_deg']=cell_lat
-    if os.environ.get("REGIONAL","1")=="1" and CROPSEL!='soy':   # 2026-10-15 (default ON since the fresh-site validation, REFIT_PLAN row 38): regionalized net-N multiplier and grain factor from site covariates (regional_params.py)
+    if os.environ.get("REGIONAL","0")=="1" and CROPSEL!='soy':   # 2026-10-15 (default ON since the fresh-site validation, REFIT_PLAN row 38): regionalized net-N multiplier and grain factor from site covariates (regional_params.py)
         import importlib; _rp=importlib.import_module(os.environ.get('REGMOD','regional_params'))
         _m,_g=_rp.regional_params(wx,soil_raw,REG_LON); cev.SIXPOOL_NET_MULT=_m; crop["calibration_factor"]=crop["calibration_factor"]*_g
     if os.environ.get("LWP_WILT"): crop["lwp_wilting_point"]=float(os.environ["LWP_WILT"])

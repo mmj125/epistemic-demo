@@ -2522,6 +2522,7 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
     co2_cs = cs_loss  # Cs has no further downstream pool in this two-pool system -- all of
     # its loss is CO2, matching real Cycles' own "SOM RESPIRED C" column exactly.
 
+    state["resp_mg_ha"] = co2_residue + co2_cm + cs_loss   # total C respired today (Mg C/ha): drives denitrification substrate (rebuild phase 4)
     cm = max(0.0, cm + cm_gain_from_residue - cm_loss)
     cs = max(0.0, cs + cs_gain - cs_loss)
 
@@ -2592,6 +2593,7 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
     wts = [math.exp(-x["zmid"] / SIXPOOL_ML_ROOT_DECAY_M) * (x["z0"] >= 0) for x in subs]
     wsum = sum(wts) or 1.0
     total = 0.0
+    resp_tot = 0.0
     for i, (sub, l) in enumerate(zip(subs, layers)):
         k, g = sixpool_ml_temp_params(sub["zmid"])
         if sub["tl"] is None:
@@ -2609,10 +2611,12 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
             sub["cra"], sub["crm"], sub["cra_age"] = state["cra"], state["crm"], state["cra_age"]
         ft = ft_eff if sub["z0"] < SIXPOOL_ML_TILL_DEPTH_M else 1.0
         total += sixpool_step(sub, t_layer, relwet, root_c_input_mg_ha * wts[i] / wsum, ft)
+        resp_tot += sub.get("resp_mg_ha", 0.0)
         if i == 0:
             state["cra"], state["crm"], state["cra_age"] = sub["cra"], sub["crm"], sub["cra_age"]
     state["cs"] = sum(x["cs"] for x in subs)
     state["cm"] = sum(x["cm"] for x in subs)
+    state["resp_mg_ha"] = resp_tot
     return total
 
 
@@ -2809,6 +2813,24 @@ DENITRIF_THR_K = 0.0101053  # 2026-10-15 N-loss fit (opt_loss2.py, REFIT_PLAN ro
 DENITRIF_THR_REL = 0.46582
 DENITRIF_THR_POW = 1.26959
 DENITRIF_THR_TEXP = 0.372158
+
+
+DENITRIF_RESP_MODEL = True
+DENITRIF_RESP_K = 0.004137   # rebuild phase 4 (2026-10-16): fitted to Cycles' own daily denitrification with Cycles' own states as inputs (nlaw_denit2.py), 40 sites, N=0 and 150, held out by site
+DENITRIF_RESP_REL_POW = 6.034
+DENITRIF_RESP_NO3_POW = 0.725
+DENITRIF_RESP_C_POW = 0.772
+
+
+def denitrification_flux_resp(no3_total_kg_ha, theta_rel1, resp_mg_ha):
+    """Daily denitrification (kg N/ha) = K * NO3^0.725 * Cresp^0.772 * rel1^6.03, Cresp = SOM plus residue respired carbon today (kg C/ha).
+    A rate that depends only on layer-1 saturation (and temperature) explained none of the held-out daily variance (R2 0.01) even with Cycles'
+    own states as input; adding the carbon respired (the electron-donor supply, which also carries the temperature signal) lifts held-out
+    daily R2 to 0.50 and the site-total rms log error from 1.10 to 0.76. Form is the standard three-factor one (nitrate, carbon, anoxia)."""
+    if no3_total_kg_ha <= 0.0:
+        return 0.0
+    c = max(resp_mg_ha * 1000.0, 0.0) + 1e-3
+    return min(no3_total_kg_ha, DENITRIF_RESP_K * no3_total_kg_ha ** DENITRIF_RESP_NO3_POW * c ** DENITRIF_RESP_C_POW * min(max(theta_rel1, 0.02), 1.2) ** DENITRIF_RESP_REL_POW)
 
 
 def denitrification_rate_rel(theta_rel, tsoil_c):
@@ -3064,7 +3086,17 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             lost = min(nstate["n_no3"], drainage_mm * (nstate["n_no3"] / profile_water_mm))
             nstate["n_no3"] -= lost
             leached += lost
-        if model_denitrification:
+        if model_denitrification and DENITRIF_RESP_MODEL and sixpool_state is not None and no3_layers is not None:
+            _no3_pre = nstate["n_no3"]
+            d = denitrification_flux_resp(_no3_pre, layers[0]["theta"] / layers[0]["sat"], sixpool_state.get("resp_mg_ha", 0.0))
+            if d > 0 and _no3_pre > 0:
+                _f = d / _no3_pre
+                for i in range(len(no3_layers)):
+                    no3_layers[i] *= (1.0 - _f)
+                nstate["n_no3"] = max(0.0, _no3_pre - d)
+                nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_denitrification(d, _no3_pre)
+                denit += d
+        elif model_denitrification:
             _no3_pre = nstate["n_no3"]
             if DENITRIF_LAYER1_ONLY and no3_layers is not None:
                 d = no3_layers[0] * denitrification_rate_rel(layers[0]["theta"] / layers[0]["sat"], nstate["tsoil_lag"]) * _denit_depth_factor(layers)
@@ -4049,7 +4081,16 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # When nh4_no3_split is active, draws from the NO3 pool specifically (denitrification
         # is an NO3-consuming process by definition) rather than the whole lumped pool, which
         # is still the disclosed-simplification default everywhere else.
-        if model_denitrification and n_pool is not None:
+        if model_denitrification and n_pool is not None and DENITRIF_RESP_MODEL and sixpool_state is not None and no3_layers is not None and n_no3 is not None and n_pool_by_layer is None:
+            denitrif_today = denitrification_flux_resp(n_no3, layers[0]["theta"] / layers[0]["sat"], sixpool_state.get("resp_mg_ha", 0.0))
+            if denitrif_today > 0 and n_no3 > 0:
+                _f = denitrif_today / n_no3
+                n2o_total += n2o_from_denitrification(denitrif_today, n_no3)
+                for i in range(len(no3_layers)):
+                    no3_layers[i] *= (1.0 - _f)
+                n_no3 = max(0.0, n_no3 - denitrif_today)
+            n_denitrified_total += denitrif_today
+        elif model_denitrification and n_pool is not None:
             denitrif_frac_today = denitrification_rate_rel(
                 layers[0]["theta"] / layers[0]["sat"],
                 tsoil_lag if tsoil_lag is not None else (w["tx"] + w["tn"]) / 2.0) * _denit_depth_factor(layers)
