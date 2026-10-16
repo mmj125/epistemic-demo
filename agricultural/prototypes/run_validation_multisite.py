@@ -35,6 +35,8 @@ for _o in os.environ.get("ENGINE_OVR","").split(";"):   # 2026-10-15: generic en
         _k,_v=_o.split("=",1)
         if _k.startswith("CROP."): rv.CORN[_k[5:]]=eval(_v)   # crop-dict constant, e.g. CROP.tr_threshold_t=13
         else: setattr(cev,_k,eval(_v))
+if os.environ.get("CONFIG")=="shipped":   # 2026-10-16 rebuild phase 1: score what engine-demo.html actually runs (bare simulate_season, no flags, no regional factor, fresh start each season)
+    for _k,_v in (("REGIONAL","0"),("LEAD_YEARS","0"),("PER_LAYER","0"),("NITRATE_LAYERS","0"),("CARRY_N","0")): os.environ[_k]=_v
 CY=os.environ.get("CY_DIR","/tmp/cycles-run15")  # a local Cycles v1.5.20 release directory (binary + input/), not committed. Reference moved from v1.4.4 to v1.5.20 on 2026-10-12.
 SITES=dict(rock_springs=fd.PRESET_SITES["rock_springs"],iowa=fd.PRESET_SITES["iowa"],
            kansas=fd.PRESET_SITES["kansas"],maryland=fd.PRESET_SITES["maryland"],
@@ -127,8 +129,8 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     kw=dict(n_rate_kg_ha=N,nh4_no3_split=True,model_denitrification=True,model_volatilization=True,
             background_n_model="sixpool",sixpool_topsoil_clay_pct=soil_raw[0]["clay"],
             sixpool_topsoil_soc_pct=soil_raw[0]["soc"],sixpool_profile_raw=soil_raw)
-    if CROPSEL=='soy': kw={}
-    if N>0: kw["fertilizer_source"]="uan"
+    if CROPSEL=='soy' or os.environ.get('CONFIG')=='shipped': kw=dict(n_rate_kg_ha=N) if CROPSEL!='soy' else {}
+    if N>0 and os.environ.get("CONFIG")!="shipped": kw["fertilizer_source"]="uan"
     if CROPSEL!='soy' and os.environ.get("NITRATE_LAYERS","1")=="1": kw["nitrate_per_layer"]=True
     if CROPSEL!='soy' and os.environ.get("PER_LAYER","1")=="1": kw["sixpool_per_layer"]=True
     res={}
