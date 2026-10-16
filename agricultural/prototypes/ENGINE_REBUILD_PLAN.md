@@ -186,3 +186,23 @@ Results at N=150 (denitrification vs Cycles annualN):
 - fit sites (24): rms log error 0.93 -> 0.65, model/real mean 0.54 -> 0.75
 - held-out sites (24 disjoint fresh94): rms log 0.82 -> 0.62, ratio 1.09. Grain MAE 0.882 -> 0.875, leaching 0.49 -> 0.46 on fit sites. Yield neutral.
 - Refitting K (x1.4) fixed the fit sites (0.55, ratio 0.94) but overshot held-out (0.68, ratio 1.38), so K is left at the one-step value.
+
+## 2026-10-16 wheat: attribution rerun and the canopy clock (graded cold damage and grain/straw N not yet tested)
+
+Sources checked: Cycles guide (cold damage, crop group 2 fields), GenericCrops.crop WinterWheat entry, Cycles daily wheat output (canopy, thermal time, vernalization, N stress, plant N), the engine's own daily history, prior wheat scorecards. Not checked this turn: SI/paper (no new wheat text expected), Cycles one-factor runs.
+
+wheat_attrib.py fixed (it now writes the input and operation files) and rerun on 16 fresh sites (scorecards/wheat_attrib_2026-10-16.json). Within-site yearly error and correlation:
+- N=0: free 0.41 MAE / corr 0.44; force Cycles canopy 0.27 / 0.59 (removes 33%); force N stress alone 0.63 / 0.55 (worse); force all three 0.24 / 0.79.
+- N=150: free 1.61 / 0.35; force canopy 1.24 / 0.64 (removes 23%); force N stress alone worse; force all 1.04 / 0.78.
+So wheat's year-to-year error lives in the canopy, and the N stress only helps once the canopy is right.
+
+Canopy diagnosis (site f018, 1995; monthly rms of engine minus Cycles canopy is 0.14 in Jan rising to 0.34 in May at 6 sites): with the canopy clock unthrottled (N stress, water and N clock forced to 1) the engine canopy matches Cycles in the rise to three decimals (0.121 vs 0.121 at tt 350, 0.268 vs 0.270 at 439), then runs high at the plateau (0.97 vs 0.857; Cycles wheat peaks near 0.86, no crop-file field explains that). In the full engine the clock is slowed by nstress^3.25 (a corn fit): engine N stress sits near 0.33 all winter while Cycles reports 0, at the same plant N concentration (about 3%) and the same fall mineral N (about 5 kg/ha).
+- Cycles wheat stress vs total-plant N ratio over the critical curve: median 0 above ratio 0.4, 60% at 0.3, 81% at 0.25. The engine rule (zero stress at 0.86, from corn) is far more aggressive.
+Full-engine tests on 30 sites, raw (factor 1.0), which all FAILED to improve and were not adopted:
+- zero-stress ratio 0.5 / full 0.2: N=150 MAE 1.59 -> 2.01, corr 0.43 -> 0.34
+- zero 0.45 / full 0.15: worse again
+- eix 0.86 for wheat: N=150 bias -0.57 -> -0.98, corr unchanged
+- eix 0.86 plus the relaxed rule: N=150 MAE 1.91, corr 0.33
+- AG-basis stress rule (N_STRESS_AG_BASIS): N=150 MAE 1.77, corr 0.36
+Also tested earlier today: documented harvest-index slope for wheat (worse). Lesson for rule 6: the one-step Cycles stress curve for wheat is real, but dropping it into the engine makes wheat worse, so the stress rule is not the lever; some other state compensates.
+Next (ranked, recommendation first): (1) force Cycles' clock rates (nclock, wclock hooks exist) and eix separately to learn which canopy sub-state carries the 0.6 -> 0.78 correlation; (2) test the graded cold-damage law on the canopy (Cycles wheat shows KILLED_COLD_DAMAGE stages and a Jan-Mar canopy the engine undershoots); (3) grain/straw N only after the canopy is understood.
