@@ -166,3 +166,13 @@ Sources read for the first time: the official Cycles user guide (github.com/PSUm
 4. Paper Table 1: maximum denitrification rate knd in kg kg-1 d-1, "N removed from NO3 pool, kg kg-1 soil": a concentration-based rate. Nudge file: POT_DENITRIF_RATE and DENITRIF_HALF_RATE (half-saturation constant). Output definitions: composite_factor is "a function of temperature, moisture, and aeration".
 5. SI, C-Farm papers, CropSyst papers: no denitrification equation (the SI has none).
 Conclusion: the missing piece for denitrification is sub-daily saturation. The engine already integrates water at 24 sub-steps per day inside redistribute(); it just discards the within-day trajectory. Next step (a different kind from the last two law tests): expose the hourly layer saturation from the engine's own redistribution, apply the denitrification law at the sub-daily step (potential rate x hyperbolic nitrate x saturation response x carbon), and fit its few parameters in the full engine to Cycles' annual and daily totals on training sites, judged on held-out sites. Expected: denitrification bias from -48% toward 0; contingency: if the engine's own sub-daily saturation is too low (layers rarely saturate in its cascade), the water redistribution needs the hourly finite-difference treatment (option 1) rather than the cascade, a larger rebuild.
+
+## 2026-10-16 user guide audit (step 2), harvest index law
+
+Sources checked: Cycles docs (input.md, output.md, index.md, roar.md, bug_report.md), Cycles-utils defaults, crop files. Findings: the guide documents the harvest index law HI = Hmax - (Hmax-Hmin) exp(-Hk fG) with Hk = m(1-Hmin)/(Hmax-Hmin) (corn 0.8/0.15/1.3077, soybean 0.4/0.15/3.4, wheat 0.52/0.2/2.5), a graded cold damage law (1 - fc^3 on biomass and interception, delays phenology), a pasture clipping rule, and developer input defaults (curve number by hydrologic soil group, elevation, slope, bypass flow 0). Elevation, slope and bypass are not modeled for real fields.
+
+Harvest index test (documented vs our fitted constants, same sites):
+- corn, 24 fresh sites: N=150 grain MAE 1.03 vs 1.02, corr 0.74 both, bias -0.18 vs -0.10. Equivalent.
+- soybean, 94 fresh sites, N=0: MAE 0.42 vs 0.41, corr 0.85 both. Equivalent.
+- wheat, 30 sites, raw (factor 1.0): documented Hk 2.5 is WORSE (N=0 MAE 0.56 vs 0.41, N=150 1.70 vs 1.59); it removes a compensating bias, so wheat keeps its fitted value until the wheat N mechanism is fixed.
+Decision: corn and soybean now use the documented constants (sourced, not fitted, no accuracy cost). Wheat unchanged. Cold damage law and pasture rule still to implement and score.

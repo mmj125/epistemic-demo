@@ -126,6 +126,8 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
             L.append(dict(thick=l["thick"],fc=h["fc"],pwp=h["pwp"],sat=h["sat"],theta=h["pwp"]+INITIAL_MOISTURE_FRACTION*(h["fc"]-h["pwp"]),ksat_mm_day=h["ksat_mm_day"],psi_e_kpa=h["psi_e_kpa"],B=h["B"]))
         return L
     crop["make_layers"]=ml
+    for _o in os.environ.get("CROPOVR","").split(";"):   # 2026-10-16: per-run crop-dict overrides for any crop (corn or soy), NAME=VALUE;NAME=VALUE
+        if _o: _k,_v=_o.split("=",1); crop[_k]=eval(_v)
     kw=cev.standard_kwargs(soil_raw,N)   # the single standard configuration lives in the engine module
     if CROPSEL=='soy' or os.environ.get('CONFIG')=='shipped': kw=dict(n_rate_kg_ha=N) if CROPSEL!='soy' else {}
     res={}

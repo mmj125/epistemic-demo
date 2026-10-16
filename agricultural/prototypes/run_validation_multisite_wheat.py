@@ -60,6 +60,8 @@ def engine_chain(wx,soil,cl,N,calib):
             L.append(dict(thick=l["thick"],fc=h["fc"],pwp=h["pwp"],sat=h["sat"],theta=h["pwp"]+m.INITIAL_MOISTURE_FRACTION*(h["fc"]-h["pwp"]),ksat_mm_day=h["ksat_mm_day"],psi_e_kpa=h["psi_e_kpa"],B=h["B"]))
         return L
     crop["make_layers"]=ml
+    for _o in os.environ.get("CROPOVR","").split(";"):   # per-run crop overrides, NAME=VALUE;NAME=VALUE
+        if _o: _k,_v=_o.split("=",1); crop[_k]=eval(_v)
     wf=[(y,d,wx[y][d]) for y in sorted(wx) for d in sorted(wx[y])]; fi={(y,d):i for i,(y,d,_) in enumerate(wf)}; rows=lambda a,b:[x for (_,_,x) in wf[a:b]]
     layers=ml(); nstate=None; sp=None; prev_end=None; out={}
     base=E.standard_kwargs(soil,0); base.pop("fertilizer_source",None); base["n_rate_kg_ha"]=None

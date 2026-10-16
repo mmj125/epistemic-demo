@@ -41,7 +41,7 @@ def make_layers():
 SOYBEAN = dict(
                c1_water=True,  # 2026-10-15 c1 package (REFIT_PLAN rows 39-41)
                tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43,
-               rue=1.3, wue=4.5, hi_x=0.5, hi_o=0.311, hi_slope=0.58, fsti=0.45, fstf=0.95,   # HI law fitted to Cycles' SoybeanMG.5 at 94 sites (soy_hi_fit.py, row 53); was placeholders 0.4/0.15/1.0
+               rue=1.3, wue=4.5, hi_x=0.4, hi_o=0.15, hi_slope=3.4, fsti=0.45, fstf=0.95,   # HI law fitted to Cycles' SoybeanMG.5 at 94 sites (soy_hi_fit.py, row 53); was placeholders 0.4/0.15/1.0
                kc=1.0, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=LAT,
                make_layers=make_layers, calibration_factor=1.0,  # row 53: no calibration; the 1.31 was covering a placeholder harvest-index law (was 1.3101 row 50, 1.5080 before);
                #  # 2026-10-15 x1.08 for the c1 package (multi-site mean match on 94 fresh soybean sites; Rock Springs mean now 4.9 vs 4.70, correlation unaffected). Was 1.3960;  # unchanged by the real
