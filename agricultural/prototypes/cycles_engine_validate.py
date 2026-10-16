@@ -1571,7 +1571,7 @@ CORN_CANOPY_SHAPE = (6, -20, -5.35, 4.10)  # re-refit 2026-09-30 (was (6,-20,-12
 # UNCALIBRATED total/aboveground biomass runs 26-32% higher than real Cycles even when the
 # CALIBRATED grain number matches well -- this is a real, verified fix to that specific, honestly-
 # disclosed problem, not a cosmetic change to a number nobody was checking.
-NET_GROWTH_FRACTION = 0.95
+NET_GROWTH_FRACTION = 1.04454  # 2026-10-16 growth-law fit (row 50); was 0.95
 
 # Real NOAA Mauna Loa/Scripps annual mean atmospheric CO2 (ppm), 1980-2016 -- the exact years
 # this engine's validation harnesses use. Source: NOAA Global Monitoring Laboratory
@@ -1753,10 +1753,10 @@ CANOPY_N_RATIO_LOGISTIC = None   # 2026-10-15 opt-in (center, width): canopy clo
 VPD_POW = 0.5   # 2026-10-15 opt-in: transpiration-limited growth ~ Da**(-VPD_POW) about reference VPD_D0 (default 0.5 = the paper's inverse square root)
 VPD_D0 = 0.75
 HEAT_T0 = None   # 2026-10-15 opt-in heat penalty on growth: factor 1 - HEAT_A*(Tmean - HEAT_T0)^2 above HEAT_T0 (Cycles temperature_factor over 192k corn days: 0.99 below 28 C, 0.957 at 29, 0.891 at 31, 0.787 at 33, 0.672 at 35; fit T0 26, A 0.0044); None = off
-HEAT_A = 0.0044
-WUE_CO2_EXP = 1.0   # 2026-10-16 (REFIT_PLAN row 50): exponent on the CO2 ratio in the water-use-efficiency scale; 1.0 reproduces the old behavior
+HEAT_A = 0.00169494  # 2026-10-16 growth-law fit (opt_growth.py, REFIT_PLAN row 50); was 0.0044
+WUE_CO2_EXP = 0.424275   # 2026-10-16 (REFIT_PLAN row 50): exponent on the CO2 ratio in the water-use-efficiency scale; 1.0 reproduces the old behavior
 C1_HEAT_T0 = 26.0   # c1 package values (crops with crop['c1_water']=True): heat penalty onset and VPD exponent, validated nested on 268 + 94 sites
-C1_VPD_POW = 0.65
+C1_VPD_POW = 0.670004  # row 50; was 0.65
 HEAT_GT = False   # also apply the factor to transpiration-limited growth
 CANOPY_N_POW = 3.25   # 2026-10-14: canopy clock rate = water**CANOPY_WATER_POW * n_stress**CANOPY_N_POW (measured on 86k day-pairs of Cycles daily interception: 1.35 and 3.85, rms 0.20); None = use the linear CANOPY_N_COEF form
 CANOPY_N_COEF = 0.5  # fraction of nitrogen stress passed to the canopy clock (0 = off); Cycles' N-stressed corn keeps interception near 0.12 vs 0.9 unstressed (Missouri N0, 2026-10-12)
