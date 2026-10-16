@@ -126,13 +126,8 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
             L.append(dict(thick=l["thick"],fc=h["fc"],pwp=h["pwp"],sat=h["sat"],theta=h["pwp"]+INITIAL_MOISTURE_FRACTION*(h["fc"]-h["pwp"]),ksat_mm_day=h["ksat_mm_day"],psi_e_kpa=h["psi_e_kpa"],B=h["B"]))
         return L
     crop["make_layers"]=ml
-    kw=dict(n_rate_kg_ha=N,nh4_no3_split=True,model_denitrification=True,model_volatilization=True,
-            background_n_model="sixpool",sixpool_topsoil_clay_pct=soil_raw[0]["clay"],
-            sixpool_topsoil_soc_pct=soil_raw[0]["soc"],sixpool_profile_raw=soil_raw)
+    kw=cev.standard_kwargs(soil_raw,N)   # the single standard configuration lives in the engine module
     if CROPSEL=='soy' or os.environ.get('CONFIG')=='shipped': kw=dict(n_rate_kg_ha=N) if CROPSEL!='soy' else {}
-    if N>0 and os.environ.get("CONFIG")!="shipped": kw["fertilizer_source"]="uan"
-    if CROPSEL!='soy' and os.environ.get("NITRATE_LAYERS","1")=="1": kw["nitrate_per_layer"]=True
-    if CROPSEL!='soy' and os.environ.get("PER_LAYER","1")=="1": kw["sixpool_per_layer"]=True
     res={}
     carry=os.environ.get("CARRY_N","1")=="1" and CROPSEL!='soy'
     lead_env=os.environ.get("LEAD_YEARS","continuous")

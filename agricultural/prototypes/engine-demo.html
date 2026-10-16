@@ -1771,6 +1771,7 @@ def run_bare_fallow_window(layers, rows, curve_number=75.0, slope_pct=0.0, lat_d
         soil_evaporation(layers, eto, 0.0, precip_mm=w["pp"], de_state=de_state, theta_start=_th1_0, snow_day=w.get('snow_day', False),
                           use_cropsyst_formula=use_cropsyst_evap, fallow=True,
                           summer_time=summer_time_from_doy(w["doy"]))
+        _water_hook(layers, w["doy"])
     return total_drainage
 
 
@@ -3843,6 +3844,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], lat_deg)
         soil_evaporation(layers, eto * (1.0 - _rc), 0.0, precip_mm=w["pp"] - _re, de_state=de_state, fallow=True, theta_start=_th1_0, snow_day=w.get('snow_day', False),
                          summer_time=summer_time_from_doy(w["doy"]))
+        _water_hook(layers, w["doy"])
         tmean = (w["tx"] + w["tn"]) / 2.0
         nstate["tsoil_lag"] += SOIL_TEMP_LAG_K * (tmean - nstate["tsoil_lag"])
         if sixpool_state is not None:
@@ -4010,7 +4012,32 @@ FORCE_SERIES = None   # module-swap diagnostic (2026-10-14): {year: {"canopy": {
 _FORCE_CUR = None
 DIAG_STATE = None   # state_calibration.py: appends (year, doy, canopy, n_stress, plant_n_kg_ha) per day; None = off
 _DIAG_YEAR = None
+THETA_FORCE = None   # rebuild phase 2 (2026-10-16): {year: {doy: [theta per layer]}} from Cycles' dailyWater; when set, end-of-day layer moisture is overwritten with Cycles' value in every window (spin-up, season, fallow)
+DIAG_THETA = None    # rebuild phase 2: when a list, appends (year, doy, [theta per layer]) at end of every simulated day, so the daily layer water state can be scored against Cycles
+
+
+def _water_hook(layers, doy):
+    if THETA_FORCE is not None:
+        s = THETA_FORCE.get(_DIAG_YEAR)
+        if s is not None and doy in s:
+            for l, t in zip(layers, s[doy]):
+                l["theta"] = t
+    if DIAG_THETA is not None:
+        DIAG_THETA.append((_DIAG_YEAR, doy, [l["theta"] for l in layers]))
 DIAG_GROWTH = None   # temporary diagnostic list (floor_growth.py): appends (doy, GR, GT, dGB_water_limited) per day; None = off
+
+
+
+def standard_kwargs(soil_raw, n_rate_kg_ha):
+    """THE standard configuration (rebuild phase 1, 2026-10-16): the one flag set the scorecard scores and the release will ship.
+    Previously this lived inline in run_validation_multisite.py while the pages ran bare defaults, so the scored and the shipped
+    engine were different objects. Callers add only their own inputs (crop, weather); nothing here is crop-specific."""
+    kw = dict(n_rate_kg_ha=n_rate_kg_ha, nh4_no3_split=True, model_denitrification=True, model_volatilization=True,
+              background_n_model="sixpool", sixpool_topsoil_clay_pct=soil_raw[0]["clay"], sixpool_topsoil_soc_pct=soil_raw[0]["soc"],
+              sixpool_profile_raw=soil_raw, nitrate_per_layer=True, sixpool_per_layer=True)
+    if n_rate_kg_ha and n_rate_kg_ha > 0:
+        kw["fertilizer_source"] = "uan"
+    return kw
 
 
 def simulate_continuous(weather_by_year, crop, years=None, plant_window=(110, 131), plant_min_soil_t=12.0, carry_n=False,
@@ -4921,6 +4948,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("water", ()):
             water_stress = _FORCE_CUR["water"][w["doy"]]
             TR_actual = TRp * water_stress
+        _water_hook(layers, w["doy"])
         water_stress_prev = water_stress
         # tr_max_mm_day: real, disclosed per-crop TRANSPIRATION_MAX from GenericCrops.crop
         # (corn/silage corn 10, soybean/wheat 8 mm/day), a physical ceiling on daily
