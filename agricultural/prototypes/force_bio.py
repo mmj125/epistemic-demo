@@ -14,7 +14,7 @@ def one(a):
         if x['date'][0]=='#':continue
         H[int(x['date'][:4])]=(float(x['grain_yield']),float(x['total_biomass']))
     ys=[y for y in r if y in H]
-    return site,N,sub,float(np.mean([r[y]['grain'] for y in ys])),float(np.mean([H[y][0] for y in ys])),float(np.mean([r[y]['total_biomass'] for y in ys])),float(np.mean([H[y][1] for y in ys]))
+    return site,N,sub,float(np.mean([r[y]['grain'] for y in ys])),float(np.mean([H[y][0] for y in ys])),float(np.mean([r[y]['total'] for y in ys])),float(np.mean([H[y][1] for y in ys]))
 if __name__=="__main__":
     from multiprocessing import Pool
     with Pool(4) as p: res=p.map(one,[(s,N,sub) for sub in ('','CWNS') for N in (0,150) for s in F.SITES],chunksize=2)
