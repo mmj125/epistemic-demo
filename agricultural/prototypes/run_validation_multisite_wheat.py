@@ -1,0 +1,107 @@
+"""Rebuild phase 6 (2026-10-16): continuous winter wheat, engine vs Cycles v1.5.20 on identical tile inputs, many sites, standard configuration.
+Wheat is planted DOY 288 and harvested the next summer; 90 kg N/ha UAN at DOY 75 is the Cycles sample's own rate, 0 and 150 bracket it.
+Reports the engine with its calibration_factor AND with it forced to 1.0, so a mask cannot hide the gap. Usage: NSITES=30 python3 run_validation_multisite_wheat.py"""
+import os,sys,json,math,shutil,statistics as st,copy
+os.environ["N_LEVELS"]="0,90,150"; os.environ.setdefault("REGIONAL","0")
+sys.path.insert(0,'.')
+import run_validation_multisite as m, run_validation_rotation2 as r2, cycles_engine_validate as E
+from multiprocessing import Pool
+CY=m.CY
+OP='''PLANTING
+YEAR                1
+DOY                 288
+END_DOY             -999
+CROP                WinterWheat
+MAX_SMC             -999
+MIN_SMC             0.0
+MAX_SOIL_TEMP       -999
+MIN_SOIL_TEMP       0.0
+USE_AUTO_IRR        0
+USE_AUTO_FERT       0
+DENSITY             1.0
+CLIPPING_START      1
+CLIPPING_END        366
+MAXIMUM_SOIL_COVERAGE               100         # (%)
+STANDING_RESIDUE_AT_HARVEST         40          # (%)
+RESIDUE_REMOVED                     0           # (%)
+CLIPPING_BIOMASS_THRESHOLD_LOWER    0.5         # (Mg/ha)
+CLIPPING_BIOMASS_THRESHOLD_UPPER    999         # (Mg/ha)
+CLIPPING_BIOMASS_DESTINY            RETURN      # (-)
+HARVEST_TIMING                      -999        # (%)
+KILL_AFTER_HARVEST                  1           # (-)
+'''
+FERT='''
+FIXED_FERTILIZATION
+YEAR                                1
+DOY                                 75
+SOURCE                              32-00-00_Urea_Ammonium_Nitrate_Solution
+MASS                                %.2f      # kg/ha
+FORM                                Liquid
+METHOD                              Broadcast
+DEPTH                               0.05        # m
+'''
+def cycles_ref(fsite,N):
+    cache=f"{CY}/cache15_{fsite}N{N}.json"
+    if os.path.exists(cache):
+        d=json.load(open(cache)); return {int(k):v for k,v in d["H"].items()}
+    subprocess_out=m._run_cycles_uncached(fsite,N)
+    H,A=subprocess_out; json.dump(dict(H=H,A=A),open(cache,"w"))
+    shutil.rmtree(f"{CY}/output/{fsite}N{N}",ignore_errors=True)   # disk is the limit
+    return H
+def engine_chain(wx,soil,cl,N,calib):
+    crop=dict(r2.WHEAT); crop["lat_deg"]=cl; crop["winterkill_temp"]=-25.0
+    if calib is not None: crop["calibration_factor"]=calib
+    def ml():
+        L=[]
+        for l in soil:
+            h=m.saxton_rawls(l["sand"],l["clay"],l["soc"]*m.OM_FROM_SOC)
+            L.append(dict(thick=l["thick"],fc=h["fc"],pwp=h["pwp"],sat=h["sat"],theta=h["pwp"]+m.INITIAL_MOISTURE_FRACTION*(h["fc"]-h["pwp"]),ksat_mm_day=h["ksat_mm_day"],psi_e_kpa=h["psi_e_kpa"],B=h["B"]))
+        return L
+    crop["make_layers"]=ml
+    wf=[(y,d,wx[y][d]) for y in sorted(wx) for d in sorted(wx[y])]; fi={(y,d):i for i,(y,d,_) in enumerate(wf)}; rows=lambda a,b:[x for (_,_,x) in wf[a:b]]
+    layers=ml(); nstate=None; sp=None; prev_end=None; out={}
+    base=E.standard_kwargs(soil,0); base.pop("fertilizer_source",None); base["n_rate_kg_ha"]=None
+    for y in sorted(wx)[:-1]:
+        if (y,288) not in fi: continue
+        start=fi[(y,288)]
+        fallow=rows(fi[(y,1)],start) if prev_end is None else rows(prev_end,start)
+        if nstate is None:
+            nstate=dict(n_nh4=0.0,n_no3=0.0,tsoil_lag=(wf[start][2]["tx"]+wf[start][2]["tn"])/2.0,no3_layers=[0.0]*len(layers),rel_hist=[])
+        de=dict(de=0.0,tew=E.compute_tew(layers[0]["fc"],layers[0]["pwp"]),rew=E.REW_DEFAULT_MM)
+        E._DIAG_YEAR=y
+        E.run_fallow_n_window(layers,fallow,nstate,sp,lat_deg=cl,de_state=de,model_denitrification=True,model_volatilization=True)
+        nstate.pop("n2o",None)
+        kw=dict(base); kw.update(initial_n_state=dict(nstate),initial_layers=layers,spinup_rows=None,wue_co2_scale=E.CO2_PPM_BY_YEAR.get(y,E.CO2_REF_PPM)/E.CO2_REF_PPM,record_history=True)
+        if N>0: kw["n_applications"]=[(75,N)]; kw["fertilizer_source"]="uan"
+        else: kw["n_rate_kg_ha"]=0
+        if sp is not None: kw["sixpool_initial_state"]=sp
+        res=E.simulate_season(rows(start,start+400),crop,**kw)
+        layers=res["final_layers"]; nstate=dict(res["final_n_state"]); sp=copy.deepcopy(res.get("sixpool_final_state"))
+        prev_end=start+len(res["history"]); out[y+1]=res
+    return out
+def corr(a,b):
+    ma,mb=st.mean(a),st.mean(b); sa=math.sqrt(sum((x-ma)**2 for x in a)); sb=math.sqrt(sum((x-mb)**2 for x in b)); return sum((a[i]-ma)*(b[i]-mb) for i in range(len(a)))/(sa*sb) if sa and sb else float('nan')
+def one(a):
+    site,(lat,lon)=a
+    wx,_=m.fd.resolve_field_weather(lat,lon); soil,_,name=m.fd.resolve_field_soil(lat,lon); cl=m.lat_of(lat,lon); m.REG_LON=lon
+    fs=site+"wheat"; m.write_inputs(fs,lat,lon,wx,soil,cl); res={}
+    for N in (0,90,150):
+        open(f"{CY}/input/{fs}N{N}.operation","w").write(OP+(FERT%(N/0.32) if N>0 else ""))
+        H=cycles_ref(fs,N)
+        for tag,calib in (("calib",None),("raw",1.0)):
+            R=engine_chain(wx,soil,cl,N,calib); ys=[y for y in sorted(set(H)&set(R)) if y>1981]
+            row={}
+            for v,hk,rk in (("grain","grain","grain"),("total_biomass","total","total")):
+                x=[H[y][hk] for y in ys]; z=[R[y][rk] for y in ys]
+                row[v]=dict(real=st.mean(x),model=st.mean(z),mae=st.mean(abs(i-j) for i,j in zip(x,z)),corr=corr(x,z),n=len(ys))
+            res[f"N{N}|{tag}"]=row
+    return site,name,res
+if __name__=="__main__":
+    S=json.load(open('sitesets/fresh94.json')); ks=sorted(S); n=int(os.environ.get("NSITES","30")); ks=[ks[i] for i in range(0,len(ks),max(1,len(ks)//n))][:n]
+    with Pool(int(os.environ.get("NPROC","4"))) as p: R=p.map(one,[(k,S[k]) for k in ks])
+    json.dump(R,open(os.environ.get("OUT_JSON","/tmp/w/wheat_ms.json"),"w"))
+    for N in (0,90,150):
+        for tag in ("calib","raw"):
+            for v in ("grain","total_biomass"):
+                a=[o[f"N{N}|{tag}"][v] for _,_,o in R]
+                print(f"wheat N={N} {tag:5s} {v:13s} Cycles {st.mean(x['real'] for x in a):5.2f} MAE {st.mean(x['mae'] for x in a):5.2f} ({100*st.mean(x['mae'] for x in a)/st.mean(x['real'] for x in a):.0f}%) bias {st.mean(x['model']-x['real'] for x in a):+.2f} corr {st.mean(x['corr'] for x in a if x['corr']==x['corr']):.2f}")

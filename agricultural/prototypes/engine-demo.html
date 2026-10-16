@@ -3645,6 +3645,7 @@ def denitrification_flux_resp(no3_total_kg_ha, theta_rel1, resp_mg_ha):
 
 
 DENITRIF_E2_PARAMS = dict(k=-3.961, a=0.446, b=0.894, c=5.98, d=-0.662, e=2.161, f=0.226)   # rebuild phase 4 (2026-10-16), nlaw_param2.py: held-out annual rms log error 0.87 -> 0.71 (site-run totals), daily R2 0.58
+WINTERKILL_SOIL_T = True
 DENITRIF_E2 = False   # one-step annual rms log 0.83 -> 0.71 and N=150 denit rms log 0.94 -> 0.76 in the full engine, but N=0 denit overshoots (MAE 0.32 -> 1.08) and N=400 leaching/N2O move the wrong way; kept opt-in
 
 
@@ -4853,6 +4854,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     # artifact of the old mechanism's specific shape. Corn/soybean/silage corn's own DEFAULT
     # validation (n_rate_kg_ha=None) is completely unaffected either way, since this whole
     # block only runs when n_pool is not None.
+    _wk_tl = None
+    _wk_tm = SIXPOOL_ML_TMEAN_INIT
     winter_killed = False
     canopy_n_kg_ha = 0.0
 
@@ -4889,7 +4892,18 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # wheat dies in exactly the three whose coldest night is below -26.5C (1982 -26.58, 1985
         # -27.55, 1994 -27.36) and survives -23.38 and -23.19, consistent with the crop file's -25.
         # Opt-in via crop["winterkill_temp"] (None/absent = never), so no existing crop changes.
-        if w["tn"] < crop.get("winterkill_temp", -math.inf):
+        # 2026-10-16 rebuild phase 6: the kill is driven by TOP-LAYER SOIL temperature, not air. Cycles' continuous winter wheat at 10 sites (340 winters, 7 kills) dies
+        # only when layer-1 soil temperature falls below about -25 C (killed: -27.4 to -25.2; survivors never below -24.9) while the same stands survive air
+        # nights of -40 C. The air rule killed 190 of 333 surviving winters; this rule 27 of 333 while catching 5 of the 7 real kills. Layer-1 temperature is
+        # the same lag filter the six-pool uses (correlation 0.96 with Cycles' soil_temperature.1 winter minimum, bias -1.5 C: no snow insulation).
+        _wk_tmean = (w["tx"] + w["tn"]) / 2.0
+        if _wk_tl is None:
+            _wk_tl = _wk_tmean
+        _wk_k, _wk_g = sixpool_ml_temp_params(layers[0]["thick"] / 2.0)
+        _wk_tl += _wk_k * (_wk_tmean - _wk_tl)
+        _wk_tm += (_wk_tmean - _wk_tm) / 365.0
+        _wk_soil = _wk_tm + _wk_g * (_wk_tl - _wk_tm)
+        if (_wk_soil if WINTERKILL_SOIL_T else w["tn"]) < crop.get("winterkill_temp", -math.inf):
             winter_killed = True
             break
         dtt = thermal_time_increment(w["tx"], w["tn"], crop["base_t"], crop["opt_t"], crop["max_t"])
