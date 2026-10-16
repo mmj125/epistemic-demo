@@ -3708,7 +3708,7 @@ def nitrification_rate(tsoil):
     return max(0.0, min(1.0, NITRIF_RMAX / (1.0 + math.exp(-NITRIF_K * (tsoil - NITRIF_T0)))))
 
 
-VOLATILIZATION_RATE_A = 0.55e-05  # back-calculated a second time, 2026-10-02,
+VOLATILIZATION_RATE_A = 2.664271e-05  # 2026-10-16 fit (opt_volat.py, REFIT_PLAN row 47); was 0.55e-05  # back-calculated a second time, 2026-10-02,
 # same session, directly asked by Matt: "Compare the NH4 trajectory against Cycles' real
 # column." Did exactly that (real N.txt PROF SOIL NH4 vs this engine's own day-by-day n_nh4
 # for the ContinuousCorn 2012 scenario) and found the pool TRAJECTORY itself is close to a
@@ -3758,8 +3758,8 @@ VOLATILIZATION_RATE_A = 0.55e-05  # back-calculated a second time, 2026-10-02,
 # mechanism (e.g. the fwc/evaporation proxies). Concrete next step if revisited: check whether
 # adding a third variable (days-since-application, soil moisture) explains more of the
 # remaining log-space variance than NH4 concentration alone does.
-VOLATILIZATION_RATE_B = 0.1515
-VOLATILIZATION_RATE_C = -0.0034  # the new NH4-concentration term, kg N/ha^-1;
+VOLATILIZATION_RATE_B = 0.053292  # row 47; was 0.1515
+VOLATILIZATION_RATE_C = -0.0098581  # row 47; was -0.0034  # the new NH4-concentration term, kg N/ha^-1;
 # see VOLATILIZATION_RATE_A's own docstring for the full derivation. This replaces, as the
 # now-better-grounded mechanism, this engine's two prior volatilization approximations: a flat
 # IPCC Tier-1 default (NH3_FRAC_SYNTHETIC/NH3_FRAC_MANURE, a single number regardless of
@@ -3774,7 +3774,7 @@ VOLATILIZATION_RATE_NH4_CAP = 100.0
 # Topsoil moisture term (2026-10-12, refit on Cycles v1.5.20 daily output, 16 sites, N150): the implied daily
 # rate scales as theta1^-1.65 (dry topsoil volatilizes far more: Georgia/Kansas 0.002-0.007/day vs Iowa 0.0003 at
 # matched temperature). Pooled log-linear fit R2 0.68 -> 0.80. ln A = -12.6176, B = 0.1515/C, C = -0.0034 per kg/ha.
-VOLATILIZATION_RATE_D = -1.6508
+VOLATILIZATION_RATE_D = -1.98855  # row 47; was -1.6508
 VOLATILIZATION_THETA_DEFAULT = 0.25
 
 
