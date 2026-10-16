@@ -30,6 +30,11 @@ if os.environ.get("N_A"): cev.SIXPOOL_ML_N_A = float(os.environ["N_A"])
 if os.environ.get("EPS_H"): cev.SIXPOOL_ML_EPS_H = float(os.environ["EPS_H"])
 if os.environ.get("CRA_TAU"): cev.CRA_MATURATION_TAU_DAYS = float(os.environ["CRA_TAU"])
 if os.environ.get("HUM_CLAY"): cev.SIXPOOL_ML_HUM_CLAY = tuple(float(x) for x in os.environ["HUM_CLAY"].split(","))
+for _o in os.environ.get("ENGINE_OVR","").split(";"):   # 2026-10-15: generic engine-constant overrides for scaled-up runs, NAME=VALUE;NAME=VALUE
+    if _o:
+        _k,_v=_o.split("=",1)
+        if _k.startswith("CROP."): rv.CORN[_k[5:]]=eval(_v)   # crop-dict constant, e.g. CROP.tr_threshold_t=13
+        else: setattr(cev,_k,eval(_v))
 CY=os.environ.get("CY_DIR","/tmp/cycles-run15")  # a local Cycles v1.5.20 release directory (binary + input/), not committed. Reference moved from v1.4.4 to v1.5.20 on 2026-10-12.
 SITES=dict(rock_springs=fd.PRESET_SITES["rock_springs"],iowa=fd.PRESET_SITES["iowa"],
            kansas=fd.PRESET_SITES["kansas"],maryland=fd.PRESET_SITES["maryland"],
@@ -42,6 +47,8 @@ HELDOUT_SITES=dict(south_dakota=(44.0,-97.5),north_dakota=(47.0,-97.5),iowa_west
                    oklahoma=(36.2,-97.5),kentucky=(37.5,-85.5),tennessee=(35.8,-88.9),mississippi=(33.5,-90.8),
                    louisiana=(31.0,-92.0),alabama=(32.5,-86.5),virginia=(37.5,-77.5),new_york=(42.8,-76.5))
 if os.environ.get("HELDOUT")=="1": SITES=HELDOUT_SITES
+if os.environ.get("BIGSET"): SITES={k:tuple(v) for k,v in json.load(open(os.environ["BIGSET"])).items()}   # 2026-10-15: scaled-up random site set from bigset.py
+CROPSEL=os.environ.get('CROPSEL','corn')   # 'soy' = continuous soybean (SoybeanMG.5, no N), 2026-10-15
 N_LEVELS=[int(x) for x in os.environ.get('N_LEVELS','0,150').split(',')]
 def lat_of(lat,lon):
     m=fd.load_manifest(); _,_,k=fd.tile_for_point(lat,lon); d,e=fd.load_tile_bytes(m,k)
@@ -60,11 +67,11 @@ def write_inputs(site,lat,lon,wx,soil_raw,cell_lat):
     for i,l in enumerate(soil_raw,1):
         no3=max(1,round(10*l['thick']/0.05*0.25)) ; s.write(f"{i}\t{l['thick']}\t{l['clay']}\t{l['sand']}\t{l['soc']}\t-999\t-999\t-999\t-999\t{min(no3,10)}\t1\t0.0\t0.0\t0.00\t6.5\n")
     s.close()
-    base=open(f"{CY}/input/ContinuousCorn.operation").read()
+    base=open(f"{CY}/input/{'h2h_central_iowa_soy' if CROPSEL=='soy' else 'ContinuousCorn'}.operation").read()
     for N in N_LEVELS:
         op=base.replace('468.75','%.2f'%(N/0.32),1) if N>0 else base
         if N==0:
-            a=op.index("FIXED_FERTILIZATION"); op=op[:a].rstrip()+"\n"
+            a=op.find("FIXED_FERTILIZATION"); op=(op[:a].rstrip()+"\n") if a>=0 else op
         open(f"{CY}/input/{site}N{N}.operation","w").write(op)
         import re as _re
         c=open(f"{CY}/input/ContinuousCorn.ctrl").read().replace("ContinuousCorn.operation",f"{site}N{N}.operation").replace("GenericHagerstown.soil",f"{site}.soil").replace("RockSprings.weather",f"{site}.weather")
@@ -90,14 +97,24 @@ def _run_cycles_uncached(site,N):
         p=line.strip().split(",")
         if len(p)>=12: A[int(p[0])]=dict(leach=float(p[4])+float(p[5]),denit=float(p[8]),volat=float(p[10]),n2o=float(p[11]))
     return H,A
+REG_LON=None
 def doy_of(s):
     import datetime; y,m,d=map(int,s.split("-")); return datetime.date(y,m,d).timetuple().tm_yday
 def corr(a,b):
     ma,mb=statistics.mean(a),statistics.mean(b); sa=math.sqrt(sum((x-ma)**2 for x in a)); sb=math.sqrt(sum((x-mb)**2 for x in b))
     return sum((a[i]-ma)*(b[i]-mb) for i in range(len(a)))/(sa*sb) if sa and sb else float('nan')
 def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
+    if os.environ.get('NETMULT_JSON'):
+        import json as _j; cev.SIXPOOL_NET_MULT=_j.load(open(os.environ['NETMULT_JSON'])).get(site,1.0)
     crop=dict(rv.CORN); crop["lat_deg"]=cell_lat
+    if CROPSEL=='soy':
+        import run_validation_rotation2 as _r2; crop=dict(_r2.SOYBEAN); crop['lat_deg']=cell_lat
+    if os.environ.get("REGIONAL","1")=="1" and CROPSEL!='soy':   # 2026-10-15 (default ON since the fresh-site validation, REFIT_PLAN row 38): regionalized net-N multiplier and grain factor from site covariates (regional_params.py)
+        import importlib; _rp=importlib.import_module(os.environ.get('REGMOD','regional_params'))
+        _m,_g=_rp.regional_params(wx,soil_raw,REG_LON); cev.SIXPOOL_NET_MULT=_m; crop["calibration_factor"]=crop["calibration_factor"]*_g
     if os.environ.get("LWP_WILT"): crop["lwp_wilting_point"]=float(os.environ["LWP_WILT"])
+    if os.environ.get("GRAINSITE_JSON"):   # 2026-10-15: per-site grain calibration multiplier (regionalized)
+        import json as _j2; crop["calibration_factor"]=crop["calibration_factor"]*_j2.load(open(os.environ["GRAINSITE_JSON"])).get(site,1.0)
     for _k,_e in (("calibration_factor","GRAIN_MULT"),("rue","RUE_MULT"),("wue","WUE_MULT")):
         if os.environ.get(_e): crop[_k]=crop[_k]*float(os.environ[_e])
     def ml():
@@ -110,14 +127,17 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     kw=dict(n_rate_kg_ha=N,nh4_no3_split=True,model_denitrification=True,model_volatilization=True,
             background_n_model="sixpool",sixpool_topsoil_clay_pct=soil_raw[0]["clay"],
             sixpool_topsoil_soc_pct=soil_raw[0]["soc"],sixpool_profile_raw=soil_raw)
+    if CROPSEL=='soy': kw={}
     if N>0: kw["fertilizer_source"]="uan"
-    if os.environ.get("NITRATE_LAYERS","1")=="1": kw["nitrate_per_layer"]=True
-    if os.environ.get("PER_LAYER","1")=="1": kw["sixpool_per_layer"]=True
+    if CROPSEL!='soy' and os.environ.get("NITRATE_LAYERS","1")=="1": kw["nitrate_per_layer"]=True
+    if CROPSEL!='soy' and os.environ.get("PER_LAYER","1")=="1": kw["sixpool_per_layer"]=True
     res={}
-    carry=os.environ.get("CARRY_N","1")=="1"
+    carry=os.environ.get("CARRY_N","1")=="1" and CROPSEL!='soy'
     lead_env=os.environ.get("LEAD_YEARS","continuous")
     first_year=min(wx)
     ystep=int(os.environ.get("YEAR_STEP","1"))
+    if os.environ.get("FORCE_KEYS"):   # 2026-10-15: teacher-forcing diagnostic on any site set
+        import forcelib; cev.FORCE_SERIES=forcelib.force(site,N,os.environ["FORCE_KEYS"].split(","))
     cont=simulate_continuous(wx,crop,carry_n=carry,**kw) if lead_env=="continuous" else None   # one run from the first year, as Cycles does
     for y in sorted(wx):
         if (y-first_year)%ystep: continue   # quick mode: every ystep-th year only
@@ -136,9 +156,11 @@ if __name__=="__main__":
     for site,(lat,lon) in SITES.items():
         if _only and site not in _only: continue
         wx,wd=fd.resolve_field_weather(lat,lon); soil,sd,name=fd.resolve_field_soil(lat,lon); cl=lat_of(lat,lon)
-        write_inputs(site,lat,lon,wx,soil,cl)
+        REG_LON=lon
+        fsite=site+('soy' if CROPSEL=='soy' else '')
+        write_inputs(fsite,lat,lon,wx,soil,cl)
         for N in N_LEVELS:
-            H,A=run_cycles(site,N)
+            H,A=run_cycles(fsite,N)
             for mode in ["leadin"]:
                 E=engine(site,wx,soil,cl,N,mode)
                 ys=sorted(set(H)&set(E))
@@ -147,7 +169,8 @@ if __name__=="__main__":
                                   ("plant_doy",lambda y:doy_of(H[y]["plant"]),lambda y:E[y]["plant_doy"])]:
                     a=[gr(y) for y in ys]; b=[ge(y) for y in ys]
                     row[var]=dict(real=statistics.mean(a),model=statistics.mean(b),mae=statistics.mean(abs(x-z) for x,z in zip(a,b)),corr=corr(a,b),n=len(ys))
-                if N==150:
+                    if var=="grain": row[var]["pairs"]=[[round(x,4),round(z,4)] for x,z in zip(a,b)]   # (Cycles, engine) per year, for global re-centering in eval_big.py
+                if True:
                     for k,ek in [("leach","n_leached_kg_ha"),("volat","n_volatilized_pool_kg_ha"),("denit","n_denitrified_kg_ha"),("n2o","n2o_emitted_kg_ha")]:
                         yy=[y for y in ys if y in A]; a=[A[y][k] for y in yy]; b=[E[y].get(ek,0.0) for y in yy]
                         row[k]=dict(real=statistics.mean(a),model=statistics.mean(b),mae=statistics.mean(abs(x-z) for x,z in zip(a,b)),corr=corr(a,b),n=len(yy))
