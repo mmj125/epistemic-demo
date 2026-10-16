@@ -176,3 +176,13 @@ Harvest index test (documented vs our fitted constants, same sites):
 - soybean, 94 fresh sites, N=0: MAE 0.42 vs 0.41, corr 0.85 both. Equivalent.
 - wheat, 30 sites, raw (factor 1.0): documented Hk 2.5 is WORSE (N=0 MAE 0.56 vs 0.41, N=150 1.70 vs 1.59); it removes a compensating bias, so wheat keeps its fitted value until the wheat N mechanism is fixed.
 Decision: corn and soybean now use the documented constants (sourced, not fitted, no accuracy cost). Wheat unchanged. Cold damage law and pasture rule still to implement and score.
+
+## 2026-10-16 step 1: sub-daily denitrification (adopted, default on)
+
+Sources: Cycles guide (HYDROLOGY_OPTION semantics, denitrification in hours of saturation), the 2026-10-16 hydrology option finding (opt0 5.7 vs opt1 15.1 kg N/ha), the engine's own adaptive Eq. 1-2 redistribution.
+Measurement: the engine's own redistribution steps already carry within-day saturation. Time-weighted layer-1 rel^6 over a day exceeds the end-of-day value by 1.0x to 2.75x depending on site (sandy sites most).
+Change: redistribute() now returns, via _SUBDAY_REL1_EFF, the time-weighted (trapezoid over the adaptive steps) layer-1 saturation, in the same power as the denitrification law; denitrification_flux_resp reads it (SUBDAY_DENIT=True). No new parameter, no refit.
+Results at N=150 (denitrification vs Cycles annualN):
+- fit sites (24): rms log error 0.93 -> 0.65, model/real mean 0.54 -> 0.75
+- held-out sites (24 disjoint fresh94): rms log 0.82 -> 0.62, ratio 1.09. Grain MAE 0.882 -> 0.875, leaching 0.49 -> 0.46 on fit sites. Yield neutral.
+- Refitting K (x1.4) fixed the fit sites (0.55, ratio 0.94) but overshot held-out (0.68, ratio 1.38), so K is left at the one-step value.

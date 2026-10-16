@@ -1833,6 +1833,10 @@ def redistribute(layers, water_in_mm, n_substeps=REDISTRIBUTE_SUBSTEPS, n_by_lay
 
     if layers and all("psi_e_kpa" in l and "B" in l for l in layers):
         time_left = 1.0
+        _sub = [] if DIAG_SUBDAY is not None else None
+        _p = DENITRIF_RESP_REL_POW
+        _prev = max(layers[0]["theta"] / layers[0]["sat"], 0.0)
+        _acc = 0.0
         for _ in range(REDISTRIBUTE_MAX_STEPS):
             excesses = [max(0.0, (l["theta"] - l["fc"]) * thicks_mm[i]) for i, l in enumerate(layers)]
             khes = [KHE_SCALE * campbell_khe(l["theta"], l["fc"], l["sat"], l["ksat_mm_day"], l["psi_e_kpa"], l["B"])
@@ -1843,6 +1847,8 @@ def redistribute(layers, water_in_mm, n_substeps=REDISTRIBUTE_SUBSTEPS, n_by_lay
             dt = min(max(travel_times), time_left)
             if dt <= 1e-9:
                 break
+            if _sub is not None:
+                _sub.append((dt, [l["theta"] / l["sat"] for l in layers[:3]]))
             fluxes = [min(excesses[i], khes[i] * dt) if khes[i] > 0 else 0.0 for i in range(len(layers))]
             water_before_mm = [l["theta"] * thicks_mm[i] for i, l in enumerate(layers)]
             n_out = [0.0] * len(layers)
@@ -1874,9 +1880,17 @@ def redistribute(layers, water_in_mm, n_substeps=REDISTRIBUTE_SUBSTEPS, n_by_lay
                         n_leached += n_carry
                         n_carry = 0.0
                     carry = 0.0
+            _new = max(layers[0]["theta"] / layers[0]["sat"], 0.0)
+            _acc += dt * 0.5 * (_prev ** _p + _new ** _p)
+            _prev = _new
             time_left -= dt
             if time_left <= 1e-9:
                 break
+        _acc += max(time_left, 0.0) * _prev ** _p
+        global _SUBDAY_REL1_EFF
+        _SUBDAY_REL1_EFF = _acc ** (1.0 / _p)   # time-weighted layer-1 saturation over the day's redistribution steps
+        if _sub is not None:
+            DIAG_SUBDAY.append((_sub, time_left, [l["theta"] / l["sat"] for l in layers[:3]]))
         return remaining, n_leached
 
     for i, l in enumerate(layers):
@@ -4535,7 +4549,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
                 d = denitrification_flux_e2(no3_layers[0] + (no3_layers[1] if len(no3_layers) > 1 else 0.0), _no3_pre, sixpool_state.get("resp_mg_ha", 0.0), _rm5,
                                             max(l["theta"] / l["sat"] for l in layers), nstate["n_nh4"], 100.0 * sixpool_state.get("clay", 0.25))
             else:
-                d = denitrification_flux_resp(_no3_pre, layers[0]["theta"] / layers[0]["sat"], sixpool_state.get("resp_mg_ha", 0.0))
+                d = denitrification_flux_resp(_no3_pre, (_SUBDAY_REL1_EFF if (SUBDAY_DENIT and _SUBDAY_REL1_EFF is not None) else layers[0]["theta"] / layers[0]["sat"]), sixpool_state.get("resp_mg_ha", 0.0))
             if d > 0 and _no3_pre > 0:
                 _f = d / _no3_pre
                 for i in range(len(no3_layers)):
@@ -4702,6 +4716,9 @@ def _npool_hook(no3_layers, n_no3, n_nh4, doy):
     return n_no3, n_nh4
 
 
+SUBDAY_DENIT = True  # denitrification reads the within-day time-weighted layer-1 saturation (rebuild step 1, 2026-10-16)
+_SUBDAY_REL1_EFF = None
+DIAG_SUBDAY = None   # sub-daily saturation diagnostic (list of per-call step records)
 DIAG_RESP = None     # rebuild phase 4: list of (year, respired C Mg/ha, net N mineralized kg/ha) per six-pool day
 DIAG_THETA = None    # rebuild phase 2: when a list, appends (year, doy, [theta per layer]) at end of every simulated day, so the daily layer water state can be scored against Cycles
 
@@ -5592,7 +5609,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 denitrif_today = denitrification_flux_e2(no3_layers[0] + (no3_layers[1] if len(no3_layers) > 1 else 0.0), n_no3, sixpool_state.get("resp_mg_ha", 0.0), _rm5,
                                                          max(l["theta"] / l["sat"] for l in layers), n_nh4, 100.0 * sixpool_state.get("clay", 0.25))
             else:
-                denitrif_today = denitrification_flux_resp(n_no3, layers[0]["theta"] / layers[0]["sat"], sixpool_state.get("resp_mg_ha", 0.0))
+                denitrif_today = denitrification_flux_resp(n_no3, (_SUBDAY_REL1_EFF if (SUBDAY_DENIT and _SUBDAY_REL1_EFF is not None) else layers[0]["theta"] / layers[0]["sat"]), sixpool_state.get("resp_mg_ha", 0.0))
             if denitrif_today > 0 and n_no3 > 0:
                 _f = denitrif_today / n_no3
                 n2o_total += n2o_from_denitrification(denitrif_today, n_no3)
