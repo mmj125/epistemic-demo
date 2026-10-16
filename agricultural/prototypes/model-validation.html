@@ -2964,6 +2964,28 @@ def _dev_rate(t, base_t, opt_t, max_t):
     return (opt_t - base_t) * (max_t - t) / (max_t - opt_t)
 
 
+WINTER_PHENOLOGY = dict(   # rebuild phase 6 (2026-10-16). Disclosed in GenericCrops.crop: req 230, photoperiod 8-18 h, flowering at Pmax 340, grain filling 500, post-flowering 7/20/35 C.
+    req=230.0, pmin=8.0, pmax=18.0, tt_flower_pmax=340.0, gf_tt=500.0, post=(7.0, 20.0, 35.0), base_t=2.0,
+    # NOT disclosed, fitted to Cycles' own daily vernalization column (3 sites, 8,000 accumulating days, corr 0.99, rmse 0.42): increment = K x tent(daily mean T; L, O, U).
+    # The fitted peak (7.8 C) differs from the file's VERNALIZATION_TEMPERATURE_THRESHOLD_OPTIMAL (1.5 C); L and U agree with the file (-4, 15) to within 1 C.
+    vern_k=10.0, vern_l=-4.53, vern_o=7.78, vern_u=15.88,
+    # NOT disclosed: the twilight allowance in the photoperiod (0 deg gives 279, 6 deg gives 359 against the disclosed 340 at a Texas site)
+    twilight_deg=4.6)
+
+
+def photoperiod_hours(doy, lat_deg, twilight_deg=0.0):
+    dec = 0.409 * math.sin(2 * math.pi * doy / 365.0 - 1.39)
+    x = (-math.tan(math.radians(lat_deg)) * math.tan(dec) - math.sin(math.radians(twilight_deg)) / (math.cos(math.radians(lat_deg)) * math.cos(dec)))
+    return 24.0 / math.pi * math.acos(max(-1.0, min(1.0, x)))
+
+
+def vernalization_increment(tavg, V):
+    if tavg <= V["vern_l"] or tavg >= V["vern_u"]:
+        return 0.0
+    f = (tavg - V["vern_l"]) / (V["vern_o"] - V["vern_l"]) if tavg <= V["vern_o"] else (V["vern_u"] - tavg) / (V["vern_u"] - V["vern_o"])
+    return V["vern_k"] * f
+
+
 def thermal_time_increment(tx, tn, base_t, opt_t, max_t):
     if THERMAL_TIME_SUBDAILY:
         mean, amp = (tx + tn) / 2, (tx - tn) / 2
@@ -5397,6 +5419,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     # block only runs when n_pool is not None.
     _wk_tl = None
     _wk_tm = SIXPOOL_ML_TMEAN_INIT
+    _V = crop.get("vern")
+    vern_acc, pw_acc, post_acc, flowered, tt_dev = 0.0, 0.0, 0.0, False, 0.0
     winter_killed = False
     canopy_n_kg_ha = 0.0
 
@@ -5425,7 +5449,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # 0.505->0.691 (uncalibrated), the single largest movement any mechanism has
         # produced this session -- see run_validation.py's own calibration_factor comment
         # and QUESTIONS_FOR_DEVS.md for the full account.
-        if tt_cum >= crop.get("flowering_tt", math.inf) and w["tn"] < crop.get("threshold_temp_cold_damage", -math.inf):
+        if (flowered if _V is not None else tt_cum >= crop.get("flowering_tt", math.inf)) and w["tn"] < crop.get("threshold_temp_cold_damage", -math.inf):
             break
         # Winterkill (2026-10-07): a night below the crop's own real MIN_TEMPERATURE_FOR_COLD_DAMAGE
         # (GenericCrops.crop; winter wheat -25C) kills the stand at any growth stage, no harvest.
@@ -5449,6 +5473,21 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             break
         dtt = thermal_time_increment(w["tx"], w["tn"], crop["base_t"], crop["opt_t"], crop["max_t"])
         tt_cum += dtt
+        if _V is None:
+            tt_dev = tt_cum
+        else:
+            if not flowered:
+                if vern_acc < _V["req"]:
+                    vern_acc = min(_V["req"] + 2.5, vern_acc + vernalization_increment((w["tx"] + w["tn"]) / 2.0, _V))
+                if vern_acc >= _V["req"]:
+                    pw_acc += dtt * max(0.0, min(1.0, (photoperiod_hours(w["doy"], crop["lat_deg"], _V["twilight_deg"]) - _V["pmin"]) / (_V["pmax"] - _V["pmin"])))
+                    if pw_acc >= _V["tt_flower_pmax"]:
+                        flowered = True
+            if flowered:
+                post_acc += thermal_time_increment(w["tx"], w["tn"], _V["post"][0], _V["post"][1], _V["post"][2])
+                tt_dev = crop["flowering_tt"] + (crop["tt_maturity"] - crop["flowering_tt"]) * min(1.0, post_acc / _V["gf_tt"])
+            else:
+                tt_dev = min(tt_cum, crop["flowering_tt"] - 1e-6)
         _wf = water_stress_prev ** CANOPY_WATER_POW if CANOPY_WATER_POW is not None else 1.0 if CANOPY_WATER_W0 is None else max(0.0, min(1.0, (water_stress_prev - CANOPY_WATER_W0) / (1.0 - CANOPY_WATER_W0)))
         if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("wclock", ()):
             _wf = _FORCE_CUR["wclock"][w["doy"]] ** CANOPY_WATER_POW
@@ -5459,13 +5498,13 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         else:
             _nf = (n_stress_prev ** CANOPY_N_POW) if CANOPY_N_POW is not None else (1.0 - CANOPY_N_COEF * (1.0 - n_stress_prev))
         tt_canopy += dtt * _nf * _wf
-        ttf = tt_cum / crop["tt_maturity"]
+        ttf = tt_dev / crop["tt_maturity"]
         if ttf >= harvest_ttf:
             break
         _shape = CANOPY_SHAPE_FORCE if CANOPY_SHAPE_FORCE is not None else crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE)
         _eix = CANOPY_EIX_FORCE if CANOPY_EIX_FORCE is not None else crop.get("eix", 1.0)
         if CANOPY_TWO_CLOCK:
-            _ei = canopy_cover_two(tt_canopy / crop["tt_maturity"], tt_cum / crop["tt_maturity"], _eix, _shape)
+            _ei = canopy_cover_two(tt_canopy / crop["tt_maturity"], tt_dev / crop["tt_maturity"], _eix, _shape)
         else:
             _ei = canopy_cover(tt_canopy / crop["tt_maturity"], _eix, _shape)
         eie = 0.0 if tt_cum < crop.get("tt_emergence", 0.0) else effective_canopy_cover(_ei, crop.get("plant_density_factor", 1.0))
@@ -5666,6 +5705,11 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         if _heat_gt:
             GT *= _heat_f
         dGB_water_limited = max(0.0, min(GR, GT)) * NET_GROWTH_FRACTION / 1000 * (1.0 + GROWTH_TTF_SLOPE * (ttf - 0.5))
+        if _V is not None and flowered:
+            # post-flowering temperature factor: Cycles' daily temperature_factor column is 0.99 below ~19 C mean and falls to 0.94 / 0.83 / 0.65 / 0.38 at 20.5 / 23.5 / 26.5 / 29.5 C
+            # (5,376 post-flowering days, 3 sites); the disclosed TEMPERATURE_POST_FLOWERING optimum (20) and maximum (35) with 1.0 below the optimum reproduce it (0.93 / 0.77 / 0.57 / 0.37)
+            _tm = (w["tx"] + w["tn"]) / 2.0
+            dGB_water_limited *= 1.0 if _tm <= _V["post"][1] else max(0.0, (_V["post"][2] - _tm) / (_V["post"][2] - _V["post"][1]))
         if DIAG_GROWTH is not None: DIAG_GROWTH.append((w["doy"], GR, GT, dGB_water_limited))
         if O2_STRESS_SCALE is not None:
             # 2026-10-15 waterlogging (oxygen) stress. Cycles reports a daily o2_factor (0 = none) that rises with root-zone wetness; this engine had
@@ -5868,7 +5912,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         if DIAG_STATE is not None: DIAG_STATE.append((_DIAG_YEAR, w["doy"], eie, n_stress, canopy_n_kg_ha))
         biomass += dGB
         ag_biomass += dGB * shoot_fraction(ttf, crop["fsti"], crop["fstf"])
-        if ag_biomass_at_flowering is None and tt_cum >= crop["flowering_tt"]:
+        if ag_biomass_at_flowering is None and (flowered if _V is not None else tt_cum >= crop["flowering_tt"]):
             ag_biomass_at_flowering = ag_biomass
 
         if NPOOL_FORCE is not None and no3_layers is not None and n_no3 is not None and n_nh4 is not None:
@@ -5910,7 +5954,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # original thermal-time-progress substitute for wheat specifically, not a claim
         # that thermal time is right in general -- see f_g's own branch below.
         flowering_frac = crop["flowering_tt"] / crop["tt_maturity"]
-        f_g = max(0.0, min(1.0, (tt_cum - crop["tt_maturity"] * flowering_frac) / (crop["tt_maturity"] * (1 - flowering_frac))))
+        f_g = max(0.0, min(1.0, (tt_dev - crop["tt_maturity"] * flowering_frac) / (crop["tt_maturity"] * (1 - flowering_frac))))
     elif ag_biomass_at_flowering is None or ag_biomass <= 0:
         f_g = 0.0
     else:

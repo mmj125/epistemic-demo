@@ -50,6 +50,8 @@ def cycles_ref(fsite,N):
     return H
 def engine_chain(wx,soil,cl,N,calib):
     crop=dict(r2.WHEAT); crop["lat_deg"]=cl; crop["winterkill_temp"]=-25.0
+    if os.environ.get("WHEAT_VERN","1")=="1":   # disclosed winter phenology (vernalization, photoperiod, grain filling); 0 = the old single-threshold phenology
+        crop["vern"]=dict(E.WINTER_PHENOLOGY); crop["base_t"]=E.WINTER_PHENOLOGY["base_t"]
     if calib is not None: crop["calibration_factor"]=calib
     def ml():
         L=[]
