@@ -2617,6 +2617,8 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
     state["cs"] = sum(x["cs"] for x in subs)
     state["cm"] = sum(x["cm"] for x in subs)
     state["resp_mg_ha"] = resp_tot
+    if DIAG_RESP is not None:
+        DIAG_RESP.append((_DIAG_YEAR, resp_tot, total))
     return total
 
 
@@ -3236,6 +3238,7 @@ _FORCE_CUR = None
 DIAG_STATE = None   # state_calibration.py: appends (year, doy, canopy, n_stress, plant_n_kg_ha) per day; None = off
 _DIAG_YEAR = None
 THETA_FORCE = None   # rebuild phase 2 (2026-10-16): {year: {doy: [theta per layer]}} from Cycles' dailyWater; when set, end-of-day layer moisture is overwritten with Cycles' value in every window (spin-up, season, fallow)
+DIAG_RESP = None     # rebuild phase 4: list of (year, respired C Mg/ha, net N mineralized kg/ha) per six-pool day
 DIAG_THETA = None    # rebuild phase 2: when a list, appends (year, doy, [theta per layer]) at end of every simulated day, so the daily layer water state can be scored against Cycles
 
 
