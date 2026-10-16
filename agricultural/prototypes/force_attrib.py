@@ -9,9 +9,10 @@ import cycles_engine_validate as E, run_validation_multisite as m, forcelib
 from multiprocessing import Pool
 ALL={}
 for f in ("/tmp/w/big240.json","/tmp/w/old28.json"):ALL.update({k:tuple(v) for k,v in json.load(open(f)).items()})
-random.seed(21);SITES=sorted(random.sample(sorted(ALL),NS))
+random.seed(21);_ok=[k for k in sorted(ALL) if os.path.isdir(f'/tmp/cycles-run15/output/{k}N400')];SITES=sorted(random.sample(_ok,NS))
+NL=tuple(int(x) for x in os.environ.get('NLIST','0,150').split(','))
 BLK={'C':('canopy',),'W':('water','wclock'),'N':('nstress','nclock'),'S':('netmin',)}
-SUBS=['','C','W','N','S','CN','CWN','CWNS']
+SUBS=os.environ.get('SUBS','').split(',') if os.environ.get('SUBS') is not None and 'SUBS' in os.environ else ['','C','W','N','S','CN','CWN','CWNS']
 def one(a):
     site,N,sub=a;lat,lon=ALL[site]
     wx,_=m.fd.resolve_field_weather(lat,lon);soil,_,_=m.fd.resolve_field_soil(lat,lon);cl=m.lat_of(lat,lon)
@@ -22,9 +23,9 @@ def one(a):
     ys=[y for y in r if y in H];a_=np.array([H[y] for y in ys]);b=np.array([r[y]['grain'] for y in ys])
     return site,N,sub,float(np.abs(a_-b).mean()),float((b-a_).mean()),float(np.corrcoef(a_,b)[0,1]) if a_.std()>0 and b.std()>0 else 0.0
 if __name__=="__main__":
-    with Pool(4) as p: res=p.map(one,[(s,N,sub) for sub in SUBS for N in (0,150) for s in SITES],chunksize=2)
+    with Pool(4) as p: res=p.map(one,[(s,N,sub) for sub in SUBS for N in NL for s in SITES],chunksize=2)
     json.dump(res,open(OUT,'w'))
-    for N in (0,150):
+    for N in NL:
         base=np.mean([r[3] for r in res if r[1]==N and r[2]==''])
         print('N',N)
         for sub in SUBS:
