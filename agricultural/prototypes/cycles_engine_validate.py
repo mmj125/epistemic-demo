@@ -3068,7 +3068,10 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             sixpool_state["n_min"] = nstate["n_nh4"] + nstate["n_no3"]
             sixpool_state["n_conc1"] = n_conc_layer1(layers, nstate["n_nh4"], no3_layers, nstate["n_no3"])
             sixpool_state["n_conc_layers"] = n_conc_layers(layers, nstate["n_nh4"], no3_layers, nstate["n_no3"])
-            nstate["n_nh4"] = max(0.0, nstate["n_nh4"] + sixpool_step(sixpool_state, tmean, relwet, 0.0, 1.0, layers))
+            _smin = sixpool_step(sixpool_state, tmean, relwet, 0.0, 1.0, layers)
+            if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("netmin", ()):
+                _smin = _FORCE_CUR["netmin"][w["doy"]]   # diagnostic: Cycles' own net mineralization flux in the fallow windows too
+            nstate["n_nh4"] = max(0.0, nstate["n_nh4"] + _smin)
         if NITRIF_FE:
             _rw = ((layers[0]["theta"] - layers[0]["pwp"]) / (layers[0]["fc"] - layers[0]["pwp"])
                    if layers[0]["fc"] > layers[0]["pwp"] else 1.0)
@@ -3120,6 +3123,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
                     no3_layers[i] *= (1.0 - f_d)
             if not return_early:
                 denit += d
+        nstate["n_no3"], nstate["n_nh4"] = _npool_hook(no3_layers, nstate["n_no3"], nstate["n_nh4"], w["doy"])
     return leached, denit, volat
 
 
@@ -3238,6 +3242,24 @@ _FORCE_CUR = None
 DIAG_STATE = None   # state_calibration.py: appends (year, doy, canopy, n_stress, plant_n_kg_ha) per day; None = off
 _DIAG_YEAR = None
 THETA_FORCE = None   # rebuild phase 2 (2026-10-16): {year: {doy: [theta per layer]}} from Cycles' dailyWater; when set, end-of-day layer moisture is overwritten with Cycles' value in every window (spin-up, season, fallow)
+NPOOL_FORCE = None   # rebuild phase 4 diagnostic: {year: {doy: (profile NO3, profile NH4 kg/ha)}} from Cycles' dailyN; overwrites the engine's mineral-N pools at end of day in every window
+
+
+def _npool_hook(no3_layers, n_no3, n_nh4, doy):
+    if NPOOL_FORCE is not None and no3_layers is not None:
+        s = NPOOL_FORCE.get(_DIAG_YEAR)
+        if s is not None and doy in s:
+            no3, nh4 = s[doy]
+            tot = sum(no3_layers)
+            if tot > 1e-9:
+                for i in range(len(no3_layers)):
+                    no3_layers[i] *= no3 / tot
+            else:
+                no3_layers[0] = no3
+            return no3, nh4
+    return n_no3, n_nh4
+
+
 DIAG_RESP = None     # rebuild phase 4: list of (year, respired C Mg/ha, net N mineralized kg/ha) per six-pool day
 DIAG_THETA = None    # rebuild phase 2: when a list, appends (year, doy, [theta per layer]) at end of every simulated day, so the daily layer water state can be scored against Cycles
 
@@ -4405,6 +4427,10 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         if ag_biomass_at_flowering is None and tt_cum >= crop["flowering_tt"]:
             ag_biomass_at_flowering = ag_biomass
 
+        if NPOOL_FORCE is not None and no3_layers is not None and n_no3 is not None and n_nh4 is not None:
+            n_no3, n_nh4 = _npool_hook(no3_layers, n_no3, n_nh4, w["doy"])
+            if n_pool is not None:
+                n_pool = n_no3 + n_nh4
         if record_history:
             history.append(dict(doy=w["doy"], ttf=round(ttf, 4), canopy=round(eie, 4),
                                  water_stress=round(water_stress, 4), n_stress=round(n_stress, 4), n_pool=round(n_pool, 2) if n_pool is not None else None,
