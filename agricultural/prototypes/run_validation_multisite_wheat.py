@@ -71,6 +71,7 @@ def engine_chain(wx,soil,cl,N,calib):
             nstate=dict(n_nh4=0.0,n_no3=0.0,tsoil_lag=(wf[start][2]["tx"]+wf[start][2]["tn"])/2.0,no3_layers=[0.0]*len(layers),rel_hist=[])
         de=dict(de=0.0,tew=E.compute_tew(layers[0]["fc"],layers[0]["pwp"]),rew=E.REW_DEFAULT_MM)
         E._DIAG_YEAR=y
+        E._FORCE_CUR=(E.FORCE_SERIES.get(y) if E.FORCE_SERIES else None)
         E.run_fallow_n_window(layers,fallow,nstate,sp,lat_deg=cl,de_state=de,model_denitrification=True,model_volatilization=True)
         nstate.pop("n2o",None)
         kw=dict(base); kw.update(initial_n_state=dict(nstate),initial_layers=layers,spinup_rows=None,wue_co2_scale=E.CO2_PPM_BY_YEAR.get(y,E.CO2_REF_PPM)/E.CO2_REF_PPM,record_history=True)

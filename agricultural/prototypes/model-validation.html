@@ -2922,7 +2922,7 @@ CORN_CANOPY_SHAPE = (6, -20, -5.35, 4.10)  # re-refit 2026-09-30 (was (6,-20,-12
 # UNCALIBRATED total/aboveground biomass runs 26-32% higher than real Cycles even when the
 # CALIBRATED grain number matches well -- this is a real, verified fix to that specific, honestly-
 # disclosed problem, not a cosmetic change to a number nobody was checking.
-NET_GROWTH_FRACTION = 1.04454  # 2026-10-16 growth-law fit (row 50); was 0.95
+NET_GROWTH_FRACTION = 0.955  # 2026-10-16 rebuild: with the exact Cycles VPD (no fitted VPD exponent or heat terms) one global level constant reproduces the old fitted package (24 fresh sites: N=150 grain MAE 1.02 vs 1.04, bias ~0); was 1.04454 with C1_VPD_POW 0.67 and HEAT_A
 
 # Real NOAA Mauna Loa/Scripps annual mean atmospheric CO2 (ppm), 1980-2016 -- the exact years
 # this engine's validation harnesses use. Source: NOAA Global Monitoring Laboratory
@@ -3123,6 +3123,8 @@ VPD_FAO56 = True   # step 6
 CANOPY_WATER_POW = 1.35   # step 6 (replaces the W0 line): canopy clock rate = water_stress_mult ** POW (Cycles: 0.9 at 2.5% stress, 0.6 at 27%, 0.37 at 60%, 0.06 at 90%)
 CANOPY_WATER_W0 = None  # step 6: canopy clock rate = clamp((water_stress_mult - W0)/(1 - W0), 0, 1); None = off. Measured on Cycles: ~1 at no stress, ~0 near 50% stress
 CANOPY_N_RATIO_LOGISTIC = None   # 2026-10-15 opt-in (center, width): canopy clock rate = logistic of the plant N concentration ratio instead of n_stress**pow. Cycles' implied rate vs AG N ratio: 0.01 at .35, .06 at .45, .39 at .55, .79 at .65, .92 at .75, .99 at .85 (engine clock was .05/.10/.19/.37/.62/1.0)
+VPD_CYCLES_EXACT = True   # rebuild 2026-10-16: Cycles' own VPD column is max(0.2, 0.66 es(Tmax)(1 - RHmin/100)) (zero spread at warm temperatures over 6 sites); the engine used the FAO-56 mean-es-less-ea (15% lower) and compensated with fitted exponent/heat terms
+VPD_FLOOR_KPA = 0.2
 VPD_POW = 0.5   # 2026-10-15 opt-in: transpiration-limited growth ~ Da**(-VPD_POW) about reference VPD_D0 (default 0.5 = the paper's inverse square root)
 VPD_D0 = 0.75
 HEAT_T0 = None   # 2026-10-15 opt-in heat penalty on growth: factor 1 - HEAT_A*(Tmean - HEAT_T0)^2 above HEAT_T0 (Cycles temperature_factor over 192k corn days: 0.99 below 28 C, 0.957 at 29, 0.891 at 31, 0.787 at 33, 0.672 at 35; fit T0 26, A 0.0044); None = off
@@ -5653,6 +5655,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         _vpd_pow = C1_VPD_POW if crop.get("c1_water") else VPD_POW
         _heat_gt = True if crop.get("c1_water") else HEAT_GT
         _heat_f = 1.0 if _t0 is None else max(0.0, 1.0 - HEAT_A * max(0.0, tmean - _t0) ** 2)
+        if VPD_CYCLES_EXACT:
+            _vpd_pow, _heat_gt, _heat_f = 0.5, False, 1.0   # the paper's own exponent, no fitted heat penalty: they were compensating for a wrong VPD
         GR *= _heat_f
         if VPD_FAO56:
             # step 6: Cycles' vapor pressure deficit is the FAO-56 one: mean of the saturation pressures at tmax and tmin,
@@ -5670,6 +5674,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             es = 0.6108 * math.exp(17.27 * tmean / (tmean + 237.3))
             ea = es * (w["rhx"] + w["rhn"]) / 200
             Da = max(0.05, es - ea)
+        if VPD_CYCLES_EXACT:
+            Da = max(VPD_FLOOR_KPA, 0.66 * 0.6108 * math.exp(17.27 * w["tx"] / (w["tx"] + 237.3)) * (1.0 - w["rhn"] / 100.0))
         TRp = (1 + (crop["kc"] - 1) * eie) * eie * eto
         TRp *= temp_factor
 
