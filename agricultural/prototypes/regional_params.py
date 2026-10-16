@@ -11,6 +11,7 @@ import math
 FEATURES = ['soc_prof', 'clay_top', 'gs_tmean', 'gs_solar', 'lon', 'gs_rh']
 M_RANGE = (0.6, 1.4)
 G_RANGE = (0.8, 1.25)
+G_REBASE = 0.8924   # row 54: the map was fit on top of corn's base factor 0.8924; the base is now 1.0 and that factor lives here, so predictions are unchanged and g centers on 1.0
 
 
 def _m_0(x):
@@ -1870,4 +1871,4 @@ def regional_params(wx, soil_raw, lon):
     x = site_covariates(wx, soil_raw, lon)
     m = min(M_RANGE[1], max(M_RANGE[0], math.exp(_m(x))))
     g = min(G_RANGE[1], max(G_RANGE[0], math.exp(_g(x))))
-    return m, g
+    return m, g * G_REBASE
