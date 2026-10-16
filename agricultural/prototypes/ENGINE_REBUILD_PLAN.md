@@ -145,3 +145,15 @@ Nudge file (ContinuousCorn.nudge) exposes Cycles' internal structure through its
 - DECOMP_HALF_RESP ("half response to saturation, default 0.22") and DECOMP_RESP_POWER ("exponential response to saturation, default 3.0"): the decomposition moisture function. A first test against the reported composite factor (layer 1, binned by saturation and temperature) shows a large spread at fixed values, so the form is not a function of layer-1 saturation and temperature alone; unresolved.
 - SOC_HUMIF_POWER (humification exponent), NITRIF_RATE, ROOT_PROGRESSION (rooting depth progression), RADIATION_USE_EFFICIENCY multipliers: confirm these processes are separate parameterized terms.
 Summary of the full input audit: crop file (two unused groups), weather (VPD fixed), soil (nothing), operation (standing/flat residue and removal are large and unmodeled; density available but unused), nudge (denitrification, adsorption, decomposition-moisture structure disclosed by the parameter names).
+
+## Residue A/B test (2026-10-16): the residue split is not the main driver of the current N-loss gap
+Argument checked before building: the engine lumps all stover as flat residue, equivalent to Cycles with STANDING_RESIDUE_AT_HARVEST = 0. Re-ran the Cycles reference at 0% standing on the 24 fresh sites (N=150) and scored the SAME engine against both references (a mechanism that mattered would shrink the error against the matching reference):
+| N=150 | Cycles 50% standing (default) | Cycles 0% standing | Engine | Engine MAE vs default | vs 0% standing |
+|---|---|---|---|---|---|
+| grain | 7.14 | 7.30 | 7.03 | 0.99 | 1.05 (worse) |
+| denitrification | 15.18 | 17.65 | 7.93 | 9.13 | 11.27 (worse) |
+| leaching | 5.73 | 6.93 | 5.75 | 4.61 | 4.73 (worse) |
+| volatilization | 15.37 | 12.56 | 11.38 | 5.94 | 4.41 (26% better) |
+| N2O | 2.86 | 3.01 | 1.94 | 1.61 | 1.63 (same) |
+Only volatilization improves, by 26%; every other term gets slightly worse. The standing/flat split would be worth building for management realism (a user who varies residue removal) and perhaps 25% of volatilization error, but it is not where the engine's current gap lives. The largest remaining relative gap is denitrification: the engine produces 7.9 kg N/ha against Cycles' 15.2 (-48%).
+Lesson: a large sensitivity of the reference to an input does not show that the engine's error comes from ignoring it, because the reference and the engine were run at the same default. The test that matters is whether re-referencing to the engine's implicit assumption removes error.
