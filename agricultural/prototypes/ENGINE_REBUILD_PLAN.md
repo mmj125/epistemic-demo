@@ -206,3 +206,16 @@ Full-engine tests on 30 sites, raw (factor 1.0), which all FAILED to improve and
 - AG-basis stress rule (N_STRESS_AG_BASIS): N=150 MAE 1.77, corr 0.36
 Also tested earlier today: documented harvest-index slope for wheat (worse). Lesson for rule 6: the one-step Cycles stress curve for wheat is real, but dropping it into the engine makes wheat worse, so the stress rule is not the lever; some other state compensates.
 Next (ranked, recommendation first): (1) force Cycles' clock rates (nclock, wclock hooks exist) and eix separately to learn which canopy sub-state carries the 0.6 -> 0.78 correlation; (2) test the graded cold-damage law on the canopy (Cycles wheat shows KILLED_COLD_DAMAGE stages and a Jan-Mar canopy the engine undershoots); (3) grain/straw N only after the canopy is understood.
+
+## 2026-10-16 hydrology option audit (scorecards/2026-10-16_hydrology_option_24sites.json, 2026-10-16_hydro_audit_yearly.json; script hydro_audit.py)
+
+Sources: Cycles guide (HYDROLOGY_OPTION 0 cascade, 1 hourly finite difference = the reference, "cascade can miss denitrification badly but does a good job with the water balance"), Cycles v1.5.20 runs at options 0, 1, 2 on the same tile inputs (corn N=150), the engine in its standard configuration (sub-daily denitrification on).
+Site means (24 fresh sites), option 0 vs option 1: grain 7.07 vs 7.14 (site corr 0.96); leaching 12.1 vs 5.7 (2.1x); denitrification 5.7 vs 15.1 (0.38x); N2O 1.5 vs 2.8; volatilization 14.1 vs 15.4 (-9%). Option 2 sits between (leaching 9.1, denitrification 8.2).
+Within-site yearly correlation, 12 fresh sites, 37 years:
+- grain: engine~opt1 0.72, engine~opt0 0.71, opt0~opt1 0.80 (the option barely matters for yield)
+- leaching: engine~opt1 0.69, engine~opt0 0.46, opt0~opt1 0.57
+- denitrification: 0.51, 0.41, 0.83
+- volatilization: 0.63, 0.64, 0.89
+- N2O: 0.21, 0.19, 0.65
+Means on these 12 sites (engine / opt1): leaching 7.0 / 8.7, denitrification 11.0 / 16.4, volatilization 9.9 / 13.9, N2O 1.8 / 2.9.
+Conclusions: (1) the option matters only for the water-driven N losses (denitrification, leaching, N2O), not for yield or volatilization, so the reference convention is settled: the engine tracks option 1 better than option 0 for leaching and denitrification. (2) Volatilization is insensitive to hydrology, so its 0.71 level gap and 0.63 yearly agreement come from the NH4 pool or its rate law, not water. (3) N2O yearly agreement (0.21) is the weakest, and is far below what the option difference alone explains (0.65). (4) Denitrification yearly agreement (0.51) is still well below the 0.83 that two Cycles water schemes achieve with each other, so there is room.
