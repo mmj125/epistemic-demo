@@ -3682,6 +3682,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                                 if layers[0]["fc"] > layers[0]["pwp"] else 1.0)
                 sixpool_step(sixpool_state, tmean_spin, relwet_spin, 0.0, 1.0, layers)
     tillage_depth_m, tillage_mixing_efficiency = None, None
+    if tillage_doy == "planting":   # row 55: tillage on the first season day (the planting day), whatever that year's date is
+        tillage_doy = weather_rows[0]["doy"]
     if tillage_doy is not None:
         if tillage_implement not in TILLAGE_IMPLEMENTS:
             raise ValueError(f"Unknown tillage implement {tillage_implement!r} -- see TILLAGE_IMPLEMENTS for the real Cycles v1.4.4 implement catalog.")
