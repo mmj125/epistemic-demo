@@ -20,7 +20,7 @@ from cycles_engine_validate import (
 CORN = dict(
     # 2026-10-17 corn N model built only from measured Cycles pieces (ENGINE_REBUILD_PLAN.md, uptake-limit entry): root retention from the exact 5/3 root input, marginal N concentration 0.75 of the
     # engine's critical-curve slope (x0.88 of the old scale), Cycles' aboveground N stress law (REFIT_PLAN row 14b), uptake about 3% of the mineral pool per day.
-    root_retained_frac=0.6, n_demand_scale=0.75, n_demand_ref=True, n_stress_ag_basis=True, n_uptake_rate=0.03,
+    root_retained_frac=0.6, n_demand_ref=True, n_stress_ag_basis=True, n_uptake_rate=0.03,
     c1_water=True,  # 2026-10-15 c1 water-regime package (REFIT_PLAN rows 39-41)
     tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.3077, fsti=0.45, fstf=0.95,
