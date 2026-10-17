@@ -42,7 +42,7 @@ def wheat(a):
     wx,_=m.fd.resolve_field_weather(lat,lon); soil,_,_=m.fd.resolve_field_soil(lat,lon); cl=m.lat_of(lat,lon); m.REG_LON=lon
     fs=site+"wheat"; out={}; m.write_inputs(fs,lat,lon,wx,soil,cl)
     for N in (0,150):
-        open(f"{CY}/input/{fs}N{N}.operation","w").write(W.OP+(W.FERT%(N/0.32) if N>0 else ""))
+        open(f"{CY}/input/{fs}N{N}.operation","w").write(W.OP+W.fert_text(N))
         P,H=wseries(fs,N)
         for mode in ("free","forced"):
             E.FORCE_SERIES=None if mode=="free" else P

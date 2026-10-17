@@ -48,6 +48,12 @@ def cycles_ref(fsite,N):
     H,A=subprocess_out; json.dump(dict(H=H,A=A),open(cache,"w"))
     shutil.rmtree(f"{CY}/output/{fsite}N{N}",ignore_errors=True)   # disk is the limit
     return H
+FALLN=float(os.environ.get("FALLN","0"))   # 2026-10-17: starter N at planting (kg N/ha, of the total N); the spring-only schedule starves winters after big-residue years and flips Cycles between failed and good years (bistable), which makes yearly metrics a phase artifact
+def fert_text(N):
+    if N<=0: return ""
+    sp=N-FALLN if N>FALLN else N; t=FERT%(sp/0.32)
+    if FALLN>0 and N>FALLN: t+=FERT.replace("DOY                                 75","DOY                                 289")%(FALLN/0.32)
+    return t
 def engine_chain(wx,soil,cl,N,calib):
     crop=dict(r2.WHEAT); crop["lat_deg"]=cl; crop["winterkill_temp"]=-25.0
     if os.environ.get("WHEAT_VERN","1")=="1":   # disclosed winter phenology (vernalization, photoperiod, grain filling); 0 = the old single-threshold phenology
@@ -77,7 +83,7 @@ def engine_chain(wx,soil,cl,N,calib):
         E.run_fallow_n_window(layers,fallow,nstate,sp,lat_deg=cl,de_state=de,model_denitrification=True,model_volatilization=True)
         nstate.pop("n2o",None)
         kw=dict(base); kw.update(initial_n_state=dict(nstate),initial_layers=layers,spinup_rows=None,wue_co2_scale=E.CO2_PPM_BY_YEAR.get(y,E.CO2_REF_PPM)/E.CO2_REF_PPM,record_history=True)
-        if N>0: kw["n_applications"]=[(75,N)]; kw["fertilizer_source"]="uan"
+        if N>0: kw["n_applications"]=([(289,FALLN),(75,N-FALLN)] if (FALLN>0 and N>FALLN) else [(75,N)]); kw["fertilizer_source"]="uan"
         else: kw["n_rate_kg_ha"]=0
         if sp is not None: kw["sixpool_initial_state"]=sp
         res=E.simulate_season(rows(start,start+400),crop,**kw)

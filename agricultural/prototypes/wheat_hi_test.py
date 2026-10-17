@@ -6,12 +6,13 @@ import run_validation_multisite_wheat as W, run_validation_multisite as m
 from multiprocessing import Pool
 V={"V0":"","V1":"hi_use_thermal_time_fraction=False","V2":"hi_use_thermal_time_fraction=False;hi_slope=2.5","V3":"hi_slope=2.5"}
 V.update(json.loads(os.environ.get("EXTRA","{}")))
+if os.environ.get("VONLY"): V={k:V[k] for k in os.environ["VONLY"].split(",")}
 def one(a):
     site,(lat,lon)=a
     wx,_=m.fd.resolve_field_weather(lat,lon); soil,_,_=m.fd.resolve_field_soil(lat,lon); cl=m.lat_of(lat,lon); m.REG_LON=lon
-    fs=site+"wheat"; m.write_inputs(fs,lat,lon,wx,soil,cl); out={}
+    fs=site+"wheat"+("F%d"%W.FALLN if W.FALLN else ""); m.write_inputs(fs,lat,lon,wx,soil,cl); out={}
     for N in (0,150):
-        open(f"{W.CY}/input/{fs}N{N}.operation","w").write(W.OP+(W.FERT%(N/0.32) if N>0 else ""))
+        open(f"{W.CY}/input/{fs}N{N}.operation","w").write(W.OP+W.fert_text(N))
         H=W.cycles_ref(fs,N)
         for k,ov in V.items():
             os.environ["CROPOVR"]=ov; R=W.engine_chain(wx,soil,cl,N,1.0)

@@ -4352,7 +4352,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         if ttf >= harvest_ttf:
             break
         _shape = CANOPY_SHAPE_FORCE if CANOPY_SHAPE_FORCE is not None else crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE)
-        _eix = CANOPY_EIX_FORCE if CANOPY_EIX_FORCE is not None else crop.get("eix", 1.0)
+        _eix = crop["eix_cap"] if "eix_cap" in crop else (CANOPY_EIX_FORCE if CANOPY_EIX_FORCE is not None else crop.get("eix", 1.0))   # per-crop plateau (2026-10-17: wheat 0.86, Cycles' measured unstressed plateau)
         if CANOPY_TWO_CLOCK:
             _ei = canopy_cover_two(tt_canopy / crop["tt_maturity"], tt_dev / crop["tt_maturity"], _eix, _shape)
         else:
@@ -4558,7 +4558,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             GT *= (Da / VPD_D0) ** (0.5 - _vpd_pow)
         if _heat_gt:
             GT *= _heat_f
-        dGB_water_limited = max(0.0, min(GR, GT)) * NET_GROWTH_FRACTION / 1000 * (1.0 + GROWTH_TTF_SLOPE * (ttf - 0.5))
+        dGB_water_limited = max(0.0, min(GR, GT)) * crop.get("net_growth_fraction", NET_GROWTH_FRACTION) / 1000 * (1.0 + GROWTH_TTF_SLOPE * (ttf - 0.5))
         if _V is not None and flowered:
             # post-flowering temperature factor: Cycles' daily temperature_factor column is 0.99 below ~19 C mean and falls to 0.94 / 0.83 / 0.65 / 0.38 at 20.5 / 23.5 / 26.5 / 29.5 C
             # (5,376 post-flowering days, 3 sites); the disclosed TEMPERATURE_POST_FLOWERING optimum (20) and maximum (35) with 1.0 below the optimum reproduce it (0.93 / 0.77 / 0.57 / 0.37)
