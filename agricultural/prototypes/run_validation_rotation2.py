@@ -81,14 +81,15 @@ SOYBEAN = dict(
                # own 0.505 -> 0.691) -- re-derived calibration_factor below for the real mean shift.
 
 WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
-             rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
+             rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=2.5, fsti=0.45, fstf=0.95,  # 2026-10-17: documented slope m(1-Hmin)/(Hmax-Hmin)=2.5 and the real f_G (the thermal-time exemption is gone, the winter phenology it was covering for is fixed); calibration_factor 1.0,
+
              kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=LAT,
-             hi_use_thermal_time_fraction=True,  # real exemption, 2026-09-30 -- see
+             hi_use_thermal_time_fraction=False,  # was True (exemption); real exemption, 2026-09-30 -- see
              # cycles_engine_validate.py's own HI-computation docstring: the real f_G
              # (Kemanian et al. 2007) regressed wheat's correlation (0.337->0.163) even
              # though it helped corn/soybean, plausibly tied to wheat's own already-
              # documented winter-dormancy anomaly.
-             make_layers=make_layers, calibration_factor=1.1523,  # 2026-10-16 row 50 re-centering (was 1.2052);
+             make_layers=make_layers, calibration_factor=1.0,  # 2026-10-17 harvest index law (wheat_hi_test.py): no mask. 1.1523 was 2026-10-16 row 50 re-centering (was 1.2052);
              #  # 2026-10-15 re-derived for the N-loss fit (row 46); 1.1099 before  # 2026-10-15 re-derived again (row 46; 1.1099 before the N-loss refit; was 1.1807 originally) after the stoichiometry-path N constants (row 44);  # re-derived 2026-10-02 for
              # sixpool_step()'s own per-pool real C:N fix (CN_RATIO_SOM's single flat ratio
              # replaced by the real, disclosed SIXPOOL_CN_* ratios read directly off Cycles'

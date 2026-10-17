@@ -4971,7 +4971,7 @@ SOYBEAN = dict(tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43
 WHEAT = dict(threshold_temp_cold_damage=-10, tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
     rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=1.0, fsti=0.45, fstf=0.95,
     hi_use_thermal_time_fraction=True,  # real exemption 2026-09-30, see cycles_engine_validate.py
-    calibration_factor=1.1523, canopy_shape=(5, -14, -15, 16),  # re-derived 2026-10-01 for the real CO2-WUE-scaling mechanism (wue_co2_scale) -- previous value 0.7528, itself CORRECTED 2026-09-29 (was
+    calibration_factor=1.0, canopy_shape=(5, -14, -15, 16),  # re-derived 2026-10-01 for the real CO2-WUE-scaling mechanism (wue_co2_scale) -- previous value 0.7528, itself CORRECTED 2026-09-29 (was
     # 0.7506 as of 2026-09-28) -- see gap-list item 26, and cycles_engine_validate.py's
     # ROTHC_WEATHER_FACTOR_NORM for the 2026-09-29 background-nitrogen fix that moved this. Wheat is still deliberately
     # exempted from the hydraulic-conductance mechanism (wheat's real water stress genuinely
