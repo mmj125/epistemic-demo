@@ -4644,7 +4644,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         _sf_now = shoot_fraction(ttf, crop["fsti"], crop["fstf"])
         _rr = crop.get("root_retained_frac", 1.0)
         biomass += dGB * (1.0 if _rr >= 1.0 else (_sf_now + (1.0 - _sf_now) * _rr))
-        biomass_ref += dGB_water_limited * (1.0 if _rr >= 1.0 else (_sf_now + (1.0 - _sf_now) * _rr))
+        biomass_ref += (max(0.0, GR) * crop.get("net_growth_fraction", NET_GROWTH_FRACTION) / 1000 if crop.get("n_demand_ref_rad") else dGB_water_limited) * (1.0 if _rr >= 1.0 else (_sf_now + (1.0 - _sf_now) * _rr))
         if DIAG_BIO is not None: DIAG_BIO.append(biomass * 10.0)
         ag_biomass += dGB * shoot_fraction(ttf, crop["fsti"], crop["fstf"])
         if DIAG_AG is not None: DIAG_AG.append(ag_biomass * 10.0)
