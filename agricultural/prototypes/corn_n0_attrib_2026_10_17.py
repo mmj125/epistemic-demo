@@ -8,7 +8,7 @@ from mask_attrib_2026_10_16 import harv
 from multiprocessing import Pool
 import subprocess
 CY=m.CY
-MODES={"free":(),"netmin":("netmin",),"minn":("minn",),"nstress":("nstress","nclock"),"canopy":("canopy",),"nstress+canopy":("nstress","nclock","canopy"),"canopy+water":("canopy","water","wclock"),"water":("water","wclock"),"clocks":("wclock","nclock","nstress","water"),"all":("canopy","water","wclock","nstress","nclock","netmin","minn")}
+MODES={"free":(),"netmin":("netmin",),"minn":("minn",),"nstress":("nstress","nclock"),"canopy":("canopy",),"nstress+canopy":("nstress","nclock","canopy"),"canopy+water":("canopy","water","wclock"),"water":("water","wclock"),"nclockonly":("nclock",),"nstressonly":("nstress",),"clocks":("wclock","nclock","nstress","water"),"all":("canopy","water","wclock","nstress","nclock","netmin","minn")}
 if os.environ.get("MODES"): MODES={k:v for k,v in MODES.items() if k in os.environ["MODES"].split(",")}
 def corr(a,b):
     if len(a)<3: return float("nan")

@@ -27,6 +27,7 @@ def one(a):
     return [(int(TT[(y,doy)]//300)*300,W[(y,doy)],(ev,rev),rc,RC[(y,doy)][0],eto,RC[(y,doy)][1],1-__import__('math').exp(-E.RESIDUE_COVER_K*RC[(y,doy)][1])) for y,doy,ev,rev,eto,rc in S if (y,doy) in W and (y,doy) in RC]
 if __name__=="__main__":
     S=json.load(open("/tmp/w/s24.json"))
+    if os.environ.get("SITE"): S={os.environ["SITE"]:S[os.environ["SITE"]]}
     with Pool(4) as p: R=sum(p.map(one,list(S.items())),[])
     for lo in range(0,1800,300):
         q=[r for r in R if r[0]==lo]

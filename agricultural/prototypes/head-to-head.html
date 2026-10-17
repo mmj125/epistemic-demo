@@ -4716,7 +4716,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             n_min_pct = crop.get("n_min_conc", 0.0) * 100
             n_actual_pct = (canopy_n_kg_ha / (biomass * 100) if biomass > 1e-6
                             else crop["n_max_conc"] * 100)
-            if N_STRESS_AG_BASIS:
+            if crop.get("n_stress_ag_basis", N_STRESS_AG_BASIS):
                 # step 14: Cycles' stress is a function of the ABOVEGROUND nitrogen concentration over the critical curve at the
                 # plant's biomass (167k daily corn records, 28 sites): 0.764 x ((0.641 - r)/0.36)^0.9 between r = 0.641 and 0.281,
                 # flat below. Aboveground N is 0.87 to 0.89 of the plant total throughout the season.
@@ -4735,7 +4735,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             n_stress_prev = n_stress
             n_ratio_prev = _ratio
             _sf_now0 = shoot_fraction(ttf, crop["fsti"], crop["fstf"]); _rr0 = crop.get("root_retained_frac", 1.0)
-            demand_today_kg_ha = dGB_n_limited * (1.0 if _rr0 >= 1.0 else (_sf_now0 + (1.0 - _sf_now0) * _rr0)) * 100 * n_marginal_demand_pct(biomass * 10, crop) * N_DEMAND_SCALE
+            demand_today_kg_ha = dGB_n_limited * (1.0 if _rr0 >= 1.0 else (_sf_now0 + (1.0 - _sf_now0) * _rr0)) * 100 * n_marginal_demand_pct(biomass * 10, crop) * crop.get("n_demand_scale", N_DEMAND_SCALE)
             if n_pool_by_layer is not None:
                 # Real CropSyst-style min(demand, potential_uptake) (Eq. 26, Stockle/Martin/
                 # Campbell 1994) -- potential_uptake is however much of the pool currently
@@ -4773,7 +4773,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                         _avail = [no3_layers[i] * access[i] for i in range(len(layers))]
                         reach_no3 = sum(_avail)
                     reachable = n_nh4 + reach_no3
-                    _cap = reachable if N_UPTAKE_RATE_PER_DAY is None else reachable * N_UPTAKE_RATE_PER_DAY
+                    _ur = crop.get("n_uptake_rate", N_UPTAKE_RATE_PER_DAY)
+                    _cap = reachable if _ur is None else reachable * _ur
                     n_uptake_kg_ha = min(_cap, demand_today_kg_ha)
                     if reachable > 1e-9:
                         frac = n_uptake_kg_ha / reachable
