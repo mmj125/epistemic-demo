@@ -26,13 +26,14 @@ def one(a):
         for y,doy,eie,ns,pn in S: Ey.setdefault(y,{})[doy]=(eie,ns)
         for y in sorted(set(C)&set(Ey)):
             if len(C[y])<30 or len(Ey[y])<30: continue
-            out.append(dict(site=site,N=N,y=y,cy=summ(C[y]),en=summ(Ey[y]),gr=R[y]["grain"] if y in R else None))
+            cm=set(C[y])&set(Ey[y]); out.append(dict(site=site,N=N,y=y,cy=summ(C[y]),en=summ(Ey[y]),gr=R[y]["grain"] if y in R else None,se=sum((C[y][k][0]-Ey[y][k][0])**2 for k in cm),nn=len(cm)))
     return out
 if __name__=="__main__":
     S=json.load(open("/tmp/w/s24.json"))
     with Pool(4) as p: R=sum(p.map(one,list(S.items())),[])
     json.dump(R,open("scorecards/2026-10-17_corn_canopy_diag_24sites.json","w"))
     for N in (0,150):
+        _q=[x for x in R if x['N']==N]; print(f'N={N} daily canopy rms on matched days {(sum(x["se"] for x in _q)/sum(x["nn"] for x in _q))**.5:.4f}')
         r=[x for x in R if x["N"]==N and x["cy"]["up"] and x["en"]["up"] and x["cy"]["dn"] and x["en"]["dn"]]
         g=lambda f:[f(x) for x in r]
         print(f"N={N} site-years {len(r)}")

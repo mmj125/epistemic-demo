@@ -1460,6 +1460,25 @@ REFERENCE_DATA_DIR = os.environ.get("REF_DIR", "/tmp/cycles-run")  # set to a lo
 # 0.008 mm/day mean absolute error against real Cycles output.
 # ---------------------------------------------------------------------------
 
+RUE_DIFFUSE_A = 0.0   # 2026-10-17: Cycles' implied RUE rises with the diffuse share of radiation (SI: about 20% higher in diffuse regimes; measured on Cycles daily corn gain: 1.51 g/MJ at clearness 0.7+, 1.96 at <0.5, RUE = R0 (1 + 0.49 fd)); 0 = off
+RUE_DIFFUSE_FD_REF = 0.5   # reference diffuse fraction at which the multiplier is 1
+
+
+def clearness_diffuse_fraction(doy, lat_deg, rs):
+    """Erbs et al. (1982) daily diffuse fraction from the clearness index kt = Rs / Ra (Ra from latitude and day of year, the same extraterrestrial radiation eto_fao56 uses)."""
+    phi = math.radians(lat_deg)
+    dr = 1 + 0.033 * math.cos(2 * math.pi / 365 * doy)
+    decl = 0.409 * math.sin(2 * math.pi / 365 * doy - 1.39)
+    ws = math.acos(max(-1.0, min(1.0, -math.tan(phi) * math.tan(decl))))
+    ra = (24 * 60 / math.pi) * 0.0820 * dr * (ws * math.sin(phi) * math.sin(decl) + math.cos(phi) * math.cos(decl) * math.sin(ws))
+    kt = min(1.0, rs / ra) if ra > 0 else 0.0
+    if kt <= 0.22:
+        return 1 - 0.09 * kt
+    if kt <= 0.8:
+        return 0.9511 - 0.1604 * kt + 4.388 * kt ** 2 - 16.638 * kt ** 3 + 12.336 * kt ** 4
+    return 0.165
+
+
 def eto_fao56(doy, tmax, tmin, rs, rhmax, rhmin, wind_z, lat_deg, alt_m=0.0, wind_height_m=10.0):
     tmean = (tmax + tmin) / 2
     delta = 4098 * (0.6108 * math.exp(17.27 * tmean / (tmean + 237.3))) / (tmean + 237.3) ** 2
@@ -3019,6 +3038,8 @@ def canopy_cover(ttf_norm, eix=1.0, shape=DEFAULT_CANOPY_SHAPE):
     return eix / (1 + math.exp(a + b * ttf_norm) + math.exp(c + d * ttf_norm))
 
 
+ROOT_TTF_FULL = 0.5   # thermal-time fraction at which roots reach maximum depth (engine assumption; Cycles has a ROOT_PROGRESSION nudge parameter)
+CANOPY_INTEGRATED = False   # 2026-10-17 opt-in: integrate the derivative of Eq. 6 with stress slowing only the expansion part
 CANOPY_TWO_CLOCK = True   # 2026-10-14: expansion term on the stress-slowed canopy clock, senescence term on real thermal time (Cycles' unstressed corn matches eix 0.95 and the paper's decline -16 + 16x on thermal-time fraction)
 CANOPY_SHAPE_FORCE = (6, -20, -16, 16)   # default since 2026-10-14 (simultaneous calibration): the paper's own senescence constants, applied to all crops
 CANOPY_EIX_FORCE = 0.99
@@ -4695,6 +4716,9 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
 
 FORCE_SERIES = None   # module-swap diagnostic (2026-10-14): {year: {"canopy": {doy: v}, "water": {doy: mult}, "nstress": {doy: mult}}} from Cycles' own daily output; None = off
 _FORCE_CUR = None
+DIAG_BIO = None   # diagnostics: appends total biomass (Mg/ha, after the day's growth) in step with DIAG_STATE
+DIAG_EVAP = None   # appends (year, doy, soil evaporation mm, residue evaporation mm, ETo, residue cover) per in-season day; None = off
+DIAG_WATER = None   # appends (year, doy, water stress multiplier, thermal time) per day; None = off
 DIAG_STATE = None   # state_calibration.py: appends (year, doy, canopy, n_stress, plant_n_kg_ha) per day; None = off
 _DIAG_YEAR = None
 THETA_FORCE = None   # rebuild phase 2 (2026-10-16): {year: {doy: [theta per layer]}} from Cycles' dailyWater; when set, end-of-day layer moisture is overwritten with Cycles' value in every window (spin-up, season, fallow)
@@ -5254,6 +5278,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
 
     tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
     tt_canopy, n_stress_prev = 0.0, 1.0
+    _ei_state, _ttdev_prev = None, 0.0   # CANOPY_INTEGRATED state
     n_ratio_prev = 1.0
     water_stress_prev = 1.0
     eie_prev_day = 0.0
@@ -5522,14 +5547,26 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             break
         _shape = CANOPY_SHAPE_FORCE if CANOPY_SHAPE_FORCE is not None else crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE)
         _eix = crop["eix_cap"] if "eix_cap" in crop else (CANOPY_EIX_FORCE if CANOPY_EIX_FORCE is not None else crop.get("eix", 1.0))   # per-crop plateau (2026-10-17: wheat 0.86, Cycles' measured unstressed plateau)
-        if CANOPY_TWO_CLOCK:
+        if CANOPY_INTEGRATED:
+            # Integrated-derivative form (paper Eq. 6 text: 'the first derivative of Eq. (6) is used to estimate the rate of change'): the expansion part of the derivative is scaled by the stress
+            # rate, the senescence part is not. Offline test on 1776 Cycles corn site-years (corn_canopy_form_test_2026_10_17.py) cut daily canopy rms 0.136 -> 0.091 with Cycles' stress forced.
+            _a, _b, _c, _d = _shape
+            _x = tt_dev / crop["tt_maturity"]
+            if _ei_state is None:
+                _ei_state = _eix / (1 + math.exp(_a) + math.exp(_c))
+            _e1 = math.exp(_a + _b * _x); _e2 = math.exp(_c + _d * _x); _den = (1 + _e1 + _e2) ** 2
+            _dx = max(0.0, tt_dev - _ttdev_prev) / crop["tt_maturity"]
+            _ei_state = max(0.0, min(_eix, _ei_state + _eix * (-_b * _e1 * _nf * _wf - _d * _e2) / _den * _dx))
+            _ttdev_prev = tt_dev
+            _ei = _ei_state
+        elif CANOPY_TWO_CLOCK:
             _ei = canopy_cover_two(tt_canopy / crop["tt_maturity"], tt_dev / crop["tt_maturity"], _eix, _shape)
         else:
             _ei = canopy_cover(tt_canopy / crop["tt_maturity"], _eix, _shape)
         eie = 0.0 if tt_cum < crop.get("tt_emergence", 0.0) else effective_canopy_cover(_ei, crop.get("plant_density_factor", 1.0))
         if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("canopy", ()):
             eie = _FORCE_CUR["canopy"][w["doy"]]
-        root_depth = root_max_m * min(1.0, ttf / 0.5)
+        root_depth = root_max_m * min(1.0, ttf / ROOT_TTF_FULL)
 
         # Tillage's soil-moisture mixing happens once, on tillage_doy itself, before
         # today's irrigation check and water balance -- see mix_tilled_layers() above.
@@ -5659,8 +5696,10 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     no3_layers[0] += -_delta
                     n_no3 += -_delta
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
+        _w0 = sum(l["theta"] * l["thick"] for l in layers) if DIAG_EVAP is not None else 0.0
         soil_evaporation(layers, eto * (1.0 - res_cover_today), eie, precip_mm=w["pp"] + irrigation_mm - res_evap_today, de_state=de_state, theta_start=_th1_0, snow_day=w.get('snow_day', False),
                           use_cropsyst_formula=(soil_evap_model == "cropsyst"), fallow=False)
+        if DIAG_EVAP is not None: DIAG_EVAP.append((_DIAG_YEAR, w["doy"], (_w0 - sum(l["theta"] * l["thick"] for l in layers)) * 1000.0, res_evap_today, eto, res_cover_today))
 
         tmean = (w["tx"] + w["tn"]) / 2
         temp_factor = transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
@@ -5675,6 +5714,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         if VPD_CYCLES_EXACT:
             _vpd_pow, _heat_gt, _heat_f = 0.5, False, 1.0   # the paper's own exponent, no fitted heat penalty: they were compensating for a wrong VPD
         GR *= _heat_f
+        if RUE_DIFFUSE_A:
+            GR *= (1.0 + RUE_DIFFUSE_A * clearness_diffuse_fraction(w["doy"], crop["lat_deg"], w["solar"])) / (1.0 + RUE_DIFFUSE_A * RUE_DIFFUSE_FD_REF)
         if VPD_FAO56:
             # step 6: Cycles' vapor pressure deficit is the FAO-56 one: mean of the saturation pressures at tmax and tmin,
             # less the actual pressure from the humidity extremes. With it the implied transpiration-use efficiency of Cycles'
@@ -5862,7 +5903,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             dGB_n_limited = dGB_water_limited * (n_stress ** N_STRESS_GROWTH_POW)
             n_stress_prev = n_stress
             n_ratio_prev = _ratio
-            demand_today_kg_ha = dGB_n_limited * 100 * n_marginal_demand_pct(biomass * 10, crop) * N_DEMAND_SCALE
+            _sf_now0 = shoot_fraction(ttf, crop["fsti"], crop["fstf"]); _rr0 = crop.get("root_retained_frac", 1.0)
+            demand_today_kg_ha = dGB_n_limited * (1.0 if _rr0 >= 1.0 else (_sf_now0 + (1.0 - _sf_now0) * _rr0)) * 100 * n_marginal_demand_pct(biomass * 10, crop) * N_DEMAND_SCALE
             if n_pool_by_layer is not None:
                 # Real CropSyst-style min(demand, potential_uptake) (Eq. 26, Stockle/Martin/
                 # Campbell 1994) -- potential_uptake is however much of the pool currently
@@ -5933,7 +5975,11 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
 
         dGB = dGB_water_limited * (n_stress ** N_STRESS_GROWTH_POW)
         if DIAG_STATE is not None: DIAG_STATE.append((_DIAG_YEAR, w["doy"], eie, n_stress, canopy_n_kg_ha))
-        biomass += dGB
+        if DIAG_WATER is not None: DIAG_WATER.append((_DIAG_YEAR, w["doy"], water_stress, tt_cum, TRp, TR_actual))
+        _sf_now = shoot_fraction(ttf, crop["fsti"], crop["fstf"])
+        _rr = crop.get("root_retained_frac", 1.0)
+        biomass += dGB * (1.0 if _rr >= 1.0 else (_sf_now + (1.0 - _sf_now) * _rr))
+        if DIAG_BIO is not None: DIAG_BIO.append(biomass * 10.0)
         ag_biomass += dGB * shoot_fraction(ttf, crop["fsti"], crop["fstf"])
         if ag_biomass_at_flowering is None and (flowered if _V is not None else tt_cum >= crop["flowering_tt"]):
             ag_biomass_at_flowering = ag_biomass
