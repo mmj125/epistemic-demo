@@ -20,7 +20,7 @@ Goal: a from-scratch Python reimplementation of Cycles (`agricultural/prototypes
 
 **Done when** (Matt, 2026-10-17; my reading, confirm if wrong):
 1. Five crops reach correlation above 0.8 against Cycles on held-out sites, at multiple N rates where N matters.
-2. Leaching is much better (today: rms log error 0.6 at N=150 and 0.4 at N=400 on the 94 fresh sites; engine leaches about 0.7x Cycles at N=400).
+2. Leaching is much better (2026-10-17 end: rms log error 0.71 at N=150, 0.29 at N=400, 0.62 at N=0; N=0 and N=150 still over-leach 1.5x to 1.7x).
 
 Which five crops is not yet fixed. Candidates with Cycles reference: corn, soybean, winter wheat, silage corn, plus one more (sorghum or pasture species). Decide with Matt before building a reference for a new one.
 
@@ -37,8 +37,8 @@ Model only. No UI, pedagogy, lesson copy or classroom framing until the engine i
 8. Recommend only what is best, not what continues the thread.
 
 ### Current state (2026-10-17, held-out unless noted)
-- Corn, 94 fresh sites, continuous chain, no regional map, factor 1.0: grain MAE 0.444 / 0.936 / 0.742 Mg/ha at N=0/150/400, bias +0.07 / +0.21 / -0.18, correlation about 0.84 / 0.81 / 0.90.
-- Corn N demand: new-growth N concentration is read at the biomass the crop would have without N stress (paper Sec 2.5), scale 1.0, aboveground N stress law (REFIT row 14b), uptake about 3% of the pool per day (`n_demand_ref`, `n_stress_ag_basis`, `n_uptake_rate`).
+- Corn, 94 fresh sites, continuous chain, no regional map, factor 1.0: grain MAE 0.449 / 0.900 / 0.744 Mg/ha at N=0/150/400, bias +0.05 / -0.03 / -0.18, correlation about 0.84 / 0.81 / 0.90. Leaching rms log error 0.62 / 0.71 / 0.29 (mean 7.9 / 20.0 / 92.5 vs Cycles 4.6 / 13.3 / 84.8 kg N/ha); drainage already matches (site corr 0.99).
+- Corn N demand: new-growth N concentration is read at the biomass the crop would have without N stress (paper Sec 2.5), scale 0.75, net immobilization is drawn from NH4 then nitrate (`IMMOB_FROM_NO3`, paper Sec 2.6), aboveground N stress law (REFIT row 14b), uptake about 3% of the pool per day (`n_demand_ref`, `n_stress_ag_basis`, `n_uptake_rate`).
 - Wheat: canopy form H adopted (`canopy_form="H"`), documented harvest index law with real post-anthesis growth share, factor 1.0, 16 held-out sites N=0 MAE 0.369, N=150 1.318. Use `FALLN=60` for continuous wheat (spring-only N is bistable in Cycles).
 - Soybean: factor 1.0, harvest index fitted from Cycles (hi_x 0.5, hi_o 0.311, slope 0.58), N=0 bias -3.6%, site-mean MAE 0.23. Silage corn within 7 to 13% free, 1 to 3% with states forced.
 - Attribution (24 sites, corn): forcing Cycles' canopy removes 29/34/22% of grain MAE at N=0/150/400, N stress 10/15/1%, mineral pool 0/7/0%, water stress makes it worse (engine is under-stressed on water and compensated elsewhere). All four states forced still leave 13 to 47%: the daily growth conversion and level.
@@ -47,7 +47,7 @@ Model only. No UI, pedagogy, lesson copy or classroom framing until the engine i
 - Practical floor: Cycles disagrees with itself by MAE 0.17 (random 10% soil change), 0.74 at N=150 under a neighbouring weather cell, 1.4 under a neighbouring soil map unit. Engine N=150 error is 0.93.
 
 ### Next work, in order
-1. Leaching (Matt's second criterion): attribute leaching against Cycles' `N.txt` and `water.txt` (drainage, nitrate by layer, timing), at N=150 and 400, before changing anything.
+1. Leaching (Matt's second criterion): drainage is right and nitrate immobilization fixed; remaining N=0/150 over-leaching, look at nitrate by layer and month at more sites (`leach_layers_2026_10_17.py`, `leach_decomp_2026_10_17.py`), then denitrification at wet sites.
 2. Year-to-year N stress at N=150: mineralization versus uptake timing, using Cycles' daily mineral N.
 3. Bring soybean, wheat, silage corn and the fifth crop to the same held-out standard (correlation above 0.8, several N rates).
 4. Replace Rock Springs tripwires with multi-site regression guards; final report on the locked holdout.

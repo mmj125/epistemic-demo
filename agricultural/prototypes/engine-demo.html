@@ -1410,6 +1410,7 @@ def infiltrate(layers, water_in_mm, curve_number, slope_pct, n_by_layer=None):
     s_mm = retention_param_mm(layers, curve_number)
     runoff = runoff_mm(water_in_mm, s_mm, slope_pct)
     drainage_mm, n_leached = redistribute(layers, water_in_mm - runoff, n_by_layer=n_by_layer)
+    if DIAG_DRAIN is not None: DIAG_DRAIN.append((_DIAG_YEAR, drainage_mm, n_leached))
     return drainage_mm, runoff, n_leached
 
 
@@ -3962,6 +3963,22 @@ def n2o_from_denitrification(denitrified_kg_ha, no3_before_kg_ha):
     return denitrified_kg_ha * min(N2O_DENIT_CAP, N2O_DENIT_A * no3_before_kg_ha ** N2O_DENIT_B)
 
 
+IMMOB_FROM_NO3 = True   # opt-in: net immobilization (negative net mineralization) is drawn from NH4 first, then nitrate top-down (paper Sec 2.6: the microbial pool assimilates N from the ammonium and nitrate pools); False = NH4 only, the shortfall is dropped
+def apply_net_min(nh4, no3, no3_layers, smin):
+    """Returns (nh4, no3) after a day's net mineralization. Positive goes to NH4. Negative takes NH4 first then nitrate (top layer down) when IMMOB_FROM_NO3, else only NH4 and the remainder is dropped."""
+    if smin >= 0 or not IMMOB_FROM_NO3:
+        return max(0.0, nh4 + smin), no3
+    need = -smin; t = min(nh4, need); nh4 -= t; need -= t
+    if need > 0:
+        if no3_layers is not None:
+            for i in range(len(no3_layers)):
+                t = min(no3_layers[i], need); no3_layers[i] -= t; need -= t
+                if need <= 0: break
+            no3 = sum(no3_layers)
+        else:
+            t = min(no3, need); no3 -= t
+    return nh4, no3
+
 def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=75.0, slope_pct=0.0,
                         lat_deg=40.6875, de_state=None, model_denitrification=True, model_volatilization=True):
     """Bare-soil water balance PLUS the nitrogen dynamics that keep running with no crop: sixpool
@@ -3991,7 +4008,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], lat_deg)
         soil_evaporation(layers, eto * (1.0 - _rc), 0.0, precip_mm=w["pp"] - _re, de_state=de_state, fallow=True, theta_start=_th1_0, snow_day=w.get('snow_day', False),
                          summer_time=summer_time_from_doy(w["doy"]))
-        _water_hook(layers, w["doy"])
+        _water_hook(layers, w["doy"], no3_layers)
         tmean = (w["tx"] + w["tn"]) / 2.0
         nstate["tsoil_lag"] += SOIL_TEMP_LAG_K * (tmean - nstate["tsoil_lag"])
         if sixpool_state is not None:
@@ -4003,7 +4020,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             _smin = sixpool_step(sixpool_state, tmean, relwet, 0.0, 1.0, layers)
             if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("netmin", ()):
                 _smin = _FORCE_CUR["netmin"][w["doy"]]   # diagnostic: Cycles' own net mineralization flux in the fallow windows too
-            nstate["n_nh4"] = max(0.0, nstate["n_nh4"] + _smin)
+            nstate["n_nh4"], nstate["n_no3"] = apply_net_min(nstate["n_nh4"], nstate["n_no3"], no3_layers, _smin)
         if NITRIF_RATIO_MODEL:
             nit = nitrification_flux_ratio(nstate["n_nh4"], (no3_layers[0] if no3_layers is not None else nstate["n_no3"]), nstate["tsoil_lag"])
         elif NITRIF_FE:
@@ -4185,6 +4202,7 @@ DIAG_AG = None   # diagnostics: appends aboveground biomass (Mg/ha) in step with
 DIAG_BIO = None   # diagnostics: appends total biomass (Mg/ha, after the day's growth) in step with DIAG_STATE
 DIAG_EVAP = None   # appends (year, doy, soil evaporation mm, residue evaporation mm, ETo, residue cover) per in-season day; None = off
 DIAG_WATER = None   # appends (year, doy, water stress multiplier, thermal time) per day; None = off
+DIAG_DRAIN = None   # appends (year, drainage mm, nitrate leached kg/ha) per infiltrate() call; None = off
 DIAG_STATE = None   # state_calibration.py: appends (year, doy, canopy, n_stress, plant_n_kg_ha) per day; None = off
 _DIAG_YEAR = None
 THETA_FORCE = None   # rebuild phase 2 (2026-10-16): {year: {doy: [theta per layer]}} from Cycles' dailyWater; when set, end-of-day layer moisture is overwritten with Cycles' value in every window (spin-up, season, fallow)
@@ -4213,7 +4231,8 @@ DIAG_RESP = None     # rebuild phase 4: list of (year, respired C Mg/ha, net N m
 DIAG_THETA = None    # rebuild phase 2: when a list, appends (year, doy, [theta per layer]) at end of every simulated day, so the daily layer water state can be scored against Cycles
 
 
-def _water_hook(layers, doy):
+DIAG_NO3 = None   # appends (year, doy, [nitrate kg/ha per layer]) per simulated day (per-layer nitrate mode only); None = off
+def _water_hook(layers, doy, no3_layers=None):
     if THETA_FORCE is not None:
         s = THETA_FORCE.get(_DIAG_YEAR)
         if s is not None and doy in s:
@@ -4221,6 +4240,8 @@ def _water_hook(layers, doy):
                 l["theta"] = t
     if DIAG_THETA is not None:
         DIAG_THETA.append((_DIAG_YEAR, doy, [l["theta"] for l in layers]))
+    if DIAG_NO3 is not None and no3_layers is not None:
+        DIAG_NO3.append((_DIAG_YEAR, doy, list(no3_layers)))
 DIAG_GROWTH = None   # temporary diagnostic list (floor_growth.py): appends (doy, GR, GT, dGB_water_limited) per day; None = off
 
 
@@ -5224,7 +5245,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("water", ()):
             water_stress = _FORCE_CUR["water"][w["doy"]]
             TR_actual = TRp * water_stress
-        _water_hook(layers, w["doy"])
+        _water_hook(layers, w["doy"], no3_layers)
         water_stress_prev = water_stress
         # tr_max_mm_day: real, disclosed per-crop TRANSPIRATION_MAX from GenericCrops.crop
         # (corn/silage corn 10, soybean/wheat 8 mm/day), a physical ceiling on daily
@@ -5315,7 +5336,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 if n_pool_by_layer is not None:
                     n_pool_by_layer[0] = max(0.0, n_pool_by_layer[0] + background_today)
                 elif n_nh4 is not None:
-                    n_nh4 = max(0.0, n_nh4 + background_today)  # background mineralization is
+                    n_nh4, n_no3 = apply_net_min(n_nh4, n_no3, no3_layers, background_today)  # background mineralization is
                     # ammonification -- NH4 first, by definition -- see nh4_no3_split's docstring
                 else:
                     n_pool = max(0.0, n_pool + background_today)
