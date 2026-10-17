@@ -1802,6 +1802,7 @@ def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
 # re-running run_validation.py / run_validation_rotation2.py unchanged.
 N_UPTAKE_RATE_PER_DAY = None  # None = uptake limited only by demand (validated default); else also capped at this fraction/day of the reachable mineral N pool (nitrate_per_layer path)
 N_DEMAND_SCALE = 0.874562  # 2026-10-15 N-loss fit (row 46): leaching at N=400 went from 0.26x to 1.01x of Cycles on held-out sites with yield unchanged; was 1.2549
+GROWTH_CANOPY_LAG = 1.0   # days between the reported canopy and the canopy that drives radiation-limited growth (1 = previous day; 1.5 = mean of the previous two days); per-crop key growth_canopy_lag overrides
 GROWTH_PREV_CANOPY = True   # step 6: radiation-limited growth uses the canopy at the start of the day (previous day's)
 VPD_DAYTIME_ALPHA = 0.7   # step 6b: saturation pressure at alpha*tmax+(1-alpha)*tmin (0.7 reproduces Cycles' reported VPD to rms 0.09 kPa over 4 sites)
 VPD_FAO56 = True   # step 6
@@ -1832,6 +1833,7 @@ O2_STRESS_POW = 2.0
 GROWTH_TTF_SLOPE = 0.0   # 2026-10-15 fit: daily growth multiplier 1 + slope*(ttf-0.5); Cycles' efficiency rises through the season (engine +15-19% early, -5-11% late)
 N_STRESS_GROWTH_POW = 1.0   # 2026-10-15 fit: growth uses n_stress**pow; Cycles grows ~13% more under N stress than (1-stress) x unstressed growth
 N_STRESS_ZERO_RATIO = 0.86  # was 0.62; refit 2026-10-12 with SIXPOOL_ML_N_A 76 on 28 sites (fertilized corn bias -0.36 to +0.11)
+N_STRESS_CRIT_FLOOR_MGHA = None   # biomass floor of the critical curve used for the N stress ratio only (None = NCRIT_FLOOR_MGHA); Cycles' implied critical concentration keeps rising below 1 Mg/ha (6.2% at 0.6-1, 7.1% at 0.3-0.6 against the 5.5% cap)
 NCRIT_FLOOR_MGHA = 1.0  # dilution curve is flat (at N_MAX_CONCENTRATION) below this biomass; standard convention
 
 # Background soil-supplied nitrogen from organic matter mineralization -- a real,
@@ -2681,7 +2683,7 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
     return total
 
 
-def n_critical_pct(biomass_mgha, crop):
+def n_critical_pct(biomass_mgha, crop, floor=None):
     """Whole-plant average/critical N concentration (%) at the given total biomass --
     the standard dilution-curve quantity, %Nc(W) = a*W^-b. Used two ways in
     simulate_season(): as the day-by-day stress-comparison THRESHOLD (is the plant's own
@@ -2690,8 +2692,9 @@ def n_critical_pct(biomass_mgha, crop):
     not this whole-plant average, is what a day-by-day uptake calculation should use for
     demand sizing, to avoid double-counting already-accumulated tissue's N."""
     biomass_mgha = max(biomass_mgha, 0.01)
-    if biomass_mgha < NCRIT_FLOOR_MGHA:
-        return crop["n_max_conc"] * 100
+    _fl = NCRIT_FLOOR_MGHA if floor is None else floor
+    if biomass_mgha < _fl:
+        return crop["n_max_conc"] * 100 * (_fl ** (-crop["n_dilution_slope"]) if floor is not None else 1.0)
     return crop["n_max_conc"] * 100 * biomass_mgha ** (-crop["n_dilution_slope"])
 
 
@@ -3933,6 +3936,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     n_ratio_prev = 1.0
     water_stress_prev = 1.0
     eie_prev_day = 0.0
+    eie_prev_day2 = 0.0
     ag_biomass_at_flowering = None  # captured the first day tt_cum crosses flowering_tt --
     # see the real f_G harvest-index fix below (Kemanian et al. 2007) for why.
     n_tracking_active = (not crop.get("legume", False)) and (
@@ -4360,7 +4364,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         temp_factor = transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
         rad_temp_factor = radiation_temp_factor(tmean, crop["tr_min_t"], crop.get("rad_temp_floor", 0.0),
                                                  crop.get("rad_temp_plateau_t", crop["tr_threshold_t"]))
-        GR = crop["rue"] * rad_temp_factor * (eie_prev_day if GROWTH_PREV_CANOPY else eie) * w["solar"]
+        GR = crop["rue"] * rad_temp_factor * (((1.0 - (crop.get("growth_canopy_lag", GROWTH_CANOPY_LAG) - 1.0)) * eie_prev_day + (crop.get("growth_canopy_lag", GROWTH_CANOPY_LAG) - 1.0) * eie_prev_day2) if GROWTH_PREV_CANOPY else eie) * w["solar"]
         # 2026-10-15 c1 water-regime package (REFIT_PLAN rows 39-40): per-crop opt-in via crop["c1_water"]; corn and soybean carry it
         _t0 = C1_HEAT_T0 if crop.get("c1_water") else HEAT_T0
         _vpd_pow = C1_VPD_POW if crop.get("c1_water") else VPD_POW
@@ -4423,7 +4427,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             GT *= (Da / VPD_D0) ** (0.5 - _vpd_pow)
         if _heat_gt:
             GT *= _heat_f
-        dGB_water_limited = max(0.0, min(GR, GT)) * crop.get("net_growth_fraction", NET_GROWTH_FRACTION) / 1000 * (1.0 + GROWTH_TTF_SLOPE * (ttf - 0.5))
+        dGB_water_limited = max(0.0, min(GR, GT)) * crop.get("net_growth_fraction", NET_GROWTH_FRACTION) / 1000 * (1.0 + GROWTH_TTF_SLOPE * (ttf - 0.5)) * (crop["growth_stage_c"] * (1.0 - crop["growth_stage_a"] * math.exp(-ttf / crop["growth_stage_tau"])) if "growth_stage_a" in crop else 1.0)
         if _V is not None and flowered:
             # post-flowering temperature factor: Cycles' daily temperature_factor column is 0.99 below ~19 C mean and falls to 0.94 / 0.83 / 0.65 / 0.38 at 20.5 / 23.5 / 26.5 / 29.5 C
             # (5,376 post-flowering days, 3 sites); the disclosed TEMPERATURE_POST_FLOWERING optimum (20) and maximum (35) with 1.0 below the optimum reproduce it (0.93 / 0.77 / 0.57 / 0.37)
@@ -4443,6 +4447,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 _den += _ov
             if _den > 0.0:
                 dGB_water_limited *= 1.0 - min(0.95, O2_STRESS_SCALE * _num / _den)
+        eie_prev_day2 = eie_prev_day
         eie_prev_day = eie
 
         n_stress = 1.0
@@ -4536,7 +4541,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             # nitrogen in, since every one of them was running this same buggy math.
             if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("plantn", ()):
                 canopy_n_kg_ha = _FORCE_CUR["plantn"][w["doy"]]   # diagnostic: plant N content forced to Cycles' own (force_uptake.py)
-            n_crit_pct = n_critical_pct(biomass * 10, crop)
+            n_crit_pct = n_critical_pct(biomass * 10, crop, crop.get("n_stress_crit_floor", N_STRESS_CRIT_FLOOR_MGHA))
             n_min_pct = crop.get("n_min_conc", 0.0) * 100
             n_actual_pct = (canopy_n_kg_ha / (biomass * 100) if biomass > 1e-6
                             else crop["n_max_conc"] * 100)
