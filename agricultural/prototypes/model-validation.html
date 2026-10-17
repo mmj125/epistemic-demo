@@ -4716,6 +4716,7 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
 
 FORCE_SERIES = None   # module-swap diagnostic (2026-10-14): {year: {"canopy": {doy: v}, "water": {doy: mult}, "nstress": {doy: mult}}} from Cycles' own daily output; None = off
 _FORCE_CUR = None
+DIAG_AG = None   # diagnostics: appends aboveground biomass (Mg/ha) in step with DIAG_BIO
 DIAG_BIO = None   # diagnostics: appends total biomass (Mg/ha, after the day's growth) in step with DIAG_STATE
 DIAG_EVAP = None   # appends (year, doy, soil evaporation mm, residue evaporation mm, ETo, residue cover) per in-season day; None = off
 DIAG_WATER = None   # appends (year, doy, water stress multiplier, thermal time) per day; None = off
@@ -5986,6 +5987,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         biomass += dGB * (1.0 if _rr >= 1.0 else (_sf_now + (1.0 - _sf_now) * _rr))
         if DIAG_BIO is not None: DIAG_BIO.append(biomass * 10.0)
         ag_biomass += dGB * shoot_fraction(ttf, crop["fsti"], crop["fstf"])
+        if DIAG_AG is not None: DIAG_AG.append(ag_biomass * 10.0)
         if ag_biomass_at_flowering is None and (flowered if _V is not None else tt_cum >= crop["flowering_tt"]):
             ag_biomass_at_flowering = ag_biomass
 

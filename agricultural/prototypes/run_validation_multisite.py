@@ -168,7 +168,7 @@ if __name__=="__main__":
                                   ("plant_doy",lambda y:doy_of(H[y]["plant"]),lambda y:E[y]["plant_doy"])]:
                     a=[gr(y) for y in ys]; b=[ge(y) for y in ys]
                     row[var]=dict(real=statistics.mean(a),model=statistics.mean(b),mae=statistics.mean(abs(x-z) for x,z in zip(a,b)),corr=corr(a,b),n=len(ys))
-                    if var=="grain": row[var]["pairs"]=[[round(x,4),round(z,4)] for x,z in zip(a,b)]   # (Cycles, engine) per year, for global re-centering in eval_big.py
+                    if var in ("grain","total_biomass"): row[var]["pairs"]=[[round(x,4),round(z,4)] for x,z in zip(a,b)]   # (Cycles, engine) per year, for global re-centering in eval_big.py
                 if True:
                     for k,ek in [("leach","n_leached_kg_ha"),("volat","n_volatilized_pool_kg_ha"),("denit","n_denitrified_kg_ha"),("n2o","n2o_emitted_kg_ha")]:
                         yy=[y for y in ys if y in A]; a=[A[y][k] for y in yy]; b=[E[y].get(ek,0.0) for y in yy]

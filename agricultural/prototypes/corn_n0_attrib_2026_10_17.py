@@ -2,7 +2,7 @@
 and within-site correlation versus Cycles v1.5.20, to see which state owns the N=0 gap (engine over-yields by about 0.8 Mg/ha). Modes: free, netmin, minn (mineral N pool), nstress, canopy, nstress+canopy,
 all (canopy, water, nstress, wclock, nclock, netmin, minn). Usage: python3 corn_n0_attrib_2026_10_17.py"""
 import os,sys,json,shutil,statistics as st
-os.environ["N_LEVELS"]="0,150"; os.environ.setdefault("REGIONAL","0"); sys.path.insert(0,'.')
+os.environ["N_LEVELS"]=os.environ.get("NS","0,150"); os.environ.setdefault("REGIONAL","0"); sys.path.insert(0,'.')
 import run_validation_multisite as m, cycles_engine_validate as E, forcelib
 from mask_attrib_2026_10_16 import harv
 from multiprocessing import Pool
@@ -18,7 +18,7 @@ def one(a):
     site,(lat,lon)=a
     wx,_=m.fd.resolve_field_weather(lat,lon); soil,_,_=m.fd.resolve_field_soil(lat,lon); cl=m.lat_of(lat,lon); m.REG_LON=lon
     m.write_inputs(site,lat,lon,wx,soil,cl); out={}
-    for N in (0,150):
+    for N in [int(x) for x in os.environ.get('NS','0,150').split(',')]:
         subprocess.run(["./Cycles",f"{site}N{N}"],cwd=CY,capture_output=True); d=f"{CY}/output/{site}N{N}/"
         H=harv(d); F=forcelib.force(site,N,("wclock","canopy","water","nstress","netmin","minn")); shutil.rmtree(d,ignore_errors=True)
         for name,ks in MODES.items():
@@ -28,10 +28,10 @@ def one(a):
             out[f"N{N}|{name}"]=dict(mae=st.mean(abs(i-j) for i,j in zip(x,z)),bias=st.mean(j-i for i,j in zip(x,z)),corr=corr(x,z),cg=st.mean(x))
     return site,out
 if __name__=="__main__":
-    S=json.load(open("/tmp/w/s24.json"))
+    S=json.load(open(os.environ.get("SFILE","/tmp/w/s24.json")))
     with Pool(4) as p: R=p.map(one,list(S.items()))
-    json.dump(R,open("scorecards/2026-10-17_corn_n0_attrib_24sites.json","w"))
-    for N in (0,150):
+    json.dump(R,open(os.environ.get("AOUT","scorecards/2026-10-17_corn_n0_attrib_24sites.json"),"w"))
+    for N in [int(x) for x in os.environ.get('NS','0,150').split(',')]:
         f=st.mean(o[f"N{N}|free"]["mae"] for _,o in R)
         for k in MODES:
             g=lambda q:st.mean(o[f"N{N}|{k}"][q] for _,o in R); c=st.mean(o[f"N{N}|{k}"]["corr"] for _,o in R if o[f"N{N}|{k}"]["corr"]==o[f"N{N}|{k}"]["corr"])
