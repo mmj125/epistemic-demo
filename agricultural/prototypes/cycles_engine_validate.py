@@ -3345,6 +3345,7 @@ def simulate_season_with_leadin(weather_by_year, year, crop, lead_years=2, plant
 
 FORCE_SERIES = None   # module-swap diagnostic (2026-10-14): {year: {"canopy": {doy: v}, "water": {doy: mult}, "nstress": {doy: mult}}} from Cycles' own daily output; None = off
 _FORCE_CUR = None
+DIAG_BIO = None   # diagnostics: appends total biomass (Mg/ha, after the day's growth) in step with DIAG_STATE
 DIAG_STATE = None   # state_calibration.py: appends (year, doy, canopy, n_stress, plant_n_kg_ha) per day; None = off
 _DIAG_YEAR = None
 THETA_FORCE = None   # rebuild phase 2 (2026-10-16): {year: {doy: [theta per layer]}} from Cycles' dailyWater; when set, end-of-day layer moisture is overwritten with Cycles' value in every window (spin-up, season, fallow)
@@ -4584,6 +4585,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         dGB = dGB_water_limited * (n_stress ** N_STRESS_GROWTH_POW)
         if DIAG_STATE is not None: DIAG_STATE.append((_DIAG_YEAR, w["doy"], eie, n_stress, canopy_n_kg_ha))
         biomass += dGB
+        if DIAG_BIO is not None: DIAG_BIO.append(biomass * 10.0)
         ag_biomass += dGB * shoot_fraction(ttf, crop["fsti"], crop["fstf"])
         if ag_biomass_at_flowering is None and (flowered if _V is not None else tt_cum >= crop["flowering_tt"]):
             ag_biomass_at_flowering = ag_biomass
