@@ -20,7 +20,7 @@ def one(a):
     E.FORCE_SERIES={y:{"canopy":v["canopy"]} for y,v in F.items()}
     E.DIAG_WATER=[]; m.engine(site,wx,soil,cl,N,"leadin"); S=E.DIAG_WATER; E.DIAG_WATER=None; E.FORCE_SERIES=None
     out=[]
-    for y,doy,w,tt,trp,tra in S:
+    for y,doy,w,tt,trp,tra,_td in S:
         if y in C and doy in C[y] and C[y][doy][3] is not None:
             c=C[y][doy]; out.append((int(c[1]//300)*300,c[0],w,c[2],trp,c[3],tra))
     return out

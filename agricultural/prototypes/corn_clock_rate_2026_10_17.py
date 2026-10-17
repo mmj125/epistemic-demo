@@ -15,7 +15,7 @@ def one(a):
             dt=datetime.date.fromisoformat(x['date']); C.setdefault(dt.year,{})[dt.timetuple().tm_yday]=(1-float(x['nitrogen_stress'])/100,1-float(x['water_stress'])/100,float(x['thermal_time']))
         shutil.rmtree(d,ignore_errors=True)
         E.DIAG_STATE=[]; E.DIAG_WATER=[]; m.engine(site,wx,soil,cl,N,"leadin"); S=E.DIAG_STATE; Wt=E.DIAG_WATER; E.DIAG_STATE=None; E.DIAG_WATER=None
-        ew={(y,doy):w for y,doy,w,tt,trp,tra in Wt}
+        ew={(y,doy):w for y,doy,w,tt,trp,tra,_td in Wt}
         for y,doy,eie,ns,pn in S:
             if y in C and doy in C[y] and (y,doy) in ew:
                 c=C[y][doy]; out.append((site,N,int(c[2]//300)*300,c[0]**3.25*c[1]**1.35,ns**3.25*ew[(y,doy)]**1.35,c[0],ns,c[1],ew[(y,doy)]))

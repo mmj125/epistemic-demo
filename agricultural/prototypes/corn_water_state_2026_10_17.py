@@ -15,7 +15,7 @@ def one(a):
     shutil.rmtree(d,ignore_errors=True)
     E.DIAG_WATER=[]; m.engine(site,wx,soil,cl,N,"leadin"); S=E.DIAG_WATER; E.DIAG_WATER=None
     out=[]
-    for y,doy,w,tt in S:
+    for y,doy,w,tt,*_ in S:
         if y in C and doy in C[y]:
             out.append((int(C[y][doy][1]//300)*300,C[y][doy][0],w))
     return out

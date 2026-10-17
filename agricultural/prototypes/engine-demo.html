@@ -4737,7 +4737,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
 
     tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
     tt_canopy, n_stress_prev = 0.0, 1.0
-    _ei_state, _ttdev_prev = None, 0.0   # CANOPY_INTEGRATED state
+    _ei_state, _ttdev_prev, _xc_h = None, 0.0, 0.0   # integrated canopy state
     n_ratio_prev = 1.0
     water_stress_prev = 1.0
     eie_prev_day = 0.0
@@ -5006,16 +5006,20 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             break
         _shape = CANOPY_SHAPE_FORCE if CANOPY_SHAPE_FORCE is not None else crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE)
         _eix = crop["eix_cap"] if "eix_cap" in crop else (CANOPY_EIX_FORCE if CANOPY_EIX_FORCE is not None else crop.get("eix", 1.0))   # per-crop plateau (2026-10-17: wheat 0.86, Cycles' measured unstressed plateau)
-        if CANOPY_INTEGRATED:
-            # Integrated-derivative form (paper Eq. 6 text: 'the first derivative of Eq. (6) is used to estimate the rate of change'): the expansion part of the derivative is scaled by the stress
-            # rate, the senescence part is not. Offline test on 1776 Cycles corn site-years (corn_canopy_form_test_2026_10_17.py) cut daily canopy rms 0.136 -> 0.091 with Cycles' stress forced.
+        _form = crop.get("canopy_form", "D" if CANOPY_INTEGRATED else "closed")
+        if _form in ("D", "H"):
+            # Integrated-derivative forms (paper Eq. 6 text: 'the first derivative of Eq. (6) is used to estimate the rate of change ... the rate is reduced by N stress'). The expansion part of the
+            # derivative is scaled by the stress rate, the senescence part is not. D evaluates the expansion derivative at the thermal clock (corn: offline daily canopy rms 0.136 -> 0.086 on 1776 Cycles
+            # site-years with Cycles' stress forced); H evaluates it at the stress-slowed clock so a stressed canopy can catch up once stress eases (winter wheat: 0.200 -> 0.159 against 0.169 for D).
             _a, _b, _c, _d = _shape
             _x = tt_dev / crop["tt_maturity"]
             if _ei_state is None:
-                _ei_state = _eix / (1 + math.exp(_a) + math.exp(_c))
-            _e1 = math.exp(_a + _b * _x); _e2 = math.exp(_c + _d * _x); _den = (1 + _e1 + _e2) ** 2
+                _ei_state = _eix / (1 + math.exp(_a) + math.exp(_c)); _xc_h = _x
             _dx = max(0.0, tt_dev - _ttdev_prev) / crop["tt_maturity"]
+            _xe = _xc_h if _form == "H" else _x
+            _e1 = math.exp(_a + _b * _xe); _e2 = math.exp(_c + _d * _x); _den = (1 + _e1 + _e2) ** 2
             _ei_state = max(0.0, min(_eix, _ei_state + _eix * (-_b * _e1 * _nf * _wf - _d * _e2) / _den * _dx))
+            _xc_h += _dx * _nf * _wf
             _ttdev_prev = tt_dev
             _ei = _ei_state
         elif CANOPY_TWO_CLOCK:
@@ -5435,7 +5439,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
 
         dGB = dGB_water_limited * (n_stress ** N_STRESS_GROWTH_POW)
         if DIAG_STATE is not None: DIAG_STATE.append((_DIAG_YEAR, w["doy"], eie, n_stress, canopy_n_kg_ha))
-        if DIAG_WATER is not None: DIAG_WATER.append((_DIAG_YEAR, w["doy"], water_stress, tt_cum, TRp, TR_actual))
+        if DIAG_WATER is not None: DIAG_WATER.append((_DIAG_YEAR, w["doy"], water_stress, tt_cum, TRp, TR_actual, tt_dev))
         _sf_now = shoot_fraction(ttf, crop["fsti"], crop["fstf"])
         _rr = crop.get("root_retained_frac", 1.0)
         biomass += dGB * (1.0 if _rr >= 1.0 else (_sf_now + (1.0 - _sf_now) * _rr))

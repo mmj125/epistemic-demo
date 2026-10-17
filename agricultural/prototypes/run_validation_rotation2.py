@@ -80,7 +80,8 @@ SOYBEAN = dict(
                # 0.871 -> 0.950, the second-largest jump this mechanism produced (after corn's
                # own 0.505 -> 0.691) -- re-derived calibration_factor below for the real mean shift.
 
-WHEAT = dict(tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
+WHEAT = dict(canopy_form="H",  # 2026-10-17: integrated-derivative canopy, expansion on the stress-slowed clock (32 held-out sites, N=150 MAE 0.950 -> 0.879, paired +0.071 [+0.043,+0.104], 26/32 better; N=0 neutral)
+    tt_maturity=1800, flowering_tt=1250, base_t=0, opt_t=20, max_t=35,
              rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=2.5, fsti=0.45, fstf=0.95,  # 2026-10-17: documented slope m(1-Hmin)/(Hmax-Hmin)=2.5 and the real f_G (the thermal-time exemption is gone, the winter phenology it was covering for is fixed); calibration_factor 1.0,
 
              kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=LAT,

@@ -4,7 +4,8 @@ import os,sys,json,csv,datetime,shutil,subprocess,statistics as st
 os.environ["N_LEVELS"]="0,150"; os.environ.setdefault("REGIONAL","0"); sys.path.insert(0,'.')
 import run_validation_multisite_wheat as W, run_validation_multisite as m, cycles_engine_validate as E
 from multiprocessing import Pool
-CY=m.CY; KEYS={'K':'nclock','L':'wclock','N':'nstress','C':'canopy'}; MODES=['','K','L','KL','N','KLN','C','CN']
+CY=m.CY; KEYS={'K':'nclock','L':'wclock','N':'nstress','C':'canopy'}; MODES=os.environ.get('WMODES','').split(',') if os.environ.get('WMODES') is not None and os.environ.get('WMODES')!='-' else ['','K','L','KL','N','KLN','C','CN']
+if os.environ.get('WMODES')=='': MODES=['']
 def series(fs,N):
     subprocess.run(["./Cycles",f"{fs}N{N}"],cwd=CY,capture_output=True); d=f"{CY}/output/{fs}N{N}/"; F={}
     for x in csv.DictReader(open(d+"dailyWinterWheat.csv")):
@@ -31,7 +32,7 @@ def one(a):
 if __name__=="__main__":
     S=json.load(open("sitesets/fresh94.json")); ks=sorted(S)[int(os.environ.get("OFF","0"))::6][:16]
     with Pool(4) as p: R=p.map(one,[(k,S[k]) for k in ks])
-    json.dump(R,open("scorecards/2026-10-17_wheat_coupling_16sites.json","w"))
+    json.dump(R,open(os.environ.get("WOUT","scorecards/2026-10-17_wheat_coupling_16sites.json"),"w"))
     for N in (0,150):
         base=st.mean(o[f"N{N}|free"]["mae"] for _,o in R); ref=st.mean(o[f"N{N}|free"]["mean"] for _,o in R)
         for mode in MODES:
