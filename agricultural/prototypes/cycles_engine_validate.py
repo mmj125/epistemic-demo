@@ -110,6 +110,25 @@ REFERENCE_DATA_DIR = os.environ.get("REF_DIR", "/tmp/cycles-run")  # set to a lo
 # 0.008 mm/day mean absolute error against real Cycles output.
 # ---------------------------------------------------------------------------
 
+RUE_DIFFUSE_A = 0.0   # 2026-10-17: Cycles' implied RUE rises with the diffuse share of radiation (SI: about 20% higher in diffuse regimes; measured on Cycles daily corn gain: 1.51 g/MJ at clearness 0.7+, 1.96 at <0.5, RUE = R0 (1 + 0.49 fd)); 0 = off
+RUE_DIFFUSE_FD_REF = 0.5   # reference diffuse fraction at which the multiplier is 1
+
+
+def clearness_diffuse_fraction(doy, lat_deg, rs):
+    """Erbs et al. (1982) daily diffuse fraction from the clearness index kt = Rs / Ra (Ra from latitude and day of year, the same extraterrestrial radiation eto_fao56 uses)."""
+    phi = math.radians(lat_deg)
+    dr = 1 + 0.033 * math.cos(2 * math.pi / 365 * doy)
+    decl = 0.409 * math.sin(2 * math.pi / 365 * doy - 1.39)
+    ws = math.acos(max(-1.0, min(1.0, -math.tan(phi) * math.tan(decl))))
+    ra = (24 * 60 / math.pi) * 0.0820 * dr * (ws * math.sin(phi) * math.sin(decl) + math.cos(phi) * math.cos(decl) * math.sin(ws))
+    kt = min(1.0, rs / ra) if ra > 0 else 0.0
+    if kt <= 0.22:
+        return 1 - 0.09 * kt
+    if kt <= 0.8:
+        return 0.9511 - 0.1604 * kt + 4.388 * kt ** 2 - 16.638 * kt ** 3 + 12.336 * kt ** 4
+    return 0.165
+
+
 def eto_fao56(doy, tmax, tmin, rs, rhmax, rhmin, wind_z, lat_deg, alt_m=0.0, wind_height_m=10.0):
     tmean = (tmax + tmin) / 2
     delta = 4098 * (0.6108 * math.exp(17.27 * tmean / (tmean + 237.3))) / (tmean + 237.3) ** 2
@@ -4326,6 +4345,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         if VPD_CYCLES_EXACT:
             _vpd_pow, _heat_gt, _heat_f = 0.5, False, 1.0   # the paper's own exponent, no fitted heat penalty: they were compensating for a wrong VPD
         GR *= _heat_f
+        if RUE_DIFFUSE_A:
+            GR *= (1.0 + RUE_DIFFUSE_A * clearness_diffuse_fraction(w["doy"], crop["lat_deg"], w["solar"])) / (1.0 + RUE_DIFFUSE_A * RUE_DIFFUSE_FD_REF)
         if VPD_FAO56:
             # step 6: Cycles' vapor pressure deficit is the FAO-56 one: mean of the saturation pressures at tmax and tmin,
             # less the actual pressure from the humidity extremes. With it the implied transpiration-use efficiency of Cycles'
@@ -4513,7 +4534,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             dGB_n_limited = dGB_water_limited * (n_stress ** N_STRESS_GROWTH_POW)
             n_stress_prev = n_stress
             n_ratio_prev = _ratio
-            demand_today_kg_ha = dGB_n_limited * 100 * n_marginal_demand_pct(biomass * 10, crop) * N_DEMAND_SCALE
+            _sf_now0 = shoot_fraction(ttf, crop["fsti"], crop["fstf"]); _rr0 = crop.get("root_retained_frac", 1.0)
+            demand_today_kg_ha = dGB_n_limited * (1.0 if _rr0 >= 1.0 else (_sf_now0 + (1.0 - _sf_now0) * _rr0)) * 100 * n_marginal_demand_pct(biomass * 10, crop) * N_DEMAND_SCALE
             if n_pool_by_layer is not None:
                 # Real CropSyst-style min(demand, potential_uptake) (Eq. 26, Stockle/Martin/
                 # Campbell 1994) -- potential_uptake is however much of the pool currently
@@ -4584,7 +4606,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
 
         dGB = dGB_water_limited * (n_stress ** N_STRESS_GROWTH_POW)
         if DIAG_STATE is not None: DIAG_STATE.append((_DIAG_YEAR, w["doy"], eie, n_stress, canopy_n_kg_ha))
-        biomass += dGB
+        _sf_now = shoot_fraction(ttf, crop["fsti"], crop["fstf"])
+        _rr = crop.get("root_retained_frac", 1.0)
+        biomass += dGB * (1.0 if _rr >= 1.0 else (_sf_now + (1.0 - _sf_now) * _rr))
         if DIAG_BIO is not None: DIAG_BIO.append(biomass * 10.0)
         ag_biomass += dGB * shoot_fraction(ttf, crop["fsti"], crop["fstf"])
         if ag_biomass_at_flowering is None and (flowered if _V is not None else tt_cum >= crop["flowering_tt"]):
