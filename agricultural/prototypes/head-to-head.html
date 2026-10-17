@@ -2864,6 +2864,9 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
     return total
 
 
+N_DEMAND_REF = False   # opt-in: new-growth N concentration read at the unstressed reference biomass (paper Sec 2.5)
+
+
 def n_critical_pct(biomass_mgha, crop, floor=None):
     """Whole-plant average/critical N concentration (%) at the given total biomass --
     the standard dilution-curve quantity, %Nc(W) = a*W^-b. Used two ways in
@@ -4112,6 +4115,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                else None)
 
     tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
+    biomass_ref = 0.0   # biomass of the same crop without N stress (paper Sec 2.5: new-growth N concentration is that of a crop growing without stress)
     tt_canopy, n_stress_prev = 0.0, 1.0
     _ei_state, _ttdev_prev, _xc_h = None, 0.0, 0.0   # integrated canopy state
     n_ratio_prev = 1.0
@@ -4745,7 +4749,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             n_stress_prev = n_stress
             n_ratio_prev = _ratio
             _sf_now0 = shoot_fraction(ttf, crop["fsti"], crop["fstf"]); _rr0 = crop.get("root_retained_frac", 1.0)
-            demand_today_kg_ha = dGB_n_limited * (1.0 if _rr0 >= 1.0 else (_sf_now0 + (1.0 - _sf_now0) * _rr0)) * 100 * n_marginal_demand_pct(biomass * 10, crop) * crop.get("n_demand_scale", N_DEMAND_SCALE)
+            demand_today_kg_ha = dGB_n_limited * (1.0 if _rr0 >= 1.0 else (_sf_now0 + (1.0 - _sf_now0) * _rr0)) * 100 * n_marginal_demand_pct((biomass_ref if crop.get("n_demand_ref", N_DEMAND_REF) else biomass) * 10, crop) * crop.get("n_demand_scale", N_DEMAND_SCALE)
             if n_pool_by_layer is not None:
                 # Real CropSyst-style min(demand, potential_uptake) (Eq. 26, Stockle/Martin/
                 # Campbell 1994) -- potential_uptake is however much of the pool currently
@@ -4821,6 +4825,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         _sf_now = shoot_fraction(ttf, crop["fsti"], crop["fstf"])
         _rr = crop.get("root_retained_frac", 1.0)
         biomass += dGB * (1.0 if _rr >= 1.0 else (_sf_now + (1.0 - _sf_now) * _rr))
+        biomass_ref += dGB_water_limited * (1.0 if _rr >= 1.0 else (_sf_now + (1.0 - _sf_now) * _rr))
         if DIAG_BIO is not None: DIAG_BIO.append(biomass * 10.0)
         ag_biomass += dGB * shoot_fraction(ttf, crop["fsti"], crop["fstf"])
         if DIAG_AG is not None: DIAG_AG.append(ag_biomass * 10.0)
