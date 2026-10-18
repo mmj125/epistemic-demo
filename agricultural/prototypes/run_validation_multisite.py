@@ -70,6 +70,14 @@ def write_inputs(site,lat,lon,wx,soil_raw,cell_lat):
         no3=max(1,round(10*l['thick']/0.05*0.25)) ; s.write(f"{i}\t{l['thick']}\t{l['clay']}\t{l['sand']}\t{l['soc']}\t-999\t-999\t-999\t-999\t{min(no3,10)}\t1\t0.0\t0.0\t0.00\t6.5\n")
     s.close()
     base=open(f"{CY}/input/{'h2h_central_iowa_soy' if CROPSEL=='soy' else 'ContinuousCorn'}.operation").read()
+    if CROPSEL=='sorghum':   # 2026-10-18: grain sorghum (SorghumMS) on the corn operation, N levels as for corn
+        base=base.replace("CornRM.90","SorghumMS")
+    if CROPSEL=='silage':   # 2026-10-18: silage corn forage harvest at 85% maturity as in the CornSilageSoyWheat sample (residue removed 90%, Kill_Crop tillage at DOY 365)
+        import re as _r
+        base=base.replace("CornRM.90","CornSilageRM.90")
+        for _k,_v in (("HARVEST_TIMING","85"),("RESIDUE_REMOVED","90"),("STANDING_RESIDUE_AT_HARVEST","50"),("CLIPPING_BIOMASS_DESTINY","REMOVE")):
+            base=_r.sub(r"(?m)^(%s\s+)\S+"%_k,r"\g<1>"+_v,base)
+        base=base.rstrip()+"\n\nTILLAGE\nYEAR                                1\nDOY                                 365\nTOOL                                Kill_Crop\nCROP_NAME                           N/A\nFRAC_THERMAL_TIME                   0.0\nKILL_EFFICIENCY                     0.0\n"
     for N in N_LEVELS:
         op=base.replace('468.75','%.2f'%(N/0.32),1) if N>0 else base
         if N==0:
@@ -93,7 +101,7 @@ def _run_cycles_uncached(site,N):
     for line in open(f"{out}/harvest.csv").readlines()[2:]:
         p=line.strip().split(",")
         if len(p)<11: continue
-        H[int(p[0][:4])]=dict(total=float(p[3]),grain=float(p[5]),plant=p[2],tr=float(p[10]),evap=float("nan"))
+        H[int(p[0][:4])]=dict(total=float(p[3]),grain=float(p[6] if CROPSEL=='silage' else p[5]),plant=p[2],tr=float(p[10]),evap=float("nan"))
     A={}
     for line in open(f"{out}/annualN.csv").readlines()[2:]:
         p=line.strip().split(",")
@@ -111,6 +119,11 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     crop=dict(rv.CORN); crop["lat_deg"]=cell_lat
     if CROPSEL=='soy':
         import run_validation_rotation2 as _r2; crop=dict(_r2.SOYBEAN); crop['lat_deg']=cell_lat
+    if CROPSEL=='sorghum':   # every value below is read from the SorghumMS entry of GenericCrops.crop; everything else is the corn engine configuration
+        crop.update(tt_maturity=2050, flowering_tt=1300, rue=2.0, wue=9.6, tr_min_t=6, tr_threshold_t=18, kc=1.0, lwp_stress_onset=-1400, lwp_wilting_point=-2300, tr_max_mm_day=9, root_max_m=2.0, tt_emergence=65, threshold_temp_cold_damage=6)
+    if CROPSEL=='silage':
+        import run_validation_rotation2 as _r2; crop=dict(_r2.CORN_SILAGE); crop['lat_deg']=cell_lat; crop.update(n_demand_ref=True,n_stress_ag_basis=True,n_uptake_rate=0.03,root_retained_frac=0.6)
+        if os.environ.get('SIL_FACTOR'): crop['calibration_factor']=float(os.environ['SIL_FACTOR'])
     if os.environ.get("REGIONAL","0")=="1" and CROPSEL!='soy':   # 2026-10-15 (default ON since the fresh-site validation, REFIT_PLAN row 38): regionalized net-N multiplier and grain factor from site covariates (regional_params.py)
         import importlib; _rp=importlib.import_module(os.environ.get('REGMOD','regional_params'))
         _m,_g=_rp.regional_params(wx,soil_raw,REG_LON); cev.SIXPOOL_NET_MULT=_m; crop["calibration_factor"]=crop["calibration_factor"]*_g
@@ -156,7 +169,7 @@ if __name__=="__main__":
         if _only and site not in _only: continue
         wx,wd=fd.resolve_field_weather(lat,lon); soil,sd,name=fd.resolve_field_soil(lat,lon); cl=lat_of(lat,lon)
         REG_LON=lon
-        fsite=site+('soy' if CROPSEL=='soy' else '')
+        fsite=site+('soy' if CROPSEL=='soy' else 'sil' if CROPSEL=='silage' else 'sor' if CROPSEL=='sorghum' else '')
         write_inputs(fsite,lat,lon,wx,soil,cl)
         for N in N_LEVELS:
             H,A=run_cycles(fsite,N)
@@ -164,7 +177,7 @@ if __name__=="__main__":
                 E=engine(site,wx,soil,cl,N,mode)
                 ys=sorted(set(H)&set(E))
                 row={}
-                for var,gr,ge in [("grain",lambda y:H[y]["grain"],lambda y:E[y]["grain"]),("total_biomass",lambda y:H[y]["total"],lambda y:E[y]["total"]),
+                for var,gr,ge in [("grain",lambda y:H[y]["grain"],lambda y:E[y]["forage" if CROPSEL=='silage' else "grain"]),("total_biomass",lambda y:H[y]["total"],lambda y:E[y]["total"]),
                                   ("plant_doy",lambda y:doy_of(H[y]["plant"]),lambda y:E[y]["plant_doy"])]:
                     a=[gr(y) for y in ys]; b=[ge(y) for y in ys]
                     row[var]=dict(real=statistics.mean(a),model=statistics.mean(b),mae=statistics.mean(abs(x-z) for x,z in zip(a,b)),corr=corr(a,b),n=len(ys))

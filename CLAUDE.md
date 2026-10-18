@@ -22,9 +22,9 @@ Goal: a from-scratch Python reimplementation of Cycles (`agricultural/prototypes
 1. Five crops reach POOLED correlation above 0.8 against Cycles over held-out site-years (all sites and years pooled, per N rate, and across rates), at several N rates where N matters. Pooled, not within-site: Cycles disagrees with itself at only 0.80 within-site yearly correlation between its own water schemes.
 2. Leaching is much better (2026-10-17 end: rms log error 0.71 at N=150, 0.29 at N=400, 0.62 at N=0; N=0 and N=150 still over-leach 1.5x to 1.7x).
 
-Pooled correlation now (2026-10-18, held-out): corn 0.953 / 0.928 / 0.966 at N=0/150/400 (0.969 all rates, 94 sites, about 1,775 site-years each); soybean 0.946 (94 sites, 1,766 site-years); winter wheat 0.908 / 0.639 / 0.648 at N=0/90/150 (0.79 all rates, 30 sites; 0.929 / 0.664 / 0.677 with the winterkill threshold at -30); silage corn and the fifth crop not yet measured (no multi-site runner for silage corn).
+Pooled correlation now (2026-10-18, held-out, 94 sites, about 1,775 site-years per N rate, continuous chain, factors 1.0): corn 0.953 / 0.928 / 0.966 at N=0/150/400 (0.969 all rates); soybean 0.946; silage corn 0.914 / 0.868 / 0.928 (0.939 all; forage level 21 to 26% high at factor 1.0); sorghum (SorghumMS, values read from the crop file, no tuning) 0.935 / 0.894 / 0.931 (0.948 all; level -4 to -7%); winter wheat (30 sites) 0.908 / 0.639 / 0.648 at N=0/90/150 (0.79 all rates). Four of five crops pass; wheat at N=90/150 is the one failing cell.
 
-Which five crops is not yet fixed. Candidates with Cycles reference: corn, soybean, winter wheat, silage corn, plus one more (sorghum or pasture species). Decide with Matt before building a reference for a new one.
+The five crops: corn, soybean, silage corn, sorghum, winter wheat. Multi-site runner: `run_validation_multisite.py` with `CROPSEL=soy|silage|sorghum` (default corn); wheat has `run_validation_multisite_wheat.py` (`FALLN=60`).
 
 Model only. No UI, pedagogy, lesson copy or classroom framing until the engine is accurate.
 
@@ -49,7 +49,7 @@ Model only. No UI, pedagogy, lesson copy or classroom framing until the engine i
 - Practical floor: Cycles disagrees with itself by MAE 0.17 (random 10% soil change), 0.74 at N=150 under a neighbouring weather cell, 1.4 under a neighbouring soil map unit. Engine N=150 error is 0.93.
 
 ### Next work, in order
-0. Wheat at N=90/150 (pooled 0.64 to 0.68) and silage corn/fifth crop measurement, then the shared canopy and early-season water stress (below). Water stress: compare engine and Cycles daily water stress (`corn_water_state_2026_10_17.py`); the engine is too water-stressed, which forces a tuned canopy water exponent (0.3 vs measured 1.35) in the compensation-free package X (see plan 2026-10-18). Fixing the cause should make X significant.
+0. Wheat at N=90/150 (pooled 0.64 to 0.68) is the one failing cell, then the shared canopy and early-season water stress (below). Water stress: compare engine and Cycles daily water stress (`corn_water_state_2026_10_17.py`); the engine is too water-stressed, which forces a tuned canopy water exponent (0.3 vs measured 1.35) in the compensation-free package X (see plan 2026-10-18). Fixing the cause should make X significant.
 1. Leaching (Matt's second criterion): drainage is right and nitrate immobilization fixed; remaining N=0/150 over-leaching, look at nitrate by layer and month at more sites (`leach_layers_2026_10_17.py`, `leach_decomp_2026_10_17.py`), then denitrification at wet sites.
 2. Year-to-year N stress at N=150: mineralization versus uptake timing, using Cycles' daily mineral N.
 3. Bring soybean, wheat, silage corn and the fifth crop to the same held-out standard (correlation above 0.8, several N rates).
