@@ -2632,7 +2632,8 @@ VPD_POW = 0.5   # 2026-10-15 opt-in: transpiration-limited growth ~ Da**(-VPD_PO
 VPD_D0 = 0.75
 HEAT_T0 = None   # 2026-10-15 opt-in heat penalty on growth: factor 1 - HEAT_A*(Tmean - HEAT_T0)^2 above HEAT_T0 (Cycles temperature_factor over 192k corn days: 0.99 below 28 C, 0.957 at 29, 0.891 at 31, 0.787 at 33, 0.672 at 35; fit T0 26, A 0.0044); None = off
 HEAT_A = 0.00169494  # 2026-10-16 growth-law fit (opt_growth.py, REFIT_PLAN row 50); was 0.0044
-WUE_CO2_EXP = 0.424275   # 2026-10-16 (REFIT_PLAN row 50): exponent on the CO2 ratio in the water-use-efficiency scale; 1.0 reproduces the old behavior
+WUE_CO2_EXP = 0.197   # 2026-10-18: measured on Cycles' own response to fixed CO2 of 300/400/500 ppm (co2_response_2026_10_18.py, 12 sites, corn N=400: biomass exponent 0.12 to 0.25, mean 0.18, rising with water stress); the engine's response with this exponent matches (RMS 0.023 across sites vs 0.191 at the previous 0.424275, fitted on the yield trend, REFIT_PLAN row 50); a separate RUE exponent fits to 0.044, not distinguishable from 0, so RUE_CO2_EXP stays 0
+RUE_CO2_EXP = 0.0   # 2026-10-18: exponent on the CO2 ratio in the radiation-use-efficiency scale (paper Sec 2.5: eps_R and eps_W are both scaled with CO2); 0.0 = unscaled, the previous behaviour
 C1_HEAT_T0 = 26.0   # c1 package values (crops with crop['c1_water']=True): heat penalty onset and VPD exponent, validated nested on 268 + 94 sites
 C1_VPD_POW = 0.670004  # row 50; was 0.65
 HEAT_GT = False   # also apply the factor to transpiration-limited growth
@@ -4133,6 +4134,8 @@ def _season_chain(weather_by_year, year_range, crop, plant_window, plant_min_soi
         kw = dict(season_kwargs)
         if "wue_co2_scale" not in kw:
             kw["wue_co2_scale"] = (CO2_PPM_BY_YEAR.get(y, CO2_REF_PPM) / CO2_REF_PPM) ** WUE_CO2_EXP
+        if "rue_co2_scale" not in kw:
+            kw["rue_co2_scale"] = (CO2_PPM_BY_YEAR.get(y, CO2_REF_PPM) / CO2_REF_PPM) ** RUE_CO2_EXP
         if layers is None:
             layers = crop["make_layers"]()
         fallow_tot = [0.0, 0.0, 0.0]
@@ -4283,7 +4286,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21,
                      fert_placement_implement=None, soil_ph=None,
                      spinup_rows=None, curve_number=75.0, slope_pct=0.0, initial_layers=None,
-                     soil_evap_model="faostandard", n_root_limited=False, wue_co2_scale=1.0,
+                     soil_evap_model="faostandard", n_root_limited=False, wue_co2_scale=1.0, rue_co2_scale=1.0,
                      background_n_model="rothc", sixpool_topsoil_clay_pct=None, sixpool_topsoil_soc_pct=None,
                      sixpool_initial_state=None, sixpool_offseason_decay=False,
                      model_denitrification=False, nh4_no3_split=False, model_volatilization=False,
@@ -5205,7 +5208,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         temp_factor = transpiration_temp_factor(tmean, crop["tr_min_t"], crop["tr_threshold_t"])
         rad_temp_factor = radiation_temp_factor(tmean, crop["tr_min_t"], crop.get("rad_temp_floor", 0.0),
                                                  crop.get("rad_temp_plateau_t", crop["tr_threshold_t"]))
-        GR = crop["rue"] * rad_temp_factor * (((1.0 - (crop.get("growth_canopy_lag", GROWTH_CANOPY_LAG) - 1.0)) * eie_prev_day + (crop.get("growth_canopy_lag", GROWTH_CANOPY_LAG) - 1.0) * eie_prev_day2) if GROWTH_PREV_CANOPY else eie) * w["solar"]
+        GR = crop["rue"] * rue_co2_scale * rad_temp_factor * (((1.0 - (crop.get("growth_canopy_lag", GROWTH_CANOPY_LAG) - 1.0)) * eie_prev_day + (crop.get("growth_canopy_lag", GROWTH_CANOPY_LAG) - 1.0) * eie_prev_day2) if GROWTH_PREV_CANOPY else eie) * w["solar"]
         # 2026-10-15 c1 water-regime package (REFIT_PLAN rows 39-40): per-crop opt-in via crop["c1_water"]; corn and soybean carry it
         _t0 = C1_HEAT_T0 if crop.get("c1_water") else HEAT_T0
         _vpd_pow = C1_VPD_POW if crop.get("c1_water") else VPD_POW
