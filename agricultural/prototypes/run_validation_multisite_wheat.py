@@ -109,7 +109,7 @@ def one(a):
             res[f"N{N}|{tag}"]=row
     return site,name,res
 if __name__=="__main__":
-    S=json.load(open('sitesets/fresh94.json')); ks=sorted(S); n=int(os.environ.get("NSITES","30")); ks=[ks[i] for i in range(0,len(ks),max(1,len(ks)//n))][:n]
+    S=json.load(open('sitesets/fresh94.json')); ks=sorted(S); n=int(os.environ.get("NSITES","30")); ks=[ks[i] for i in range(int(os.environ.get('SITEOFF','0')),len(ks),max(1,len(ks)//n))][:n]   # SITEOFF=1 or 2 gives a disjoint stride set
     with Pool(int(os.environ.get("NPROC","4"))) as p: R=p.map(one,[(k,S[k]) for k in ks])
     json.dump(R,open(os.environ.get("OUT_JSON","/tmp/w/wheat_ms.json"),"w"))
     for N in (0,90,150):
