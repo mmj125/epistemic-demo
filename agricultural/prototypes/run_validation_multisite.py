@@ -124,6 +124,7 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     if CROPSEL=='silage':
         import run_validation_rotation2 as _r2; crop=dict(_r2.CORN_SILAGE); crop['lat_deg']=cell_lat; crop.update(n_demand_ref=True,n_stress_ag_basis=True,n_uptake_rate=0.03,root_retained_frac=0.6)
         if os.environ.get('SIL_FACTOR'): crop['calibration_factor']=float(os.environ['SIL_FACTOR'])
+    if os.environ.get('NGF') and 'ngf_faithful' in crop: crop['ngf_faithful']=float(os.environ['NGF'])   # 2026-10-18 growth-scalar sweep for the forced-state measurement
     if os.environ.get("REGIONAL","0")=="1" and CROPSEL!='soy':   # 2026-10-15 (default ON since the fresh-site validation, REFIT_PLAN row 38): regionalized net-N multiplier and grain factor from site covariates (regional_params.py)
         import importlib; _rp=importlib.import_module(os.environ.get('REGMOD','regional_params'))
         _m,_g=_rp.regional_params(wx,soil_raw,REG_LON); cev.SIXPOOL_NET_MULT=_m; crop["calibration_factor"]=crop["calibration_factor"]*_g

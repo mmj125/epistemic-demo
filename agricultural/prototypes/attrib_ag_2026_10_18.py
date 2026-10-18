@@ -3,11 +3,14 @@ water factor (1 - water_stress) and N factor (1 - nitrogen_stress) are forced in
 above-ground biomass at harvest, and the share of the free-run yield MAE removed.
 Usage: CROPSEL=corn|silage CFILE=CornRM.90|CornSilageRM.90 MODES=",C,W,N,CWN" python3 attrib_ag_2026_10_18.py   (RR=1.0 sets root_retained_frac 1.0)"""
 import os,sys,json,csv,shutil,subprocess,datetime,statistics as st
-os.environ.setdefault("REGIONAL","0"); os.environ["LEAD_YEARS"]="continuous"; os.environ["N_LEVELS"]="0,150,400"; sys.path.insert(0,'.')
+os.environ.setdefault("REGIONAL","0"); os.environ["LEAD_YEARS"]="continuous"; os.environ["N_LEVELS"]=os.environ.get("NS","0,150,400"); sys.path.insert(0,'.')
 CS=os.environ.get("CROPSEL","corn"); CFILE=os.environ.get("CFILE","CornRM.90"); MODES=os.environ.get("MODES",",C,W,N,CWN").split(",")
 import numpy as np, run_validation_multisite as m, cycles_engine_validate as E, run_validation as rv
 if os.environ.get("RR"): rv.CORN["root_retained_frac"]=float(os.environ["RR"])
+import run_validation_rotation2 as r2
+if os.environ.get("NGF"): rv.CORN["ngf_faithful"]=float(os.environ["NGF"]); r2.CORN_SILAGE["ngf_faithful"]=float(os.environ["NGF"])   # growth scalar sweep for both crops
 from multiprocessing import Pool
+NSL=[int(x) for x in os.environ.get('NS','0,150,400').split(',')]
 S=json.load(open('/tmp/w/s24.json')); KEY={'C':'canopy','W':'water','N':'nstress'}
 def one(a):
     site,N=a; lat,lon=S[site]; wx,_=m.fd.resolve_field_weather(lat,lon); soil,_,_=m.fd.resolve_field_soil(lat,lon); cl=m.lat_of(lat,lon); m.REG_LON=lon
@@ -34,10 +37,10 @@ def one(a):
     return site,N,out
 if __name__=="__main__":
     ks=sorted(S)
-    with Pool(4) as p: R=p.map(one,[(k,N) for k in ks for N in (0,150,400)])
+    with Pool(4) as p: R=p.map(one,[(k,N) for k in ks for N in NSL])
     tag=os.environ.get("TAG",CS); json.dump(R,open(f'/tmp/w/attr_ag_{tag}.json','w'))
     print(f"{CS} rr={os.environ.get('RR','0.6 (config)')} sites {len(ks)}")
-    for N in (0,150,400):
+    for N in NSL:
         base=None
         for mode in [x or 'free' for x in MODES]:
             r=[];e=[];ac=[];ae=[]
