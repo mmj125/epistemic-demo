@@ -7,6 +7,7 @@ os.environ.setdefault("REGIONAL","0"); os.environ["LEAD_YEARS"]="continuous"; os
 CS=os.environ.get("CROPSEL","corn"); CFILE=os.environ.get("CFILE","CornRM.90"); MODES=os.environ.get("MODES",",C,W,N,CWN").split(",")
 import numpy as np, run_validation_multisite as m, cycles_engine_validate as E, run_validation as rv
 if os.environ.get("RR"): rv.CORN["root_retained_frac"]=float(os.environ["RR"])
+for _kv in filter(None,os.environ.get("MODKV","").split(";")): setattr(E,_kv.split("=")[0],float(_kv.split("=")[1]))   # module constants, e.g. TTF50_SHOOT_PARTITION=0.42
 for _kv in filter(None,os.environ.get("CROPKV","").split(";")): rv.CORN[_kv.split("=")[0]]=float(_kv.split("=")[1])   # extra crop-dict overrides, e.g. growth_stage_a=0.52
 import run_validation_rotation2 as r2
 if os.environ.get("NGF"): rv.CORN["ngf_faithful"]=float(os.environ["NGF"]); r2.CORN_SILAGE["ngf_faithful"]=float(os.environ["NGF"])   # growth scalar sweep for both crops

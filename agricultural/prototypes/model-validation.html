@@ -3122,8 +3122,10 @@ TTF50_SHOOT_PARTITION = 0.32  # Eq. SI.8-11's own half-max point isn't given a n
 # doesn't warrant a 4th significant figure.
 
 
-def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
+def shoot_fraction(ttf, fsti, fstf, ttf50=None):
     """Eq. SI.8-11: modified Michaelis-Menten allocation of new growth to shoot vs. root."""
+    if ttf50 is None:
+        ttf50 = TTF50_SHOOT_PARTITION   # read at call time (a default argument would freeze the value at import and make overrides no-ops)
     ttf = max(1e-6, ttf)
     return fsti + (fstf - fsti) / (1 + (ttf50 / ttf) ** 4)
 
