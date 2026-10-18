@@ -1789,6 +1789,11 @@ CORN_CANOPY_SHAPE = (6, -20, -5.35, 4.10)  # re-refit 2026-09-30 (was (6,-20,-12
 # CALIBRATED grain number matches well -- this is a real, verified fix to that specific, honestly-
 # disclosed problem, not a cosmetic change to a number nobody was checking.
 NET_GROWTH_FRACTION = 0.955  # 2026-10-16 rebuild: with the exact Cycles VPD (no fitted VPD exponent or heat terms) one global level constant reproduces the old fitted package (24 fresh sites: N=150 grain MAE 1.02 vs 1.04, bias ~0); was 1.04454 with C1_VPD_POW 0.67 and HEAT_A
+CANOPY_FAITHFUL = True   # 2026-10-18 (Matt): per-crop canopy as measured on Cycles' own unstressed days (Eq. 6 shape, plateau) with the growth scalar at 1.0, replacing the shared plateau 0.99 x NET_GROWTH_FRACTION 0.955 pair, which stood in for Cycles' 0.951 plateau. A crop dict opts in with canopy_shape_faithful, eix_faithful, ngf_faithful; False restores the previous behaviour exactly.
+def crop_ngf(crop):
+    if CANOPY_FAITHFUL and "ngf_faithful" in crop:
+        return crop["ngf_faithful"]
+    return crop.get("net_growth_fraction", NET_GROWTH_FRACTION)
 
 # Real NOAA Mauna Loa/Scripps annual mean atmospheric CO2 (ppm), 1980-2016 -- the exact years
 # this engine's validation harnesses use. Source: NOAA Global Monitoring Laboratory
@@ -4409,8 +4414,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         ttf = tt_dev / crop["tt_maturity"]
         if ttf >= harvest_ttf:
             break
-        _shape = CANOPY_SHAPE_FORCE if CANOPY_SHAPE_FORCE is not None else crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE)
-        _eix = crop["eix_cap"] if "eix_cap" in crop else (CANOPY_EIX_FORCE if CANOPY_EIX_FORCE is not None else crop.get("eix", 1.0))   # per-crop plateau (2026-10-17: wheat 0.86, Cycles' measured unstressed plateau)
+        _shape = crop["canopy_shape_faithful"] if (CANOPY_FAITHFUL and "canopy_shape_faithful" in crop) else (CANOPY_SHAPE_FORCE if CANOPY_SHAPE_FORCE is not None else crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE))
+        _eix = crop["eix_faithful"] if (CANOPY_FAITHFUL and "eix_faithful" in crop) else crop["eix_cap"] if "eix_cap" in crop else (CANOPY_EIX_FORCE if CANOPY_EIX_FORCE is not None else crop.get("eix", 1.0))   # per-crop plateau (2026-10-17: wheat 0.86, Cycles' measured unstressed plateau)
         _form = crop.get("canopy_form", "D" if CANOPY_INTEGRATED else "closed")
         if _form in ("D", "H"):
             # Integrated-derivative forms (paper Eq. 6 text: 'the first derivative of Eq. (6) is used to estimate the rate of change ... the rate is reduced by N stress'). The expansion part of the
@@ -4638,7 +4643,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             GT *= (Da / VPD_D0) ** (0.5 - _vpd_pow)
         if _heat_gt:
             GT *= _heat_f
-        dGB_water_limited = max(0.0, min(GR, GT)) * crop.get("net_growth_fraction", NET_GROWTH_FRACTION) / 1000 * (1.0 + GROWTH_TTF_SLOPE * (ttf - 0.5)) * (crop["growth_stage_c"] * (1.0 - crop["growth_stage_a"] * math.exp(-ttf / crop["growth_stage_tau"])) if "growth_stage_a" in crop else 1.0)
+        dGB_water_limited = max(0.0, min(GR, GT)) * crop_ngf(crop) / 1000 * (1.0 + GROWTH_TTF_SLOPE * (ttf - 0.5)) * (crop["growth_stage_c"] * (1.0 - crop["growth_stage_a"] * math.exp(-ttf / crop["growth_stage_tau"])) if "growth_stage_a" in crop else 1.0)
         if _V is not None and flowered:
             # post-flowering temperature factor: Cycles' daily temperature_factor column is 0.99 below ~19 C mean and falls to 0.94 / 0.83 / 0.65 / 0.38 at 20.5 / 23.5 / 26.5 / 29.5 C
             # (5,376 post-flowering days, 3 sites); the disclosed TEMPERATURE_POST_FLOWERING optimum (20) and maximum (35) with 1.0 below the optimum reproduce it (0.93 / 0.77 / 0.57 / 0.37)
@@ -4864,7 +4869,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         _sf_now = shoot_fraction(ttf, crop["fsti"], crop["fstf"])
         _rr = crop.get("root_retained_frac", 1.0)
         biomass += dGB * (1.0 if _rr >= 1.0 else (_sf_now + (1.0 - _sf_now) * _rr))
-        biomass_ref += (max(0.0, GR) * crop.get("net_growth_fraction", NET_GROWTH_FRACTION) / 1000 if crop.get("n_demand_ref_rad") else dGB_water_limited) * (1.0 if _rr >= 1.0 else (_sf_now + (1.0 - _sf_now) * _rr))
+        biomass_ref += (max(0.0, GR) * crop_ngf(crop) / 1000 if crop.get("n_demand_ref_rad") else dGB_water_limited) * (1.0 if _rr >= 1.0 else (_sf_now + (1.0 - _sf_now) * _rr))
         if DIAG_BIO is not None: DIAG_BIO.append(biomass * 10.0)
         ag_biomass += dGB * shoot_fraction(ttf, crop["fsti"], crop["fstf"])
         if DIAG_AG is not None: DIAG_AG.append(ag_biomass * 10.0)
