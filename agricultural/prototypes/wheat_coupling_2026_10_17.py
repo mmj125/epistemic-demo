@@ -27,7 +27,7 @@ def one(a):
             E.FORCE_SERIES=sub(F,mode) if mode else None
             R=W.engine_chain(wx,soil,cl,N,1.0); E.FORCE_SERIES=None
             ys=[y for y in sorted(set(H)&set(R)) if y>1981]; x=[H[y]["grain"] for y in ys]; z=[R[y]["grain"] for y in ys]
-            out[f"N{N}|{mode or 'free'}"]=dict(mae=st.mean(abs(i-j) for i,j in zip(x,z)),mean=st.mean(x),corr=W.corr(x,z),bias=st.mean(j-i for i,j in zip(x,z)))
+            out[f"N{N}|{mode or 'free'}"]=dict(mae=st.mean(abs(i-j) for i,j in zip(x,z)),mean=st.mean(x),corr=W.corr(x,z),bias=st.mean(j-i for i,j in zip(x,z)),pairs=[[round(i,4),round(j,4)] for i,j in zip(x,z)])
     return site,out
 if __name__=="__main__":
     S=json.load(open("sitesets/fresh94.json")); ks=sorted(S)[int(os.environ.get("OFF","0"))::6][:16]
@@ -37,4 +37,5 @@ if __name__=="__main__":
         base=st.mean(o[f"N{N}|free"]["mae"] for _,o in R); ref=st.mean(o[f"N{N}|free"]["mean"] for _,o in R)
         for mode in MODES:
             k=f"N{N}|{mode or 'free'}"; mae=st.mean(o[k]["mae"] for _,o in R); c=st.mean(o[k]["corr"] for _,o in R if o[k]["corr"]==o[k]["corr"])
+            import numpy as _np; _P=_np.array(sum([o[k]["pairs"] for _,o in R],[])); print(f"   pooled corr {_np.corrcoef(_P[:,0],_P[:,1])[0,1]:.3f}",end="  ")
             print(f"N={N} {mode or 'free':5s} MAE {mae:5.2f} ({100*mae/ref:3.0f}% of mean) removed {100*(base-mae)/base:+4.0f}%  bias {st.mean(o[k]['bias'] for _,o in R):+.2f}  corr {c:.2f}")

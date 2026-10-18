@@ -104,7 +104,7 @@ def one(a):
             row={}
             for v,hk,rk in (("grain","grain","grain"),("total_biomass","total","total")):
                 x=[H[y][hk] for y in ys]; z=[R[y][rk] for y in ys]
-                row[v]=dict(real=st.mean(x),model=st.mean(z),mae=st.mean(abs(i-j) for i,j in zip(x,z)),corr=corr(x,z),n=len(ys))
+                row[v]=dict(real=st.mean(x),model=st.mean(z),mae=st.mean(abs(i-j) for i,j in zip(x,z)),corr=corr(x,z),n=len(ys),pairs=[[round(i,4),round(j,4)] for i,j in zip(x,z)])
             res[f"N{N}|{tag}"]=row
     return site,name,res
 if __name__=="__main__":
