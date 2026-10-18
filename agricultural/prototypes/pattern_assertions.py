@@ -456,7 +456,7 @@ def c_checkplot_relative_yield():
     # validation number, actually a bit BETTER than corn's own headline Rock Springs
     # correlation (0.527-0.550). At N=0 correlation drops to 0.551 with a 13% overshoot,
     # consistent with this engine's own muted nitrogen sensitivity. Full account, including
-    # the year-by-year FLAT/RESPONSE split, in QUESTIONS_FOR_DEVS.md item 6's 2026-09-29
+    # the year-by-year FLAT/RESPONSE split, in MECHANISM_LOG.md item 6's 2026-09-29
     # update. Kansas's own test year below was moved from 2012 (a real Cycles FLAT year,
     # where this engine's flat behavior happens to be correct, making 2012 a poor test of
     # the muting problem) to 1997 (a real, substantial RESPONSE year per real Cycles,

@@ -159,7 +159,7 @@ def main():
         print("(fresh-start baseline: leaching 10.05x/+0.527, volatilization 0.76x/+0.027, "
               "denitrification 0.93x/+0.549 -- the true chain moves none of these meaningfully, "
               "despite fixing the gross water balance -- see run_bare_fallow_window()'s own "
-              "docstring and QUESTIONS_FOR_DEVS.md for the full account.)")
+              "docstring and MECHANISM_LOG.md for the full account.)")
 
 
 if __name__ == "__main__":

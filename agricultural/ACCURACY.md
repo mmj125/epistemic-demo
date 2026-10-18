@@ -59,7 +59,7 @@ Typical miss: denitrification and nitrous oxide are now within a factor of about
 - Topography, ammonia chemistry beyond the fitted rate, and the full six-pool soil system are simplified or absent.
 
 ## What was tried and rejected
-See `prototypes/QUESTIONS_FOR_DEVS.md` for every mechanism tested against this table, including those that did not help (flatter respiration temperature response, drier topsoil floor, nitrogen limitation of decomposition, lower soil nitrogen supply).
+See `prototypes/MECHANISM_LOG.md` for every mechanism tested against this table, including those that did not help (flatter respiration temperature response, drier topsoil floor, nitrogen limitation of decomposition, lower soil nitrogen supply).
 
 ## Cycles v1.4.4 versus v1.5.20 (2026-10-12)
 

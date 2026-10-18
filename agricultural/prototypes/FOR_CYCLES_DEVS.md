@@ -20,7 +20,7 @@ Short version: a from-scratch Python engine, built only from the published Cycle
 - Winter wheat does not meet our classroom bar. Pasture and cover crops are not validated.
 
 ## Questions where your answer would help most
-The remaining gaps are quantities the paper does not give. Full list with evidence: `QUESTIONS_FOR_DEVS.md`. The top ones:
+The remaining gaps are quantities the paper does not give. Full list with evidence: `MECHANISM_LOG.md`. The top ones:
 1. How is soil nitrate leaching transported between layers, and how does Cycles keep NH4 un-nitrified in dry soil (our Kansas volatilization miss)?
 2. What reduces radiation-use efficiency from the crop file's maximum to a day's actual value (we apply a flat 0.785 after the water/radiation minimum)?
 3. What is the pasture cutting trigger, and how are mixed stands handled?

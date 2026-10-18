@@ -43,7 +43,7 @@ CORN = dict(
     # lwp_wilting_point below); re-derived to keep the mean yield matching real output exactly,
     # same as every prior update. Correlation moved 0.550 -> 0.527 from the water-mechanism switch
     # alone (this recalibration only fixes the mean, doesn't touch correlation, as always) -- see
-    # QUESTIONS_FOR_DEVS.md and CLAUDE.md for the full before/after account across all four crops
+    # MECHANISM_LOG.md and CLAUDE.md for the full before/after account across all four crops
     # plus the Kansas benchmark, and why this was kept despite the Rock Springs correlation cost.
     canopy_shape=CORN_CANOPY_SHAPE,
     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=40.6875,

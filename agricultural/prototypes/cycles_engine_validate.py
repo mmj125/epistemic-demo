@@ -326,7 +326,7 @@ def depth_weighted_ffc(layers, depth_m=0.6):
     every one of four metrics: fresh-start correlation 0.975->0.981, fresh MAE 1.454->1.435,
     chained correlation 0.976->0.983, chained MAE 0.628->0.536. Combined with cn_dry()/cn_wet()
     reverting to Cycles' own literal (sign-corrected) formulas above, this closes out
-    QUESTIONS_FOR_DEVS.md item 1 -- the whole curve-number mechanism is now Cycles' own
+    MECHANISM_LOG.md item 1 -- the whole curve-number mechanism is now Cycles' own
     disclosed structure with a real, cited f_wc, not a substitute borrowed from a different
     model family."""
     z_prev, weighted_sum, weight_total = 0.0, 0.0, 0.0
@@ -396,7 +396,7 @@ REDISTRIBUTE_SUBSTEPS = 24  # see redistribute() docstring for the convergence c
 # instead of "half" was carrying phantom water the entire season. Tested directly against 6
 # independent real Kansas reference years (drought to wet): fresh-start mean overshoot dropped
 # from 5.05x to 3.63x (2012 specifically: 18.44x -> 12.49x), zero cost anywhere. See
-# QUESTIONS_FOR_DEVS.md item 6 for the full evidence trail.
+# MECHANISM_LOG.md item 6 for the full evidence trail.
 INITIAL_MOISTURE_FRACTION = 0.5
 
 
@@ -446,7 +446,7 @@ def redistribute(layers, water_in_mm, n_substeps=REDISTRIBUTE_SUBSTEPS, n_by_lay
     Verified against the fixed-substep version this replaces (2026-09-30): the standing
     tillage/manure/mass-balance sanity checks and the full 4-crop Rock Springs validation
     suite were re-run after this change -- see the calling code's own commit message and
-    QUESTIONS_FOR_DEVS.md for the actual before/after numbers, not reproduced here since
+    MECHANISM_LOG.md for the actual before/after numbers, not reproduced here since
     this docstring predates any specific run's results.
 
     A layer with only ksat_mm_day (no psi_e_kpa/B) falls back to a flat rate cap for its
@@ -457,7 +457,7 @@ def redistribute(layers, water_in_mm, n_substeps=REDISTRIBUTE_SUBSTEPS, n_by_lay
 
     n_by_layer, when given (a list of kg N/ha, one per layer, mutated in place, built
     2026-09-30 for the real CropSyst-style min(demand, potential_uptake) mechanism -- see
-    QUESTIONS_FOR_DEVS.md), is transported downward in lockstep with the SAME gravity-
+    MECHANISM_LOG.md), is transported downward in lockstep with the SAME gravity-
     drainage fluxes computed above (stage two), at each layer's own current concentration
     (kg N per mm of that layer's own water) -- solute never modeled separately from the
     water that carries it. A disclosed simplification: stage ONE (the saturation-fill/
@@ -851,7 +851,7 @@ def soil_evaporation_cropsyst(layers, pot_evap_mm, fallow=False, summer_time=Fal
     (Evaporator::evaporate_interval, CropSyst/source/soil/soil_evaporator.cpp,
     mingliangwsu/VIC-CropSyst-Package on GitHub -- Cycles shares its biophysical fundamentals
     with CropSyst per Kemanian et al. 2024, and unlike Cycles this repo ships real .cpp source,
-    not just binaries). This answers QUESTIONS_FOR_DEVS.md item 2's 'bare-soil evaporation'
+    not just binaries). This answers MECHANISM_LOG.md item 2's 'bare-soil evaporation'
     half -- neither the main paper nor its SI gives Cycles' own formula for this anywhere,
     despite both marking it as 'detailed in this SI' (it isn't). Real, complete, and a
     genuinely different shape than the FAO-56 Kr mechanism soil_evaporation() implements by
@@ -972,7 +972,7 @@ def run_bare_fallow_window(layers, rows, curve_number=75.0, slope_pct=0.0, lat_d
     water-redistribution-physics problem (that problem is now fixed, independently, by THIS
     function) -- they're something else, most likely in how nitrogen itself is tracked relative
     to water in redistribute()'s n_by_layer transport (a well-mixed-reservoir assumption per
-    layer), not in the gross water magnitude. See QUESTIONS_FOR_DEVS.md for the full account,
+    layer), not in the gross water magnitude. See MECHANISM_LOG.md for the full account,
     including the corrected record of what Eq.1-2's own status actually is (built, not pending).
 
     Not wired into any validation harness's DEFAULT path -- every already-shipped, documented
@@ -1102,7 +1102,7 @@ def extract_transpiration(layers, root_depth_m, tr_mm):
 # search attempt. Substituted with FAO-56's own real, disclosed 40-30-20-10
 # depth-quartile root-water-extraction weighting instead (see
 # root_length_fraction_by_layer() below) -- a real, sourced approximation,
-# not CropSyst's own exact shape, flagged here and in QUESTIONS_FOR_DEVS.md
+# not CropSyst's own exact shape, flagged here and in MECHANISM_LOG.md
 # rather than silently presented as exact.
 # ---------------------------------------------------------------------------
 
@@ -1242,7 +1242,7 @@ def layer_depth_fraction_within(layers, max_depth_m):
     evaporation). Nitrogen doesn't evaporate, so there's no reason to wall off the
     topsoil from a root system that can physically reach it -- built 2026-09-30 for
     the real CropSyst-style min(demand, potential_uptake) mechanism (see
-    QUESTIONS_FOR_DEVS.md), which gates nitrogen ACCESS by root depth, not by this
+    MECHANISM_LOG.md), which gates nitrogen ACCESS by root depth, not by this
     engine's separate evaporative-layer convention."""
     fracs = []
     depth = 0.0
@@ -1520,7 +1520,7 @@ def find_planting_doy(tsoil_by_doy, window, min_soil_temp):
 # bias (yield ratio 1.51 -> 1.40) but does NOT fix wheat's weak year-to-year
 # correlation (0.362 -> 0.253, actually worse) -- the real driver of that is
 # still unidentified. On the dev-questions list, not something to keep
-# guessing at blindly (see QUESTIONS_FOR_DEVS.md).
+# guessing at blindly (see MECHANISM_LOG.md).
 # ---------------------------------------------------------------------------
 
 DEFAULT_CANOPY_SHAPE = (6, -20, -15, 16)   # the paper's stated defaults
@@ -1543,7 +1543,7 @@ CORN_CANOPY_SHAPE = (6, -20, -5.35, 4.10)  # re-refit 2026-09-30 (was (6,-20,-12
 # refit (old or new) at Kansas produces a substantially worse absolute-overshoot ratio (~1.35x)
 # than the paper's own unfit default shape gives there (~0.99x) -- holding canopy cover higher/
 # longer raises yield, and Kansas is already over-yielding for reasons already tracked elsewhere
-# (the real nitrogen-response muting documented in QUESTIONS_FOR_DEVS.md item 6), not because the
+# (the real nitrogen-response muting documented in MECHANISM_LOG.md item 6), not because the
 # corn-specific canopy timing itself is wrong at that site. This confirms the overshoot and the
 # canopy-shape-fit are two separate problems, not the same one under two names.
 
@@ -1567,7 +1567,7 @@ CORN_CANOPY_SHAPE = (6, -20, -5.35, 4.10)  # re-refit 2026-09-30 (was (6,-20,-12
 # needed to get there) AND meaningfully improved correlation for wheat (a real, not marginal,
 # jump) while leaving corn/soybean/silage corn's own correlations roughly unchanged or slightly
 # better. The flat warm-season "maximum eR" gap itself (see NET_GROWTH_FRACTION below for how it
-# was eventually implemented, and QUESTIONS_FOR_DEVS.md item 9 for what's still genuinely open
+# was eventually implemented, and MECHANISM_LOG.md item 9 for what's still genuinely open
 # about it) was NOT applied here, as a multiplier on GR before the min(GR, GT) choice -- that's
 # structurally unsafe regardless of the exact fraction used (confirmed directly, not assumed):
 # discounting GR alone made radiation the binding constraint on 81-85% of days in a synthetic
@@ -1753,7 +1753,7 @@ def radiation_temp_factor(tmean, min_t, floor, plateau_t):
 
 TTF50_SHOOT_PARTITION = 0.32  # Eq. SI.8-11's own half-max point isn't given a numeric value in
 # either source -- the literal reading of its name (0.5) was replaced 2026-09-23 with a real,
-# data-driven fit against real Cycles' own daily output (QUESTIONS_FOR_DEVS.md item 3, formerly
+# data-driven fit against real Cycles' own daily output (MECHANISM_LOG.md item 3, formerly
 # unresolved): the paper's own equation implies the INSTANTANEOUS (marginal) shoot fraction of
 # a day's new growth equals shoot_fraction(ttf) exactly (dAG/dTotal = shoot_fraction(ttf) by
 # construction, since dAG = dGB*shoot_fraction(ttf) and dTotal = dGB), so day-to-day differences
@@ -1861,7 +1861,7 @@ BACKGROUND_N_KG_HA_DAY = 0.5
 # Weather-driven scaling on BACKGROUND_N_KG_HA_DAY (2026-09-24). The flat
 # constant above has zero year-to-year variability, which is exactly why
 # turning nitrogen tracking on for winter wheat (which real Cycles output
-# shows is dominated by nitrogen stress, not water -- see QUESTIONS_FOR_DEVS.md
+# shows is dominated by nitrogen stress, not water -- see MECHANISM_LOG.md
 # item 6) made correlation WORSE than not modeling nitrogen at all: applying
 # real nitrogen constraints at a flat, unvarying supply rate can fix the mean
 # level but can't reproduce which specific years get more or less N-stressed.
@@ -2055,7 +2055,7 @@ def tillage_dr_decay(layers, max_rate_per_day=0.02):
 # range 0.70-1.00; this mechanism's and RothC's own year-to-year pattern
 # both correlate slightly NEGATIVELY with which real years are more or
 # less responsive) -- the same category of gap already documented for
-# Kansas's nitrogen-response muting (QUESTIONS_FOR_DEVS.md item 6),
+# Kansas's nitrogen-response muting (MECHANISM_LOG.md item 6),
 # consistent with that item's own standing diagnosis that real multi-year
 # soil-state carryover, not a single-season mechanism tweak, is the likely
 # fix. Still opt-in, not adopted as a default -- the mean-level win at all
@@ -2072,7 +2072,7 @@ def tillage_dr_decay(layers, max_rate_per_day=0.02):
 # mechanism) stays the default, byte-identical for every existing caller.
 # NOT validated against real Cycles output yet, NOT a replacement for the
 # RothC path until proven at least as good on the crops that already pass
-# (corn, soybean) -- see QUESTIONS_FOR_DEVS.md's 2026-10-01 entries for the
+# (corn, soybean) -- see MECHANISM_LOG.md's 2026-10-01 entries for the
 # full back-calculation trail behind every constant below, and CLAUDE.md for
 # the explicit scope decision this was built under.
 #
@@ -2225,7 +2225,7 @@ def sixpool_fe_moisture(relwet):
     plateau by about 60% of the plant-available-water range -- confirmed to have NO anoxia/
     waterlogging decline out to 2.6x relative wetness, checked across two structurally
     different real soils (Rock Springs clay-rich subsoil, Western Kansas sandy topsoil). See
-    QUESTIONS_FOR_DEVS.md's "Check 1" entry, 2026-10-01, for the full account. relwet =
+    MECHANISM_LOG.md's "Check 1" entry, 2026-10-01, for the full account. relwet =
     (theta-pwp)/(fc-pwp), the same quantity this engine's water-stress code already computes."""
     if relwet <= 0:
         return 0.157
@@ -2266,7 +2266,7 @@ def sixpool_csx_pct(clay_frac):
     Csx(%) = 2.11+3.75*fclay. This EXACTLY matches Csx back-calculated independently from real
     Cycles ContinuousCorn output at Rock Springs' own three real clay fractions (21/37/55%) --
     two fully independent methods converging to 4-5 significant figures, not a single source
-    trusted on faith. See QUESTIONS_FOR_DEVS.md, 2026-10-01, "Csx...fully resolved." clay_frac
+    trusted on faith. See MECHANISM_LOG.md, 2026-10-01, "Csx...fully resolved." clay_frac
     is a 0-1 fraction."""
     return 2.11 + 3.75 * clay_frac
 
@@ -2295,7 +2295,7 @@ SIXPOOL_DIAG = None  # optional list; when set, sixpool_step appends (cs_loss, r
 # - 7.6*RES_RESPIRED_C (kg N per Mg C), R^2 = 0.972, per-site mean residual under 25 kg N. Humified
 # share of decomposed residue C (HUMIFIED/(HUMIFIED+RES RESPIRED)) falls from ~0.53 at low Cs/Csx to
 # ~0.1 by Cs/Csx = 1: ~0.53*(1-r^12) (a flat eps_c*fH with exponent 6 gave 0.35 at r=0.7 and 0 at r>1).
-SIXPOOL_ML_N_A = 90.564  # 2026-10-15 joint refit with the SI fD respiration law (opt_joint.py, REFIT_PLAN row 43); was 72.0  # was 186.8 (fit on respiration terms alone); 140 chosen 2026-10-07 on the 16-site table (N0 corn bias +1.44 -> +0.21, leaching 1.06 -> 0.90, wheat chain 0.25 -> 0.52) at a cost to fertilized corn (N150 bias -0.70 -> -1.01); see QUESTIONS_FOR_DEVS.md
+SIXPOOL_ML_N_A = 90.564  # 2026-10-15 joint refit with the SI fD respiration law (opt_joint.py, REFIT_PLAN row 43); was 72.0  # was 186.8 (fit on respiration terms alone); 140 chosen 2026-10-07 on the 16-site table (N0 corn bias +1.44 -> +0.21, leaching 1.06 -> 0.90, wheat chain 0.25 -> 0.52) at a cost to fertilized corn (N150 bias -0.70 -> -1.01); see MECHANISM_LOG.md
 SIXPOOL_ML_N_B = 37.689  # 2026-10-15 joint refit (row 43); was 33.0  # was 78.1 (fit on respiration terms); refit 2026-10-12 together with N_A and realized-growth root carbon on 28 sites run as one continuous Cycles-style chain
 SIXPOOL_ML_N_C = 7.6
 SIXPOOL_ML_N_B_CLAY = 0.0   # 2026-10-15 opt-in: immobilization coefficient B scales as 1 + k*(clay-0.25)/0.25 (Cycles' net-N response to fertilizer falls with clay: +27 on sand to +13 on heavy clay kg N/ha; the engine's did not)
@@ -2331,7 +2331,7 @@ def sixpool_fd(cs, csx):
 
 
 SIXPOOL_DEPTH_DECAY_M = 0.5  # fitted 2026-10-02 against native Cycles season net mineralization at 16
-# CONUS sites (run_validation_multisite.py / QUESTIONS_FOR_DEVS.md): the exponential decay length of
+# CONUS sites (run_validation_multisite.py / MECHANISM_LOG.md): the exponential decay length of
 # a layer's weight in the decomposing-carbon stock. rms log error across sites 0.565 (fixed 0.05m
 # topsoil pool) -> 0.320 (decay length 0.5m); 0.3-1.5m all within 0.35, so not a knife-edge value.
 SIXPOOL_DEPTH_K = 0.279  # scale so the exact Rock Springs Hagerstown profile (the pool's original
@@ -2401,7 +2401,7 @@ def sixpool_init_state(layer0, clay_pct, soc_pct, depth_m=None):
     return dict(cs=cs0, cm=0.03 * cs0, cra=0.0, crtz=0.0, crm=0.0, csx=csx, cra_age=9999.0, clay=clay_pct / 100.0)
 
 
-CRA_MATURATION_TAU_DAYS = 30.0  # back-calculated 2026-10-02 from Cycles output; 1.0 tested 2026-10-07 and rejected, see QUESTIONS_FOR_DEVS.md
+CRA_MATURATION_TAU_DAYS = 30.0  # back-calculated 2026-10-02 from Cycles output; 1.0 tested 2026-10-07 and rejected, see MECHANISM_LOG.md
 # (soilLayersCN.txt, ContinuousCorn, Rock Springs) -- found while diagnosing the 2026-10-02
 # multi-year sixpool-carryover instability (an undiminished stover pulse immediately
 # decomposing at full rate the very next season, swamping the mineral-N pool). A hand-checked
@@ -2423,7 +2423,7 @@ CRA_MATURATION_TAU_DAYS = 30.0  # back-calculated 2026-10-02 from Cycles output;
 # wasn't checked this round. Completely inert for every currently-validated path: cra is
 # always exactly 0.0 in the default (no multi-year carryover) mode, so this multiplier has
 # nothing to act on there -- it only matters for the exploratory sixpool_initial_state
-# carryover feature this was built to fix. See QUESTIONS_FOR_DEVS.md's 2026-10-02 entry for
+# carryover feature this was built to fix. See MECHANISM_LOG.md's 2026-10-02 entry for
 # the full bin table and the broad-sample-vs-narrow-window reconciliation.
 
 
@@ -2776,7 +2776,7 @@ MINERAL_SOURCES = {
     # 0.007/0.038=0.1842, matching MANURE_SOURCES["dairy"]["nh4_frac"]=0.184 exactly) before
     # trusting the same parse for these mineral entries. Added 2026-10-02 (continuing the same
     # NH4 trajectory investigation -- see cycles_engine_validate.py's own VOLATILIZATION_RATE_A
-    # docstring and QUESTIONS_FOR_DEVS.md's 2026-10-02 entries) after finding this engine
+    # docstring and MECHANISM_LOG.md's 2026-10-02 entries) after finding this engine
     # treated every fresh mineral application as 100% NH4 on arrival, while real Cycles'
     # own ContinuousCorn.operation discloses UreaAmmoniumNitrate (UAN) specifically as
     # N_NH4=0.75/N_NO3=0.25 -- confirmed to trace exactly to this catalog's own
@@ -2853,7 +2853,7 @@ DENITRIF_K0 = 0.051717  # back-calculated 2026-10-02 directly from real Cycles o
 # specifically: model 6.3% vs. real 1.4%, overshooting that one low-denitrification year
 # while landing close on 2012) -- the first denitrification pathway this engine has ever had,
 # previously exactly zero. See denitrification_rate()'s own use in simulate_season() and
-# QUESTIONS_FOR_DEVS.md's 2026-10-02 entry for the full account and the layer-by-layer fit table.
+# MECHANISM_LOG.md's 2026-10-02 entry for the full account and the layer-by-layer fit table.
 DENITRIF_EXPONENT = 4.369
 
 
@@ -3086,7 +3086,7 @@ VOLATILIZATION_RATE_C = -0.0098581  # row 47; was -0.0034  # the new NH4-concent
 # now-better-grounded mechanism, this engine's two prior volatilization approximations: a flat
 # IPCC Tier-1 default (NH3_FRAC_SYNTHETIC/NH3_FRAC_MANURE, a single number regardless of
 # weather) and the Macnack et al. 2013 per-application-day estimate (soil_ph parameter), which
-# was found, when checked against this same real Cycles record (see QUESTIONS_FOR_DEVS.md), to
+# was found, when checked against this same real Cycles record (see MECHANISM_LOG.md), to
 # predict roughly 37% loss at Rock Springs' real 2012 planting-day weather -- a 2-8x
 # overestimate against real Cycles' own actual seasonal total. See fert_placement_implement/
 # soil_ph in simulate_season()'s own docstring: they're kept, not removed, as the documented,
@@ -3511,7 +3511,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     n_root_limited (the per-layer nitrogen-tracking path) -- if both are set, nh4_no3_split is
     silently ignored and the old lumped-pool-by-layer mechanism runs unchanged, since that path
     is itself a separate, already-opt-in, not-default-validated mechanism not worth compounding
-    two large changes into at once. See QUESTIONS_FOR_DEVS.md's 2026-10-02 entry for the full
+    two large changes into at once. See MECHANISM_LOG.md's 2026-10-02 entry for the full
     derivation and the real leaching-split evidence.
 
     model_volatilization: False by default (byte-identical to this parameter not existing).
@@ -3524,7 +3524,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     application; this models it as the real, continuous, temperature-gated process it actually
     is, competing day by day with nitrification for the same NH4 pool (nitrified NH4 becomes
     NO3 and is no longer exposed to this loss pathway at all). See VOLATILIZATION_RATE_A's own
-    docstring for the full derivation against real Cycles output, and QUESTIONS_FOR_DEVS.md's
+    docstring for the full derivation against real Cycles output, and MECHANISM_LOG.md's
     2026-10-02 entry for the comparison against the two prior mechanisms' real overestimate.
     Not mutually exclusive with fert_placement_implement/soil_ph in code (nothing stops a
     caller from setting both), but doing so would double-count the same real loss against two
@@ -3541,7 +3541,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     ValueError for an unrecognized key regardless, since a silent no-op on a typo'd source name
     would be worse than failing loudly. Found and fixed 2026-10-02, directly asked for after
     comparing this engine's own NH4 trajectory against Cycles' real PROF SOIL NH4 column
-    uncovered that 100%-NH4 was never universally true -- see QUESTIONS_FOR_DEVS.md's
+    uncovered that 100%-NH4 was never universally true -- see MECHANISM_LOG.md's
     2026-10-02 entries for the full account, including why this alone doesn't resolve the
     larger volatilization-rate gap that comparison was built to investigate (see
     VOLATILIZATION_RATE_A's own docstring).
@@ -3550,7 +3550,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     the existing RothC-weather-scaled flat-constant background-nitrogen mechanism. "sixpool"
     switches to the real two-pool (Cm, Cs) carbon-mineralization mechanism built 2026-10-01 --
     see sixpool_step()'s own docstring above for the full structure, and CLAUDE.md/
-    QUESTIONS_FOR_DEVS.md for why it's opt-in, not the default, and what's still a disclosed
+    MECHANISM_LOG.md for why it's opt-in, not the default, and what's still a disclosed
     placeholder in it. Requires sixpool_topsoil_clay_pct and sixpool_topsoil_soc_pct (the same
     real topsoil texture/SOC inputs a caller's own make_layers() already used to build
     layers[0] -- not re-derivable from the layers dict alone, which doesn't retain them).
@@ -3566,7 +3566,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     closes the one gap that's shown up at every site tested for the fresh-start six-pool
     mechanism: real year-to-year variation in which years are more or less nitrogen-limited is
     not captured by a pool that resets to the same starting guess every season. See
-    QUESTIONS_FOR_DEVS.md for the actual chained-multi-year test and its result.
+    MECHANISM_LOG.md for the actual chained-multi-year test and its result.
 
     sixpool_offseason_decay (default False, byte-identical when unused -- this never changes
     any already-shipped result, including wheat's own 0.490 validated correlation, which
@@ -3819,7 +3819,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     starts fresh. A hand-chained 3-year test (2010-2012, real crop-driven depletion carried
     forward via this exact mechanism, not bare fallow) cut that to 7.65x -- more than half
     the gap closed by this one change, the largest effect any single mechanism has had on
-    that comparison this session (see QUESTIONS_FOR_DEVS.md item 6 for the full account,
+    that comparison this session (see MECHANISM_LOG.md item 6 for the full account,
     including a real test-harness bug that initially hid this finding and was caught and
     fixed before trusting it). Rock Springs' own 37-year validated record was NOT re-checked
     against a chained run before this was implemented -- carryover there would need the same
@@ -3849,7 +3849,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     (the embedded engines in engine-demo.html and model-validation.html do exactly that implicitly:
     they have no such flag and still run the FAO-56 Kr path). It was validated against Cycles on the
     16-site same-input table (N0 grain MAE 2.32 -> 2.03, Iowa net mineralization year-to-year
-    correlation about 0.5 -> 0.9; see QUESTIONS_FOR_DEVS.md 2026-10-07). "faostandard" = the FAO-56
+    correlation about 0.5 -> 0.9; see MECHANISM_LOG.md 2026-10-07). "faostandard" = the FAO-56
     Kr-based bare-soil evaporation mechanism (soil_evaporation()'s own default path); "cropsyst" = the
     fully-disclosed formula found 2026-09-28 (soil_evaporation_cropsyst()).
 
@@ -3867,7 +3867,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     the crop's own real root_depth trajectory (layer_depth_fraction_within()) -- N that has
     leached below the roots genuinely can't be taken up that day, exactly the "root discovery"
     concept already fixed for water this session, applied to nitrogen for the first time. See
-    QUESTIONS_FOR_DEVS.md for the four earlier, real, sourced angles on the Kansas nitrogen-
+    MECHANISM_LOG.md for the four earlier, real, sourced angles on the Kansas nitrogen-
     response-muting problem that didn't work, and why this one was built instead."""
     layers = copy.deepcopy(initial_layers) if initial_layers is not None else crop["make_layers"]()
     root_max_m = crop.get("root_max_m", root_max_m)
@@ -3892,7 +3892,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                                                          if sixpool_profile_raw else None))
         # Moved ahead of the spinup block above (2026-10-01) specifically so
         # sixpool_offseason_decay below can run during it -- see that parameter's own
-        # docstring and QUESTIONS_FOR_DEVS.md for why.
+        # docstring and MECHANISM_LOG.md for why.
 
     if spinup_rows:
         # A bare-soil (no canopy, no transpiration) water balance over real weather from
@@ -4175,7 +4175,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # Verified: with the flowering_tt gate, corn's Rock Springs correlation jumped
         # 0.505->0.691 (uncalibrated), the single largest movement any mechanism has
         # produced this session -- see run_validation.py's own calibration_factor comment
-        # and QUESTIONS_FOR_DEVS.md for the full account.
+        # and MECHANISM_LOG.md for the full account.
         if (flowered if _V is not None else tt_cum >= crop.get("flowering_tt", math.inf)) and w["tn"] < crop.get("threshold_temp_cold_damage", -math.inf):
             break
         # Winterkill (2026-10-07): a night below the crop's own real MIN_TEMPERATURE_FOR_COLD_DAMAGE

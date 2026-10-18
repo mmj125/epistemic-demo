@@ -1,7 +1,7 @@
 """
 Validation harness for the CornSilageSoyWheat rotation (soybean, winter
 wheat, silage corn). See cycles_engine_validate.py's module docstring and
-QUESTIONS_FOR_DEVS.md for what's disclosed vs. approximated vs. still
+MECHANISM_LOG.md for what's disclosed vs. approximated vs. still
 genuinely unresolved. Requires the same local Cycles v1.4.4 reference data
 as run_validation.py (see that file / REFERENCE_DATA_DIR).
 """
@@ -61,7 +61,7 @@ SOYBEAN = dict(
                # SI.5-SI.7, see retention_param_mm()) -- see cycles_engine_validate.py, and re-
                # derived again 2026-09-25 for the hydraulic-conductance water-stress mechanism
                # (campbell_water_uptake()) -- correlation moved 0.856 -> 0.802 from that switch
-               # alone, see QUESTIONS_FOR_DEVS.md/CLAUDE.md for the full account
+               # alone, see MECHANISM_LOG.md/CLAUDE.md for the full account
                n_max_conc=0.07, n_dilution_slope=0.4, legume=True,  # real GenericCrops.crop values;
                # soybean fixes its own N (LEGUME=1) so the nitrogen knob correctly has no effect on it
                depletion_fraction=0.50,  # real FAO-56 Table 22 value for soybeans -- same as this
@@ -219,7 +219,7 @@ WHEAT = dict(canopy_form="H",  # 2026-10-17: integrated-derivative canopy, expan
              # -- see the comments above thermal_time_increment() and radiation_temp_factor() in
              # cycles_engine_validate.py
              depletion_fraction=0.55,  # real FAO-56 Table 22 (winter/spring wheat)
-             canopy_shape=(5, -14, -15, 16),  # refit from real data -- see QUESTIONS_FOR_DEVS.md item 5;
+             canopy_shape=(5, -14, -15, 16),  # refit from real data -- see MECHANISM_LOG.md item 5;
                                                # fixes level bias, does NOT fix wheat's weak correlation
              rad_temp_floor=0.257, rad_temp_plateau_t=15.55,  # wheat-specific radiation-temperature
              # response (2026-09-23), separate from tr_min_t/tr_threshold_t used for transpiration --
@@ -274,7 +274,7 @@ CORN_SILAGE = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_
                     depletion_fraction=0.55,  # real FAO-56 Table 22 value, same crop biology as grain corn
                     canopy_shape=CORN_CANOPY_SHAPE,  # real fix (thermal time, canopy shape, harvest
                     # date, forage ratio all individually verified accurate) does NOT move correlation
-                    # (0.503 -> 0.501) -- see QUESTIONS_FOR_DEVS.md, this is a distinct, still-open item
+                    # (0.503 -> 0.501) -- see MECHANISM_LOG.md, this is a distinct, still-open item
                     tr_max_mm_day=10,  # real GenericCrops.crop TRANSPIRATION_MAX (CornSilageRM.90)
                     root_max_m=1.55,  # real GenericCrops.crop MAXIMUM_ROOTING_DEPTH (CornSilageRM.90)
                     # -- notably shallower than grain corn's 2.0m, a real distinguishing trait
@@ -406,7 +406,7 @@ if __name__ == "__main__":
               # per Matt's direct "I'm not interested in leaving the path we're making progress
               # on": the six-pool mechanism, with zero recalibration, already beat RothC's own
               # hand-tuned number here (correlation 0.444 -> 0.490, MAE 0.44 -> ~0.42, mean
-              # already nearly exact) -- see QUESTIONS_FOR_DEVS.md's 2026-10-01 entries for the
+              # already nearly exact) -- see MECHANISM_LOG.md's 2026-10-01 entries for the
               # full account (Rock Springs/Kansas/Iowa all independently confirmed this
               # mechanism matches real Cycles output at least as well as RothC, mostly better).
               # Safe to promote here specifically because wheat doesn't clear the classroom-
