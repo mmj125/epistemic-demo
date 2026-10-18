@@ -31,6 +31,7 @@ def one(a):
     return site,out
 if __name__=="__main__":
     S=json.load(open("sitesets/fresh94.json")); ks=sorted(S)[int(os.environ.get("OFF","0"))::6][:16]
+    if os.environ.get("SITES"): ks=os.environ["SITES"].split(",")   # explicit site ids, e.g. the humid alternating-year sites
     with Pool(4) as p: R=p.map(one,[(k,S[k]) for k in ks])
     json.dump(R,open(os.environ.get("WOUT","scorecards/2026-10-17_wheat_coupling_16sites.json"),"w"))
     for N in (0,150):

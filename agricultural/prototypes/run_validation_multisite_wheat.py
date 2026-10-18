@@ -96,9 +96,9 @@ def corr(a,b):
 def one(a):
     site,(lat,lon)=a
     wx,_=m.fd.resolve_field_weather(lat,lon); soil,_,name=m.fd.resolve_field_soil(lat,lon); cl=m.lat_of(lat,lon); m.REG_LON=lon
-    fs=site+"wheat"; m.write_inputs(fs,lat,lon,wx,soil,cl); res={}
+    fs=site+"wheat"+("F%d"%FALLN if FALLN else ""); m.write_inputs(fs,lat,lon,wx,soil,cl); res={}
     for N in (0,90,150):
-        open(f"{CY}/input/{fs}N{N}.operation","w").write(OP+(FERT%(N/0.32) if N>0 else ""))
+        open(f"{CY}/input/{fs}N{N}.operation","w").write(OP+fert_text(N))   # 2026-10-18: the Cycles reference now gets the same fall + spring N as the engine (was spring-only, which flips Cycles between failed and good years)
         H=cycles_ref(fs,N)
         for tag,calib in (("calib",None),("raw",1.0)):
             R=engine_chain(wx,soil,cl,N,calib); ys=[y for y in sorted(set(H)&set(R)) if y>1981]
