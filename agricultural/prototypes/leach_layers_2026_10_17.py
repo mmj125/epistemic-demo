@@ -2,7 +2,7 @@
 import os,sys,json,shutil,csv,subprocess,datetime,statistics as st
 os.environ["N_LEVELS"]="150"; os.environ.setdefault("REGIONAL","0"); sys.path.insert(0,'.')
 import run_validation_multisite as m, cycles_engine_validate as E
-S=json.load(open('/tmp/w/s24.json')); site=os.environ.get("SITE","f018_380_800"); N=int(os.environ.get("NN","150")); lat,lon=S[site]
+S=json.load(open('sitesets/fresh94.json')); site=os.environ.get("SITE","f018_380_800"); N=int(os.environ.get("NN","150")); lat,lon=S[site]
 wx,_=m.fd.resolve_field_weather(lat,lon); soil,_,_=m.fd.resolve_field_soil(lat,lon); cl=m.lat_of(lat,lon); m.REG_LON=lon
 m.write_inputs(site,lat,lon,wx,soil,cl)
 subprocess.run(["./Cycles",f"{site}N{N}"],cwd=m.CY,capture_output=True); d=f"{m.CY}/output/{site}N{N}/"
