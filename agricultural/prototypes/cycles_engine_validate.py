@@ -1807,6 +1807,7 @@ GROWTH_CANOPY_LAG = 1.0   # days between the reported canopy and the canopy that
 GROWTH_PREV_CANOPY = True   # step 6: radiation-limited growth uses the canopy at the start of the day (previous day's)
 VPD_DAYTIME_ALPHA = 0.7   # step 6b: saturation pressure at alpha*tmax+(1-alpha)*tmin (0.7 reproduces Cycles' reported VPD to rms 0.09 kPa over 4 sites)
 VPD_FAO56 = True   # step 6
+CANOPY_WATER_MIN_TRP = 0.0   # opt-in: days whose potential transpiration is below this (mm/day) do not feed the canopy clock (Cycles reports no stress on near-zero-demand days)
 CANOPY_WATER_POW = 1.35   # step 6 (replaces the W0 line): canopy clock rate = water_stress_mult ** POW (Cycles: 0.9 at 2.5% stress, 0.6 at 27%, 0.37 at 60%, 0.06 at 90%)
 CANOPY_WATER_W0 = None  # step 6: canopy clock rate = clamp((water_stress_mult - W0)/(1 - W0), 0, 1); None = off. Measured on Cycles: ~1 at no stress, ~0 near 50% stress
 CANOPY_N_RATIO_LOGISTIC = None   # 2026-10-15 opt-in (center, width): canopy clock rate = logistic of the plant N concentration ratio instead of n_stress**pow. Cycles' implied rate vs AG N ratio: 0.01 at .35, .06 at .45, .39 at .55, .79 at .65, .92 at .75, .99 at .85 (engine clock was .05/.10/.19/.37/.62/1.0)
@@ -4437,7 +4438,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             water_stress = _FORCE_CUR["water"][w["doy"]]
             TR_actual = TRp * water_stress
         _water_hook(layers, w["doy"], no3_layers)
-        water_stress_prev = water_stress
+        water_stress_prev = water_stress if TRp >= CANOPY_WATER_MIN_TRP else 1.0
         # tr_max_mm_day: real, disclosed per-crop TRANSPIRATION_MAX from GenericCrops.crop
         # (corn/silage corn 10, soybean/wheat 8 mm/day), a physical ceiling on daily
         # transpiration -- for the fallback branch above it's an explicit clamp; for the
