@@ -55,7 +55,8 @@ def fert_text(N):
     if FALLN>0 and N>FALLN: t+=FERT.replace("DOY                                 75","DOY                                 289")%(FALLN/0.32)
     return t
 def engine_chain(wx,soil,cl,N,calib):
-    crop=dict(r2.WHEAT); crop["lat_deg"]=cl; crop["winterkill_temp"]=-25.0
+    crop=dict(r2.WHEAT); crop["lat_deg"]=cl; 
+    if os.environ.get("WINTERKILL"): crop["winterkill_temp"]=float(os.environ["WINTERKILL"])   # 2026-10-18: off by default; the -25 layer-1 soil proxy (derived from 3 Rock Springs winters, no snow insulation) over-kills elsewhere: with the water mechanism pooled correlation 0.921/0.664/0.678 (kill -25) vs 0.945/0.708/0.729 (none) at N=0/90/150
     if os.environ.get("WHEAT_VERN","1")=="1":   # disclosed winter phenology (vernalization, photoperiod, grain filling); 0 = the old single-threshold phenology
         crop["vern"]=dict(E.WINTER_PHENOLOGY); crop["base_t"]=E.WINTER_PHENOLOGY["base_t"]
     if calib is not None: crop["calibration_factor"]=calib

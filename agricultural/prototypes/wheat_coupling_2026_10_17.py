@@ -4,7 +4,7 @@ import os,sys,json,csv,datetime,shutil,subprocess,statistics as st
 os.environ["N_LEVELS"]="0,150"; os.environ.setdefault("REGIONAL","0"); sys.path.insert(0,'.')
 import run_validation_multisite_wheat as W, run_validation_multisite as m, cycles_engine_validate as E
 from multiprocessing import Pool
-CY=m.CY; KEYS={'K':'nclock','L':'wclock','N':'nstress','C':'canopy'}; MODES=os.environ.get('WMODES','').split(',') if os.environ.get('WMODES') is not None and os.environ.get('WMODES')!='-' else ['','K','L','KL','N','KLN','C','CN']
+CY=m.CY; KEYS={'K':'nclock','L':'wclock','N':'nstress','C':'canopy','M':'netmin'}; MODES=os.environ.get('WMODES','').split(',') if os.environ.get('WMODES') is not None and os.environ.get('WMODES')!='-' else ['','K','L','KL','N','KLN','C','CN']
 if os.environ.get('WMODES')=='': MODES=['']
 def series(fs,N):
     subprocess.run(["./Cycles",f"{fs}N{N}"],cwd=CY,capture_output=True); d=f"{CY}/output/{fs}N{N}/"; F={}

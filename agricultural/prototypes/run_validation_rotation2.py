@@ -240,8 +240,9 @@ WHEAT = dict(canopy_form="H",  # 2026-10-17: integrated-derivative canopy, expan
              n_min_conc=0.002,  # real GenericCrops.crop N_MIN_CONCENTRATION_STRAW (0.2%), added
              # 2026-09-25 for the day-by-day concentration-tracked N-stress mechanism -- see
              # simulate_season()'s own comment above canopy_n_kg_ha in cycles_engine_validate.py.
-             # Deliberately NO lwp_stress_onset/lwp_wilting_point here -- see calibration_factor's
-             # own comment above for why wheat specifically is exempted from campbell_water_uptake().
+             # 2026-10-18: the 2026-09-28 exemption from campbell_water_uptake() is REVERSED. It was judged on Rock Springs' nine harvests alone; on 30 held-out sites
+             # (FALLN=60, paired) the crop-file water mechanism cuts wheat MAE by 0.047/0.156/0.246 Mg/ha at N=0/90/150 (CIs exclude 0, 24 to 25 of 30 sites better).
+             lwp_stress_onset=-1000, lwp_wilting_point=-2100,  # real GenericCrops.crop LWP_STRESS_ONSET/LWP_WILTING_POINT (WinterWheat)
              threshold_temp_cold_damage=-10)  # real GenericCrops.crop THRESHOLD_TEMPERATURE_FOR_
              # COLD_DAMAGE (WinterWheat) -- confirmed, not assumed, a real null result: tested
              # directly 2026-10-01 alongside the same mechanism's real wins for corn/soybean,
