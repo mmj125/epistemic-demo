@@ -1628,8 +1628,7 @@ RESIDUE_COVER_K = 0.27
 RESIDUE_RAIN_EVAP_FRAC = 0.55
 RESIDUE_RAIN_EVAP_CAP_MM = 1.0
 RESIDUE_COVER_REF = 0.77
-RESIDUE_COVER_BIOMASS_FRAC = 0.7  # share of the engine's surface residue pool (all stover) that counts toward
-# cover: engine cover ran 0.1 above Cycles' all year (Cycles' AG RES is ~0.6-0.75 of the engine's stover biomass)
+RESIDUE_COVER_BIOMASS_FRAC = 1.0  # 2026-10-18 was 0.7: that factor corrected a pool mass mismatch of 2026-10-02 (engine surface residue about 1.4x Cycles'), but after the residue refits the pool is within about 6% of Cycles' above-ground residue biomass, so 0.7 left cover 21 to 30% too low, soil evaporation 8 to 15% too high and layers 1 and 2 0.011 to 0.017 m3/m3 too dry (water_audit_2026_10_18.py). Cycles' own law (K 0.272, rms 0.017 on 324,000 days) needs no factor.
 
 
 def residue_cover_frac(sixpool_state):
