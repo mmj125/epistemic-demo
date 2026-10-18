@@ -25,4 +25,4 @@ def one(site):
 if __name__=="__main__":
     ks=sorted(S)[:NS]
     with Pool(4) as p: R=p.map(one,ks)
-    A=np.vstack([a for s,a in R if len(a)]); np.save(f'/tmp/w/lawcheck2_N{NLEV}.npy',A); print('days',len(A))
+    np.savez(f'/tmp/w/lawsite_N{NLEV}.npz',**{s:a for s,a in R if len(a)}); print('sites',sum(1 for s,a in R if len(a)))
