@@ -1803,6 +1803,7 @@ def shoot_fraction(ttf, fsti, fstf, ttf50=TTF50_SHOOT_PARTITION):
 # behavior is byte-identical to before this feature existed -- verified by
 # re-running run_validation.py / run_validation_rotation2.py unchanged.
 N_UPTAKE_RATE_PER_DAY = None  # None = uptake limited only by demand (validated default); else also capped at this fraction/day of the reachable mineral N pool (nitrate_per_layer path)
+N_ACCESS_MASSFLOW = False  # 2026-10-18 paper Sec 2.7: per-layer mass-flow access to nitrate (root water withdrawal x layer nitrate concentration) replaces the pool-fraction cap when True (nitrate_per_layer path)
 N_DEMAND_SCALE = 0.70   # 2026-10-17 measured: Cycles unstressed marginal total-N concentration of new growth is 0.68 (corn, silage corn) to 0.75 (winter wheat) of the crop-file dilution curve marginal a(1-b)W^-b, growth-weighted over 16 sites x 3 N rates (n_demand_ratio_2026_10_17.py). Was 0.874562 (a leaching fit).
 GROWTH_CANOPY_LAG = 1.0   # days between the reported canopy and the canopy that drives radiation-limited growth (1 = previous day; 1.5 = mean of the previous two days); per-crop key growth_canopy_lag overrides
 GROWTH_PREV_CANOPY = True   # step 6: radiation-limited growth uses the canopy at the start of the day (previous day's)
@@ -4423,6 +4424,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         TRp = (1 + (crop["kc"] - 1) * eie) * eie * eto
         TRp *= temp_factor
 
+        _w0_mm = [l["theta"] * l["thick"] * 1000.0 for l in layers]   # layer water before today's root uptake (per-layer mass-flow N access)
         if crop_ct is not None:
             # Real hydraulic-conductance mechanism -- see campbell_water_uptake()'s own
             # docstring above. Mutates layers in place and returns the real, physically-
@@ -4435,6 +4437,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             water_stress = water_stress_response(avail_frac, crop.get("depletion_fraction", 0.5))
             TR_actual = min(TRp * water_stress, crop.get("tr_max_mm_day", math.inf))
             extract_transpiration(layers, root_depth, TR_actual)
+        _wul_mm = [w0 - l["theta"] * l["thick"] * 1000.0 for w0, l in zip(_w0_mm, layers)]   # each layer's root water withdrawal today, mm
         if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("water", ()):
             water_stress = _FORCE_CUR["water"][w["doy"]]
             TR_actual = TRp * water_stress
@@ -4628,17 +4631,30 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     else:
                         _avail = [no3_layers[i] * access[i] for i in range(len(layers))]
                         reach_no3 = sum(_avail)
-                    reachable = n_nh4 + reach_no3
-                    _ur = crop.get("n_uptake_rate", N_UPTAKE_RATE_PER_DAY)
-                    _cap = reachable if _ur is None else reachable * _ur
-                    n_uptake_kg_ha = min(_cap, demand_today_kg_ha)
-                    if reachable > 1e-9:
-                        frac = n_uptake_kg_ha / reachable
-                        n_nh4 = max(0.0, n_nh4 - n_nh4 * frac)
-                        for i in range(len(layers)):
-                            no3_layers[i] = max(0.0, no3_layers[i] - _avail[i] * frac)
-                    n_no3 = sum(no3_layers)
-                    n_pool = n_nh4 + n_no3
+                    if N_ACCESS_MASSFLOW:
+                        # paper Sec 2.7: the water flux from the soil in each layer to the crop determines its access to mineral N: nitrate supply of a layer = its
+                        # root water withdrawal today x the layer's nitrate concentration (current layer water); uptake = min(demand, supply), drawn layer by layer
+                        _sup = [min(max(0.0, _wul_mm[i]) * no3_layers[i] / max(_w0_mm[i], 1e-6), _avail[i]) for i in range(len(layers))]
+                        _S = sum(_sup)
+                        n_uptake_kg_ha = min(_S, demand_today_kg_ha)
+                        if _S > 1e-9:
+                            _f = n_uptake_kg_ha / _S
+                            for i in range(len(layers)):
+                                no3_layers[i] = max(0.0, no3_layers[i] - _sup[i] * _f)
+                        n_no3 = sum(no3_layers)
+                        n_pool = n_nh4 + n_no3
+                    else:
+                        reachable = n_nh4 + reach_no3
+                        _ur = crop.get("n_uptake_rate", N_UPTAKE_RATE_PER_DAY)
+                        _cap = reachable if _ur is None else reachable * _ur
+                        n_uptake_kg_ha = min(_cap, demand_today_kg_ha)
+                        if reachable > 1e-9:
+                            frac = n_uptake_kg_ha / reachable
+                            n_nh4 = max(0.0, n_nh4 - n_nh4 * frac)
+                            for i in range(len(layers)):
+                                no3_layers[i] = max(0.0, no3_layers[i] - _avail[i] * frac)
+                        n_no3 = sum(no3_layers)
+                        n_pool = n_nh4 + n_no3
                 else:
                     n_uptake_kg_ha = min(n_pool, demand_today_kg_ha)
                     if n_pool > 1e-9:
