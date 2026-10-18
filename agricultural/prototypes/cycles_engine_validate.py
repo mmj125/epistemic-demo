@@ -3219,7 +3219,15 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             sixpool_state["n_min"] = nstate["n_nh4"] + nstate["n_no3"]
             sixpool_state["n_conc1"] = n_conc_layer1(layers, nstate["n_nh4"], no3_layers, nstate["n_no3"])
             sixpool_state["n_conc_layers"] = n_conc_layers(layers, nstate["n_nh4"], no3_layers, nstate["n_no3"])
+            _dn0 = len(SIXPOOL_DIAG) if SIXPOOL_DIAG is not None else 0
             _smin = sixpool_step(sixpool_state, tmean, relwet, 0.0, 1.0, layers)
+            if SIXPOOL_DIAG is not None and DIAG_NFLUX is not None:
+                _new = SIXPOOL_DIAG[_dn0:]
+                _gross = (sum(e[5] * 1000 / SIXPOOL_CN_CM + e[0] * 1000 / SIXPOOL_CN_CS for e in _new),                      # released from microbes and soil organic matter
+                          sum(e[6] * 1000 / SIXPOOL_CN_CRA + e[7] * 1000 / SIXPOOL_CN_CRTZ for e in _new),                     # released from residue
+                          sum(e[8] * 1000 / SIXPOOL_CN_CM + e[9] * 1000 / SIXPOOL_CN_CS for e in _new))                         # immobilized into microbes and soil organic matter
+            else:
+                _gross = (0.0, 0.0, 0.0)
             if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("netmin", ()):
                 _smin = _FORCE_CUR["netmin"][w["doy"]]   # diagnostic: Cycles' own net mineralization flux in the fallow windows too
             nstate["n_nh4"], nstate["n_no3"] = apply_net_min(nstate["n_nh4"], nstate["n_no3"], no3_layers, _smin)
@@ -3285,7 +3293,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             if not return_early:
                 denit += d
         if DIAG_NFLUX is not None:
-            DIAG_NFLUX.append((_DIAG_YEAR, w["doy"], locals().get("_smin", 0.0), nit, vol, locals().get("d", 0.0)))
+            DIAG_NFLUX.append((_DIAG_YEAR, w["doy"], locals().get("_smin", 0.0), nit, vol, locals().get("d", 0.0)) + tuple(locals().get("_gross", (0.0, 0.0, 0.0))))
         nstate["n_no3"], nstate["n_nh4"] = _npool_hook(no3_layers, nstate["n_no3"], nstate["n_nh4"], w["doy"])
     return leached, denit, volat
 
