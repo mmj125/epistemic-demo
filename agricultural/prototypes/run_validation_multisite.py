@@ -142,6 +142,7 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     for _o in os.environ.get("CROPOVR","").split(";"):   # 2026-10-16: per-run crop-dict overrides for any crop (corn or soy), NAME=VALUE;NAME=VALUE
         if _o: _k,_v=_o.split("=",1); crop[_k]=eval(_v)
     kw=cev.standard_kwargs(soil_raw,N)   # the single standard configuration lives in the engine module
+    if CROPSEL=='silage': kw['harvest_ttf']=0.85   # 2026-10-18 BUG FIX: Cycles harvests silage at 85 percent of maturity (HARVEST_TIMING 85); the silage runner had harvested the engine at full maturity, which alone inflated forage by about 15 to 20 percent
     if CROPSEL=='soy' or os.environ.get('CONFIG')=='shipped': kw=dict(n_rate_kg_ha=N) if CROPSEL!='soy' else {}
     res={}
     carry=os.environ.get("CARRY_N","1")=="1" and CROPSEL!='soy'
