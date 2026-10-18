@@ -3284,6 +3284,8 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
                     no3_layers[i] *= (1.0 - f_d)
             if not return_early:
                 denit += d
+        if DIAG_NFLUX is not None:
+            DIAG_NFLUX.append((_DIAG_YEAR, w["doy"], locals().get("_smin", 0.0), nit, vol, locals().get("d", 0.0)))
         nstate["n_no3"], nstate["n_nh4"] = _npool_hook(no3_layers, nstate["n_no3"], nstate["n_nh4"], w["doy"])
     return leached, denit, volat
 
@@ -3413,7 +3415,11 @@ THETA_FORCE = None   # rebuild phase 2 (2026-10-16): {year: {doy: [theta per lay
 NPOOL_FORCE = None   # rebuild phase 4 diagnostic: {year: {doy: (profile NO3, profile NH4 kg/ha)}} from Cycles' dailyN; overwrites the engine's mineral-N pools at end of day in every window
 
 
+DIAG_NFLUX = None   # appends (year, doy, net mineralization, nitrification, volatilization, denitrification) per fallow-window day (kg N/ha); None = off
+DIAG_NPOOL = None   # appends (year, doy, nitrate kg/ha, ammonium kg/ha) at the end of every simulated day (fallow and in-season); None = off
 def _npool_hook(no3_layers, n_no3, n_nh4, doy):
+    if DIAG_NPOOL is not None:
+        DIAG_NPOOL.append((_DIAG_YEAR, doy, (sum(no3_layers) if no3_layers is not None else n_no3), n_nh4))
     if NPOOL_FORCE is not None and no3_layers is not None:
         s = NPOOL_FORCE.get(_DIAG_YEAR)
         if s is not None and doy in s:
