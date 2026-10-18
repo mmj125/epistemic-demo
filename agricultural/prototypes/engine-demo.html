@@ -2564,7 +2564,8 @@ def radiation_temp_factor(tmean, min_t, floor, plateau_t):
     return floor + (1 - floor) * (tmean - min_t) / (plateau_t - min_t)
 
 
-TTF50_SHOOT_PARTITION = 0.32  # Eq. SI.8-11's own half-max point isn't given a numeric value in
+TTF50_SHOOT_PARTITION = 0.42   # 2026-10-18: 0.42 (was 0.32). Fitted on Cycles' realised shoot share of net growth with the SI form (exponent 4), crop-file fsti/fstf and root retention 0.6: corn 0.422, silage 0.422, sorghum 0.419 (rms 0.0007 to 0.005), identical across site halves and N rates; with it and a growth scalar of 1.0, Cycles' states forced, above-ground biomass matches at N>=150 (corn 1.002, silage 1.007, sorghum 1.002, soybean 1.016). The old 0.32 was a compensating refit; wheat keeps it via crop key ttf50 until checked.
+# Previous note: Eq. SI.8-11's own half-max point isn't given a numeric value in
 # either source -- the literal reading of its name (0.5) was replaced 2026-09-23 with a real,
 # data-driven fit against real Cycles' own daily output (MECHANISM_LOG.md item 3, formerly
 # unresolved): the paper's own equation implies the INSTANTANEOUS (marginal) shoot fraction of
@@ -5330,7 +5331,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 # sixpool_step()'s own docstring for the full structure.
                 relwet_topsoil = ((layers[0]["theta"] - layers[0]["pwp"]) / (layers[0]["fc"] - layers[0]["pwp"])
                                    if layers[0]["fc"] > layers[0]["pwp"] else 1.0)
-                root_c_input_today = (10.0 * dGB_water_limited * (n_stress_prev if ROOT_C_REALIZED_GROWTH else 1.0) * (1.0 - shoot_fraction(ttf, crop["fsti"], crop["fstf"]))
+                root_c_input_today = (10.0 * dGB_water_limited * (n_stress_prev if ROOT_C_REALIZED_GROWTH else 1.0) * (1.0 - shoot_fraction(ttf, crop["fsti"], crop["fstf"], crop.get("ttf50")))
                                        * CARBON_FRACTION_DM * ROOT_C_INPUT_FACTOR)
                 if SIXPOOL_ROOT_HARVEST_FRAC:
                     root_c_buffer += root_c_input_today * SIXPOOL_ROOT_HARVEST_FRAC
@@ -5411,7 +5412,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             dGB_n_limited = dGB_water_limited * (n_stress ** N_STRESS_GROWTH_POW)
             n_stress_prev = n_stress
             n_ratio_prev = _ratio
-            _sf_now0 = shoot_fraction(ttf, crop["fsti"], crop["fstf"]); _rr0 = crop.get("root_retained_frac", 1.0)
+            _sf_now0 = shoot_fraction(ttf, crop["fsti"], crop["fstf"], crop.get("ttf50")); _rr0 = crop.get("root_retained_frac", 1.0)
             demand_today_kg_ha = dGB_n_limited * (1.0 if _rr0 >= 1.0 else (_sf_now0 + (1.0 - _sf_now0) * _rr0)) * 100 * n_marginal_demand_pct((biomass_ref if crop.get("n_demand_ref", N_DEMAND_REF) else biomass) * 10, crop) * crop.get("n_demand_scale", N_DEMAND_SCALE)
             if n_pool_by_layer is not None:
                 # Real CropSyst-style min(demand, potential_uptake) (Eq. 26, Stockle/Martin/
@@ -5498,12 +5499,12 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         dGB = dGB_water_limited * (n_stress ** N_STRESS_GROWTH_POW)
         if DIAG_STATE is not None: DIAG_STATE.append((_DIAG_YEAR, w["doy"], eie, n_stress, canopy_n_kg_ha))
         if DIAG_WATER is not None: DIAG_WATER.append((_DIAG_YEAR, w["doy"], water_stress, tt_cum, TRp, TR_actual, tt_dev))
-        _sf_now = shoot_fraction(ttf, crop["fsti"], crop["fstf"])
+        _sf_now = shoot_fraction(ttf, crop["fsti"], crop["fstf"], crop.get("ttf50"))
         _rr = crop.get("root_retained_frac", 1.0)
         biomass += dGB * (1.0 if _rr >= 1.0 else (_sf_now + (1.0 - _sf_now) * _rr))
         biomass_ref += (max(0.0, GR) * crop_ngf(crop) / 1000 if crop.get("n_demand_ref_rad") else dGB_water_limited) * (1.0 if _rr >= 1.0 else (_sf_now + (1.0 - _sf_now) * _rr))
         if DIAG_BIO is not None: DIAG_BIO.append(biomass * 10.0)
-        ag_biomass += dGB * shoot_fraction(ttf, crop["fsti"], crop["fstf"])
+        ag_biomass += dGB * shoot_fraction(ttf, crop["fsti"], crop["fstf"], crop.get("ttf50"))
         if DIAG_AG is not None: DIAG_AG.append(ag_biomass * 10.0)
         if ag_biomass_at_flowering is None and (flowered if _V is not None else tt_cum >= crop["flowering_tt"]):
             ag_biomass_at_flowering = ag_biomass

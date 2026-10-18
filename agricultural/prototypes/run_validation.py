@@ -46,7 +46,7 @@ CORN = dict(
     # MECHANISM_LOG.md and CLAUDE.md for the full before/after account across all four crops
     # plus the Kansas benchmark, and why this was kept despite the Rock Springs correlation cost.
     canopy_shape=CORN_CANOPY_SHAPE,
-    canopy_shape_faithful=(6.04, -20.51, -14.95, 14.57), eix_faithful=0.951, ngf_faithful=0.955,  # 2026-10-18 measured on Cycles' unstressed corn days (14 sites, rms 0.0022); see AUDIT_PAPER_SI_2026-10-18.md and CANOPY_FAITHFUL
+    canopy_shape_faithful=(6.04, -20.51, -14.95, 14.57), eix_faithful=0.951, ngf_faithful=1.0,  # 2026-10-18 measured on Cycles' unstressed corn days (14 sites, rms 0.0022); see AUDIT_PAPER_SI_2026-10-18.md and CANOPY_FAITHFUL
     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=40.6875,
     n_max_conc=0.055, n_dilution_slope=0.4, legume=False,  # real GenericCrops.crop values, corn is not a legume
     n_min_conc=0.002,  # real GenericCrops.crop N_MIN_CONCENTRATION_STRAW (0.2%), added 2026-09-25

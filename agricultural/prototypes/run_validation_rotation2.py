@@ -39,7 +39,7 @@ def make_layers():
 
 
 SOYBEAN = dict(
-    canopy_shape_faithful=(6.19, -21.11, -15.95, 15.66), eix_faithful=0.924, ngf_faithful=0.92,  # 2026-10-18 measured on Cycles' unstressed soybean days (14 sites, rms 0.0048), see CANOPY_FAITHFUL
+    canopy_shape_faithful=(6.19, -21.11, -15.95, 15.66), eix_faithful=0.924, ngf_faithful=1.0,  # 2026-10-18 measured on Cycles' unstressed soybean days (14 sites, rms 0.0048), see CANOPY_FAITHFUL
                c1_water=True,  # 2026-10-15 c1 package (REFIT_PLAN rows 39-41)
                tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43,
                rue=1.3, wue=4.5, hi_x=0.4, hi_o=0.15, hi_slope=3.4, fsti=0.45, fstf=0.95,   # HI law fitted to Cycles' SoybeanMG.5 at 94 sites (soy_hi_fit.py, row 53); was placeholders 0.4/0.15/1.0
@@ -86,7 +86,8 @@ WHEAT = dict(canopy_form="H",  # 2026-10-17: integrated-derivative canopy, expan
              rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=2.5, fsti=0.45, fstf=0.95,  # 2026-10-17: documented slope m(1-Hmin)/(Hmax-Hmin)=2.5 and the real f_G (the thermal-time exemption is gone, the winter phenology it was covering for is fixed); calibration_factor 1.0,
 
              kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=LAT,
-             eix_cap=0.86, net_growth_fraction=1.057,  # 2026-10-17: Cycles' unstressed wheat canopy plateaus at 0.857 (engine cap was 0.99, spring canopy +0.05 to +0.12); growth conversion raised to keep the level (wheat_hi_test.py, two disjoint 16-site sets: N=0 MAE -3 to -5%, N=150 neutral)
+             eix_cap=0.86, net_growth_fraction=1.057, ttf50=0.32,  # 2026-10-18: wheat keeps the old partition half-point until checked against Cycles (global is 0.42)
+               # 2026-10-17: Cycles' unstressed wheat canopy plateaus at 0.857 (engine cap was 0.99, spring canopy +0.05 to +0.12); growth conversion raised to keep the level (wheat_hi_test.py, two disjoint 16-site sets: N=0 MAE -3 to -5%, N=150 neutral)
              hi_use_thermal_time_fraction=False,  # was True (exemption); real exemption, 2026-09-30 -- see
              # cycles_engine_validate.py's own HI-computation docstring: the real f_G
              # (Kemanian et al. 2007) regressed wheat's correlation (0.337->0.163) even
@@ -273,7 +274,7 @@ CORN_SILAGE = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_
                     # water-stress mechanism (campbell_water_uptake()) -- correlation essentially
                     # unchanged from that switch (0.518 -> 0.516)
                     depletion_fraction=0.55,  # real FAO-56 Table 22 value, same crop biology as grain corn
-                    canopy_shape_faithful=(6.05, -20.56, -13.72, 13.33), eix_faithful=0.946, ngf_faithful=0.955,  # 2026-10-18 measured on Cycles' unstressed silage corn days (rms 0.0024), see CANOPY_FAITHFUL
+                    canopy_shape_faithful=(6.05, -20.56, -13.72, 13.33), eix_faithful=0.946, ngf_faithful=1.0,  # 2026-10-18 measured on Cycles' unstressed silage corn days (rms 0.0024), see CANOPY_FAITHFUL
                     canopy_shape=CORN_CANOPY_SHAPE,  # real fix (thermal time, canopy shape, harvest
                     # date, forage ratio all individually verified accurate) does NOT move correlation
                     # (0.503 -> 0.501) -- see MECHANISM_LOG.md, this is a distinct, still-open item
