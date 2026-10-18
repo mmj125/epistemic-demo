@@ -3424,6 +3424,7 @@ NPOOL_FORCE = None   # rebuild phase 4 diagnostic: {year: {doy: (profile NO3, pr
 
 
 DIAG_NFLUX = None   # appends (year, doy, net mineralization, nitrification, volatilization, denitrification) per fallow-window day (kg N/ha); None = off
+DIAG_NSEASON = None   # appends (year, doy, net mineralization, nitrification, volatilization, denitrification, nitrate leached, uptake, mineral pool at end of day) per in-season day (kg N/ha); None = off
 DIAG_NPOOL = None   # appends (year, doy, nitrate kg/ha, ammonium kg/ha) at the end of every simulated day (fallow and in-season); None = off
 def _npool_hook(no3_layers, n_no3, n_nh4, doy):
     if DIAG_NPOOL is not None:
@@ -4701,6 +4702,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             n_uptake_total += n_uptake_kg_ha
             canopy_n_kg_ha += n_uptake_kg_ha
 
+        if DIAG_NSEASON is not None:
+            DIAG_NSEASON.append((_DIAG_YEAR, w["doy"], locals().get("background_today", 0.0), locals().get("nitrif_amt_today", 0.0), locals().get("volat_amt_today", 0.0),
+                                 locals().get("denitrif_today", 0.0), locals().get("n_leached_today", 0.0), locals().get("n_uptake_kg_ha", 0.0), (n_nh4 or 0.0) + (n_no3 or 0.0)))
         dGB = dGB_water_limited * (n_stress ** N_STRESS_GROWTH_POW)
         if DIAG_STATE is not None: DIAG_STATE.append((_DIAG_YEAR, w["doy"], eie, n_stress, canopy_n_kg_ha))
         if DIAG_WATER is not None: DIAG_WATER.append((_DIAG_YEAR, w["doy"], water_stress, tt_cum, TRp, TR_actual, tt_dev))

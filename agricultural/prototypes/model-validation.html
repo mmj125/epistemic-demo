@@ -4569,7 +4569,15 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             sixpool_state["n_min"] = nstate["n_nh4"] + nstate["n_no3"]
             sixpool_state["n_conc1"] = n_conc_layer1(layers, nstate["n_nh4"], no3_layers, nstate["n_no3"])
             sixpool_state["n_conc_layers"] = n_conc_layers(layers, nstate["n_nh4"], no3_layers, nstate["n_no3"])
+            _dn0 = len(SIXPOOL_DIAG) if SIXPOOL_DIAG is not None else 0
             _smin = sixpool_step(sixpool_state, tmean, relwet, 0.0, 1.0, layers)
+            if SIXPOOL_DIAG is not None and DIAG_NFLUX is not None:
+                _new = SIXPOOL_DIAG[_dn0:]
+                _gross = (sum(e[5] * 1000 / SIXPOOL_CN_CM + e[0] * 1000 / SIXPOOL_CN_CS for e in _new),                      # released from microbes and soil organic matter
+                          sum(e[6] * 1000 / SIXPOOL_CN_CRA + e[7] * 1000 / SIXPOOL_CN_CRTZ for e in _new),                     # released from residue
+                          sum(e[8] * 1000 / SIXPOOL_CN_CM + e[9] * 1000 / SIXPOOL_CN_CS for e in _new))                         # immobilized into microbes and soil organic matter
+            else:
+                _gross = (0.0, 0.0, 0.0)
             if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("netmin", ()):
                 _smin = _FORCE_CUR["netmin"][w["doy"]]   # diagnostic: Cycles' own net mineralization flux in the fallow windows too
             nstate["n_nh4"], nstate["n_no3"] = apply_net_min(nstate["n_nh4"], nstate["n_no3"], no3_layers, _smin)
@@ -4634,6 +4642,8 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
                     no3_layers[i] *= (1.0 - f_d)
             if not return_early:
                 denit += d
+        if DIAG_NFLUX is not None:
+            DIAG_NFLUX.append((_DIAG_YEAR, w["doy"], locals().get("_smin", 0.0), nit, vol, locals().get("d", 0.0)) + tuple(locals().get("_gross", (0.0, 0.0, 0.0))))
         nstate["n_no3"], nstate["n_nh4"] = _npool_hook(no3_layers, nstate["n_no3"], nstate["n_nh4"], w["doy"])
     return leached, denit, volat
 
@@ -4763,7 +4773,12 @@ THETA_FORCE = None   # rebuild phase 2 (2026-10-16): {year: {doy: [theta per lay
 NPOOL_FORCE = None   # rebuild phase 4 diagnostic: {year: {doy: (profile NO3, profile NH4 kg/ha)}} from Cycles' dailyN; overwrites the engine's mineral-N pools at end of day in every window
 
 
+DIAG_NFLUX = None   # appends (year, doy, net mineralization, nitrification, volatilization, denitrification) per fallow-window day (kg N/ha); None = off
+DIAG_NSEASON = None   # appends (year, doy, net mineralization, nitrification, volatilization, denitrification, nitrate leached, uptake, mineral pool at end of day) per in-season day (kg N/ha); None = off
+DIAG_NPOOL = None   # appends (year, doy, nitrate kg/ha, ammonium kg/ha) at the end of every simulated day (fallow and in-season); None = off
 def _npool_hook(no3_layers, n_no3, n_nh4, doy):
+    if DIAG_NPOOL is not None:
+        DIAG_NPOOL.append((_DIAG_YEAR, doy, (sum(no3_layers) if no3_layers is not None else n_no3), n_nh4))
     if NPOOL_FORCE is not None and no3_layers is not None:
         s = NPOOL_FORCE.get(_DIAG_YEAR)
         if s is not None and doy in s:
@@ -6037,6 +6052,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             n_uptake_total += n_uptake_kg_ha
             canopy_n_kg_ha += n_uptake_kg_ha
 
+        if DIAG_NSEASON is not None:
+            DIAG_NSEASON.append((_DIAG_YEAR, w["doy"], locals().get("background_today", 0.0), locals().get("nitrif_amt_today", 0.0), locals().get("volat_amt_today", 0.0),
+                                 locals().get("denitrif_today", 0.0), locals().get("n_leached_today", 0.0), locals().get("n_uptake_kg_ha", 0.0), (n_nh4 or 0.0) + (n_no3 or 0.0)))
         dGB = dGB_water_limited * (n_stress ** N_STRESS_GROWTH_POW)
         if DIAG_STATE is not None: DIAG_STATE.append((_DIAG_YEAR, w["doy"], eie, n_stress, canopy_n_kg_ha))
         if DIAG_WATER is not None: DIAG_WATER.append((_DIAG_YEAR, w["doy"], water_stress, tt_cum, TRp, TR_actual, tt_dev))
