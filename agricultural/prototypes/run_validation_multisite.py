@@ -120,7 +120,7 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     if CROPSEL=='soy':
         import run_validation_rotation2 as _r2; crop=dict(_r2.SOYBEAN); crop['lat_deg']=cell_lat
     if CROPSEL=='sorghum':   # every value below is read from the SorghumMS entry of GenericCrops.crop; everything else is the corn engine configuration
-        crop.update(tt_maturity=2050, flowering_tt=1300, rue=2.0, wue=9.6, tr_min_t=6, tr_threshold_t=18, kc=1.0, lwp_stress_onset=-1400, lwp_wilting_point=-2300, tr_max_mm_day=9, root_max_m=2.0, tt_emergence=65, threshold_temp_cold_damage=6, canopy_shape_faithful=(6.04, -20.47, -15.52, 15.08), eix_faithful=0.949, ngf_faithful=1.0)   # 2026-10-18 canopy measured on Cycles' unstressed sorghum days (rms 0.0021)
+        crop.update(tt_maturity=2050, flowering_tt=1300, rue=2.0, wue=9.6, tr_min_t=6, tr_threshold_t=18, kc=1.0, lwp_stress_onset=-1400, lwp_wilting_point=-2300, tr_max_mm_day=9, root_max_m=2.0, tt_emergence=65, threshold_temp_cold_damage=6, canopy_shape_faithful=(6.04, -20.47, -15.52, 15.08), eix_faithful=0.949, ngf_faithful=0.955)   # 2026-10-18 canopy measured on Cycles' unstressed sorghum days (rms 0.0021)
     if CROPSEL=='silage':
         import run_validation_rotation2 as _r2; crop=dict(_r2.CORN_SILAGE); crop['lat_deg']=cell_lat; crop.update(n_demand_ref=True,n_stress_ag_basis=True,n_uptake_rate=0.03,root_retained_frac=0.6)
         if os.environ.get('SIL_FACTOR'): crop['calibration_factor']=float(os.environ['SIL_FACTOR'])
