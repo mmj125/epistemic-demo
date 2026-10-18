@@ -20,7 +20,7 @@ def one(site):
         dt=datetime.date.fromisoformat(x['date']); y=dt.year; doy=dt.timetuple().tm_yday
         f=F.setdefault(y,{'canopy':{},'water':{},'nstress':{}})
         f['canopy'][doy]=float(x['radiation_interception']); f['water'][doy]=1-float(x['water_stress'])/100; f['nstress'][doy]=1-float(x['nitrogen_stress'])/100
-        B[(y,doy)]=(float(x['biomass']),float(x['temperature_factor']),1-float(x['nitrogen_stress'])/100)
+        B[(y,doy)]=(float(x['biomass']),float(x['temperature_factor']),1-float(x['nitrogen_stress'])/100,float(x['thermal_time']))
     E.FORCE_SERIES=F; E.DIAG_GROWTH=[]
     res=m.engine(site,wx,soil,cl,NLEV,'leadin'); G=E.DIAG_GROWTH; E.DIAG_GROWTH=None; E.FORCE_SERIES=None
     segs=[];cur=[]
@@ -34,13 +34,17 @@ def one(site):
     for y,sg in zip(ys,segs):
         for (doy,GR,GT,dgb) in sg:
             if (y,doy) in B and (y,doy-1) in B and doy in wx[y]:
-                w=wx[y][doy]; rows.append(((w['tx']+w['tn'])/2,dgb*10.0*(B[(y,doy)][2]**E.N_STRESS_GROWTH_POW),B[(y,doy)][0]-B[(y,doy-1)][0],B[(y,doy)][1],GR,GT))
+                w=wx[y][doy]; rows.append(((w['tx']+w['tn'])/2,dgb*10.0*(B[(y,doy)][2]**E.N_STRESS_GROWTH_POW),B[(y,doy)][0]-B[(y,doy-1)][0],B[(y,doy)][1],GR,GT,B[(y,doy)][3]))
     return site,np.array(rows)
 if __name__=="__main__":
     ks=sorted(S)[:NS]
     with Pool(4) as p: R=p.map(one,ks)
     A=np.vstack([a for s,a in R if a is not None and len(a)]); A=A[A[:,2]>0.02]
     print(f"sites ok {sum(1 for s,a in R if a is not None)} of {NS}; growth days {len(A)}; overall engine/Cycles {A[:,1].sum()/A[:,2].sum():.3f}")
+    print('  by Cycles thermal time (C-day):')
+    for lo,hi in ((0,200),(200,400),(400,600),(600,800),(800,1000),(1000,1300),(1300,1700),(1700,3000)):
+        s_=(A[:,6]>=lo)&(A[:,6]<hi)
+        if s_.sum()>40: print(f'    TT {lo:4d}-{hi:4d}: n {s_.sum():6d} engine/Cycles {A[s_,1].sum()/A[s_,2].sum():.3f}')
     lim=A[:,4]<=A[:,5]
     print(f'  radiation-limited days (GR<=GT): n {lim.sum()} engine/Cycles {A[lim,1].sum()/A[lim,2].sum():.3f} | water-limited days: n {(~lim).sum()} engine/Cycles {A[~lim,1].sum()/A[~lim,2].sum():.3f}')
     for lo,hi in ((0,10),(10,15),(15,20),(20,24),(24,27),(27,30),(30,33),(33,45)):
