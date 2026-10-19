@@ -2963,6 +2963,8 @@ def denitrification_flux_resp(no3_total_kg_ha, theta_rel1, resp_mg_ha):
     return min(no3_total_kg_ha, DENITRIF_RESP_K * no3_total_kg_ha ** DENITRIF_RESP_NO3_POW * c ** DENITRIF_RESP_C_POW * min(max(theta_rel1, 0.02), 1.2) ** DENITRIF_RESP_REL_POW)
 
 
+DENITRIF_MM = False   # with DENITRIF_L12: Michaelis-Menten form in layer-1 nitrate concentration
+DENITRIF_MM_PARAMS = (0.2248, 15.79, 4.672)   # P (kg N per kg respired C), K (mg N/kg), saturation exponent; fitted on Cycles daily output, 24 sites (ndata_2026_10_19.py)
 DENITRIF_L12 = False   # 2026-10-19: denitrification driven by the nitrate CONCENTRATION of layers 1 and 2 (where Cycles denitrifies), not the profile nitrate mass
 DENITRIF_L12_PARAMS = (0.0108, 0.7291, 1.0241, 6.0647, 0.85)   # k, concentration exponent, respired-C exponent, saturation exponent, engine-to-Cycles respired C scale (fitted on Cycles' daily output, denit_data_2026_10_19.py)
 
@@ -2973,6 +2975,13 @@ def denitrification_flux_l12(layers, no3_layers, resp_mg_ha):
     if len(no3_layers) < 2:
         return 0.0
     _k, _a, _c, _p, _rs = DENITRIF_L12_PARAMS
+    if DENITRIF_MM:
+        # documented form (guide: potential rate and half-saturation constant): flux = P x respired C x C1/(C1 + K) x S1^p, C1 layer-1 nitrate (mg N/kg), S1 layer-1 water over saturation
+        _P, _K, _pp = DENITRIF_MM_PARAMS
+        _c1 = no3_layers[0] / (sixpool_bulk_density(layers[0]["sat"]) * layers[0]["thick"] * 10.0)
+        _s1 = min(max(layers[0]["theta"] / layers[0]["sat"], 1e-3), 1.2)
+        _top = no3_layers[0] + no3_layers[1]
+        return min(_top, _P * max(resp_mg_ha * 1000.0 * _rs, 0.0) * _c1 / (_c1 + _K) * _s1 ** _pp)
     _m = [no3_layers[i] for i in (0, 1)]
     _top = _m[0] + _m[1]
     if _top <= 0.0:
