@@ -1809,6 +1809,7 @@ def shoot_fraction(ttf, fsti, fstf, ttf50=None):
 # When n_rate_kg_ha is left as None (the default), none of this runs and
 # behavior is byte-identical to before this feature existed -- verified by
 # re-running run_validation.py / run_validation_rotation2.py unchanged.
+N_UPTAKE_T0 = None   # transpiration scale (mm/day) of the saturating uptake-rate law; None = flat cap
 N_UPTAKE_RATE_PER_DAY = None  # None = uptake limited only by demand (validated default); else also capped at this fraction/day of the reachable mineral N pool (nitrate_per_layer path)
 N_ACCESS_MASSFLOW = False  # 2026-10-18 paper Sec 2.7: per-layer mass-flow access to nitrate (root water withdrawal x layer nitrate concentration) replaces the pool-fraction cap when True (nitrate_per_layer path)
 N_DEMAND_SCALE = 0.70   # 2026-10-17 measured: Cycles unstressed marginal total-N concentration of new growth is 0.68 (corn, silage corn) to 0.75 (winter wheat) of the crop-file dilution curve marginal a(1-b)W^-b, growth-weighted over 16 sites x 3 N rates (n_demand_ratio_2026_10_17.py). Was 0.874562 (a leaching fit).
@@ -2691,6 +2692,7 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
             sub["cra"], sub["crm"], sub["cra_age"] = state["cra"], state["crm"], state["cra_age"]
             sub["cra_n"] = state.get("cra_n")
         ft = ft_eff if sub["z0"] < SIXPOOL_ML_TILL_DEPTH_M else 1.0
+        if DIAG_FE is not None: DIAG_FE.append((_DIAG_YEAR, _DIAG_CTX.get("doy"), i, t_layer, relwet, sixpool_fe(t_layer, relwet, True)))
         total += sixpool_step(sub, t_layer, relwet, root_c_input_mg_ha * wts[i] / wsum, ft)
         resp_tot += sub.get("resp_mg_ha", 0.0)
         if i == 0:
@@ -3229,6 +3231,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             sixpool_state["n_conc1"] = n_conc_layer1(layers, nstate["n_nh4"], no3_layers, nstate["n_no3"])
             sixpool_state["n_conc_layers"] = n_conc_layers(layers, nstate["n_nh4"], no3_layers, nstate["n_no3"])
             _dn0 = len(SIXPOOL_DIAG) if SIXPOOL_DIAG is not None else 0
+            _DIAG_CTX["doy"] = w["doy"]
             _smin = sixpool_step(sixpool_state, tmean, relwet, 0.0, 1.0, layers)
             if SIXPOOL_DIAG is not None and DIAG_NFLUX is not None:
                 _new = SIXPOOL_DIAG[_dn0:]
@@ -3434,6 +3437,8 @@ NPOOL_FORCE = None   # rebuild phase 4 diagnostic: {year: {doy: (profile NO3, pr
 
 
 DIAG_NFLUX = None   # appends (year, doy, net mineralization, nitrification, volatilization, denitrification) per fallow-window day (kg N/ha); None = off
+DIAG_FE = None   # appends (year, doy, layer, layer temperature, relative wetness, fE) per layer per day in sixpool_ml_step; None = off
+_DIAG_CTX = {}
 DIAG_NSEASON = None   # appends (year, doy, net mineralization, nitrification, volatilization, denitrification, nitrate leached, uptake, mineral pool at end of day) per in-season day (kg N/ha); None = off
 DIAG_NPOOL = None   # appends (year, doy, nitrate kg/ha, ammonium kg/ha) at the end of every simulated day (fallow and in-season); None = off
 def _npool_hook(no3_layers, n_no3, n_nh4, doy):
@@ -4556,6 +4561,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 sixpool_state["n_min"] = ((n_nh4 or 0.0) + (n_no3 or 0.0)) if n_nh4 is not None else n_pool
                 sixpool_state["n_conc1"] = n_conc_layer1(layers, n_nh4 if n_nh4 is not None else 0.0, no3_layers, (n_no3 or 0.0) if n_nh4 is not None else n_pool)
                 sixpool_state["n_conc_layers"] = n_conc_layers(layers, n_nh4 if n_nh4 is not None else 0.0, no3_layers, (n_no3 or 0.0) if n_nh4 is not None else n_pool)
+                _DIAG_CTX["doy"] = w["doy"]
                 background_today = sixpool_step(sixpool_state, tmean, relwet_topsoil, root_c_input_today, ft_eff, layers)
                 if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("netmin", ()):
                     background_today = _FORCE_CUR["netmin"][w["doy"]]
@@ -4681,6 +4687,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     else:
                         reachable = n_nh4 + reach_no3
                         _ur = crop.get("n_uptake_rate", N_UPTAKE_RATE_PER_DAY)
+                        if _ur is not None and N_UPTAKE_T0:   # 2026-10-19: paper Sec 2.7, water flux sets mineral N access; Cycles' uptake share of the pool rises with transpiration and saturates (nuptake_law_2026_10_18.py)
+                            _ur = _ur * (1.0 - math.exp(-max(0.0, TR_actual) / N_UPTAKE_T0))
                         _cap = reachable if _ur is None else reachable * _ur
                         n_uptake_kg_ha = min(_cap, demand_today_kg_ha)
                         if reachable > 1e-9:
