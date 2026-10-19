@@ -1810,6 +1810,7 @@ def shoot_fraction(ttf, fsti, fstf, ttf50=None):
 # behavior is byte-identical to before this feature existed -- verified by
 # re-running run_validation.py / run_validation_rotation2.py unchanged.
 N_SOLVE_DEBUG = None
+N_UNMET = None   # diagnostic: appends (year, doy, kg N/ha) of net immobilization the mineral pool could not supply
 N_SIMULTANEOUS = True   # ADOPTED 2026-10-19 (corn 94 sites vs the same code without it: grain MAE gain +0.039 [+0.028,+0.051] / +0.012 [+0.006,+0.017] / 0.000 at N=0/150/400); simultaneous solve of uptake, growth and N factor within the day (see simulate_season)
 N_STRESS_POT_DILUTION = False   # see simulate_season, N stress ratio
 N_ACCESS_K = 1.0   # 2026-10-19: scale on the per-layer mass-flow access (water withdrawn x layer nitrate / layer water); 1.0 is the literal paper Sec 2.7 reading
@@ -3216,6 +3217,7 @@ def apply_net_min(nh4, no3, no3_layers, smin):
     if smin >= 0 or not IMMOB_FROM_NO3:
         return max(0.0, nh4 + smin), no3
     need = -smin; t = min(nh4, need); nh4 -= t; need -= t
+    _need0 = need
     if need > 0:
         if no3_layers is not None:
             for i in range(len(no3_layers)):
@@ -3224,6 +3226,8 @@ def apply_net_min(nh4, no3, no3_layers, smin):
             no3 = sum(no3_layers)
         else:
             t = min(no3, need); no3 -= t
+    if need > 1e-12 and N_UNMET is not None:
+        N_UNMET.append((_DIAG_YEAR, _DIAG_CTX.get("doy"), need))   # immobilization the mineral pool could not supply (the engine drops it)
     return nh4, no3
 
 def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=75.0, slope_pct=0.0,
