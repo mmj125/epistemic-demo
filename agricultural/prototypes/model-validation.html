@@ -4023,6 +4023,17 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
     exponential depth weight."""
     subs = state["ml"]
     wts = [math.exp(-x["zmid"] / SIXPOOL_ML_ROOT_DECAY_M) * (x["z0"] >= 0) for x in subs]
+    if CFORCE is not None:   # 2026-10-19 diagnostic: start-of-day carbon pools per layer set to Cycles' (surface residue, layer microbial, soil organic, root residue)
+        _cf = CFORCE.get((_DIAG_YEAR, _DIAG_CTX.get("doy")))
+        if _cf is not None:
+            if CFORCE_LOG is not None and not CFORCE_LOG: CFORCE_LOG.append([(x["cs"], x["cm"], x["crtz"]) for x in subs] + [state["cra"]])
+            if "surface" in CFORCE_WHICH: state["cra"] = _cf["surface"]
+            for _i, _sub in enumerate(subs):
+                if _i in _cf["layers"]:
+                    _cs, _cm, _cr = _cf["layers"][_i]
+                    if "cs" in CFORCE_WHICH: _sub["cs"] = _cs
+                    if "cm" in CFORCE_WHICH: _sub["cm"] = _cm
+                    if "root" in CFORCE_WHICH: _sub["crtz"] = _cr
     wsum = sum(wts) or 1.0
     total = 0.0
     resp_tot = 0.0
@@ -4051,6 +4062,7 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
             state["cra_n"] = sub.get("cra_n")
     state["cs"] = sum(x["cs"] for x in subs)
     state["cm"] = sum(x["cm"] for x in subs)
+    if DIAG_CPOOL is not None: DIAG_CPOOL.append((_DIAG_YEAR, _DIAG_CTX.get("doy"), [x["cs"] for x in subs], [x["cm"] for x in subs], [x["crtz"] for x in subs], state["cra"]))
     state["resp_mg_ha"] = resp_tot
     if DIAG_RESP is not None:
         DIAG_RESP.append((_DIAG_YEAR, resp_tot, total))
@@ -4788,6 +4800,10 @@ NPOOL_FORCE = None   # rebuild phase 4 diagnostic: {year: {doy: (profile NO3, pr
 
 
 DIAG_NFLUX = None   # appends (year, doy, net mineralization, nitrification, volatilization, denitrification) per fallow-window day (kg N/ha); None = off
+CFORCE = None   # {(year, doy): {'surface': Mg C/ha, 'layers': {i: (cs, cm, crtz)}}} start-of-day carbon pools from Cycles; None = off
+CFORCE_LOG = None
+DIAG_CPOOL = None   # appends (year, doy, [Cs per layer], [Cm per layer], [root residue C per layer], surface residue C) after each day's ml step; None = off
+CFORCE_WHICH = ()   # subset of ('surface', 'cs', 'cm', 'root') to force
 DIAG_FE = None   # appends (year, doy, layer, layer temperature, relative wetness, fE) per layer per day in sixpool_ml_step; None = off
 _DIAG_CTX = {}
 DIAG_NSEASON = None   # appends (year, doy, net mineralization, nitrification, volatilization, denitrification, nitrate leached, uptake, mineral pool at end of day) per in-season day (kg N/ha); None = off
