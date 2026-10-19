@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crop Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f4f8fb;--panel:#ffffff;--ink:#101820;--ink-soft:#3c4a56;--muted:#5f7180;--border:#c9d8e2;--sky:#eef3f7;
+    --data:#2471a3;--trend:#154360;--accent:#c0392b;--ok:#1e8449;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){--bg:#0f161c;--panel:#17212a;--ink:#e8eef3;--ink-soft:#b6c3cd;--muted:#8a9ba8;--border:#2c3b47;--sky:#1d2a35;--data:#5aa9de;--trend:#8cc4ee;--accent:#e57366;--ok:#52be80;}
+  }
+  *{box-sizing:border-box;}
+  body{font-family:"DM Sans",sans-serif;background:var(--bg);color:var(--ink);margin:0;}
+  .wrap{max-width:1000px;margin:0 auto;padding:24px 16px 60px;}
+  .eyebrow{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);}
+  h1{font-family:"DM Serif Display",serif;font-weight:400;font-size:clamp(24px,4.5vw,32px);margin:6px 0 18px;}
+  .panel{background:var(--panel);border:1.5px solid var(--border);border-radius:5px;margin-bottom:16px;}
+  .panel>h2{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:500;margin:0;padding:10px 16px;border-bottom:1.5px solid var(--border);color:var(--muted);}
+  .body{padding:16px;}
+  .presets{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
+  .btn{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:9px 14px;border-radius:3px;border:1.5px solid var(--data);background:var(--data);color:#fff;cursor:pointer;}
+  .btn:disabled{opacity:.5;cursor:default;}
+  .btn.alt{background:var(--panel);color:var(--data);}
+  .btn.alt.on{background:var(--data);color:#fff;}
+  #drop{border:1.5px dashed var(--border);border-radius:4px;padding:14px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer;}
+  #drop.over{border-color:var(--data);background:var(--sky);}
+  #siteInfo{font-family:"DM Mono",monospace;font-size:12px;color:var(--ink-soft);margin-top:10px;min-height:16px;}
+  #siteInfo.err{color:var(--accent);}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px 16px;}
+  .grp{border:0;border-top:1.5px solid var(--border);margin:0;padding:12px 0 6px;}
+  .grp:first-child{border-top:0;padding-top:0;}
+  .grp legend{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:0 0 8px;}
+  .f label{display:block;font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+  input[type=number],select{width:100%;font-family:"DM Sans",sans-serif;font-size:14px;padding:7px 9px;border:1.5px solid var(--border);border-radius:3px;background:var(--panel);color:var(--ink);}
+  details>summary{cursor:pointer;font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:6px 0;}
+  table{border-collapse:collapse;width:100%;font-size:13px;}
+  td,th{border:1px solid var(--border);padding:5px 9px;text-align:right;white-space:nowrap;}
+  th{background:var(--sky);color:var(--ink-soft);font-weight:500;text-align:right;}
+  th small{display:block;font-weight:400;color:var(--muted);font-size:10.5px;}
+  tr.mean td{font-weight:600;background:var(--sky);}
+  td.l,th.l{text-align:left;}
+  .scroll{overflow-x:auto;}
+  #status{font-family:"DM Mono",monospace;font-size:12px;color:var(--muted);margin:10px 0 0;min-height:16px;}
+  .tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;align-items:center;}
+  .tabs .sp{flex:1;}
+  canvas{width:100%;height:280px;display:block;border:1.5px solid var(--border);border-radius:3px;background:var(--panel);}
+  .row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-end;}
+  .row .f{min-width:160px;}
+  .note{font-size:12px;color:var(--muted);margin-top:8px;}
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">epiSTEMic</div>
+  <h1>Crop simulator</h1>
+
+  <div class="panel"><h2>Site</h2><div class="body">
+    <div class="presets" id="presets"></div>
+    <div id="drop">Drop a .kml file here, or click to choose<input type="file" id="kmlFile" accept=".kml" class="hidden"></div>
+    <div id="siteInfo">Choose a site.</div>
+  </div></div>
+
+  <div class="panel"><h2>Inputs</h2><div class="body">
+    <div id="controls"></div>
+    <details style="margin-top:8px;"><summary>Soil layers</summary>
+      <div class="scroll"><table id="soilTable"></table></div>
+      <div class="note"><a href="#" id="soilReset">Reset to the site's soil</a></div>
+    </details>
+    <div style="margin-top:14px;"><button class="btn" id="runBtn" disabled>Run</button></div>
+    <div id="status">Loading engine...</div>
+  </div></div>
+
+  <div class="panel hidden" id="results"><h2>Results</h2><div class="body">
+    <div class="tabs">
+      <button class="btn alt on" data-tab="annual">Annual</button>
+      <button class="btn alt" data-tab="chart">Chart</button>
+      <button class="btn alt" data-tab="daily">Daily</button>
+      <span class="sp"></span>
+      <button class="btn alt" id="dlAnnual">Download annual CSV</button>
+      <button class="btn alt" id="dlDaily">Download daily CSV</button>
+    </div>
+    <div id="tab-annual"><div class="scroll"><table id="annualTable"></table></div><div class="note" id="resNotes"></div></div>
+    <div id="tab-chart" class="hidden">
+      <div class="row"><div class="f"><label>Variable</label><select id="chartVar"></select></div></div>
+      <canvas id="chartCanvas" width="960" height="320"></canvas>
+    </div>
+    <div id="tab-daily" class="hidden">
+      <div class="row"><div class="f"><label>Year</label><select id="dailyYear"></select></div><div class="f"><label>Variable</label><select id="dailyVar"></select></div></div>
+      <canvas id="dailyCanvas" width="960" height="320"></canvas>
+    </div>
+  </div></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+<script>
+"use strict";
+// ---------------------------------------------------------------- engine link: the page only ever calls engine_api.schema / load_site / run
+let pyodide = null, SCHEMA = null, site = null, lastResult = null, soilEdit = null;
+const PRESETS = [
+  { label: "Rock Springs, PA", lat: 40.7093, lng: -77.9478 },
+  { label: "Central Iowa", lat: 42.0, lng: -93.6 },
+  { label: "Western Kansas", lat: 37.97, lng: -100.87 },
+  { label: "MD Eastern Shore", lat: 38.5, lng: -75.8 },
+  { label: "North-Central ND", lat: 48.23, lng: -101.30 },
+];
+const $ = (id) => document.getElementById(id);
+const setStatus = (t) => { $("status").textContent = t; };
+const tick = () => new Promise((r) => setTimeout(r, 30));
+
+async function initEngine() {
+  try {
+    setStatus("Loading Python...");
+    pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.2/full/" });
+    setStatus("Loading engine...");
+    for (const f of ["cycles_engine_validate.py", "engine_api.py"]) {
+      const r = await fetch(f, { cache: "no-cache" });
+      if (!r.ok) throw new Error(`Couldn't load ${f} (HTTP ${r.status}).`);
+      pyodide.FS.writeFile(f, await r.text());
+    }
+    await pyodide.runPythonAsync("import engine_api");
+    SCHEMA = JSON.parse(pyodide.runPython("engine_api.schema()"));
+    buildControls();
+    setStatus(site ? "Ready." : "Choose a site.");
+    updateRunBtn();
+  } catch (e) { setStatus("Engine failed to load: " + e.message); }
+}
+
+// ---------------------------------------------------------------- controls generated from the engine's own schema
+function buildControls() {
+  const root = $("controls"); root.innerHTML = "";
+  SCHEMA.groups.forEach((g) => {
+    const fs = document.createElement("fieldset"); fs.className = "grp"; fs.dataset.id = g.id;
+    if (g.applies_to) fs.dataset.applies = g.applies_to.join(",");
+    fs.innerHTML = `<legend>${g.label}</legend><div class="grid"></div>`;
+    const grid = fs.querySelector(".grid");
+    g.fields.forEach((f) => {
+      const d = document.createElement("div"); d.className = "f"; d.dataset.field = f.id;
+      if (f.applies_to) d.dataset.applies = f.applies_to.join(",");
+      if (f.show_if) d.dataset.showIf = JSON.stringify(f.show_if);
+      const inp = f.type === "select"
+        ? `<select id="in_${f.id}">${f.options.map((o) => `<option value="${o[0]}"${o[0] === f.default ? " selected" : ""}>${o[1]}</option>`).join("")}</select>`
+        : `<input type="number" id="in_${f.id}" value="${f.default}" min="${f.min}" max="${f.max}" step="${f.step}">`;
+      d.innerHTML = `<label for="in_${f.id}">${f.label}</label>${inp}`;
+      grid.appendChild(d);
+    });
+    root.appendChild(fs);
+  });
+  root.addEventListener("input", refreshVisibility);
+  refreshVisibility();
+}
+function val(id) { const e = $("in_" + id); return e ? e.value : undefined; }
+function refreshVisibility() {
+  const crop = val("crop");
+  const appliesOk = (el) => !el.dataset.applies || el.dataset.applies.split(",").includes(crop);
+  document.querySelectorAll("#controls fieldset").forEach((fs) => fs.classList.toggle("hidden", !appliesOk(fs)));
+  document.querySelectorAll("#controls .f").forEach((el) => {
+    let ok = appliesOk(el);
+    if (ok && el.dataset.showIf) {
+      const c = JSON.parse(el.dataset.showIf);
+      for (const k in c) { const v = val(k), want = String(c[k]); ok = ok && (want.startsWith("!") ? v !== want.slice(1) : v === want); }
+    }
+    el.classList.toggle("hidden", !ok);
+  });
+}
+function collectConfig() {
+  const cfg = {};
+  SCHEMA.groups.forEach((g) => g.fields.forEach((f) => { const e = $("in_" + f.id); if (e) cfg[f.id] = f.type === "number" ? parseFloat(e.value) : e.value; }));
+  cfg.soil = soilEdit;
+  return cfg;
+}
+
+// ---------------------------------------------------------------- site: presets, KML, tiles
+function parseKML(text) {
+  if (text.slice(0, 2) === "PK") throw new Error("This is a zipped KMZ. Export it as plain KML and try again.");
+  const doc = new DOMParser().parseFromString(text, "text/xml");
+  if (doc.querySelector("parsererror")) throw new Error("That file isn't valid KML.");
+  const pm = doc.getElementsByTagName("Placemark")[0];
+  if (!pm) throw new Error("No placemark found in this KML.");
+  const pt = pm.getElementsByTagName("Point")[0];
+  if (pt) { const [lng, lat] = pt.getElementsByTagName("coordinates")[0].textContent.trim().split(",").map(Number); return { lat, lng }; }
+  const ce = pm.getElementsByTagName("coordinates")[0];
+  if (!ce) throw new Error("No coordinates found in this KML.");
+  const v = ce.textContent.trim().split(/\s+/).map((t) => { const [lng, lat] = t.split(",").map(Number); return { lat, lng }; }).filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+  if (v.length < 3) throw new Error("Polygon needs at least 3 vertices.");
+  let a = 0, cx = 0, cy = 0;
+  for (let i = 0; i < v.length; i++) { const p = v[i], q = v[(i + 1) % v.length]; const c = p.lng * q.lat - q.lng * p.lat; a += c; cx += (p.lng + q.lng) * c; cy += (p.lat + q.lat) * c; }
+  a *= 0.5;
+  return Math.abs(a) < 1e-12 ? { lat: v.reduce((s, p) => s + p.lat, 0) / v.length, lng: v.reduce((s, p) => s + p.lng, 0) / v.length } : { lat: cy / (6 * a), lng: cx / (6 * a) };
+}
+let soilGrid = null, wxManifest = null; const tileCache = {};
+async function gunzip(buf) { return new Response(new Response(buf).body.pipeThrough(new DecompressionStream("gzip"))); }
+async function loadSoilGrid() {
+  if (soilGrid) return soilGrid;
+  const r = await fetch("statsgo2_soil_grid.json.gz"); if (!r.ok) throw new Error("Couldn't load the soil data.");
+  soilGrid = JSON.parse(await (await gunzip(await r.arrayBuffer())).text()); return soilGrid;
+}
+function allDoys(y0, y1) { const o = []; for (let y = y0; y <= y1; y++) { const n = (y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0)) ? 366 : 365; for (let d = 1; d <= n; d++) o.push([y, d]); } return o; }
+async function resolveSite(lat, lng) {
+  const grid = await loadSoilGrid(); let best = null, bd = Infinity;
+  for (const c of grid) { const d = Math.hypot(c.lat - lat, c.lon - lng); if (d < bd) { bd = d; best = c; } }
+  if (!wxManifest) { const r = await fetch("weather-tiles/manifest.json"); if (!r.ok) throw new Error("Couldn't load the weather index."); wxManifest = await r.json(); }
+  const deg = wxManifest.tile_deg || 5, key = `${Math.floor(lat / deg) * deg}_${Math.floor(lng / deg) * deg}`, entry = wxManifest.tiles[key];
+  if (!entry || bd > 0.75) throw new Error("That point is outside the covered area (continental US).");
+  let bytes = tileCache[key];
+  if (!bytes) { const r = await fetch("weather-tiles/" + entry.file); if (!r.ok) throw new Error("Couldn't load weather data."); bytes = await (await gunzip(await r.arrayBuffer())).arrayBuffer(); tileCache[key] = bytes; }
+  let bi = 0, bw = Infinity; entry.cells.forEach(([a, b], i) => { const d = Math.hypot(a - lat, b - lng); if (d < bw) { bw = d; bi = i; } });
+  if (bw > 0.75) throw new Error("That point is outside the covered area (continental US).");
+  const days = allDoys(wxManifest.years[0], wxManifest.years[1]), nf = wxManifest.fields.length, view = new Int16Array(bytes), off = bi * days.length * nf, years = {};
+  for (let i = 0; i < days.length; i++) {
+    const [y, d] = days[i], v = new Array(nf);
+    for (let f = 0; f < nf; f++) v[f] = view[off + i * nf + f] * wxManifest.scale[wxManifest.fields[f]];
+    (years[y] = years[y] || {})[d] = v;
+  }
+  const soil = best.layers.map((l) => ({ thick: l.thick, clay: l.clay, sand: l.sand, soc: l.soc == null ? 0.2 : l.soc }));
+  return { lat, lng, soil, soilName: best.compname, weather: { fields: wxManifest.fields, years }, wxCell: entry.cells[bi] };
+}
+async function chooseSite(lat, lng, label) {
+  site = null; updateRunBtn(); $("siteInfo").className = ""; $("siteInfo").textContent = "Loading site...";
+  try {
+    if (!pyodide) throw new Error("Engine is still loading, try again in a moment.");
+    const s = await resolveSite(lat, lng);
+    await tick();
+    pyodide.globals.set("site_json", JSON.stringify({ lat: s.lat, weather: s.weather, soil: s.soil }));
+    await pyodide.runPythonAsync("engine_api.load_site(site_json)");
+    site = s; soilEdit = JSON.parse(JSON.stringify(s.soil)); renderSoil();
+    $("siteInfo").textContent = `${label ? label + " | " : ""}${s.lat.toFixed(3)}, ${s.lng.toFixed(3)} | soil: ${s.soilName} | weather cell ${s.wxCell[0].toFixed(2)}, ${s.wxCell[1].toFixed(2)}`;
+  } catch (e) { $("siteInfo").className = "err"; $("siteInfo").textContent = e.message; }
+  updateRunBtn();
+}
+function renderSoil() {
+  const t = $("soilTable"); const cols = SCHEMA ? SCHEMA.soil_columns : [["thick", "Thickness (m)"], ["clay", "Clay (%)"], ["sand", "Sand (%)"], ["soc", "Organic C (%)"]];
+  t.innerHTML = `<tr><th class="l">Layer</th>${cols.map((c) => `<th>${c[1]}</th>`).join("")}</tr>` +
+    soilEdit.map((l, i) => `<tr><td class="l">${i + 1}</td>${cols.map((c) => `<td><input type="number" step="any" value="${l[c[0]]}" data-i="${i}" data-k="${c[0]}" style="width:90px"></td>`).join("")}</tr>`).join("");
+  t.querySelectorAll("input").forEach((e) => e.addEventListener("input", () => { soilEdit[+e.dataset.i][e.dataset.k] = parseFloat(e.value); }));
+}
+$("soilReset").addEventListener("click", (e) => { e.preventDefault(); if (site) { soilEdit = JSON.parse(JSON.stringify(site.soil)); renderSoil(); } });
+function updateRunBtn() { $("runBtn").disabled = !(pyodide && SCHEMA && site); }
+
+PRESETS.forEach((p) => {
+  const b = document.createElement("button"); b.className = "btn alt"; b.textContent = p.label;
+  b.addEventListener("click", () => { document.querySelectorAll("#presets .btn").forEach((x) => x.classList.remove("on")); b.classList.add("on"); chooseSite(p.lat, p.lng, p.label); });
+  $("presets").appendChild(b);
+});
+async function handleFile(f) {
+  if (!f) return;
+  document.querySelectorAll("#presets .btn").forEach((x) => x.classList.remove("on"));
+  try { const c = parseKML(await f.text()); await chooseSite(c.lat, c.lng, f.name); }
+  catch (e) { $("siteInfo").className = "err"; $("siteInfo").textContent = e.message; }
+}
+const drop = $("drop");
+drop.addEventListener("click", () => $("kmlFile").click());
+$("kmlFile").addEventListener("change", (e) => handleFile(e.target.files[0]));
+["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", (e) => handleFile(e.dataTransfer.files[0]));
+
+// ---------------------------------------------------------------- run and results
+$("runBtn").addEventListener("click", async () => {
+  $("runBtn").disabled = true; setStatus("Running..."); await tick();
+  try {
+    const t0 = performance.now();
+    pyodide.globals.set("cfg_json", JSON.stringify(collectConfig()));
+    lastResult = JSON.parse(await pyodide.runPythonAsync("engine_api.run(cfg_json)"));
+    renderResults(); setStatus(`Done in ${((performance.now() - t0) / 1000).toFixed(1)} s.`);
+  } catch (e) { setStatus("Error: " + (e.message || e).toString().split("\n").filter(Boolean).pop()); }
+  updateRunBtn();
+});
+const fmt = (v, key) => v === null || v === undefined ? "" : typeof v === "boolean" ? (v ? "yes" : "no") : (key === "year" || /doy$/.test(key)) ? String(Math.round(v)) : Number(v).toFixed(2);
+function renderResults() {
+  const r = lastResult; $("results").classList.remove("hidden");
+  const cols = r.annual_columns, numeric = cols.filter((c) => c[0] !== "year" && !/doy$/.test(c[0]) && c[0] !== "winter_killed");
+  $("annualTable").innerHTML = `<tr>${cols.map((c, i) => `<th class="${i ? "" : "l"}">${c[1]}<small>${c[2] || ""}</small></th>`).join("")}</tr>` +
+    r.annual.map((a) => `<tr>${cols.map((c, i) => `<td class="${i ? "" : "l"}">${fmt(a[c[0]], c[0])}</td>`).join("")}</tr>`).join("") +
+    `<tr class="mean">${cols.map((c, i) => `<td class="${i ? "" : "l"}">${i === 0 ? "Mean" : numeric.includes(c) ? (r.annual.reduce((s, a) => s + (a[c[0]] || 0), 0) / r.annual.length).toFixed(2) : ""}</td>`).join("")}</tr>`;
+  $("resNotes").textContent = (r.notes || []).concat(SCHEMA.notes || []).join(" ");
+  $("chartVar").innerHTML = numeric.map((c) => `<option value="${c[0]}">${c[1]} (${c[2]})</option>`).join("");
+  const dc = r.daily_columns.slice(1);
+  $("dailyVar").innerHTML = dc.map((c, i) => `<option value="${i + 1}">${c[1]} (${c[2]})</option>`).join("");
+  const years = Object.keys(r.daily);
+  $("dailyYear").innerHTML = years.map((y) => `<option>${y}</option>`).join("");
+  drawChart(); drawDaily();
+}
+function drawLine(canvas, xs, ys, xlabel, ylabel, bars) {
+  const c = canvas, g = c.getContext("2d"), W = c.width, H = c.height, L = 62, R = 14, T = 14, B = 38;
+  const cs = getComputedStyle(document.body), ink = cs.getPropertyValue("--ink-soft"), line = cs.getPropertyValue("--data"), grid = cs.getPropertyValue("--border");
+  g.clearRect(0, 0, W, H); g.font = "12px DM Mono, monospace";
+  const pts = ys.map((y, i) => [xs[i], y]).filter((p) => p[1] !== null && p[1] !== undefined && isFinite(p[1]));
+  if (!pts.length) return;
+  let y0 = Math.min(0, ...pts.map((p) => p[1])), y1 = Math.max(...pts.map((p) => p[1]));
+  if (y1 === y0) y1 = y0 + 1; const pad = (y1 - y0) * 0.05; y1 += pad;
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), sx = (x) => L + (x - x0) / Math.max(x1 - x0, 1e-9) * (W - L - R), sy = (y) => H - B - (y - y0) / (y1 - y0) * (H - T - B);
+  g.strokeStyle = grid; g.fillStyle = ink; g.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) { const v = y0 + (y1 - y0) * i / 4, y = sy(v); g.beginPath(); g.moveTo(L, y); g.lineTo(W - R, y); g.stroke(); g.textAlign = "right"; g.fillText(Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(2), L - 6, y + 4); }
+  g.textAlign = "center"; for (let i = 0; i <= 5; i++) { const v = x0 + (x1 - x0) * i / 5; g.fillText(Math.round(v), sx(v), H - B + 16); }
+  g.fillText(xlabel, (L + W - R) / 2, H - 6); g.save(); g.translate(14, (T + H - B) / 2); g.rotate(-Math.PI / 2); g.fillText(ylabel, 0, 0); g.restore();
+  g.strokeStyle = line; g.fillStyle = line; g.lineWidth = 2;
+  if (bars) { const bw = Math.max(2, (W - L - R) / pts.length * 0.7); pts.forEach((p) => g.fillRect(sx(p[0]) - bw / 2, Math.min(sy(p[1]), sy(0)), bw, Math.abs(sy(p[1]) - sy(0)))); }
+  else { g.beginPath(); pts.forEach((p, i) => (i ? g.lineTo(sx(p[0]), sy(p[1])) : g.moveTo(sx(p[0]), sy(p[1])))); g.stroke(); }
+}
+function drawChart() {
+  if (!lastResult) return; const k = $("chartVar").value, col = lastResult.annual_columns.find((c) => c[0] === k);
+  drawLine($("chartCanvas"), lastResult.annual.map((a) => a.year), lastResult.annual.map((a) => a[k]), "Year", `${col[1]} (${col[2]})`, true);
+}
+function drawDaily() {
+  if (!lastResult) return; const rows = lastResult.daily[$("dailyYear").value] || [], i = +$("dailyVar").value, col = lastResult.daily_columns[i];
+  drawLine($("dailyCanvas"), rows.map((r) => r[0]), rows.map((r) => r[i]), "Day of year", `${col[1]} (${col[2]})`, false);
+}
+["chartVar"].forEach((id) => $(id).addEventListener("change", drawChart));
+["dailyYear", "dailyVar"].forEach((id) => $(id).addEventListener("change", drawDaily));
+document.querySelectorAll(".tabs [data-tab]").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll(".tabs [data-tab]").forEach((x) => x.classList.toggle("on", x === b));
+  ["annual", "chart", "daily"].forEach((t) => $("tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
+  if (b.dataset.tab === "chart") drawChart(); if (b.dataset.tab === "daily") drawDaily();
+}));
+function download(name, text) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" })); a.download = name; a.click(); URL.revokeObjectURL(a.href); }
+$("dlAnnual").addEventListener("click", () => {
+  if (!lastResult) return; const c = lastResult.annual_columns;
+  download("annual.csv", [c.map((x) => x[0]).join(","), c.map((x) => x[2]).join(",")].concat(lastResult.annual.map((a) => c.map((x) => a[x[0]] ?? "").join(","))).join("\n"));
+});
+$("dlDaily").addEventListener("click", () => {
+  if (!lastResult) return; const c = lastResult.daily_columns, lines = [["year"].concat(c.map((x) => x[0])).join(","), ["-"].concat(c.map((x) => x[2] || "-")).join(",")];
+  for (const y in lastResult.daily) lastResult.daily[y].forEach((r) => lines.push([y].concat(r.map((v) => v ?? "")).join(",")));
+  download("daily.csv", lines.join("\n"));
+});
+initEngine();
+</script>
+</body>
+</html>

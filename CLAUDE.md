@@ -66,6 +66,9 @@ Cycles' growth is simple: the paper's law at scalar 1.0 (crop-file RUE and TUE),
 - Validate Pyodide-facing glue with the exact embedded Python run in CPython, and a mocked pyodide in headless Chromium. Two concurrent `pyodide.runPythonAsync` calls share one global namespace: always `await` them in sequence.
 - Delete Cycles output after parsing; keep disk free.
 
+### The simulator page (2026-10-19)
+`agricultural/prototypes/simulator.html` is the user interface and it never embeds the engine: Pyodide fetches `cycles_engine_validate.py` and `engine_api.py` from the same folder at page load, and the page calls only `engine_api.schema()`, `load_site()` and `run()`. Controls come from `SCHEMA` and result columns from `run()`, so a new engine option is an entry in `engine_api.SCHEMA`, not a page change. The per-crop configurations in `engine_api.py` (`_CORN`, `_SOYBEAN`, `_SILAGE`, `_SORGHUM_OVER`, `_WHEAT`) are copies of the validated ones: after any change to the engine or the harness crop dictionaries run `python3 check_parity_2026_10_19.py` (must print WORST 0.0) and do not run `sync_engine_pages.py` for this page. Open items: the page is not linked from the splash page; real Pyodide timing is untested (CPython 0.8 s for 20 years); jsdelivr is blocked in the container, so the page was tested with a mocked Pyodide in headless Chromium.
+
 ### Key files
 - `agricultural/AUDIT_PAPER_SI_2026-10-18.md` (paper and SI against the engine, statement by statement; supersedes the coarse `AUDIT_2026-10-15.md`).
 - `agricultural/prototypes/ENGINE_REBUILD_PLAN.md` (dated entries, newest last), `REFIT_PLAN.md`, `MECHANISM_LOG.md`, `scorecards/`, `sitesets/`, `agricultural/ACCURACY.md`.

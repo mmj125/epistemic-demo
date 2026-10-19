@@ -1,0 +1,256 @@
+"""The one interface between any user interface and the engine (2026-10-19).
+
+The page calls only three functions here: schema() (what controls exist), load_site(json) (weather and soil for the chosen
+place) and run(json) (one simulation). The engine file (cycles_engine_validate.py) can change freely behind them; the page
+builds its controls from schema() and its tables from run()'s own column list, so a new engine option is one entry in
+SCHEMA below, not a page change.
+
+Configurations here are the ones the scorecard scores: spring crops run as one continuous chain from the first year (the way
+Cycles runs 1980 to 2016), with the standard flag set from cycles_engine_validate.standard_kwargs; winter wheat uses the
+fall-to-fall chain with 60 kg N in the fall (run_validation_multisite_wheat.py). check_parity_2026_10_19.py runs this module
+against the validation harness and must show identical numbers."""
+import copy
+import json
+import cycles_engine_validate as E
+
+API_VERSION = 1
+
+# ---- crops (the validated per-crop configurations; sorghum, silage and soybean exactly as the multi-site runner builds them) ----
+_CORN = {'root_retained_frac': 0.6, 'n_demand_ref': True, 'n_stress_ag_basis': True, 'n_uptake_rate': 0.03, 'c1_water': True, 'tt_maturity': 1800, 'flowering_tt': 1000, 'base_t': 6, 'opt_t': 28, 'max_t': 46,
+         'rue': 2.2, 'wue': 8.7, 'hi_x': 0.8, 'hi_o': 0.15, 'hi_slope': 1.3077, 'fsti': 0.45, 'fstf': 0.95, 'calibration_factor': 1.0, 'canopy_shape': (6, -20, -5.35, 4.1),
+         'canopy_shape_faithful': (6.04, -20.51, -14.95, 14.57), 'eix_faithful': 0.951, 'ngf_faithful': 1.0, 'kc': 1.1, 'eix': 1.0, 'tr_min_t': 3.0, 'tr_threshold_t': 15.0, 'lat_deg': 40.6875,
+         'n_max_conc': 0.055, 'n_dilution_slope': 0.4, 'legume': False, 'n_min_conc': 0.002, 'depletion_fraction': 0.55, 'tr_max_mm_day': 10, 'root_max_m': 2.0, 'tt_emergence': 65,
+         'lwp_stress_onset': -1100, 'lwp_wilting_point': -2000, 'threshold_temp_cold_damage': 3}
+_SOYBEAN = {'canopy_shape_faithful': (6.19, -21.11, -15.95, 15.66), 'eix_faithful': 0.924, 'ngf_faithful': 1.0, 'c1_water': True, 'tt_maturity': 2250, 'flowering_tt': 1250, 'base_t': 5, 'opt_t': 28,
+            'max_t': 43, 'rue': 1.3, 'wue': 4.5, 'hi_x': 0.4, 'hi_o': 0.15, 'hi_slope': 3.4, 'fsti': 0.45, 'fstf': 0.95, 'kc': 1.0, 'eix': 1.0, 'tr_min_t': 3.0, 'tr_threshold_t': 15.0,
+            'lat_deg': 40.6875, 'calibration_factor': 1.0, 'n_max_conc': 0.07, 'n_dilution_slope': 0.4, 'legume': True, 'depletion_fraction': 0.5, 'tr_max_mm_day': 8, 'root_max_m': 1.5,
+            'tt_emergence': 70, 'lwp_stress_onset': -1100, 'lwp_wilting_point': -1800, 'threshold_temp_cold_damage': 2}
+_SILAGE = {'tt_maturity': 1800, 'flowering_tt': 1000, 'base_t': 6, 'opt_t': 28, 'max_t': 46, 'rue': 2.2, 'wue': 8.7, 'hi_x': 0.8, 'hi_o': 0.15, 'hi_slope': 1.0, 'fsti': 0.45, 'fstf': 0.95, 'kc': 1.1,
+           'eix': 1.0, 'tr_min_t': 3.0, 'tr_threshold_t': 15.0, 'lat_deg': 40.6875, 'forage_fraction': 0.95, 'calibration_factor': 1.0, 'depletion_fraction': 0.55,
+           'canopy_shape_faithful': (6.05, -20.56, -13.72, 13.33), 'eix_faithful': 0.946, 'ngf_faithful': 1.0, 'canopy_shape': (6, -20, -5.35, 4.1), 'tr_max_mm_day': 10, 'root_max_m': 1.55,
+           'tt_emergence': 65, 'n_max_conc': 0.055, 'n_dilution_slope': 0.4, 'legume': False, 'n_min_conc': 0.002, 'lwp_stress_onset': -1100, 'lwp_wilting_point': -2000,
+           'threshold_temp_cold_damage': 3, 'n_demand_ref': True, 'n_stress_ag_basis': True, 'n_uptake_rate': 0.03, 'root_retained_frac': 0.6}
+_SORGHUM_OVER = dict(tt_maturity=2050, flowering_tt=1300, rue=2.0, wue=9.6, tr_min_t=6, tr_threshold_t=18, kc=1.0, lwp_stress_onset=-1400, lwp_wilting_point=-2300, tr_max_mm_day=9, root_max_m=2.0,
+                     tt_emergence=65, threshold_temp_cold_damage=6, canopy_shape_faithful=(6.04, -20.47, -15.52, 15.08), eix_faithful=0.949, ngf_faithful=1.0)
+_WHEAT = {'canopy_form': 'H', 'tt_maturity': 1800, 'flowering_tt': 1250, 'base_t': 0, 'opt_t': 20, 'max_t': 35, 'rue': 1.6, 'wue': 6.0, 'hi_x': 0.52, 'hi_o': 0.2, 'hi_slope': 2.5, 'fsti': 0.45,
+          'fstf': 0.95, 'kc': 1.0, 'eix': 1.0, 'tr_min_t': 0.0, 'tr_threshold_t': 12.0, 'lat_deg': 40.6875, 'n_simultaneous': False, 'eix_cap': 0.93, 'net_growth_fraction': 0.95, 'ttf50': 0.32,
+          'hi_use_thermal_time_fraction': False, 'n_demand_scale': 0.874562, 'calibration_factor': 1.0, 'depletion_fraction': 0.55, 'canopy_shape': (5, -14, -15, 16), 'rad_temp_floor': 0.257,
+          'rad_temp_plateau_t': 15.55, 'tr_max_mm_day': 8, 'root_max_m': 2.0, 'tt_emergence': 100, 'n_max_conc': 0.07, 'n_dilution_slope': 0.45, 'n_min_conc': 0.002, 'lwp_stress_onset': -1000,
+          'lwp_wilting_point': -2100, 'threshold_temp_cold_damage': -10}
+
+CROP_LABELS = {"corn": "Corn (grain)", "silage": "Corn (silage)", "sorghum": "Sorghum", "soybean": "Soybean", "wheat": "Winter wheat"}
+
+FERTILIZERS = {k: k.replace("_", " ") for k in E.MINERAL_SOURCES}
+FERTILIZERS["uan"] = "UAN (urea ammonium nitrate)"
+FERTILIZERS["anhydrous_ammonia"] = "Anhydrous ammonia"
+TILLAGE = ["None"] + sorted(E.TILLAGE_IMPLEMENTS)
+
+# ---- what the page may show: everything the page renders comes from here ----
+SCHEMA = {
+    "api_version": API_VERSION,
+    "groups": [
+        {"id": "crop", "label": "Crop and years", "fields": [
+            {"id": "crop", "label": "Crop", "type": "select", "default": "corn", "options": [[k, v] for k, v in CROP_LABELS.items()]},
+            {"id": "start_year", "label": "First year", "type": "number", "default": 1980, "min": 1980, "max": 2016, "step": 1},
+            {"id": "end_year", "label": "Last year", "type": "number", "default": 2016, "min": 1980, "max": 2016, "step": 1},
+        ]},
+        {"id": "planting", "label": "Planting", "applies_to": ["corn", "silage", "sorghum", "soybean"], "fields": [
+            {"id": "plant_min_doy", "label": "Earliest planting day of year", "type": "number", "default": 110, "min": 60, "max": 200, "step": 1},
+            {"id": "plant_max_doy", "label": "Latest planting day of year", "type": "number", "default": 131, "min": 60, "max": 220, "step": 1},
+            {"id": "plant_min_soil_t", "label": "Minimum soil temperature (C)", "type": "number", "default": 12.0, "min": 0, "max": 25, "step": 0.5},
+        ]},
+        {"id": "fertilizer", "label": "Nitrogen fertilizer", "applies_to": ["corn", "silage", "sorghum", "wheat"], "fields": [
+            {"id": "fert_source", "label": "Source", "type": "select", "default": "uan", "options": [[k, v] for k, v in FERTILIZERS.items()]},
+            {"id": "n_rate", "label": "Total N (kg N/ha per year)", "type": "number", "default": 150, "min": 0, "max": 650, "step": 10},
+            {"id": "n_timing", "label": "Timing", "type": "select", "default": "planting", "options": [["planting", "All at planting"], ["split", "Two applications (day of year)"]]},
+            {"id": "n_doy1", "label": "First application, day of year", "type": "number", "default": 110, "min": 1, "max": 365, "step": 1, "show_if": {"n_timing": "split"}},
+            {"id": "n_frac1", "label": "Share applied first (%)", "type": "number", "default": 50, "min": 0, "max": 100, "step": 5, "show_if": {"n_timing": "split"}},
+            {"id": "n_doy2", "label": "Second application, day of year", "type": "number", "default": 160, "min": 1, "max": 365, "step": 1, "show_if": {"n_timing": "split"}},
+            {"id": "manure_n", "label": "Manure N (kg N/ha per year)", "type": "number", "default": 0, "min": 0, "max": 400, "step": 10, "applies_to": ["corn", "silage", "sorghum"]},
+        ]},
+        {"id": "tillage", "label": "Tillage", "applies_to": ["corn", "silage", "sorghum", "soybean"], "fields": [
+            {"id": "tillage_implement", "label": "Implement", "type": "select", "default": "None", "options": [[t, t.replace("_", " ")] for t in TILLAGE]},
+            {"id": "tillage_when", "label": "When", "type": "select", "default": "planting", "options": [["planting", "At planting"], ["day", "On a day of year (must fall after planting)"]], "show_if": {"tillage_implement": "!None"}},
+            {"id": "tillage_doy", "label": "Day of year", "type": "number", "default": 140, "min": 100, "max": 300, "step": 1, "show_if": {"tillage_when": "day", "tillage_implement": "!None"}},
+        ]},
+        {"id": "irrigation", "label": "Irrigation", "applies_to": ["corn", "silage", "sorghum", "soybean"], "fields": [
+            {"id": "irrigation_on", "label": "Irrigate", "type": "select", "default": "no", "options": [["no", "No"], ["auto", "Automatic (refill at a soil water trigger)"]]},
+            {"id": "irrigation_trigger", "label": "Trigger (fraction of available water depleted)", "type": "number", "default": 0.5, "min": 0.1, "max": 0.9, "step": 0.05, "show_if": {"irrigation_on": "auto"}},
+            {"id": "irrigation_mm", "label": "Amount per event (mm)", "type": "number", "default": 25, "min": 5, "max": 100, "step": 5, "show_if": {"irrigation_on": "auto"}},
+        ]},
+    ],
+    "soil_columns": [["thick", "Thickness (m)"], ["clay", "Clay (%)"], ["sand", "Sand (%)"], ["soc", "Organic C (%)"]],
+    "notes": [
+        "Weather: gridded daily record 1980 to 2016 at the nearest 0.5 degree cell. Soil: nearest STATSGO2 profile; layers can be edited.",
+        "Runs start from the first year with no spin-up, as Cycles does, so early years reflect the starting soil.",
+        "Soybean fixes its own N, so the fertilizer inputs do not apply to it. Winter wheat is planted in the fall (day 289) with its own fixed planting and tillage.",
+    ],
+}
+
+ANNUAL_COLUMNS = [
+    ["year", "Year", ""], ["plant_doy", "Planted (day)", "doy"], ["harvest_doy", "Harvest (day)", "doy"],
+    ["grain", "Grain (or forage) yield", "Mg/ha"], ["total", "Total biomass", "Mg/ha"], ["ag", "Aboveground biomass", "Mg/ha"],
+    ["n_uptake", "Crop N uptake", "kg N/ha"], ["n_leached", "Nitrate leaching", "kg N/ha"], ["n_denitrified", "Denitrification", "kg N/ha"],
+    ["n_volatilized", "Ammonia volatilization", "kg N/ha"], ["n2o", "N2O emission", "kg N/ha"], ["runoff", "Runoff", "mm"],
+    ["n_mineral_end", "Mineral N at season end", "kg N/ha"], ["winter_killed", "Winter killed", ""],
+]
+DAILY_COLUMNS = [
+    ["doy", "Day of year", ""], ["ttf", "Thermal time fraction", "-"], ["canopy", "Light interception", "-"], ["water_stress", "Water stress factor", "-"],
+    ["n_stress", "N stress factor", "-"], ["ag_mg_ha", "Aboveground biomass", "Mg/ha"], ["n_plant", "Crop N", "kg N/ha"], ["n_no3", "Soil nitrate", "kg N/ha"],
+    ["n_nh4", "Soil ammonium", "kg N/ha"], ["theta1", "Water content layer 1", "m3/m3"], ["theta2", "Water content layer 2", "m3/m3"],
+    ["theta3", "Water content layer 3", "m3/m3"], ["theta4", "Water content layer 4", "m3/m3"],
+]
+
+_STATE = {"wx": None, "soil": None, "lat": None}
+
+
+def schema():
+    return json.dumps(SCHEMA)
+
+
+def load_site(site_json):
+    """site_json: {lat, weather: {fields: [...], years: {year: {doy: [values]}}}, soil: [{thick, clay, sand, soc}]}. Stored for run()."""
+    s = json.loads(site_json)
+    fields = s["weather"]["fields"]
+    wx = {}
+    for y, days in s["weather"]["years"].items():
+        wx[int(y)] = {int(d): dict(zip(fields, v), doy=int(d)) for d, v in days.items()}
+    _STATE.update(wx=wx, soil=s["soil"], lat=float(s["lat"]))
+    return json.dumps({"years": [min(wx), max(wx)], "layers": len(s["soil"])})
+
+
+def _make_layers(soil):
+    def ml():
+        L = []
+        for l in soil:
+            h = E.saxton_rawls(l["sand"], l["clay"], l["soc"] * E.OM_FROM_SOC)
+            L.append(dict(thick=l["thick"], fc=h["fc"], pwp=h["pwp"], sat=h["sat"], theta=h["pwp"] + E.INITIAL_MOISTURE_FRACTION * (h["fc"] - h["pwp"]),
+                          ksat_mm_day=h["ksat_mm_day"], psi_e_kpa=h["psi_e_kpa"], B=h["B"]))
+        return L
+    return ml
+
+
+def _applications(cfg, crop_key):
+    """(kwargs fragment) for the fertilizer schedule: one lump at planting through n_rate_kg_ha, or dated applications."""
+    n = float(cfg.get("n_rate", 0) or 0)
+    if cfg.get("n_timing") == "split" and n > 0:
+        f = max(0.0, min(100.0, float(cfg.get("n_frac1", 50)))) / 100.0
+        return dict(n_rate_kg_ha=None, n_applications=[(int(cfg.get("n_doy1", 110)), n * f), (int(cfg.get("n_doy2", 160)), n * (1.0 - f))])
+    return dict(n_rate_kg_ha=n)
+
+
+def _row_out(y, r, carry):
+    leach = r.get("n_leached_kg_ha", 0.0); den = r.get("n_denitrified_kg_ha", 0.0); vol = r.get("n_volatilized_pool_kg_ha", 0.0); n2o = r.get("n2o_emitted_kg_ha", 0.0)
+    if carry and "fallow_n_leached" in r:   # add the off-season windows so totals are calendar-year, like Cycles' annual N file
+        leach += r["fallow_n_leached"]; den += r["fallow_n_denitrified"]; vol += r["fallow_n_volatilized"]; n2o += r.get("fallow_n2o", 0.0)
+    return dict(year=y, plant_doy=r.get("plant_doy"), harvest_doy=r.get("last_doy"), grain=r.get("forage") if r.get("_forage") else r.get("grain"), total=r.get("total"), ag=r.get("ag"),
+                n_uptake=r.get("n_uptake_kg_ha"), n_leached=leach, n_denitrified=den, n_volatilized=vol, n2o=n2o, runoff=r.get("runoff_mm"),
+                n_mineral_end=r.get("n_remaining_kg_ha"), winter_killed=bool(r.get("winter_killed")))
+
+
+def _daily_out(r):
+    h = r.get("history") or []
+    out = []
+    for d in h:
+        th = d.get("theta") or []
+        out.append([d.get("doy"), d.get("ttf"), d.get("canopy"), d.get("water_stress"), d.get("n_stress"), d.get("ag_mg_ha"), d.get("n_plant"), d.get("n_no3"), d.get("n_nh4")]
+                   + [th[i] if i < len(th) else None for i in range(4)])
+    return out
+
+
+def _spring_chain(cfg, crop_key, wx, soil, lat):
+    crop = dict(_SILAGE if crop_key == "silage" else _SOYBEAN if crop_key == "soybean" else _CORN)
+    if crop_key == "sorghum":
+        crop.update(_SORGHUM_OVER)
+    crop["lat_deg"] = lat
+    crop["make_layers"] = _make_layers(soil)
+    soy = crop_key == "soybean"
+    kw = {} if soy else E.standard_kwargs(soil, float(cfg.get("n_rate", 0) or 0))
+    if not soy:
+        kw.update(_applications(cfg, crop_key))
+        src = cfg.get("fert_source", "uan")
+        if float(cfg.get("n_rate", 0) or 0) > 0:
+            kw["fertilizer_source"] = src
+        if float(cfg.get("manure_n", 0) or 0) > 0:
+            kw["manure_n_kg_ha"] = float(cfg["manure_n"])
+    if crop_key == "silage":
+        kw["harvest_ttf"] = 0.85   # Cycles harvests silage at 85 percent of maturity
+    ti = cfg.get("tillage_implement", "None")
+    if ti and ti != "None":
+        kw["tillage_implement"] = ti; kw["tillage_doy"] = "planting" if cfg.get("tillage_when", "planting") == "planting" else int(cfg.get("tillage_doy", 140))
+    if cfg.get("irrigation_on") == "auto":
+        kw["irrigation_trigger_frac"] = float(cfg.get("irrigation_trigger", 0.5)); kw["irrigation_amount_mm"] = float(cfg.get("irrigation_mm", 25))
+    kw["record_history"] = True
+    first = int(cfg["start_year"]); last = int(cfg["end_year"])
+    yrs = [y for y in sorted(wx) if first <= y <= last]
+    pw = (int(cfg.get("plant_min_doy", 110)), int(cfg.get("plant_max_doy", 131)))
+    res = E.simulate_continuous(wx, crop, years=yrs, plant_window=pw, plant_min_soil_t=float(cfg.get("plant_min_soil_t", 12.0)), carry_n=not soy, **kw)
+    if crop_key == "silage":
+        for r in res.values():
+            r["_forage"] = True
+    return res, (not soy)
+
+
+def _wheat_chain(cfg, wx, soil, lat):
+    """Fall-to-fall winter wheat chain (the validated runner): planted at day 289, harvest the next summer, N applications as given."""
+    crop = dict(_WHEAT); crop["lat_deg"] = lat
+    crop["vern"] = dict(E.WINTER_PHENOLOGY); crop["base_t"] = E.WINTER_PHENOLOGY["base_t"]
+    ml = _make_layers(soil); crop["make_layers"] = ml
+    N = float(cfg.get("n_rate", 0) or 0)
+    wf = [(y, d, wx[y][d]) for y in sorted(wx) for d in sorted(wx[y])]
+    fi = {(y, d): i for i, (y, d, _) in enumerate(wf)}
+    rows = lambda a, b: [x for (_, _, x) in wf[a:b]]
+    layers = ml(); nstate = None; sp = None; prev_end = None; out = {}
+    base = E.standard_kwargs(soil, 0); base.pop("fertilizer_source", None); base["n_rate_kg_ha"] = None
+    first = int(cfg["start_year"]); last = int(cfg["end_year"])
+    for y in sorted(wx)[:-1]:
+        if (y, 288) not in fi:
+            continue
+        start = fi[(y, 288)]
+        fallow = rows(fi[(y, 1)], start) if prev_end is None else rows(prev_end, start)
+        if nstate is None:
+            nstate = dict(n_nh4=0.0, n_no3=0.0, tsoil_lag=(wf[start][2]["tx"] + wf[start][2]["tn"]) / 2.0, no3_layers=[0.0] * len(layers), rel_hist=[])
+        de = dict(de=0.0, tew=E.compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=E.REW_DEFAULT_MM)
+        E._DIAG_YEAR = y; E._FORCE_CUR = None
+        E.run_fallow_n_window(layers, fallow, nstate, sp, lat_deg=lat, de_state=de, model_denitrification=True, model_volatilization=True)
+        nstate.pop("n2o", None)
+        kw = dict(base); kw.update(initial_n_state=dict(nstate), initial_layers=layers, spinup_rows=None, wue_co2_scale=E.CO2_PPM_BY_YEAR.get(y, E.CO2_REF_PPM) / E.CO2_REF_PPM, record_history=True)
+        fall_n = min(60.0, N)
+        if N > 0:
+            kw["n_applications"] = [(289, fall_n), (75, N - fall_n)] if N > fall_n else [(75, N)]
+            if cfg.get("n_timing") == "split":
+                f = max(0.0, min(100.0, float(cfg.get("n_frac1", 50)))) / 100.0
+                kw["n_applications"] = [(int(cfg.get("n_doy1", 289)), N * f), (int(cfg.get("n_doy2", 75)), N * (1.0 - f))]
+            kw["fertilizer_source"] = cfg.get("fert_source", "uan")
+        else:
+            kw["n_rate_kg_ha"] = 0
+        if sp is not None:
+            kw["sixpool_initial_state"] = sp
+        res = E.simulate_season(rows(start, start + 400), crop, **kw)
+        layers = res["final_layers"]; nstate = dict(res["final_n_state"]); sp = copy.deepcopy(res.get("sixpool_final_state"))
+        prev_end = start + len(res["history"])
+        if first <= y + 1 <= last:
+            out[y + 1] = res
+    return out, False
+
+
+def run(config_json):
+    cfg = json.loads(config_json)
+    wx, soil, lat = _STATE["wx"], _STATE["soil"], _STATE["lat"]
+    if wx is None:
+        raise ValueError("No site loaded.")
+    if "soil" in cfg and cfg["soil"]:
+        soil = cfg["soil"]
+    crop_key = cfg.get("crop", "corn")
+    if crop_key not in CROP_LABELS:
+        raise ValueError("Unknown crop %r" % crop_key)
+    if int(cfg["end_year"]) < int(cfg["start_year"]):
+        raise ValueError("Last year is before first year.")
+    res, carry = _wheat_chain(cfg, wx, soil, lat) if crop_key == "wheat" else _spring_chain(cfg, crop_key, wx, soil, lat)
+    annual = []; daily = {}
+    for y in sorted(res):
+        annual.append(_row_out(y, res[y], carry)); daily[str(y)] = _daily_out(res[y])
+    notes = []
+    if crop_key == "wheat":
+        notes.append("Wheat N losses cover the growing season only (fall planting to harvest).")
+    return json.dumps(dict(annual=annual, annual_columns=ANNUAL_COLUMNS, daily=daily, daily_columns=DAILY_COLUMNS, notes=notes, api_version=API_VERSION))
