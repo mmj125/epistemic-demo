@@ -3159,6 +3159,9 @@ def shoot_fraction(ttf, fsti, fstf, ttf50=None):
 # When n_rate_kg_ha is left as None (the default), none of this runs and
 # behavior is byte-identical to before this feature existed -- verified by
 # re-running run_validation.py / run_validation_rotation2.py unchanged.
+N_SOLVE_DEBUG = None
+N_SIMULTANEOUS = True   # ADOPTED 2026-10-19 (corn 94 sites vs the same code without it: grain MAE gain +0.039 [+0.028,+0.051] / +0.012 [+0.006,+0.017] / 0.000 at N=0/150/400); simultaneous solve of uptake, growth and N factor within the day (see simulate_season)
+N_STRESS_POT_DILUTION = False   # see simulate_season, N stress ratio
 N_ACCESS_K = 1.0   # 2026-10-19: scale on the per-layer mass-flow access (water withdrawn x layer nitrate / layer water); 1.0 is the literal paper Sec 2.7 reading
 N_UPTAKE_T0 = None   # transpiration scale (mm/day) of the saturating uptake-rate law; None = flat cap
 N_UPTAKE_RATE_PER_DAY = None  # None = uptake limited only by demand (validated default); else also capped at this fraction/day of the reachable mineral N pool (nitrate_per_layer path)
@@ -6005,7 +6008,10 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 # step 14: Cycles' stress is a function of the ABOVEGROUND nitrogen concentration over the critical curve at the
                 # plant's biomass (167k daily corn records, 28 sites): 0.764 x ((0.641 - r)/0.36)^0.9 between r = 0.641 and 0.281,
                 # flat below. Aboveground N is 0.87 to 0.89 of the plant total throughout the season.
-                _ag_pct = (N_AG_FRACTION * canopy_n_kg_ha / (ag_biomass * 100)) if ag_biomass > 1e-6 else crop["n_max_conc"] * 100
+                _ag_eff = ag_biomass
+                if N_STRESS_POT_DILUTION:   # 2026-10-19: the concentration is evaluated after the day's POTENTIAL growth has been added (CropSyst Eq. 29 and 30: the N factor comes from the concentration the plant would have after the growth it is trying to make)
+                    _ag_eff = ag_biomass + dGB_water_limited * shoot_fraction(ttf, crop["fsti"], crop["fstf"], crop.get("ttf50"))
+                _ag_pct = (N_AG_FRACTION * canopy_n_kg_ha / (_ag_eff * 100)) if _ag_eff > 1e-6 else crop["n_max_conc"] * 100
                 _ratio = _ag_pct / n_crit_pct if n_crit_pct > 0 else 1.0
                 n_stress = 1.0 - N_STRESS_SMAX * max(0.0, min(1.0, (N_STRESS_R0 - _ratio) / (N_STRESS_R0 - N_STRESS_R1))) ** N_STRESS_Q
             else:
@@ -6016,6 +6022,27 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     n_stress = max(0.0, _knee * (_ratio - N_STRESS_FLOOR_RATIO) / (N_STRESS_KNEE_RATIO - N_STRESS_FLOOR_RATIO))
             if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("nstress", ()):
                 n_stress = _FORCE_CUR["nstress"][w["doy"]]
+            if crop.get("n_simultaneous", N_SIMULTANEOUS) and n_nh4 is not None and no3_layers is not None and not N_ACCESS_MASSFLOW and dGB_water_limited > 0 and not (_FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("nstress", ())):
+                # 2026-10-19: CropSyst-style simultaneous solve (Stockle, Martin, Campbell 1994, Eq. 29 and 30): the day's N factor is the one consistent with the day's uptake and the
+                # growth it permits. Fixed point on F: growth = potential x F, demand from that growth, uptake = min(supply cap, demand), concentration after the uptake over the
+                # above-ground biomass including the POTENTIAL growth (the dilution the plant is trying to make), critical curve at the biomass after realized growth, F = law(ratio).
+                _acc = layer_depth_fraction_within(layers, root_depth)
+                _reach = n_nh4 + sum(max(0.0, no3_layers[_i] - N_UPTAKE_FLOOR_MGKG * sixpool_bulk_density(layers[_i]["sat"]) * layers[_i]["thick"] * 10.0) * _acc[_i] for _i in range(len(layers)))
+                _urs = crop.get("n_uptake_rate", N_UPTAKE_RATE_PER_DAY)
+                _caps = _reach if _urs is None else _reach * _urs
+                _sf_s = shoot_fraction(ttf, crop["fsti"], crop["fstf"], crop.get("ttf50")); _rr_s = crop.get("root_retained_frac", 1.0)
+                _bf = (1.0 if _rr_s >= 1.0 else (_sf_s + (1.0 - _sf_s) * _rr_s))
+                _mdp = n_marginal_demand_pct((biomass_ref if crop.get("n_demand_ref", N_DEMAND_REF) else biomass) * 10, crop) * crop.get("n_demand_scale", N_DEMAND_SCALE)
+                _F = n_stress
+                for _it in range(10):
+                    _dem = dGB_water_limited * (_F ** N_STRESS_GROWTH_POW) * _bf * 100 * _mdp
+                    _U = min(_caps, _dem)
+                    _agp = ag_biomass + dGB_water_limited * _sf_s
+                    _ratio_s = (N_AG_FRACTION * (canopy_n_kg_ha + _U) / (_agp * 100)) / n_critical_pct((biomass + dGB_water_limited * _F * _bf) * 10, crop, crop.get("n_stress_crit_floor", N_STRESS_CRIT_FLOOR_MGHA)) if _agp > 1e-6 else 1.0
+                    _Fn = 1.0 - N_STRESS_SMAX * max(0.0, min(1.0, (N_STRESS_R0 - _ratio_s) / (N_STRESS_R0 - N_STRESS_R1))) ** N_STRESS_Q
+                    _F = 0.5 * _F + 0.5 * _Fn
+                if N_SOLVE_DEBUG is not None: N_SOLVE_DEBUG.append((_DIAG_YEAR, w["doy"], _F, _ratio_s, _U, _dem, _caps, canopy_n_kg_ha, _agp, biomass, dGB_water_limited))
+                n_stress = _F
             dGB_n_limited = dGB_water_limited * (n_stress ** N_STRESS_GROWTH_POW)
             n_stress_prev = n_stress
             n_ratio_prev = _ratio

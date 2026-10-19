@@ -86,6 +86,7 @@ WHEAT = dict(canopy_form="H",  # 2026-10-17: integrated-derivative canopy, expan
              rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=2.5, fsti=0.45, fstf=0.95,  # 2026-10-17: documented slope m(1-Hmin)/(Hmax-Hmin)=2.5 and the real f_G (the thermal-time exemption is gone, the winter phenology it was covering for is fixed); calibration_factor 1.0,
 
              kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=LAT,
+             n_simultaneous=False,  # 2026-10-19: wheat's N model (pinned demand scale 0.8746, tuned stress interplay) is worse with the simultaneous solve (MAE -0.24 / -0.40 / -0.30 at N=0/90/150), so it keeps the old order until its N model is rebuilt
              eix_cap=0.93, net_growth_fraction=0.95, ttf50=0.32,  # 2026-10-19: ttf50 0.32 checked (best 0.34 on Cycles' wheat, corn's 0.42 is worse); growth scalar 0.95 is what Cycles' states forced give at N=150 (total biomass 1.112 at 1.057); canopy plateau 0.93 is Cycles' unstressed wheat canopy (p90 0.917, p99 0.942); was 0.86 / 1.057
                # 2026-10-17: Cycles' unstressed wheat canopy plateaus at 0.857 (engine cap was 0.99, spring canopy +0.05 to +0.12); growth conversion raised to keep the level (wheat_hi_test.py, two disjoint 16-site sets: N=0 MAE -3 to -5%, N=150 neutral)
              hi_use_thermal_time_fraction=False,  # was True (exemption); real exemption, 2026-09-30 -- see
