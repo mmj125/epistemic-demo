@@ -2379,7 +2379,25 @@ FE_TEMP_CYCLES_PTS = ((-10.5, 0.112), (-7.5, 0.114), (-4.5, 0.145), (-1.5, 0.157
                       (25.5, 0.333), (28.5, 0.559))
 
 
+SIXPOOL_FE_TEMP_PTS = None   # (default set below the measured table, 2026-10-19) piecewise-linear fT table (T, fT) measured from Cycles v1.5.20 composite_factor / the engine moisture factor on moist days (fe_season_2026_10_19.py); None = the quadratic below
+SIXPOOL_FE_TEMP_PTS_MEASURED = ((0.0, 0.0), (1.5, 0.026), (3.5, 0.045), (5.5, 0.077), (7.5, 0.120), (9.5, 0.170), (11.5, 0.231), (13.5, 0.303), (15.5, 0.385), (17.5, 0.468), (19.5, 0.554), (21.5, 0.641), (23.5, 0.731), (25.5, 0.810), (27.5, 0.877), (31.0, 1.0))
+
+SIXPOOL_FE_TEMP_PTS = SIXPOOL_FE_TEMP_PTS_MEASURED   # adopted 2026-10-19: 94 sites corn, grain MAE gain +0.011 [+0.007,+0.014] / +0.006 [+0.003,+0.010] / +0.005 [+0.003,+0.008] at N=0/150/400, better at 65 to 70 of 94 sites; the old quadratic was 6 to 15% high between 3 and 11 C
+
+
 def sixpool_fe_temp(tmean):
+    if SIXPOOL_FE_TEMP_PTS:
+        _p = SIXPOOL_FE_TEMP_PTS
+        if tmean <= _p[0][0]:
+            return _p[0][1]
+        for (_x0, _y0), (_x1, _y1) in zip(_p, _p[1:]):
+            if tmean <= _x1:
+                return _y0 + (_y1 - _y0) * (tmean - _x0) / (_x1 - _x0)
+        return _p[-1][1]
+    return _sixpool_fe_temp_quadratic(tmean)
+
+
+def _sixpool_fe_temp_quadratic(tmean):
     """Real, back-calculated fE temperature response: a quadratic fit against Cycles' own
     FACTOR COMP. column (soilLayersCN.txt), isolated from moisture by restricting the fit to
     near-field-capacity days. Unverified above ~26C (Rock Springs' real record never gets
