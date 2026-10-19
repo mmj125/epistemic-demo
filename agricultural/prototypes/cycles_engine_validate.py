@@ -1810,6 +1810,7 @@ def shoot_fraction(ttf, fsti, fstf, ttf50=None):
 # behavior is byte-identical to before this feature existed -- verified by
 # re-running run_validation.py / run_validation_rotation2.py unchanged.
 N_SOLVE_DEBUG = None
+DIAG_DENIT = None   # appends (year, doy, layer-1 relative saturation used, profile nitrate, respired C, denitrification) per day; None = off
 N_UNMET = None   # diagnostic: appends (year, doy, kg N/ha) of net immobilization the mineral pool could not supply
 N_SIMULTANEOUS = True   # ADOPTED 2026-10-19 (corn 94 sites vs the same code without it: grain MAE gain +0.039 [+0.028,+0.051] / +0.012 [+0.006,+0.017] / 0.000 at N=0/150/400); simultaneous solve of uptake, growth and N factor within the day (see simulate_season)
 N_STRESS_POT_DILUTION = False   # see simulate_season, N stress ratio
@@ -2709,6 +2710,7 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
     wsum = sum(wts) or 1.0
     total = 0.0
     resp_tot = 0.0
+    _nml = []
     for i, (sub, l) in enumerate(zip(subs, layers)):
         k, g = sixpool_ml_temp_params(sub["zmid"])
         if sub["tl"] is None:
@@ -2727,7 +2729,9 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
             sub["cra_n"] = state.get("cra_n")
         ft = ft_eff if sub["z0"] < SIXPOOL_ML_TILL_DEPTH_M else 1.0
         if DIAG_FE is not None: DIAG_FE.append((_DIAG_YEAR, _DIAG_CTX.get("doy"), i, t_layer, relwet, sixpool_fe(t_layer, relwet, True)))
-        total += sixpool_step(sub, t_layer, relwet, root_c_input_mg_ha * wts[i] / wsum, ft)
+        _v = sixpool_step(sub, t_layer, relwet, root_c_input_mg_ha * wts[i] / wsum, ft)
+        total += _v
+        _nml.append(_v)
         resp_tot += sub.get("resp_mg_ha", 0.0)
         if i == 0:
             state["cra"], state["crm"], state["cra_age"] = sub["cra"], sub["crm"], sub["cra_age"]
@@ -2736,6 +2740,7 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
     state["cm"] = sum(x["cm"] for x in subs)
     if DIAG_CPOOL is not None: DIAG_CPOOL.append((_DIAG_YEAR, _DIAG_CTX.get("doy"), [x["cs"] for x in subs], [x["cm"] for x in subs], [x["crtz"] for x in subs], state["cra"]))
     state["resp_mg_ha"] = resp_tot
+    state["netmin_layers"] = _nml
     if DIAG_RESP is not None:
         DIAG_RESP.append((_DIAG_YEAR, resp_tot, total))
     return total
@@ -2956,6 +2961,28 @@ def denitrification_flux_resp(no3_total_kg_ha, theta_rel1, resp_mg_ha):
         return 0.0
     c = max(resp_mg_ha * 1000.0, 0.0) + 1e-3
     return min(no3_total_kg_ha, DENITRIF_RESP_K * no3_total_kg_ha ** DENITRIF_RESP_NO3_POW * c ** DENITRIF_RESP_C_POW * min(max(theta_rel1, 0.02), 1.2) ** DENITRIF_RESP_REL_POW)
+
+
+DENITRIF_L12 = False   # 2026-10-19: denitrification driven by the nitrate CONCENTRATION of layers 1 and 2 (where Cycles denitrifies), not the profile nitrate mass
+DENITRIF_L12_PARAMS = (0.0108, 0.7291, 1.0241, 6.0647, 0.85)   # k, concentration exponent, respired-C exponent, saturation exponent, engine-to-Cycles respired C scale (fitted on Cycles' daily output, denit_data_2026_10_19.py)
+
+
+def denitrification_flux_l12(layers, no3_layers, resp_mg_ha):
+    """Daily denitrification (kg N/ha) = k x C12^a x Cresp^c x S12^p. C12: nitrate concentration (mg N/kg soil) of layers 1 and 2 together, S12: their mass-weighted water content over saturation (end of day),
+    Cresp: respired carbon (kg C/ha) times the engine-to-Cycles respired-C scale. Fitted on Cycles v1.5.20 daily output (24 sites, N=0/150/400) so that totals match by N rate and by composite-factor class."""
+    if len(no3_layers) < 2:
+        return 0.0
+    _k, _a, _c, _p, _rs = DENITRIF_L12_PARAMS
+    _m = [no3_layers[i] for i in (0, 1)]
+    _top = _m[0] + _m[1]
+    if _top <= 0.0:
+        return 0.0
+    _bm = [sixpool_bulk_density(layers[i]["sat"]) * layers[i]["thick"] * 10.0 for i in (0, 1)]
+    _conc = _top / (_bm[0] + _bm[1])
+    _sat = (_m[0] * layers[0]["theta"] / layers[0]["sat"] + _m[1] * layers[1]["theta"] / layers[1]["sat"]) / _top
+    _sat = min(max(_sat, 1e-3), 1.2)
+    _cr = max(resp_mg_ha * 1000.0 * _rs, 0.0) + 1e-3
+    return min(_top, _k * _conc ** _a * _cr ** _c * _sat ** _p)
 
 
 DENITRIF_E2_PARAMS = dict(k=-3.961, a=0.446, b=0.894, c=5.98, d=-0.662, e=2.161, f=0.226)   # rebuild phase 4 (2026-10-16), nlaw_param2.py: held-out annual rms log error 0.87 -> 0.71 (site-run totals), daily R2 0.58
@@ -3212,12 +3239,36 @@ def n2o_from_denitrification(denitrified_kg_ha, no3_before_kg_ha):
 
 
 IMMOB_FROM_NO3 = True   # opt-in: net immobilization (negative net mineralization) is drawn from NH4 first, then nitrate top-down (paper Sec 2.6: the microbial pool assimilates N from the ammonium and nitrate pools); False = NH4 only, the shortfall is dropped
-def apply_net_min(nh4, no3, no3_layers, smin):
+N_LAYERED_MIN = False   # 2026-10-19: mineral N produced and immobilized where the carbon is (per layer), not all in layer 1 (see _distribute_nitrate and apply_net_min)
+
+
+def _distribute_nitrate(no3_layers, amount, sixpool_state):
+    """Adds nitrified nitrate to the layers in proportion to the positive net mineralization the layers made on the last day (N_LAYERED_MIN), else all to layer 1 as before."""
+    if N_LAYERED_MIN and sixpool_state is not None and sixpool_state.get("netmin_layers"):
+        _w = [max(0.0, v) for v in sixpool_state["netmin_layers"][:len(no3_layers)]]
+        _sw = sum(_w)
+        if _sw > 1e-12:
+            for _i, _x in enumerate(_w):
+                no3_layers[_i] += amount * _x / _sw
+            return
+    no3_layers[0] += amount
+
+
+_CUR_SIXPOOL = None
+
+
+def apply_net_min(nh4, no3, no3_layers, smin, sixpool_state=None):
     """Returns (nh4, no3) after a day's net mineralization. Positive goes to NH4. Negative takes NH4 first then nitrate (top layer down) when IMMOB_FROM_NO3, else only NH4 and the remainder is dropped."""
     if smin >= 0 or not IMMOB_FROM_NO3:
         return max(0.0, nh4 + smin), no3
     need = -smin; t = min(nh4, need); nh4 -= t; need -= t
     _need0 = need
+    if need > 0 and N_LAYERED_MIN and no3_layers is not None and sixpool_state is not None and sixpool_state.get("netmin_layers"):
+        _neg = [max(0.0, -v) for v in sixpool_state["netmin_layers"][:len(no3_layers)]]
+        _sn = sum(_neg)
+        if _sn > 1e-12:
+            for _i, _x in enumerate(_neg):
+                t = min(no3_layers[_i], need * _x / _sn); no3_layers[_i] -= t; need -= t
     if need > 0:
         if no3_layers is not None:
             for i in range(len(no3_layers)):
@@ -3281,7 +3332,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
                 _gross = (0.0, 0.0, 0.0, 0.0)
             if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("netmin", ()):
                 _smin = _FORCE_CUR["netmin"][w["doy"]]   # diagnostic: Cycles' own net mineralization flux in the fallow windows too
-            nstate["n_nh4"], nstate["n_no3"] = apply_net_min(nstate["n_nh4"], nstate["n_no3"], no3_layers, _smin)
+            nstate["n_nh4"], nstate["n_no3"] = apply_net_min(nstate["n_nh4"], nstate["n_no3"], no3_layers, _smin, sixpool_state)
         if NITRIF_RATIO_MODEL:
             nit = nitrification_flux_ratio(nstate["n_nh4"], (no3_layers[0] if no3_layers is not None else nstate["n_no3"]), nstate["tsoil_lag"])
         elif NITRIF_FE:
@@ -3299,7 +3350,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
         nstate["n_nh4"] = max(0.0, nstate["n_nh4"] - nit - vol)
         nstate["n_no3"] += nit
         if no3_layers is not None:
-            no3_layers[0] += nit
+            _distribute_nitrate(no3_layers, nit, sixpool_state)
         nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_nitrification(nit)
         volat += vol
         profile_water_mm = sum(l["theta"] * l["thick"] * 1000 for l in layers)
@@ -3312,10 +3363,18 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             if DENITRIF_E2:
                 d = denitrification_flux_e2(no3_layers[0] + (no3_layers[1] if len(no3_layers) > 1 else 0.0), _no3_pre, sixpool_state.get("resp_mg_ha", 0.0), _rm5,
                                             max(l["theta"] / l["sat"] for l in layers), nstate["n_nh4"], 100.0 * sixpool_state.get("clay", 0.25))
+            elif DENITRIF_L12:
+                d = denitrification_flux_l12(layers, no3_layers, sixpool_state.get("resp_mg_ha", 0.0))
             else:
                 d = denitrification_flux_resp(_no3_pre, (_SUBDAY_REL1_EFF if (SUBDAY_DENIT and _SUBDAY_REL1_EFF is not None) else layers[0]["theta"] / layers[0]["sat"]), sixpool_state.get("resp_mg_ha", 0.0))
+                if DIAG_DENIT is not None: DIAG_DENIT.append((_DIAG_YEAR, w["doy"], (_SUBDAY_REL1_EFF if (SUBDAY_DENIT and _SUBDAY_REL1_EFF is not None) else layers[0]["theta"] / layers[0]["sat"]), _no3_pre, sixpool_state.get("resp_mg_ha", 0.0), d, layers[0]["theta"] / layers[0]["sat"], tuple(no3_layers)))
             if d > 0 and _no3_pre > 0:
                 _f = d / _no3_pre
+                if DENITRIF_L12 and not DENITRIF_E2 and len(no3_layers) >= 2:
+                    _tp = no3_layers[0] + no3_layers[1]; _ft = d / max(_tp, 1e-12)
+                    for i in (0, 1):
+                        no3_layers[i] *= (1.0 - _ft)
+                    _f = 0.0
                 for i in range(len(no3_layers)):
                     no3_layers[i] *= (1.0 - _f)
                 nstate["n_no3"] = max(0.0, _no3_pre - d)
@@ -4400,7 +4459,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             n_no3 += nitrif_amt_today
             n2o_total += n2o_from_nitrification(nitrif_amt_today)
             if no3_layers is not None:
-                no3_layers[0] += nitrif_amt_today
+                _distribute_nitrate(no3_layers, nitrif_amt_today, sixpool_state)
             if n_volatilized_pool_total is not None:
                 n_volatilized_pool_total += volat_amt_today
 
@@ -4414,11 +4473,19 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             if DENITRIF_E2:
                 denitrif_today = denitrification_flux_e2(no3_layers[0] + (no3_layers[1] if len(no3_layers) > 1 else 0.0), n_no3, sixpool_state.get("resp_mg_ha", 0.0), _rm5,
                                                          max(l["theta"] / l["sat"] for l in layers), n_nh4, 100.0 * sixpool_state.get("clay", 0.25))
+            elif DENITRIF_L12:
+                denitrif_today = denitrification_flux_l12(layers, no3_layers, sixpool_state.get("resp_mg_ha", 0.0))
             else:
                 denitrif_today = denitrification_flux_resp(n_no3, (_SUBDAY_REL1_EFF if (SUBDAY_DENIT and _SUBDAY_REL1_EFF is not None) else layers[0]["theta"] / layers[0]["sat"]), sixpool_state.get("resp_mg_ha", 0.0))
+                if DIAG_DENIT is not None: DIAG_DENIT.append((_DIAG_YEAR, w["doy"], (_SUBDAY_REL1_EFF if (SUBDAY_DENIT and _SUBDAY_REL1_EFF is not None) else layers[0]["theta"] / layers[0]["sat"]), n_no3, sixpool_state.get("resp_mg_ha", 0.0), denitrif_today, layers[0]["theta"] / layers[0]["sat"], tuple(no3_layers)))
             if denitrif_today > 0 and n_no3 > 0:
                 _f = denitrif_today / n_no3
                 n2o_total += n2o_from_denitrification(denitrif_today, n_no3)
+                if DENITRIF_L12 and not DENITRIF_E2 and len(no3_layers) >= 2:
+                    _tp = no3_layers[0] + no3_layers[1]; _ft = denitrif_today / max(_tp, 1e-12)
+                    for i in (0, 1):
+                        no3_layers[i] *= (1.0 - _ft)
+                    _f = 0.0
                 for i in range(len(no3_layers)):
                     no3_layers[i] *= (1.0 - _f)
                 n_no3 = max(0.0, n_no3 - denitrif_today)
@@ -4615,7 +4682,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 if n_pool_by_layer is not None:
                     n_pool_by_layer[0] = max(0.0, n_pool_by_layer[0] + background_today)
                 elif n_nh4 is not None:
-                    n_nh4, n_no3 = apply_net_min(n_nh4, n_no3, no3_layers, background_today)  # background mineralization is
+                    n_nh4, n_no3 = apply_net_min(n_nh4, n_no3, no3_layers, background_today, sixpool_state)  # background mineralization is
                     # ammonification -- NH4 first, by definition -- see nh4_no3_split's docstring
                 else:
                     n_pool = max(0.0, n_pool + background_today)
