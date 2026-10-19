@@ -3518,6 +3518,8 @@ CN_RATIO_SOM = 11.0  # SUPERSEDED 2026-10-02, kept only as the pre-fix historica
 # SOM is the weak link... undisclosed real six-pool nitrogen system") -- the per-pool ratios
 # were not undisclosed at all, just never extracted from a file this project had already parsed
 # for its carbon columns but not its C:N columns sitting right next to them.
+RESIDUE_N_LINK = False   # 2026-10-19, OFF: aboveground residue N from the plant N at harvest (paper Sec 2.6). Tested on 94 sites and made grain and leaching worse (plan 2026-10-19); False = the constant SIXPOOL_CN_CRA
+RESIDUE_NHI_A, RESIDUE_NHI_B = 0.720, -0.053   # nitrogen harvest index = A + B x aboveground N concentration (percent), fitted on 2,185 Cycles corn site-years, rms 0.045 (nhi_2026_10_19.py); the crop file gives the N min and max concentrations but not the formula
 SIXPOOL_CN_CRA = 86.0  # real STAND/FLAT RESID C:N, soilLayersCN.txt, Rock Springs ContinuousCorn.
 SIXPOOL_CN_CRTZ = 52.0  # real root-tissue C:N, computed from CornRM.90.txt's ROOT BIOMASS/ROOT N.
 SIXPOOL_CN_CRM = 30.0  # real MANURE RESID C:N, soilLayersCN.txt, CornSilageSoyWheat.
@@ -3921,9 +3923,14 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
 
     _fer = fe if fe_res is None else fe_res
     decomp_ra = _fer * SIXPOOL_KRA * cra_maturity * cra
+    _cra_before = cra
     decomp_rtz = _fer * SIXPOOL_K_RTZ * crtz
     decomp_rm = _fer * SIXPOOL_KRM * crm
     cra = max(0.0, cra - decomp_ra)
+    _n_ra = decomp_ra * 1000 / SIXPOOL_CN_CRA
+    if RESIDUE_N_LINK and state.get("cra_n") is not None and _cra_before > 1e-12:
+        _n_ra = state["cra_n"] * decomp_ra / _cra_before
+        state["cra_n"] = max(0.0, state["cra_n"] - _n_ra)
     crtz = max(0.0, crtz - decomp_rtz)
     crm = max(0.0, crm - decomp_rm)
 
@@ -3951,7 +3958,7 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
 
     state["cs"], state["cm"], state["cra"], state["crtz"], state["crm"] = cs, cm, cra, crtz, crm
 
-    n_released = (decomp_ra * 1000 / SIXPOOL_CN_CRA
+    n_released = (_n_ra
                   + decomp_rtz * 1000 / SIXPOOL_CN_CRTZ
                   + decomp_rm * 1000 / SIXPOOL_CN_CRM
                   + cm_loss * 1000 / SIXPOOL_CN_CM
@@ -4032,11 +4039,13 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
             sub["n_conc1"] = state["n_conc_layers"][i]
         if i == 0:
             sub["cra"], sub["crm"], sub["cra_age"] = state["cra"], state["crm"], state["cra_age"]
+            sub["cra_n"] = state.get("cra_n")
         ft = ft_eff if sub["z0"] < SIXPOOL_ML_TILL_DEPTH_M else 1.0
         total += sixpool_step(sub, t_layer, relwet, root_c_input_mg_ha * wts[i] / wsum, ft)
         resp_tot += sub.get("resp_mg_ha", 0.0)
         if i == 0:
             state["cra"], state["crm"], state["cra_age"] = sub["cra"], sub["crm"], sub["cra_age"]
+            state["cra_n"] = sub.get("cra_n")
     state["cs"] = sum(x["cs"] for x in subs)
     state["cm"] = sum(x["cm"] for x in subs)
     state["resp_mg_ha"] = resp_tot
@@ -6164,6 +6173,14 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 _x["crtz"] += root_c_buffer * _w / _ws
         ag_residue_mg_ha = max(0.0, ag_biomass_mg_ha - grain_mg_ha)
         sixpool_state["cra"] = sixpool_state.get("cra", 0.0) + ag_residue_mg_ha * CARBON_FRACTION_DM
+        if RESIDUE_N_LINK and n_pool is not None and ag_biomass_mg_ha > 0.5:
+            _agN = N_AG_FRACTION * canopy_n_kg_ha
+            _nhi = min(0.8, max(0.5, RESIDUE_NHI_A + RESIDUE_NHI_B * _agN / (ag_biomass_mg_ha * 10.0)))
+            _res_n = _agN * (1.0 - _nhi) * (ag_residue_mg_ha / max(ag_biomass_mg_ha - grain_mg_ha, 1e-9))
+            _prev_n = sixpool_state.get("cra_n")
+            if _prev_n is None:
+                _prev_n = (sixpool_state["cra"] - ag_residue_mg_ha * CARBON_FRACTION_DM) * 1000 / SIXPOOL_CN_CRA
+            sixpool_state["cra_n"] = _prev_n + _res_n
         # Reset cra_age to 0 whenever fresh stover lands -- see CRA_MATURATION_TAU_DAYS's own
         # docstring (2026-10-02). A disclosed simplification when cra already held some
         # un-decomposed carryover from a prior pulse: treats the WHOLE pool as freshly "reset"
