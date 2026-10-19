@@ -3541,10 +3541,19 @@ CFORCE_WHICH = ()   # subset of ('surface', 'cs', 'cm', 'root') to force
 DIAG_FE = None   # appends (year, doy, layer, layer temperature, relative wetness, fE) per layer per day in sixpool_ml_step; None = off
 _DIAG_CTX = {}
 DIAG_NSEASON = None   # appends (year, doy, net mineralization, nitrification, volatilization, denitrification, nitrate leached, uptake, mineral pool at end of day) per in-season day (kg N/ha); None = off
+N_UPTAKE_SHARE_FLOW = False   # draw the nitrate part of uptake from layers by water withdrawal x concentration (total uptake unchanged)
+NLAYER_FORCE = None   # diagnostic 2026-10-19: {year: {doy: ([nitrate kg/ha per layer], ammonium kg/ha)}} from Cycles' dailySoilLayersCN and dailyN; sets the engine's layer nitrate and ammonium at the end of every day (laws then act on Cycles' own state)
 DIAG_NPOOL = None   # appends (year, doy, nitrate kg/ha, ammonium kg/ha) at the end of every simulated day (fallow and in-season); None = off
 def _npool_hook(no3_layers, n_no3, n_nh4, doy):
     if DIAG_NPOOL is not None:
         DIAG_NPOOL.append((_DIAG_YEAR, doy, (sum(no3_layers) if no3_layers is not None else n_no3), n_nh4))
+    if NLAYER_FORCE is not None and no3_layers is not None:
+        s = NLAYER_FORCE.get(_DIAG_YEAR)
+        if s is not None and doy in s:
+            lay, nh4 = s[doy]
+            for i in range(len(no3_layers)):
+                no3_layers[i] = lay[i] if i < len(lay) else 0.0
+            return sum(no3_layers), nh4
     if NPOOL_FORCE is not None and no3_layers is not None:
         s = NPOOL_FORCE.get(_DIAG_YEAR)
         if s is not None and doy in s:
@@ -4827,7 +4836,25 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                         if reachable > 1e-9:
                             frac = n_uptake_kg_ha / reachable
                             n_nh4 = max(0.0, n_nh4 - n_nh4 * frac)
-                            for i in range(len(layers)):
+                            if N_UPTAKE_SHARE_FLOW and reach_no3 > 1e-9:
+                                # 2026-10-19: same total uptake, but the nitrate part is drawn from the layers in proportion to each layer's water withdrawal x nitrate concentration (paper Sec 2.7, mass-flow access); Cycles' own drop shares tilt to the upper layers (uptshare.py)
+                                _no3_take = n_uptake_kg_ha * reach_no3 / reachable
+                                _sh = [min(_avail[i], max(0.0, _wul_mm[i]) * no3_layers[i] / max(_w0_mm[i], 1e-6)) for i in range(len(layers))]
+                                _shs = sum(_sh)
+                                if _shs > 1e-9:
+                                    _sc = min(1.0, _no3_take / _shs)
+                                    _rest = _no3_take - _shs * _sc
+                                    for i in range(len(layers)):
+                                        no3_layers[i] = max(0.0, no3_layers[i] - _sh[i] * _sc)
+                                    if _rest > 1e-9:
+                                        _left = [max(0.0, _avail[i] - _sh[i] * _sc) for i in range(len(layers))]; _ls = sum(_left)
+                                        for i in range(len(layers)):
+                                            no3_layers[i] = max(0.0, no3_layers[i] - (_rest * _left[i] / _ls if _ls > 1e-9 else 0.0))
+                                else:
+                                    for i in range(len(layers)):
+                                        no3_layers[i] = max(0.0, no3_layers[i] - _avail[i] * frac)
+                            else:
+                              for i in range(len(layers)):
                                 no3_layers[i] = max(0.0, no3_layers[i] - _avail[i] * frac)
                         n_no3 = sum(no3_layers)
                         n_pool = n_nh4 + n_no3
@@ -4869,7 +4896,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         if ag_biomass_at_flowering is None and (flowered if _V is not None else tt_cum >= crop["flowering_tt"]):
             ag_biomass_at_flowering = ag_biomass
 
-        if NPOOL_FORCE is not None and no3_layers is not None and n_no3 is not None and n_nh4 is not None:
+        if (NPOOL_FORCE is not None or NLAYER_FORCE is not None) and no3_layers is not None and n_no3 is not None and n_nh4 is not None:
             n_no3, n_nh4 = _npool_hook(no3_layers, n_no3, n_nh4, w["doy"])
             if n_pool is not None:
                 n_pool = n_no3 + n_nh4

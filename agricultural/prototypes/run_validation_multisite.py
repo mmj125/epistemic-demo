@@ -183,7 +183,14 @@ if __name__=="__main__":
                         if _r['date'][0]=='#': continue
                         _d=datetime.date.fromisoformat(_r['date']); _fs.setdefault(_d.year,{"netmin":{}})["netmin"][_d.timetuple().tm_yday]=float(_r['net_mineralization'])
                     shutil.rmtree(_od,ignore_errors=True); cev.FORCE_SERIES=_fs
-                E=engine(site,wx,soil,cl,N,mode); cev.FORCE_SERIES=None
+                if os.environ.get("FORCE_NLAYER")=="1":   # diagnostic: Cycles' own daily layer nitrate and profile ammonium forced into the engine at the end of every day
+                    subprocess.run(["./Cycles",f"{fsite}N{N}"],cwd=CY,capture_output=True); _od=f"{CY}/output/{fsite}N{N}/"; _nf={}
+                    _C=[_r for _r in csv.DictReader(open(_od+"dailySoilLayersCN.csv")) if _r['date'][0]!='#']; _Nn={_r['date']:_r for _r in csv.DictReader(open(_od+"dailyN.csv")) if _r['date'][0]!='#'}
+                    _nl=len([_k for _k in _C[0] if _k.startswith('NO3.')]); _th=[float(_C[0][f'thickness.{_k+1}']) for _k in range(_nl)]; _bd=[float(_C[0][f'bulk_density.{_k+1}']) for _k in range(_nl)]
+                    for _r in _C:
+                        _d=datetime.date.fromisoformat(_r['date']); _nf.setdefault(_d.year,{})[_d.timetuple().tm_yday]=([float(_r[f'NO3.{_k+1}'])*_bd[_k]*_th[_k]*10 for _k in range(_nl)],float(_Nn[_r['date']]['profile_soil_NH4']))
+                    shutil.rmtree(_od,ignore_errors=True); cev.NLAYER_FORCE=_nf
+                E=engine(site,wx,soil,cl,N,mode); cev.FORCE_SERIES=None; cev.NLAYER_FORCE=None
                 ys=sorted(set(H)&set(E))
                 row={}
                 for var,gr,ge in [("grain",lambda y:H[y]["grain"],lambda y:E[y]["forage" if CROPSEL=='silage' else "grain"]),("total_biomass",lambda y:H[y]["total"],lambda y:E[y]["total"]),
