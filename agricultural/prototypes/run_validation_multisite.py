@@ -28,6 +28,7 @@ if os.environ.get("NLIM_C"): cev.SIXPOOL_NLIM_CENTER = float(os.environ["NLIM_C"
 if os.environ.get("ROOT_POW"): cev.ROOT_TRI_POW = float(os.environ["ROOT_POW"])
 if os.environ.get("N_A"): cev.SIXPOOL_ML_N_A = float(os.environ["N_A"])
 if os.environ.get("EPS_H"): cev.SIXPOOL_ML_EPS_H = float(os.environ["EPS_H"])
+if os.environ.get("EVAPP"): cev.EVAP_LAW_PARAMS = tuple(float(x) for x in os.environ["EVAPP"].split(","))   # 2026-10-19: soil evaporation law (air-dry fraction, critical fraction, exponent)
 if os.environ.get("CRA_TAU"): cev.CRA_MATURATION_TAU_DAYS = float(os.environ["CRA_TAU"])
 if os.environ.get("HUM_CLAY"): cev.SIXPOOL_ML_HUM_CLAY = tuple(float(x) for x in os.environ["HUM_CLAY"].split(","))
 for _o in os.environ.get("ENGINE_OVR","").split(";"):   # 2026-10-15: generic engine-constant overrides for scaled-up runs, NAME=VALUE;NAME=VALUE
