@@ -3159,6 +3159,7 @@ def shoot_fraction(ttf, fsti, fstf, ttf50=None):
 # When n_rate_kg_ha is left as None (the default), none of this runs and
 # behavior is byte-identical to before this feature existed -- verified by
 # re-running run_validation.py / run_validation_rotation2.py unchanged.
+N_ACCESS_K = 1.0   # 2026-10-19: scale on the per-layer mass-flow access (water withdrawn x layer nitrate / layer water); 1.0 is the literal paper Sec 2.7 reading
 N_UPTAKE_T0 = None   # transpiration scale (mm/day) of the saturating uptake-rate law; None = flat cap
 N_UPTAKE_RATE_PER_DAY = None  # None = uptake limited only by demand (validated default); else also capped at this fraction/day of the reachable mineral N pool (nitrate_per_layer path)
 N_ACCESS_MASSFLOW = False  # 2026-10-18 paper Sec 2.7: per-layer mass-flow access to nitrate (root water withdrawal x layer nitrate concentration) replaces the pool-fraction cap when True (nitrate_per_layer path)
@@ -6025,7 +6026,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     if N_ACCESS_MASSFLOW:
                         # paper Sec 2.7: the water flux from the soil in each layer to the crop determines its access to mineral N: nitrate supply of a layer = its
                         # root water withdrawal today x the layer's nitrate concentration (current layer water); uptake = min(demand, supply), drawn layer by layer
-                        _sup = [min(max(0.0, _wul_mm[i]) * no3_layers[i] / max(_w0_mm[i], 1e-6), _avail[i]) for i in range(len(layers))]
+                        _sup = [min(N_ACCESS_K * max(0.0, _wul_mm[i]) * no3_layers[i] / max(_w0_mm[i], 1e-6), _avail[i]) for i in range(len(layers))]
                         _S = sum(_sup)
                         n_uptake_kg_ha = min(_S, demand_today_kg_ha)
                         if _S > 1e-9:
