@@ -4,7 +4,7 @@ Maryland, continuous corn at N=0 and N=150 (UAN, DOY 110), 1980-2016, so any gap
 not input error. Needs the Cycles binary and input/ files in /tmp/cycles-run (not committed:
 licensed). Writes multisite_results.json. Run: python3 run_validation_multisite.py
 """
-import os, sys, math, statistics, subprocess, shutil, json
+import os, sys, math, statistics, subprocess, shutil, json, csv, datetime
 P=os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0,P)
 import field_data as fd
 import cycles_engine_validate as cev
@@ -177,7 +177,13 @@ if __name__=="__main__":
         for N in N_LEVELS:
             H,A=run_cycles(fsite,N)
             for mode in ["leadin"]:
-                E=engine(site,wx,soil,cl,N,mode)
+                if os.environ.get("FORCE_NETMIN_ALL")=="1":   # diagnostic: Cycles' own daily net mineralization, every day of the year, forced into the engine
+                    subprocess.run(["./Cycles",f"{fsite}N{N}"],cwd=CY,capture_output=True); _od=f"{CY}/output/{fsite}N{N}/"; _fs={}
+                    for _r in csv.DictReader(open(_od+"dailyN.csv")):
+                        if _r['date'][0]=='#': continue
+                        _d=datetime.date.fromisoformat(_r['date']); _fs.setdefault(_d.year,{"netmin":{}})["netmin"][_d.timetuple().tm_yday]=float(_r['net_mineralization'])
+                    shutil.rmtree(_od,ignore_errors=True); cev.FORCE_SERIES=_fs
+                E=engine(site,wx,soil,cl,N,mode); cev.FORCE_SERIES=None
                 ys=sorted(set(H)&set(E))
                 row={}
                 for var,gr,ge in [("grain",lambda y:H[y]["grain"],lambda y:E[y]["forage" if CROPSEL=='silage' else "grain"]),("total_biomass",lambda y:H[y]["total"],lambda y:E[y]["total"]),
