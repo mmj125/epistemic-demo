@@ -177,11 +177,29 @@ if __name__=="__main__":
         for N in N_LEVELS:
             H,A=run_cycles(fsite,N)
             for mode in ["leadin"]:
-                if os.environ.get("FORCE_NETMIN_ALL")=="1":   # diagnostic: Cycles' own daily net mineralization, every day of the year, forced into the engine
-                    subprocess.run(["./Cycles",f"{fsite}N{N}"],cwd=CY,capture_output=True); _od=f"{CY}/output/{fsite}N{N}/"; _fs={}
+                if os.environ.get("FORCE_UPTAKE")=="2":   # diagnostic (N=0 only, no fertilizer): uptake from Cycles' own mineral N budget, netmin - losses - change in pool
+                    subprocess.run(["./Cycles",f"{fsite}N{N}"],cwd=CY,capture_output=True); _od=f"{CY}/output/{fsite}N{N}/"; _fs={}; _pp=None
                     for _r in csv.DictReader(open(_od+"dailyN.csv")):
                         if _r['date'][0]=='#': continue
-                        _d=datetime.date.fromisoformat(_r['date']); _fs.setdefault(_d.year,{"netmin":{}})["netmin"][_d.timetuple().tm_yday]=float(_r['net_mineralization'])
+                        _pool=float(_r['profile_soil_NO3'])+float(_r['profile_soil_NH4']); _d=datetime.date.fromisoformat(_r['date'])
+                        if _pp is not None:
+                            _l=sum(float(_r[_k]) for _k in ('NO3_leaching','NH4_leaching','NO3_bypass','NH4_bypass','denitrification','volatilization'))
+                            _fs.setdefault(_d.year,{"uptake":{}})["uptake"][_d.timetuple().tm_yday]=max(float(_r['net_mineralization'])-_l-(_pool-_pp),0.0)
+                        _pp=_pool
+                    shutil.rmtree(_od,ignore_errors=True); cev.FORCE_SERIES=_fs
+                if os.environ.get("FORCE_UPTAKE")=="1":   # diagnostic: Cycles' own daily plant N uptake (change in plant total N) forced into the engine
+                    subprocess.run(["./Cycles",f"{fsite}N{N}"],cwd=CY,capture_output=True); _od=f"{CY}/output/{fsite}N{N}/"; _fs={}; _pv=None
+                    for _r in csv.DictReader(open(_od+"dailyCornRM.90.csv")):
+                        if _r['date'][0]=='#' or _r['total_nitrogen']=='-999': _pv=None; continue
+                        _tn=float(_r['total_nitrogen']); _d=datetime.date.fromisoformat(_r['date'])
+                        if _pv is not None: _fs.setdefault(_d.year,{"uptake":{}})["uptake"][_d.timetuple().tm_yday]=max(_tn-_pv,0.0)
+                        _pv=_tn
+                    shutil.rmtree(_od,ignore_errors=True); cev.FORCE_SERIES=_fs
+                if os.environ.get("FORCE_NETMIN_ALL")=="1":   # diagnostic: Cycles' own daily net mineralization, every day of the year, forced into the engine
+                    subprocess.run(["./Cycles",f"{fsite}N{N}"],cwd=CY,capture_output=True); _od=f"{CY}/output/{fsite}N{N}/"; _fs=cev.FORCE_SERIES or {}
+                    for _r in csv.DictReader(open(_od+"dailyN.csv")):
+                        if _r['date'][0]=='#': continue
+                        _d=datetime.date.fromisoformat(_r['date']); _fs.setdefault(_d.year,{}).setdefault("netmin",{})[_d.timetuple().tm_yday]=float(_r['net_mineralization'])
                     shutil.rmtree(_od,ignore_errors=True); cev.FORCE_SERIES=_fs
                 if os.environ.get("FORCE_NLAYER")=="1":   # diagnostic: Cycles' own daily layer nitrate and profile ammonium forced into the engine at the end of every day
                     subprocess.run(["./Cycles",f"{fsite}N{N}"],cwd=CY,capture_output=True); _od=f"{CY}/output/{fsite}N{N}/"; _nf={}

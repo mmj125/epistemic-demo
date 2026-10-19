@@ -4842,6 +4842,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                             _ur = _ur * (1.0 - math.exp(-max(0.0, TR_actual) / N_UPTAKE_T0))
                         _cap = reachable if _ur is None else reachable * _ur
                         n_uptake_kg_ha = min(_cap, demand_today_kg_ha)
+                        if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("uptake", ()):
+                            n_uptake_kg_ha = min(reachable, _FORCE_CUR["uptake"][w["doy"]])   # diagnostic: Cycles' own daily plant N uptake
                         if reachable > 1e-9:
                             frac = n_uptake_kg_ha / reachable
                             n_nh4 = max(0.0, n_nh4 - n_nh4 * frac)
