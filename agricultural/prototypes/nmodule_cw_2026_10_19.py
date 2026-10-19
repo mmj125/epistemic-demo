@@ -18,16 +18,16 @@ def one(a):
         f=F.setdefault(y,{'canopy':{},'water':{}}); f['canopy'][doy]=float(x['radiation_interception']); f['water'][doy]=1-float(x['water_stress'])/100
         C[x['date']]=(float(x['total_nitrogen']),1-float(x['nitrogen_stress'])/100,float(x['thermal_time'])/1800.0,float(x['biomass']))
     shutil.rmtree(d,ignore_errors=True)
-    E.FORCE_SERIES=F; E.NPOOL_FORCE=P if os.environ.get('POOL')=='1' else None; E.DIAG_STATE=[]; m.engine(site,wx,soil,cl,N,'leadin'); D=E.DIAG_STATE; E.DIAG_STATE=None; E.FORCE_SERIES=None; E.NPOOL_FORCE=None; rows=[]
-    for y,doy,eie,ns,pn in D:
+    E.FORCE_SERIES=None if os.environ.get('FREE')=='1' else F; E.NPOOL_FORCE=P if os.environ.get('POOL')=='1' else None; E.DIAG_STATE=[]; E.DIAG_BIO=[]; m.engine(site,wx,soil,cl,N,'leadin'); D=E.DIAG_STATE; BIO=E.DIAG_BIO; E.DIAG_BIO=None; E.DIAG_STATE=None; E.FORCE_SERIES=None; E.NPOOL_FORCE=None; rows=[]
+    for (y,doy,eie,ns,pn),bio in zip(D,BIO):
         if y is None or y<1982: continue
         dt=(datetime.date(y,1,1)+datetime.timedelta(days=doy-1)).isoformat()
-        if dt in C: rows.append((N,C[dt][2],C[dt][0],pn,C[dt][1],ns,C[dt][3]))
+        if dt in C: rows.append((N,C[dt][2],C[dt][0],pn,C[dt][1],ns,C[dt][3],bio))
     return rows
 if __name__=="__main__":
-    A=np.array(sum(Pool(4).map(one,[(s,N) for s in sorted(S) for N in (0,150,400)]),[])); np.save('/tmp/w/nmod_cw'+os.environ.get('POOL','0')+'.npy',A)
+    A=np.array(sum(Pool(4).map(one,[(s,N) for s in sorted(S) for N in (0,150,400)]),[])); np.save('/tmp/w/nmod_cw'+os.environ.get('POOL','0')+os.environ.get('FREE','0')+'.npy',A)
     for N in (0,150,400):
         s=A[:,0]==N; print(f'N={N}: ttf bin | plant N Cycles | engine | ratio || N factor Cycles | engine')
         for lo in np.arange(0.1,1.0,0.15):
             k=s&(A[:,1]>=lo)&(A[:,1]<lo+0.15)&(A[:,2]>1)
-            if k.sum()>200: print(f'  {lo:.2f}-{lo+.15:.2f}: {A[k,2].mean():6.1f} | {A[k,3].mean():6.1f} | {A[k,3].mean()/A[k,2].mean():.2f} || {A[k,4].mean():.3f} | {A[k,5].mean():.3f}')
+            if k.sum()>200: print(f'  {lo:.2f}-{lo+.15:.2f}: {A[k,2].mean():6.1f} | {A[k,3].mean():6.1f} | {A[k,3].mean()/A[k,2].mean():.2f} || {A[k,4].mean():.3f} | {A[k,5].mean():.3f} || biomass Cycles {A[k,6].mean():.2f} engine {A[k,7].mean():.2f}')
