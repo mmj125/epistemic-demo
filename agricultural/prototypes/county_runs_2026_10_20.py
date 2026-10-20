@@ -1,0 +1,22 @@
+"""Engine annual yields for the 94 fresh sites, through engine_api, for the county-yield comparison (2026-10-20).
+Corn N=150, silage N=150, soybean, winter wheat N=150 (fall 60 + spring). Saves /tmp/w/engine_county_runs.json {site: {crop: {year: yield}}}."""
+import sys,json
+sys.path.insert(0,'.')
+from multiprocessing import Pool
+import field_data as fd
+F=["pp","tx","tn","solar","rhx","rhn","wind"]
+S=json.load(open('sitesets/fresh94.json'))
+def one(site):
+    import engine_api as api
+    lat,lon=S[site]; wx,_=fd.resolve_field_weather(lat,lon); soil,_,_=fd.resolve_field_soil(lat,lon)
+    api.load_site(json.dumps(dict(lat=lat,weather=dict(fields=F,years={str(y):{str(d):[r[k] for k in F] for d,r in days.items()} for y,days in wx.items()}),soil=soil)))
+    out={}
+    for crop,n in (("corn",150),("silage",150),("soybean",0),("wheat",150)):
+        try:
+            r=json.loads(api.run(json.dumps(dict(crop=crop,start_year=1980,end_year=2016,n_rate=n,n_timing="planting"))))
+            out[crop]={a["year"]:a["grain"] for a in r["annual"]}
+        except Exception as e: out[crop]={"error":str(e)[:80]}
+    return site,out
+if __name__=="__main__":
+    with Pool(4) as p: R=dict(p.map(one,sorted(S)))
+    json.dump(R,open('/tmp/w/engine_county_runs.json','w')); print("sites",len(R),"errors",sum(1 for v in R.values() for c in v.values() if 'error' in c))

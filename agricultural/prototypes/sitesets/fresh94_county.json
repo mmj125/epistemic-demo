@@ -1,0 +1,566 @@
+{
+"f000_310_825": {
+"fips": "13299",
+"name": "Ware County",
+"lat": 31.0,
+"lon": -82.5
+},
+"f001_450_1020": {
+"fips": "46137",
+"name": "Ziebach County",
+"lat": 45.0,
+"lon": -102.0
+},
+"f002_395_945": {
+"fips": "29049",
+"name": "Clinton County",
+"lat": 39.5,
+"lon": -94.5
+},
+"f003_370_800": {
+"fips": "51067",
+"name": "Franklin County",
+"lat": 37.0,
+"lon": -80.0
+},
+"f004_435_925": {
+"fips": "19089",
+"name": "Howard County",
+"lat": 43.5,
+"lon": -92.5
+},
+"f005_440_985": {
+"fips": "46073",
+"name": "Jerauld County",
+"lat": 44.0,
+"lon": -98.5
+},
+"f006_485_975": {
+"fips": "38099",
+"name": "Walsh County",
+"lat": 48.5,
+"lon": -97.5
+},
+"f007_430_980": {
+"fips": "46009",
+"name": "Bon Homme County",
+"lat": 43.0,
+"lon": -98.0
+},
+"f008_370_890": {
+"fips": "21007",
+"name": "Ballard County",
+"lat": 37.0,
+"lon": -89.0
+},
+"f009_335_945": {
+"fips": "48037",
+"name": "Bowie County",
+"lat": 33.5,
+"lon": -94.5
+},
+"f010_350_835": {
+"fips": "37043",
+"name": "Clay County",
+"lat": 35.0,
+"lon": -83.5
+},
+"f011_485_965": {
+"fips": "27089",
+"name": "Marshall County",
+"lat": 48.5,
+"lon": -96.5
+},
+"f012_380_990": {
+"fips": "20185",
+"name": "Stafford County",
+"lat": 38.0,
+"lon": -99.0
+},
+"f013_410_760": {
+"fips": "42079",
+"name": "Luzerne County",
+"lat": 41.0,
+"lon": -76.0
+},
+"f014_455_970": {
+"fips": "46109",
+"name": "Roberts County",
+"lat": 45.5,
+"lon": -97.0
+},
+"f015_330_995": {
+"fips": "48207",
+"name": "Haskell County",
+"lat": 33.0,
+"lon": -99.5
+},
+"f016_365_985": {
+"fips": "40003",
+"name": "Alfalfa County",
+"lat": 36.5,
+"lon": -98.5
+},
+"f017_310_895": {
+"fips": "28109",
+"name": "Pearl River County",
+"lat": 31.0,
+"lon": -89.5
+},
+"f018_380_800": {
+"fips": "54025",
+"name": "Greenbrier County",
+"lat": 38.0,
+"lon": -80.0
+},
+"f019_340_895": {
+"fips": "28013",
+"name": "Calhoun County",
+"lat": 34.0,
+"lon": -89.5
+},
+"f020_340_1020": {
+"fips": "48189",
+"name": "Hale County",
+"lat": 34.0,
+"lon": -102.0
+},
+"f021_345_775": {
+"fips": "37133",
+"name": "Onslow County",
+"lat": 34.5,
+"lon": -77.5
+},
+"f022_360_1000": {
+"fips": "40045",
+"name": "Ellis County",
+"lat": 36.0,
+"lon": -100.0
+},
+"f023_310_875": {
+"fips": "01053",
+"name": "Escambia County",
+"lat": 31.0,
+"lon": -87.5
+},
+"f024_485_925": {
+"fips": null,
+"name": null,
+"lat": 48.5,
+"lon": -92.5
+},
+"f025_420_775": {
+"fips": "42117",
+"name": "Tioga County",
+"lat": 42.0,
+"lon": -77.5
+},
+"f026_430_1015": {
+"fips": "46007",
+"name": "Bennett County",
+"lat": 43.0,
+"lon": -101.5
+},
+"f027_430_1000": {
+"fips": "46123",
+"name": "Tripp County",
+"lat": 43.0,
+"lon": -100.0
+},
+"f028_425_905": {
+"fips": "17085",
+"name": "Jo Daviess County",
+"lat": 42.5,
+"lon": -90.5
+},
+"f029_335_825": {
+"fips": "13189",
+"name": "McDuffie County",
+"lat": 33.5,
+"lon": -82.5
+},
+"f030_410_970": {
+"fips": "31159",
+"name": "Seward County",
+"lat": 41.0,
+"lon": -97.0
+},
+"f031_395_805": {
+"fips": "54103",
+"name": "Wetzel County",
+"lat": 39.5,
+"lon": -80.5
+},
+"f032_460_840": {
+"fips": "26033",
+"name": "Chippewa County",
+"lat": 46.0,
+"lon": -84.0
+},
+"f033_315_905": {
+"fips": "28085",
+"name": "Lincoln County",
+"lat": 31.5,
+"lon": -90.5
+},
+"f034_370_765": {
+"fips": "51700",
+"name": "Newport News city",
+"lat": 37.0,
+"lon": -76.5
+},
+"f035_335_1010": {
+"fips": "48125",
+"name": "Dickens County",
+"lat": 33.5,
+"lon": -101.0
+},
+"f036_395_875": {
+"fips": "18167",
+"name": "Vigo County",
+"lat": 39.5,
+"lon": -87.5
+},
+"f037_435_825": {
+"fips": "26151",
+"name": "Sanilac County",
+"lat": 43.5,
+"lon": -82.5
+},
+"f038_440_700": {
+"fips": "23023",
+"name": "Sagadahoc County",
+"lat": 44.0,
+"lon": -70.0
+},
+"f039_455_990": {
+"fips": "46045",
+"name": "Edmunds County",
+"lat": 45.5,
+"lon": -99.0
+},
+"f040_335_855": {
+"fips": "01029",
+"name": "Cleburne County",
+"lat": 33.5,
+"lon": -85.5
+},
+"f041_350_845": {
+"fips": "47139",
+"name": "Polk County",
+"lat": 35.0,
+"lon": -84.5
+},
+"f042_300_955": {
+"fips": "48201",
+"name": "Harris County",
+"lat": 30.0,
+"lon": -95.5
+},
+"f043_440_1025": {
+"fips": "46103",
+"name": "Pennington County",
+"lat": 44.0,
+"lon": -102.5
+},
+"f044_360_785": {
+"fips": "37183",
+"name": "Wake County",
+"lat": 36.0,
+"lon": -78.5
+},
+"f045_330_875": {
+"fips": "01065",
+"name": "Hale County",
+"lat": 33.0,
+"lon": -87.5
+},
+"f046_320_985": {
+"fips": "48093",
+"name": "Comanche County",
+"lat": 32.0,
+"lon": -98.5
+},
+"f047_395_840": {
+"fips": "39165",
+"name": "Warren County",
+"lat": 39.5,
+"lon": -84.0
+},
+"f048_445_860": {
+"fips": "26101",
+"name": "Manistee County",
+"lat": 44.5,
+"lon": -86.0
+},
+"f049_300_985": {
+"fips": "48259",
+"name": "Kendall County",
+"lat": 30.0,
+"lon": -98.5
+},
+"f050_305_935": {
+"fips": "22011",
+"name": "Beauregard Parish",
+"lat": 30.5,
+"lon": -93.5
+},
+"f051_450_750": {
+"fips": null,
+"name": null,
+"lat": 45.0,
+"lon": -75.0
+},
+"f052_460_885": {
+"fips": "55037",
+"name": "Florence County",
+"lat": 46.0,
+"lon": -88.5
+},
+"f053_410_870": {
+"fips": "18073",
+"name": "Jasper County",
+"lat": 41.0,
+"lon": -87.0
+},
+"f054_480_935": {
+"fips": "27071",
+"name": "Koochiching County",
+"lat": 48.0,
+"lon": -93.5
+},
+"f055_445_965": {
+"fips": "46011",
+"name": "Brookings County",
+"lat": 44.5,
+"lon": -96.5
+},
+"f056_415_915": {
+"fips": "19103",
+"name": "Johnson County",
+"lat": 41.5,
+"lon": -91.5
+},
+"f057_405_990": {
+"fips": "31099",
+"name": "Kearney County",
+"lat": 40.5,
+"lon": -99.0
+},
+"f058_440_735": {
+"fips": "36031",
+"name": "Essex County",
+"lat": 44.0,
+"lon": -73.5
+},
+"f059_420_730": {
+"fips": "09160",
+"name": "Northwest Hills Planning Region",
+"lat": 42.0,
+"lon": -73.0
+},
+"f060_300_895": {
+"fips": "22087",
+"name": "St. Bernard Parish",
+"lat": 30.0,
+"lon": -89.5
+},
+"f061_385_945": {
+"fips": "29037",
+"name": "Cass County",
+"lat": 38.5,
+"lon": -94.5
+},
+"f062_360_900": {
+"fips": "29069",
+"name": "Dunklin County",
+"lat": 36.0,
+"lon": -90.0
+},
+"f063_320_885": {
+"fips": "28023",
+"name": "Clarke County",
+"lat": 32.0,
+"lon": -88.5
+},
+"f064_300_1015": {
+"fips": "48465",
+"name": "Val Verde County",
+"lat": 30.0,
+"lon": -101.5
+},
+"f065_420_865": {
+"fips": "26021",
+"name": "Berrien County",
+"lat": 42.0,
+"lon": -86.5
+},
+"f066_470_930": {
+"fips": "27137",
+"name": "St. Louis County",
+"lat": 47.0,
+"lon": -93.0
+},
+"f067_475_965": {
+"fips": "27119",
+"name": "Polk County",
+"lat": 47.5,
+"lon": -96.5
+},
+"f068_425_835": {
+"fips": "26125",
+"name": "Oakland County",
+"lat": 42.5,
+"lon": -83.5
+},
+"f069_330_1020": {
+"fips": "48305",
+"name": "Lynn County",
+"lat": 33.0,
+"lon": -102.0
+},
+"f070_340_915": {
+"fips": "05079",
+"name": "Lincoln County",
+"lat": 34.0,
+"lon": -91.5
+},
+"f071_455_945": {
+"fips": "27145",
+"name": "Stearns County",
+"lat": 45.5,
+"lon": -94.5
+},
+"f072_430_735": {
+"fips": "36115",
+"name": "Washington County",
+"lat": 43.0,
+"lon": -73.5
+},
+"f073_395_1000": {
+"fips": "20065",
+"name": "Graham County",
+"lat": 39.5,
+"lon": -100.0
+},
+"f074_425_965": {
+"fips": "46127",
+"name": "Union County",
+"lat": 42.5,
+"lon": -96.5
+},
+"f075_300_1030": {
+"fips": "48043",
+"name": "Brewster County",
+"lat": 30.0,
+"lon": -103.0
+},
+"f076_320_825": {
+"fips": "13209",
+"name": "Montgomery County",
+"lat": 32.0,
+"lon": -82.5
+},
+"f077_340_985": {
+"fips": "48485",
+"name": "Wichita County",
+"lat": 34.0,
+"lon": -98.5
+},
+"f078_400_970": {
+"fips": "20201",
+"name": "Washington County",
+"lat": 40.0,
+"lon": -97.0
+},
+"f079_435_835": {
+"fips": "26157",
+"name": "Tuscola County",
+"lat": 43.5,
+"lon": -83.5
+},
+"f080_360_965": {
+"fips": "40037",
+"name": "Creek County",
+"lat": 36.0,
+"lon": -96.5
+},
+"f081_465_900": {
+"fips": "26053",
+"name": "Gogebic County",
+"lat": 46.5,
+"lon": -90.0
+},
+"f082_350_765": {
+"fips": "37031",
+"name": "Carteret County",
+"lat": 35.0,
+"lon": -76.5
+},
+"f083_330_965": {
+"fips": "48085",
+"name": "Collin County",
+"lat": 33.0,
+"lon": -96.5
+},
+"f084_395_895": {
+"fips": "17021",
+"name": "Christian County",
+"lat": 39.5,
+"lon": -89.5
+},
+"f085_415_830": {
+"fips": "39123",
+"name": "Ottawa County",
+"lat": 41.5,
+"lon": -83.0
+},
+"f086_435_915": {
+"fips": "19005",
+"name": "Allamakee County",
+"lat": 43.5,
+"lon": -91.5
+},
+"f087_395_885": {
+"fips": "17139",
+"name": "Moultrie County",
+"lat": 39.5,
+"lon": -88.5
+},
+"f088_395_745": {
+"fips": "34001",
+"name": "Atlantic County",
+"lat": 39.5,
+"lon": -74.5
+},
+"f089_415_750": {
+"fips": "42103",
+"name": "Pike County",
+"lat": 41.5,
+"lon": -75.0
+},
+"f090_365_830": {
+"fips": "47073",
+"name": "Hawkins County",
+"lat": 36.5,
+"lon": -83.0
+},
+"f091_350_975": {
+"fips": "40087",
+"name": "McClain County",
+"lat": 35.0,
+"lon": -97.5
+},
+"f092_435_860": {
+"fips": "26123",
+"name": "Newaygo County",
+"lat": 43.5,
+"lon": -86.0
+},
+"f093_325_855": {
+"fips": "01087",
+"name": "Macon County",
+"lat": 32.5,
+"lon": -85.5
+}
+}
