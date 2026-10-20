@@ -806,7 +806,6 @@ def soil_evaporation(layers, eto_mm, canopy_cover_frac, precip_mm=0.0, de_state=
     return actual_mm
 
 
-
 # Residue cover and residue evaporation (2026-10-02), back-calculated from Cycles' own output at 16 sites:
 # water.txt SOIL EVAP / ETo on wet, canopy-free, rain-free days equals (1 - residue cover) almost exactly
 # (cover from residue.txt FRAC INTERCEP, 35,017 days, every 0.1 cover bin within 0.01), and residue cover
@@ -1813,11 +1812,7 @@ N_SOLVE_DEBUG = None
 DIAG_DENIT = None   # appends (year, doy, layer-1 relative saturation used, profile nitrate, respired C, denitrification) per day; None = off
 N_UNMET = None   # diagnostic: appends (year, doy, kg N/ha) of net immobilization the mineral pool could not supply
 N_SIMULTANEOUS = True   # ADOPTED 2026-10-19 (corn 94 sites vs the same code without it: grain MAE gain +0.039 [+0.028,+0.051] / +0.012 [+0.006,+0.017] / 0.000 at N=0/150/400); simultaneous solve of uptake, growth and N factor within the day (see simulate_season)
-N_STRESS_POT_DILUTION = False   # see simulate_season, N stress ratio
-N_ACCESS_K = 1.0   # 2026-10-19: scale on the per-layer mass-flow access (water withdrawn x layer nitrate / layer water); 1.0 is the literal paper Sec 2.7 reading
-N_UPTAKE_T0 = None   # transpiration scale (mm/day) of the saturating uptake-rate law; None = flat cap
 N_UPTAKE_RATE_PER_DAY = None  # None = uptake limited only by demand (validated default); else also capped at this fraction/day of the reachable mineral N pool (nitrate_per_layer path)
-N_ACCESS_MASSFLOW = False  # 2026-10-18 paper Sec 2.7: per-layer mass-flow access to nitrate (root water withdrawal x layer nitrate concentration) replaces the pool-fraction cap when True (nitrate_per_layer path)
 N_DEMAND_SCALE = 0.70   # 2026-10-17 measured: Cycles unstressed marginal total-N concentration of new growth is 0.68 (corn, silage corn) to 0.75 (winter wheat) of the crop-file dilution curve marginal a(1-b)W^-b, growth-weighted over 16 sites x 3 N rates (n_demand_ratio_2026_10_17.py). Was 0.874562 (a leaching fit).
 GROWTH_CANOPY_LAG = 1.0   # days between the reported canopy and the canopy that drives radiation-limited growth (1 = previous day; 1.5 = mean of the previous two days); per-crop key growth_canopy_lag overrides
 GROWTH_PREV_CANOPY = True   # step 6: radiation-limited growth uses the canopy at the start of the day (previous day's)
@@ -2658,7 +2653,6 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
     return n_released - n_immobilized
 
 
-
 SIXPOOL_ML_ROOT_DECAY_M = 0.25  # exponential depth distribution of root-carbon input (layer midpoint)
 SIXPOOL_ML_TMEAN_INIT = 11.0  # initial annual-mean air temperature (C) for the soil-temperature model
 # Soil temperature by layer midpoint depth from air temperature: T = Tmean + g*(lag(air,k) - Tmean).
@@ -2710,7 +2704,6 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
     wsum = sum(wts) or 1.0
     total = 0.0
     resp_tot = 0.0
-    _nml = []
     for i, (sub, l) in enumerate(zip(subs, layers)):
         k, g = sixpool_ml_temp_params(sub["zmid"])
         if sub["tl"] is None:
@@ -2731,7 +2724,6 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
         if DIAG_FE is not None: DIAG_FE.append((_DIAG_YEAR, _DIAG_CTX.get("doy"), i, t_layer, relwet, sixpool_fe(t_layer, relwet, True)))
         _v = sixpool_step(sub, t_layer, relwet, root_c_input_mg_ha * wts[i] / wsum, ft)
         total += _v
-        _nml.append(_v)
         resp_tot += sub.get("resp_mg_ha", 0.0)
         if i == 0:
             state["cra"], state["crm"], state["cra_age"] = sub["cra"], sub["crm"], sub["cra_age"]
@@ -2740,7 +2732,6 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
     state["cm"] = sum(x["cm"] for x in subs)
     if DIAG_CPOOL is not None: DIAG_CPOOL.append((_DIAG_YEAR, _DIAG_CTX.get("doy"), [x["cs"] for x in subs], [x["cm"] for x in subs], [x["crtz"] for x in subs], state["cra"]))
     state["resp_mg_ha"] = resp_tot
-    state["netmin_layers"] = _nml
     if DIAG_RESP is not None:
         DIAG_RESP.append((_DIAG_YEAR, resp_tot, total))
     return total
@@ -2787,7 +2778,6 @@ def n_marginal_demand_pct(biomass_mgha, crop):
 # retired season-total supply/demand ratio, and had no remaining callers once that
 # ratio was replaced. See git history for the removed function if it's ever needed
 # for reference.
-
 
 
 NH3_FRAC_SYNTHETIC = 0.10  # IPCC 2006/2019 Refinement Tier-1 default FracGASF: 10% of applied
@@ -2887,47 +2877,7 @@ def macnack_ammonia_loss_pct(soil_ph, air_temp_c, wind_speed_ms):
     return max(0.0, min(1.0, al_pct / 100.0))
 
 
-DENITRIF_K0 = 0.051717  # back-calculated 2026-10-02 directly from real Cycles output (N.txt,
-# ContinuousCorn, Rock Springs, full 37-year record) -- a real daily flux this project had
-# never looked at before, sitting in the same already-parsed file as MINERALIZATION/
-# IMMOBILIZATION. Computed a daily implied fractional rate (NO3 DENITRIF / PROF SOIL NO3) for
-# every day with a measurable NO3 pool and denitrification flux (n=13283), then regressed
-# ln(rate) against ln(SMC, water.txt) on the raw daily pairs (not binned means), checked
-# against all 9 real soil layers separately before picking one: layer 1 (topsoil) gives
-# r^2=0.175, but layer 2 fits meaningfully better (r^2=0.314, nearly double) and is more
-# physically sensible for this mechanism -- topsoil dries fastest via evaporation/
-# transpiration, while the layer just below it stays wetter longer, closer to the sustained
-# near-saturation anaerobic microsites denitrification actually needs. Fit (layer 2's theta):
-# ln(rate) = -2.962 + 4.369*ln(theta), i.e. rate = DENITRIF_K0 * theta^DENITRIF_EXPONENT -- a
-# real, clean, monotonically-increasing relationship, though still a genuinely noisier fit
-# than this project's other back-calculated rate constants, and one that pairs a profile-WIDE
-# NO3 pool against a single layer's own moisture, a real mismatch disclosed here, not hidden.
-# Checked against the real independent seasonal total it should reproduce (annualN.txt's own
-# DENITRIFICATION column, mean 6.62% of applied N across the same 37 years, range 1.4-11.4%,
-# real 2012=9.465 kg/6.3%, real 1980=2.153 kg/1.4%): using layer 2's theta (not layer 1's --
-# see above) this engine's own mechanism lands at 5.8-10.6% across four spot-checked years
-# (2012: 10.29 kg/6.9%, close to the real 9.465/6.3%), squarely inside the real range -- a
-# real, substantial improvement over the first attempt (layer 1's theta, which undershot by
-# roughly half at every year checked), though still not an exact per-year match (1980
-# specifically: model 6.3% vs. real 1.4%, overshooting that one low-denitrification year
-# while landing close on 2012) -- the first denitrification pathway this engine has ever had,
-# previously exactly zero. See denitrification_rate()'s own use in simulate_season() and
-# MECHANISM_LOG.md's 2026-10-02 entry for the full account and the layer-by-layer fit table.
-DENITRIF_EXPONENT = 4.369
-
-
-def denitrification_rate(theta):
-    """Real, back-calculated daily fractional denitrification rate as a function of soil
-    water content (theta, m3/m3, the SECOND soil layer specifically -- see DENITRIF_K0's own
-    docstring for why that layer and not topsoil). Clamped to [0, 1] since the raw power law
-    is otherwise unbounded above any theta that happens to exceed the real fitted range."""
-    if theta <= 0:
-        return 0.0
-    return max(0.0, min(1.0, DENITRIF_K0 * theta ** DENITRIF_EXPONENT))
-
-
 DENITRIF_RELSAT_EXPONENT = 8.4433  # 2026-10-15 joint N-loss refit (opt_loss.py, REFIT_PLAN row 46); was 3.0   # fitted 2026-10-02 on 16 sites x 2 N rates x 37 years of native Cycles
-DENITRIF_LAYER1_ONLY = True  # 2026-10-13: denitrify only the layer-1 nitrate (per-layer path) instead of applying the layer-1 rate to the whole profile
 DENITRIF_DEPTH_CAP_M = None  # if set, layer-1 denitrification is scaled by min(1, cap/thickness of layer 1)
 DENITRIF_K_REL = 0.10113  # 2026-10-15 joint N-loss refit (row 46); was 0.012   # REFIT 2026-10-12 against Cycles v1.5.20 (was exponent 7, K 0.017594 on v1.4.4); the nitrification logistic and N2O factors below were refit the same day from v1.5.20's daily N output at 16 sites        # output (N.txt, water.txt, environ.txt); see denitrification_rate_rel()
 
@@ -2945,7 +2895,6 @@ DENITRIF_THR_POW = 1.26959
 DENITRIF_THR_TEXP = 0.372158
 
 
-DENITRIF_RESP_MODEL = True
 DENITRIF_RESP_K = 0.004137   # rebuild phase 4 (2026-10-16): fitted to Cycles' own daily denitrification with Cycles' own states as inputs (nlaw_denit2.py), 40 sites, N=0 and 150, held out by site
 DENITRIF_RESP_REL_POW = 6.034
 DENITRIF_RESP_NO3_POW = 0.725
@@ -2963,54 +2912,7 @@ def denitrification_flux_resp(no3_total_kg_ha, theta_rel1, resp_mg_ha):
     return min(no3_total_kg_ha, DENITRIF_RESP_K * no3_total_kg_ha ** DENITRIF_RESP_NO3_POW * c ** DENITRIF_RESP_C_POW * min(max(theta_rel1, 0.02), 1.2) ** DENITRIF_RESP_REL_POW)
 
 
-DENITRIF_MM = False   # with DENITRIF_L12: Michaelis-Menten form in layer-1 nitrate concentration
-DENITRIF_MM_PARAMS = (0.2248, 15.79, 4.672)   # P (kg N per kg respired C), K (mg N/kg), saturation exponent; fitted on Cycles daily output, 24 sites (ndata_2026_10_19.py)
-DENITRIF_L12 = False   # 2026-10-19: denitrification driven by the nitrate CONCENTRATION of layers 1 and 2 (where Cycles denitrifies), not the profile nitrate mass
-DENITRIF_L12_PARAMS = (0.0108, 0.7291, 1.0241, 6.0647, 0.85)   # k, concentration exponent, respired-C exponent, saturation exponent, engine-to-Cycles respired C scale (fitted on Cycles' daily output, denit_data_2026_10_19.py)
-
-
-def denitrification_flux_l12(layers, no3_layers, resp_mg_ha):
-    """Daily denitrification (kg N/ha) = k x C12^a x Cresp^c x S12^p. C12: nitrate concentration (mg N/kg soil) of layers 1 and 2 together, S12: their mass-weighted water content over saturation (end of day),
-    Cresp: respired carbon (kg C/ha) times the engine-to-Cycles respired-C scale. Fitted on Cycles v1.5.20 daily output (24 sites, N=0/150/400) so that totals match by N rate and by composite-factor class."""
-    if len(no3_layers) < 2:
-        return 0.0
-    _k, _a, _c, _p, _rs = DENITRIF_L12_PARAMS
-    if DENITRIF_MM:
-        # documented form (guide: potential rate and half-saturation constant): flux = P x respired C x C1/(C1 + K) x S1^p, C1 layer-1 nitrate (mg N/kg), S1 layer-1 water over saturation
-        _P, _K, _pp = DENITRIF_MM_PARAMS
-        _c1 = no3_layers[0] / (sixpool_bulk_density(layers[0]["sat"]) * layers[0]["thick"] * 10.0)
-        _s1 = min(max(layers[0]["theta"] / layers[0]["sat"], 1e-3), 1.2)
-        _top = no3_layers[0] + no3_layers[1]
-        return min(_top, _P * max(resp_mg_ha * 1000.0 * _rs, 0.0) * _c1 / (_c1 + _K) * _s1 ** _pp)
-    _m = [no3_layers[i] for i in (0, 1)]
-    _top = _m[0] + _m[1]
-    if _top <= 0.0:
-        return 0.0
-    _bm = [sixpool_bulk_density(layers[i]["sat"]) * layers[i]["thick"] * 10.0 for i in (0, 1)]
-    _conc = _top / (_bm[0] + _bm[1])
-    _sat = (_m[0] * layers[0]["theta"] / layers[0]["sat"] + _m[1] * layers[1]["theta"] / layers[1]["sat"]) / _top
-    _sat = min(max(_sat, 1e-3), 1.2)
-    _cr = max(resp_mg_ha * 1000.0 * _rs, 0.0) + 1e-3
-    return min(_top, _k * _conc ** _a * _cr ** _c * _sat ** _p)
-
-
-DENITRIF_E2_PARAMS = dict(k=-3.961, a=0.446, b=0.894, c=5.98, d=-0.662, e=2.161, f=0.226)   # rebuild phase 4 (2026-10-16), nlaw_param2.py: held-out annual rms log error 0.87 -> 0.71 (site-run totals), daily R2 0.58
 WINTERKILL_SOIL_T = True
-DENITRIF_E2 = False   # one-step annual rms log 0.83 -> 0.71 and N=150 denit rms log 0.94 -> 0.76 in the full engine, but N=0 denit overshoots (MAE 0.32 -> 1.08) and N=400 leaching/N2O move the wrong way; kept opt-in
-
-
-def denitrification_flux_e2(no3_top2_kg_ha, no3_total_kg_ha, resp_mg_ha, rel5, relmax, nh4_1_kg_ha, clay_pct):
-    """Daily denitrification (kg N/ha) = K x (NO3 in layers 1-2)^0.446 x Cresp^0.894 x (5-day mean layer-1 saturation)^5.98 x (clay/20)^-0.66 x (profile max saturation)^2.16 x (NH4+1)^0.23.
-    Adds, to the three-factor form, what the binned residuals of that form showed: denitrification continues wherever ANY layer is wet (profile max saturation,
-    ratio of actual to predicted 0.30 below 0.5 and 1.1 above 0.7), is lower on coarse soil, and is tied to a live ammonium pool (ratio 0.24 where NH4 < 1 kg/ha).
-    Held out by site: annual rms log error 0.83 -> 0.71 against Cycles' own totals when fed Cycles' own states."""
-    if no3_total_kg_ha <= 0.0 or no3_top2_kg_ha <= 0.0:
-        return 0.0
-    P = DENITRIF_E2_PARAMS
-    c = max(resp_mg_ha * 1000.0, 0.0) + 1e-3
-    d = (math.exp(P["k"]) * no3_top2_kg_ha ** P["a"] * c ** P["b"] * min(max(rel5, 0.02), 1.2) ** P["c"] * (max(clay_pct, 1.0) / 20.0) ** P["d"]
-         * min(max(relmax, 0.05), 1.2) ** P["e"] * (max(nh4_1_kg_ha, 0.0) + 1.0) ** P["f"])
-    return min(d, no3_total_kg_ha)
 
 
 def denitrification_rate_rel(theta_rel, tsoil_c):
@@ -3040,54 +2942,12 @@ def denitrification_rate_rel(theta_rel, tsoil_c):
                         * max(tsoil_c, 0.0) / 15.0))
 
 
-NITRIF_RMAX = 0.09414  # REFIT 2026-10-02 (same session, per Matt's direct "Go fix the
-# nitrification speed now" -- the open item flagged by both the NH4-trajectory comparison and
-# the UAN-split fix above, which both found this engine's nitrification clearing NH4 roughly
-# 1.5-2x faster than real Cycles' own does in the regime that matters for a realistic
-# application). First checked whether concentration (not just temperature) explained it, the
-# same mechanism that turned out to matter for volatilization -- it didn't: binning the real
-# implied daily fractional rate by BOTH soil temperature and the pool's own NH4 concentration
-# (low <20 / mid 20-60 / high >=60 kg/ha, same real N.txt data) found the rate is essentially
-# flat across concentration regimes at a fixed temperature (e.g. at 12-14C: 0.0508/0.0467/0.0494
-# -- all within a few percent of each other, nothing like volatilization's clean ~2x spread).
-# Concentration isn't the driver here; the ORIGINAL fit itself was the problem.
-#
-# Found why directly: the original fit's own docstring claimed real data "never once"
-# coincides with soil temperature above ~17.1C in this record -- re-checked that claim against
-# the real data directly and found it flatly false. The real (tsoil, frac_rate) sample set
-# extends from -13.5C to +28.2C, with hundreds of real samples at every 1-degree bin from 4C
-# through 24C (n=1-682 per bin) -- a real, substantial range the original fit was built
-# without, for reasons not reconstructable now (most likely an overly aggressive filter
-# applied before binning, not caught before shipping). Refit via ordinary nonlinear least
-# squares (scipy.optimize.curve_fit) directly on the raw 13410 per-day (tsoil, frac_rate)
-# pairs across their FULL real range (not a binned-mean fit, and not restricted to any
-# a-priori "valid" window) -- R^2=0.53 in raw space, similar order to volatilization's own
-# raw-sample fits (0.56-0.59). The new curve tracks the real per-degree binned means closely
-# across the whole practically-relevant range (e.g. at 12C: real 0.0472 vs. new fit 0.0426; at
-# 14C: real 0.0598 vs. 0.0538; at 18C: real 0.0739 vs. 0.0789; at 24C: real 0.1156 vs. 0.1124),
-# where the ORIGINAL fit (Rmax=0.145, k=0.46, T0=13.2) had overshot badly across almost the
-# entire 10-20C range that matters for a real spring application (at 14C: 0.0857, nearly 1.6x
-# the real 0.0598; at 16C: 0.1137 against a real 0.0691, 1.6x again) -- the exact magnitude of
-# overshoot the NH4-trajectory comparison's day-by-day trace had already found empirically
-# (model ~9-10%/day vs. Cycles' own ~5-6%/day right after the 2012 UAN application, at a
-# comparable real soil temperature). This directly explains why fixing the real 75/25 UAN
-# split (the entry immediately above) made the mean-level match worse rather than better: the
-# split fix correctly lowered this engine's NH4 peak, but with nitrification still clearing
-# that lower peak roughly 1.5-1.6x too fast, less NH4 mass ever had time to accumulate for
-# volatilization to act on, regardless of the peak's own correct starting size.
-NITRIF_K = 0.24204
-NITRIF_T0 = 14.7585
-
 SOIL_TEMP_LAG_K = 0.15  # reuses simulate_soil_temp()'s own already-validated lag-filter
 # constant (2.65-day mean absolute error against real per-year planting dates) rather than
 # inventing a second one for this unrelated use -- nitrification's own real driver is soil,
 # not air, temperature, and this engine's main day loop otherwise only ever tracks air tmean.
 
 
-NITRIF_FE = (0.1155, 1.08)  # (k, p): nitrification = k * fE^p (Cycles' own environmental factor), 2026-10-13; None keeps the temperature logistic
-
-
-NITRIF_RATIO_MODEL = True
 NITRIF_RATIO_PARAMS = dict(k=0.1340, ts=0.2460, t0=13.355, r0=8.982, q=8.074, ks=568.5)   # rebuild phase 4 (2026-10-16): fitted to Cycles' daily nitrification with Cycles' own states (nlaw_param.py, 94 sites, held out by site): R2 0.51 -> 0.81, annual rms log error 0.76 -> 0.29
 
 
@@ -3102,22 +2962,6 @@ def nitrification_flux_ratio(nh4_kg_ha, no3_surface_kg_ha, tsoil_c):
     r = max(no3_surface_kg_ha, 0.0) / nh4_kg_ha
     x = (r / P["r0"]) ** P["q"] if r < 1e3 else 1e30
     return nh4_kg_ha * P["k"] / (1.0 + math.exp(-P["ts"] * (tsoil_c - P["t0"]))) / (1.0 + x) / (1.0 + nh4_kg_ha / P["ks"])
-
-
-def nitrification_rate_fe(tsoil, relwet):
-    """Daily NH4 -> NO3 fraction as k * fE^p, fE = the engine's temperature x moisture factor for layer 1.
-    Cycles' implied rate follows its own composite_factor almost linearly (pooled fit 0.1155 * cf^1.08, 16 sites)."""
-    k, pw = NITRIF_FE
-    return max(0.0, min(1.0, k * sixpool_fe(tsoil, relwet, ml=True) ** pw))
-
-
-def nitrification_rate(tsoil):
-    """Real, back-calculated daily fraction of the NH4 pool converted to NO3, as a function
-    of soil temperature -- see NITRIF_RMAX's own docstring for the full derivation. Refit
-    2026-10-02 against the real data's own full observed range (-13.5C to +28.2C, not the
-    4-17C window an earlier pass had wrongly claimed was all that existed). Clamped to [0, 1],
-    though the logistic form is already bounded by construction."""
-    return max(0.0, min(1.0, NITRIF_RMAX / (1.0 + math.exp(-NITRIF_K * (tsoil - NITRIF_T0)))))
 
 
 VOLATILIZATION_RATE_A = 2.664271e-05  # 2026-10-16 fit (opt_volat.py, REFIT_PLAN row 47); was 0.55e-05  # back-calculated a second time, 2026-10-02,
@@ -3190,28 +3034,6 @@ VOLATILIZATION_RATE_D = -1.98855  # row 47; was -1.6508
 VOLATILIZATION_THETA_DEFAULT = 0.25
 
 
-VOLAT_ET_MODEL = False   # one-step R2 0.28 -> 0.60 but mixed in the full engine on 24 sites (N=150 MAE 6.17 -> 6.73, N=400 14.1 -> 14.9, N=0 1.83 -> 1.69); kept opt-in until the NH4 trajectory is fixed
-VOLAT_ET_PARAMS = dict(a=-8.581, bt=0.012, pn=0.656, pe=1.91, pr=-0.856)   # rebuild phase 4 (2026-10-16): fitted to Cycles' daily volatilization with Cycles' own states (nlaw_param.py, 94 sites, held out by site): R2 0.28 -> 0.60
-
-
-def volatilization_flux_et(nh4_kg_ha, tsoil_c, et0_mm, rel_mean5):
-    """Daily NH3 volatilization (kg N/ha) = NH4^0.656 x exp(-8.58 + 0.012 T) x ET0^1.91 x (5-day mean layer-1 relative saturation)^-0.86.
-    The old law (NH4 x exp(T) only) explained 28% of held-out daily variance; evaporative demand (a stand-in for the surface drying and wind that move
-    ammonia off the soil) and a wetness term that falls as the surface has been dry for days lift it to 0.60 (HGB ceiling 0.74)."""
-    if nh4_kg_ha <= 1e-9:
-        return 0.0
-    P = VOLAT_ET_PARAMS
-    v = (nh4_kg_ha ** P["pn"]) * math.exp(P["a"] + P["bt"] * tsoil_c) * (max(et0_mm, 0.0) + 1e-3) ** P["pe"] * max(rel_mean5, 0.05) ** P["pr"]
-    return min(v, nh4_kg_ha)
-
-
-def _rel_push(hist, rel1):
-    hist.append(rel1)
-    if len(hist) > 5:
-        del hist[0]
-    return sum(hist) / len(hist)
-
-
 def volatilization_rate(tsoil, nh4_kg_ha, theta1=None):
     """Real, back-calculated daily fraction of the NH4 pool volatilized as ammonia, as a
     function of BOTH topsoil temperature and the pool's own current concentration -- see
@@ -3224,7 +3046,6 @@ def volatilization_rate(tsoil, nh4_kg_ha, theta1=None):
     return max(0.0, min(1.0, VOLATILIZATION_RATE_A * math.exp(
         VOLATILIZATION_RATE_B * tsoil + VOLATILIZATION_RATE_C * nh4_capped
         + VOLATILIZATION_RATE_D * math.log(th))))
-
 
 
 # Nitrous oxide emission (2026-10-02), back-calculated from Cycles' N.txt (16 sites, 40,268 denitrification days):
@@ -3248,22 +3069,6 @@ def n2o_from_denitrification(denitrified_kg_ha, no3_before_kg_ha):
 
 
 IMMOB_FROM_NO3 = True   # opt-in: net immobilization (negative net mineralization) is drawn from NH4 first, then nitrate top-down (paper Sec 2.6: the microbial pool assimilates N from the ammonium and nitrate pools); False = NH4 only, the shortfall is dropped
-N_LAYERED_MIN = False   # 2026-10-19: mineral N produced and immobilized where the carbon is (per layer), not all in layer 1 (see _distribute_nitrate and apply_net_min)
-
-
-def _distribute_nitrate(no3_layers, amount, sixpool_state):
-    """Adds nitrified nitrate to the layers in proportion to the positive net mineralization the layers made on the last day (N_LAYERED_MIN), else all to layer 1 as before."""
-    if N_LAYERED_MIN and sixpool_state is not None and sixpool_state.get("netmin_layers"):
-        _w = [max(0.0, v) for v in sixpool_state["netmin_layers"][:len(no3_layers)]]
-        _sw = sum(_w)
-        if _sw > 1e-12:
-            for _i, _x in enumerate(_w):
-                no3_layers[_i] += amount * _x / _sw
-            return
-    no3_layers[0] += amount
-
-
-_CUR_SIXPOOL = None
 
 
 def apply_net_min(nh4, no3, no3_layers, smin, sixpool_state=None):
@@ -3271,13 +3076,6 @@ def apply_net_min(nh4, no3, no3_layers, smin, sixpool_state=None):
     if smin >= 0 or not IMMOB_FROM_NO3:
         return max(0.0, nh4 + smin), no3
     need = -smin; t = min(nh4, need); nh4 -= t; need -= t
-    _need0 = need
-    if need > 0 and N_LAYERED_MIN and no3_layers is not None and sixpool_state is not None and sixpool_state.get("netmin_layers"):
-        _neg = [max(0.0, -v) for v in sixpool_state["netmin_layers"][:len(no3_layers)]]
-        _sn = sum(_neg)
-        if _sn > 1e-12:
-            for _i, _x in enumerate(_neg):
-                t = min(no3_layers[_i], need * _x / _sn); no3_layers[_i] -= t; need -= t
     if need > 0:
         if no3_layers is not None:
             for i in range(len(no3_layers)):
@@ -3342,24 +3140,13 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("netmin", ()):
                 _smin = _FORCE_CUR["netmin"][w["doy"]]   # diagnostic: Cycles' own net mineralization flux in the fallow windows too
             nstate["n_nh4"], nstate["n_no3"] = apply_net_min(nstate["n_nh4"], nstate["n_no3"], no3_layers, _smin, sixpool_state)
-        if NITRIF_RATIO_MODEL:
-            nit = nitrification_flux_ratio(nstate["n_nh4"], (no3_layers[0] if no3_layers is not None else nstate["n_no3"]), nstate["tsoil_lag"])
-        elif NITRIF_FE:
-            _rw = ((layers[0]["theta"] - layers[0]["pwp"]) / (layers[0]["fc"] - layers[0]["pwp"])
-                   if layers[0]["fc"] > layers[0]["pwp"] else 1.0)
-            nit = nstate["n_nh4"] * nitrification_rate_fe(nstate["tsoil_lag"], _rw)
-        else:
-            nit = nstate["n_nh4"] * nitrification_rate(nstate["tsoil_lag"])
-        _rm5 = _rel_push(nstate.setdefault("rel_hist", []), layers[0]["theta"] / layers[0]["sat"])
-        if model_volatilization and VOLAT_ET_MODEL:
-            vol = volatilization_flux_et(nstate["n_nh4"], nstate["tsoil_lag"], eto, _rm5)
-        else:
-            vol = (nstate["n_nh4"] * volatilization_rate(nstate["tsoil_lag"], nstate["n_nh4"], layers[0]["theta"])
-                   if model_volatilization else 0.0)
+        nit = nitrification_flux_ratio(nstate["n_nh4"], (no3_layers[0] if no3_layers is not None else nstate["n_no3"]), nstate["tsoil_lag"])
+        vol = (nstate["n_nh4"] * volatilization_rate(nstate["tsoil_lag"], nstate["n_nh4"], layers[0]["theta"])
+               if model_volatilization else 0.0)
         nstate["n_nh4"] = max(0.0, nstate["n_nh4"] - nit - vol)
         nstate["n_no3"] += nit
         if no3_layers is not None:
-            _distribute_nitrate(no3_layers, nit, sixpool_state)
+            no3_layers[0] += nit
         nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_nitrification(nit)
         volat += vol
         profile_water_mm = sum(l["theta"] * l["thick"] * 1000 for l in layers)
@@ -3367,50 +3154,27 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             lost = min(nstate["n_no3"], drainage_mm * (nstate["n_no3"] / profile_water_mm))
             nstate["n_no3"] -= lost
             leached += lost
-        if model_denitrification and DENITRIF_RESP_MODEL and sixpool_state is not None and no3_layers is not None:
+        if model_denitrification and sixpool_state is not None and no3_layers is not None:
             _no3_pre = nstate["n_no3"]
-            if DENITRIF_E2:
-                d = denitrification_flux_e2(no3_layers[0] + (no3_layers[1] if len(no3_layers) > 1 else 0.0), _no3_pre, sixpool_state.get("resp_mg_ha", 0.0), _rm5,
-                                            max(l["theta"] / l["sat"] for l in layers), nstate["n_nh4"], 100.0 * sixpool_state.get("clay", 0.25))
-            elif DENITRIF_L12:
-                d = denitrification_flux_l12(layers, no3_layers, sixpool_state.get("resp_mg_ha", 0.0))
-            else:
-                d = denitrification_flux_resp(_no3_pre, (_SUBDAY_REL1_EFF if (SUBDAY_DENIT and _SUBDAY_REL1_EFF is not None) else layers[0]["theta"] / layers[0]["sat"]), sixpool_state.get("resp_mg_ha", 0.0))
-                if DIAG_DENIT is not None: DIAG_DENIT.append((_DIAG_YEAR, w["doy"], (_SUBDAY_REL1_EFF if (SUBDAY_DENIT and _SUBDAY_REL1_EFF is not None) else layers[0]["theta"] / layers[0]["sat"]), _no3_pre, sixpool_state.get("resp_mg_ha", 0.0), d, layers[0]["theta"] / layers[0]["sat"], tuple(no3_layers)))
+            d = denitrification_flux_resp(_no3_pre, (_SUBDAY_REL1_EFF if (SUBDAY_DENIT and _SUBDAY_REL1_EFF is not None) else layers[0]["theta"] / layers[0]["sat"]), sixpool_state.get("resp_mg_ha", 0.0))
+            if DIAG_DENIT is not None: DIAG_DENIT.append((_DIAG_YEAR, w["doy"], (_SUBDAY_REL1_EFF if (SUBDAY_DENIT and _SUBDAY_REL1_EFF is not None) else layers[0]["theta"] / layers[0]["sat"]), _no3_pre, sixpool_state.get("resp_mg_ha", 0.0), d, layers[0]["theta"] / layers[0]["sat"], tuple(no3_layers)))
             if d > 0 and _no3_pre > 0:
                 _f = d / _no3_pre
-                if DENITRIF_L12 and not DENITRIF_E2 and len(no3_layers) >= 2:
-                    _tp = no3_layers[0] + no3_layers[1]; _ft = d / max(_tp, 1e-12)
-                    for i in (0, 1):
-                        no3_layers[i] *= (1.0 - _ft)
-                    _f = 0.0
                 for i in range(len(no3_layers)):
                     no3_layers[i] *= (1.0 - _f)
                 nstate["n_no3"] = max(0.0, _no3_pre - d)
                 nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_denitrification(d, _no3_pre)
                 denit += d
         elif model_denitrification:
+            # first fallow window of a run: the six-pool state does not exist yet, so the older layer-1 rate law acts (to be replaced by initializing the six-pool state first)
+            if no3_layers is None:
+                raise ValueError("denitrification needs per-layer nitrate")
             _no3_pre = nstate["n_no3"]
-            if DENITRIF_LAYER1_ONLY and no3_layers is not None:
-                d = no3_layers[0] * denitrification_rate_rel(layers[0]["theta"] / layers[0]["sat"], nstate["tsoil_lag"]) * _denit_depth_factor(layers)
-                nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_denitrification(d, _no3_pre)
-                no3_layers[0] -= d
-                nstate["n_no3"] = max(0.0, nstate["n_no3"] - d)
-                denit += d
-                return_early = True
-            else:
-                return_early = False
-                d = nstate["n_no3"] * denitrification_rate_rel(layers[0]["theta"] / layers[0]["sat"], nstate["tsoil_lag"]) * _denit_depth_factor(layers)
-                nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_denitrification(d, _no3_pre)
-                nstate["n_no3"] = max(0.0, nstate["n_no3"] - d)
-            if return_early:
-                pass
-            elif no3_layers is not None:
-                f_d = d / (nstate["n_no3"] + d) if (nstate["n_no3"] + d) > 0 else 0.0
-                for i in range(len(no3_layers)):
-                    no3_layers[i] *= (1.0 - f_d)
-            if not return_early:
-                denit += d
+            d = no3_layers[0] * denitrification_rate_rel(layers[0]["theta"] / layers[0]["sat"], nstate["tsoil_lag"]) * _denit_depth_factor(layers)
+            nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_denitrification(d, _no3_pre)
+            no3_layers[0] -= d
+            nstate["n_no3"] = max(0.0, nstate["n_no3"] - d)
+            denit += d
         if DIAG_NFLUX is not None:
             DIAG_NFLUX.append((_DIAG_YEAR, w["doy"], locals().get("_smin", 0.0), nit, vol, locals().get("d", 0.0)) + tuple(locals().get("_gross", (0.0, 0.0, 0.0))))
         nstate["n_no3"], nstate["n_nh4"] = _npool_hook(no3_layers, nstate["n_no3"], nstate["n_nh4"], w["doy"])
@@ -3550,7 +3314,6 @@ CFORCE_WHICH = ()   # subset of ('surface', 'cs', 'cm', 'root') to force
 DIAG_FE = None   # appends (year, doy, layer, layer temperature, relative wetness, fE) per layer per day in sixpool_ml_step; None = off
 _DIAG_CTX = {}
 DIAG_NSEASON = None   # appends (year, doy, net mineralization, nitrification, volatilization, denitrification, nitrate leached, uptake, mineral pool at end of day) per in-season day (kg N/ha); None = off
-N_UPTAKE_SHARE_FLOW = False   # draw the nitrate part of uptake from layers by water withdrawal x concentration (total uptake unchanged)
 NLAYER_FORCE = None   # diagnostic 2026-10-19: {year: {doy: ([nitrate kg/ha per layer], ammonium kg/ha)}} from Cycles' dailySoilLayersCN and dailyN; sets the engine's layer nitrate and ammonium at the end of every day (laws then act on Cycles' own state)
 DIAG_NPOOL = None   # appends (year, doy, nitrate kg/ha, ammonium kg/ha) at the end of every simulated day (fallow and in-season); None = off
 def _npool_hook(no3_layers, n_no3, n_nh4, doy):
@@ -3596,7 +3359,6 @@ def _water_hook(layers, doy, no3_layers=None):
     if DIAG_NO3 is not None and no3_layers is not None:
         DIAG_NO3.append((_DIAG_YEAR, doy, list(no3_layers)))
 DIAG_GROWTH = None   # temporary diagnostic list (floor_growth.py): appends (doy, GR, GT, dGB_water_limited) per day; None = off
-
 
 
 def standard_kwargs(soil_raw, n_rate_kg_ha):
@@ -4240,9 +4002,6 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         n_no3 += initial_n_state["n_no3"]
         n_pool = n_nh4 + n_no3
         tsoil_lag = initial_n_state["tsoil_lag"]
-        rel_hist_season = list(initial_n_state.get("rel_hist", []))
-    if "rel_hist_season" not in locals():
-        rel_hist_season = []
     no3_layers = None
     if nitrate_per_layer and n_nh4 is not None:
         # Per-layer nitrate (2026-10-02): NO3 is the mobile form, so it is tracked by layer and moved
@@ -4460,24 +4219,13 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             # up to ~0.145/day, volatilization up to ~0.044/day observed) that this is a safe
             # explicit-Euler approximation, the same one already used for every other daily
             # rate in this engine.
-            if NITRIF_RATIO_MODEL:
-                nitrif_amt_today = nitrification_flux_ratio(n_nh4, (no3_layers[0] if no3_layers is not None else n_no3), tsoil_lag)
-            elif NITRIF_FE:
-                _rw = ((layers[0]["theta"] - layers[0]["pwp"]) / (layers[0]["fc"] - layers[0]["pwp"])
-                       if layers[0]["fc"] > layers[0]["pwp"] else 1.0)
-                nitrif_amt_today = n_nh4 * nitrification_rate_fe(tsoil_lag, _rw)
-            else:
-                nitrif_amt_today = n_nh4 * nitrification_rate(tsoil_lag)
-            _rm5 = _rel_push(rel_hist_season, layers[0]["theta"] / layers[0]["sat"])
-            if model_volatilization and VOLAT_ET_MODEL:
-                volat_amt_today = volatilization_flux_et(n_nh4, tsoil_lag, eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"]), _rm5)
-            else:
-                volat_amt_today = n_nh4 * volatilization_rate(tsoil_lag, n_nh4, layers[0]["theta"]) if model_volatilization else 0.0
+            nitrif_amt_today = nitrification_flux_ratio(n_nh4, (no3_layers[0] if no3_layers is not None else n_no3), tsoil_lag)
+            volat_amt_today = n_nh4 * volatilization_rate(tsoil_lag, n_nh4, layers[0]["theta"]) if model_volatilization else 0.0
             n_nh4 = max(0.0, n_nh4 - nitrif_amt_today - volat_amt_today)
             n_no3 += nitrif_amt_today
             n2o_total += n2o_from_nitrification(nitrif_amt_today)
             if no3_layers is not None:
-                _distribute_nitrate(no3_layers, nitrif_amt_today, sixpool_state)
+                no3_layers[0] += nitrif_amt_today
             if n_volatilized_pool_total is not None:
                 n_volatilized_pool_total += volat_amt_today
 
@@ -4487,53 +4235,17 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # When nh4_no3_split is active, draws from the NO3 pool specifically (denitrification
         # is an NO3-consuming process by definition) rather than the whole lumped pool, which
         # is still the disclosed-simplification default everywhere else.
-        if model_denitrification and n_pool is not None and DENITRIF_RESP_MODEL and sixpool_state is not None and no3_layers is not None and n_no3 is not None and n_pool_by_layer is None:
-            if DENITRIF_E2:
-                denitrif_today = denitrification_flux_e2(no3_layers[0] + (no3_layers[1] if len(no3_layers) > 1 else 0.0), n_no3, sixpool_state.get("resp_mg_ha", 0.0), _rm5,
-                                                         max(l["theta"] / l["sat"] for l in layers), n_nh4, 100.0 * sixpool_state.get("clay", 0.25))
-            elif DENITRIF_L12:
-                denitrif_today = denitrification_flux_l12(layers, no3_layers, sixpool_state.get("resp_mg_ha", 0.0))
-            else:
-                denitrif_today = denitrification_flux_resp(n_no3, (_SUBDAY_REL1_EFF if (SUBDAY_DENIT and _SUBDAY_REL1_EFF is not None) else layers[0]["theta"] / layers[0]["sat"]), sixpool_state.get("resp_mg_ha", 0.0))
-                if DIAG_DENIT is not None: DIAG_DENIT.append((_DIAG_YEAR, w["doy"], (_SUBDAY_REL1_EFF if (SUBDAY_DENIT and _SUBDAY_REL1_EFF is not None) else layers[0]["theta"] / layers[0]["sat"]), n_no3, sixpool_state.get("resp_mg_ha", 0.0), denitrif_today, layers[0]["theta"] / layers[0]["sat"], tuple(no3_layers)))
+        if model_denitrification and n_pool is not None:
+            if sixpool_state is None or no3_layers is None or n_no3 is None or n_pool_by_layer is not None:
+                raise ValueError("denitrification needs the six-pool background model with per-layer nitrate")
+            denitrif_today = denitrification_flux_resp(n_no3, (_SUBDAY_REL1_EFF if (SUBDAY_DENIT and _SUBDAY_REL1_EFF is not None) else layers[0]["theta"] / layers[0]["sat"]), sixpool_state.get("resp_mg_ha", 0.0))
+            if DIAG_DENIT is not None: DIAG_DENIT.append((_DIAG_YEAR, w["doy"], (_SUBDAY_REL1_EFF if (SUBDAY_DENIT and _SUBDAY_REL1_EFF is not None) else layers[0]["theta"] / layers[0]["sat"]), n_no3, sixpool_state.get("resp_mg_ha", 0.0), denitrif_today, layers[0]["theta"] / layers[0]["sat"], tuple(no3_layers)))
             if denitrif_today > 0 and n_no3 > 0:
                 _f = denitrif_today / n_no3
                 n2o_total += n2o_from_denitrification(denitrif_today, n_no3)
-                if DENITRIF_L12 and not DENITRIF_E2 and len(no3_layers) >= 2:
-                    _tp = no3_layers[0] + no3_layers[1]; _ft = denitrif_today / max(_tp, 1e-12)
-                    for i in (0, 1):
-                        no3_layers[i] *= (1.0 - _ft)
-                    _f = 0.0
                 for i in range(len(no3_layers)):
                     no3_layers[i] *= (1.0 - _f)
                 n_no3 = max(0.0, n_no3 - denitrif_today)
-            n_denitrified_total += denitrif_today
-        elif model_denitrification and n_pool is not None:
-            denitrif_frac_today = denitrification_rate_rel(
-                layers[0]["theta"] / layers[0]["sat"],
-                tsoil_lag if tsoil_lag is not None else (w["tx"] + w["tn"]) / 2.0) * _denit_depth_factor(layers)
-            if n_pool_by_layer is not None:
-                pool_sum = sum(n_pool_by_layer)
-                denitrif_today = pool_sum * denitrif_frac_today
-                if pool_sum > 1e-9:
-                    for i in range(len(layers)):
-                        n_pool_by_layer[i] -= denitrif_today * (n_pool_by_layer[i] / pool_sum)
-            elif n_no3 is not None:
-                if DENITRIF_LAYER1_ONLY and no3_layers is not None:
-                    denitrif_today = no3_layers[0] * denitrif_frac_today
-                    n2o_total += n2o_from_denitrification(denitrif_today, n_no3)
-                    no3_layers[0] -= denitrif_today
-                    n_no3 = max(0.0, n_no3 - denitrif_today)
-                else:
-                    denitrif_today = n_no3 * denitrif_frac_today
-                    n2o_total += n2o_from_denitrification(denitrif_today, n_no3)
-                    n_no3 = max(0.0, n_no3 - denitrif_today)
-                    if no3_layers is not None:
-                        for i in range(len(no3_layers)):
-                            no3_layers[i] *= (1.0 - denitrif_frac_today)
-            else:
-                denitrif_today = n_pool * denitrif_frac_today
-                n_pool = max(0.0, n_pool - denitrif_today)
             n_denitrified_total += denitrif_today
         if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("loss", ()) and no3_layers is not None and n_no3 is not None:
             # diagnostic (2026-10-15): replace the engine's daily nitrate-pathway loss (leaching + denitrification) by Cycles' value
@@ -4591,7 +4303,6 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         TRp = (1 + (crop["kc"] - 1) * eie) * eie * eto
         TRp *= temp_factor
 
-        _w0_mm = [l["theta"] * l["thick"] * 1000.0 for l in layers]   # layer water before today's root uptake (per-layer mass-flow N access)
         if crop_ct is not None:
             # Real hydraulic-conductance mechanism -- see campbell_water_uptake()'s own
             # docstring above. Mutates layers in place and returns the real, physically-
@@ -4604,7 +4315,6 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             water_stress = water_stress_response(avail_frac, crop.get("depletion_fraction", 0.5))
             TR_actual = min(TRp * water_stress, crop.get("tr_max_mm_day", math.inf))
             extract_transpiration(layers, root_depth, TR_actual)
-        _wul_mm = [w0 - l["theta"] * l["thick"] * 1000.0 for w0, l in zip(_w0_mm, layers)]   # each layer's root water withdrawal today, mm
         if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("water", ()):
             water_stress = _FORCE_CUR["water"][w["doy"]]
             TR_actual = TRp * water_stress
@@ -4748,8 +4458,6 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 # plant's biomass (167k daily corn records, 28 sites): 0.764 x ((0.641 - r)/0.36)^0.9 between r = 0.641 and 0.281,
                 # flat below. Aboveground N is 0.87 to 0.89 of the plant total throughout the season.
                 _ag_eff = ag_biomass
-                if N_STRESS_POT_DILUTION:   # 2026-10-19: the concentration is evaluated after the day's POTENTIAL growth has been added (CropSyst Eq. 29 and 30: the N factor comes from the concentration the plant would have after the growth it is trying to make)
-                    _ag_eff = ag_biomass + dGB_water_limited * shoot_fraction(ttf, crop["fsti"], crop["fstf"], crop.get("ttf50"))
                 _ag_pct = (N_AG_FRACTION * canopy_n_kg_ha / (_ag_eff * 100)) if _ag_eff > 1e-6 else crop["n_max_conc"] * 100
                 _ratio = _ag_pct / n_crit_pct if n_crit_pct > 0 else 1.0
                 n_stress = 1.0 - N_STRESS_SMAX * max(0.0, min(1.0, (N_STRESS_R0 - _ratio) / (N_STRESS_R0 - N_STRESS_R1))) ** N_STRESS_Q
@@ -4761,7 +4469,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     n_stress = max(0.0, _knee * (_ratio - N_STRESS_FLOOR_RATIO) / (N_STRESS_KNEE_RATIO - N_STRESS_FLOOR_RATIO))
             if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("nstress", ()):
                 n_stress = _FORCE_CUR["nstress"][w["doy"]]
-            if crop.get("n_simultaneous", N_SIMULTANEOUS) and n_nh4 is not None and no3_layers is not None and not N_ACCESS_MASSFLOW and dGB_water_limited > 0 and not (_FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("nstress", ())):
+            if crop.get("n_simultaneous", N_SIMULTANEOUS) and n_nh4 is not None and no3_layers is not None and dGB_water_limited > 0 and not (_FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("nstress", ())):
                 # 2026-10-19: CropSyst-style simultaneous solve (Stockle, Martin, Campbell 1994, Eq. 29 and 30): the day's N factor is the one consistent with the day's uptake and the
                 # growth it permits. Fixed point on F: growth = potential x F, demand from that growth, uptake = min(supply cap, demand), concentration after the uptake over the
                 # above-ground biomass including the POTENTIAL growth (the dilution the plant is trying to make), critical curve at the biomass after realized growth, F = law(ratio).
@@ -4823,52 +4531,19 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     else:
                         _avail = [no3_layers[i] * access[i] for i in range(len(layers))]
                         reach_no3 = sum(_avail)
-                    if N_ACCESS_MASSFLOW:
-                        # paper Sec 2.7: the water flux from the soil in each layer to the crop determines its access to mineral N: nitrate supply of a layer = its
-                        # root water withdrawal today x the layer's nitrate concentration (current layer water); uptake = min(demand, supply), drawn layer by layer
-                        _sup = [min(N_ACCESS_K * max(0.0, _wul_mm[i]) * no3_layers[i] / max(_w0_mm[i], 1e-6), _avail[i]) for i in range(len(layers))]
-                        _S = sum(_sup)
-                        n_uptake_kg_ha = min(_S, demand_today_kg_ha)
-                        if _S > 1e-9:
-                            _f = n_uptake_kg_ha / _S
-                            for i in range(len(layers)):
-                                no3_layers[i] = max(0.0, no3_layers[i] - _sup[i] * _f)
-                        n_no3 = sum(no3_layers)
-                        n_pool = n_nh4 + n_no3
-                    else:
-                        reachable = n_nh4 + reach_no3
-                        _ur = crop.get("n_uptake_rate", N_UPTAKE_RATE_PER_DAY)
-                        if _ur is not None and N_UPTAKE_T0:   # 2026-10-19: paper Sec 2.7, water flux sets mineral N access; Cycles' uptake share of the pool rises with transpiration and saturates (nuptake_law_2026_10_18.py)
-                            _ur = _ur * (1.0 - math.exp(-max(0.0, TR_actual) / N_UPTAKE_T0))
-                        _cap = reachable if _ur is None else reachable * _ur
-                        n_uptake_kg_ha = min(_cap, demand_today_kg_ha)
-                        if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("uptake", ()):
-                            n_uptake_kg_ha = min(reachable, _FORCE_CUR["uptake"][w["doy"]])   # diagnostic: Cycles' own daily plant N uptake
-                        if reachable > 1e-9:
-                            frac = n_uptake_kg_ha / reachable
-                            n_nh4 = max(0.0, n_nh4 - n_nh4 * frac)
-                            if N_UPTAKE_SHARE_FLOW and reach_no3 > 1e-9:
-                                # 2026-10-19: same total uptake, but the nitrate part is drawn from the layers in proportion to each layer's water withdrawal x nitrate concentration (paper Sec 2.7, mass-flow access); Cycles' own drop shares tilt to the upper layers (uptshare.py)
-                                _no3_take = n_uptake_kg_ha * reach_no3 / reachable
-                                _sh = [min(_avail[i], max(0.0, _wul_mm[i]) * no3_layers[i] / max(_w0_mm[i], 1e-6)) for i in range(len(layers))]
-                                _shs = sum(_sh)
-                                if _shs > 1e-9:
-                                    _sc = min(1.0, _no3_take / _shs)
-                                    _rest = _no3_take - _shs * _sc
-                                    for i in range(len(layers)):
-                                        no3_layers[i] = max(0.0, no3_layers[i] - _sh[i] * _sc)
-                                    if _rest > 1e-9:
-                                        _left = [max(0.0, _avail[i] - _sh[i] * _sc) for i in range(len(layers))]; _ls = sum(_left)
-                                        for i in range(len(layers)):
-                                            no3_layers[i] = max(0.0, no3_layers[i] - (_rest * _left[i] / _ls if _ls > 1e-9 else 0.0))
-                                else:
-                                    for i in range(len(layers)):
-                                        no3_layers[i] = max(0.0, no3_layers[i] - _avail[i] * frac)
-                            else:
-                              for i in range(len(layers)):
-                                no3_layers[i] = max(0.0, no3_layers[i] - _avail[i] * frac)
-                        n_no3 = sum(no3_layers)
-                        n_pool = n_nh4 + n_no3
+                    reachable = n_nh4 + reach_no3
+                    _ur = crop.get("n_uptake_rate", N_UPTAKE_RATE_PER_DAY)
+                    _cap = reachable if _ur is None else reachable * _ur
+                    n_uptake_kg_ha = min(_cap, demand_today_kg_ha)
+                    if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("uptake", ()):
+                        n_uptake_kg_ha = min(reachable, _FORCE_CUR["uptake"][w["doy"]])   # diagnostic: Cycles' own daily plant N uptake
+                    if reachable > 1e-9:
+                        frac = n_uptake_kg_ha / reachable
+                        n_nh4 = max(0.0, n_nh4 - n_nh4 * frac)
+                        for i in range(len(layers)):
+                            no3_layers[i] = max(0.0, no3_layers[i] - _avail[i] * frac)
+                    n_no3 = sum(no3_layers)
+                    n_pool = n_nh4 + n_no3
                 else:
                     n_uptake_kg_ha = min(n_pool, demand_today_kg_ha)
                     if n_pool > 1e-9:
@@ -5019,7 +4694,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         sixpool_state["cra_age"] = 0.0
         result["sixpool_final_state"] = copy.deepcopy(sixpool_state)
     if n_nh4 is not None:
-        result["final_n_state"] = dict(n_nh4=n_nh4, n_no3=n_no3, tsoil_lag=tsoil_lag, rel_hist=list(rel_hist_season),
+        result["final_n_state"] = dict(n_nh4=n_nh4, n_no3=n_no3, tsoil_lag=tsoil_lag,
                                        no3_layers=list(no3_layers) if no3_layers is not None else None)
         result["last_doy"] = last_doy
     if initial_layers is not None:
