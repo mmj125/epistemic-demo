@@ -62,7 +62,7 @@ Cycles' growth is simple: the paper's law at scalar 1.0 (crop-file RUE and TUE),
 ### How to run
 - Cycles v1.5.20 lives in `/tmp/cycles-run15` (not committed; CC BY-NC-ND, never commit its binary or output). `/tmp` is wiped on container reprovision; ask Matt to re-supply the release, `curl` of `https://github.com/PSUmodeling/Cycles/releases/download/v1.5.20/Cycles_debian_1.5.20.zip` works. Run Cycles with no flag.
 - Multi-site harness: `run_validation_multisite.py` (env `BIGSET`, `ENGINE_OVR="CROP.key=value;..."`, `N_LEVELS`, `YEAR_STEP`, `LEAD_YEARS=continuous`, `REGIONAL=0`, `OUT_JSON`). 94 sites take about 10 minutes on 4 cores. Paired comparison: `paired_fr_2026_10_17.py BASE NEW`. Attribution with forced Cycles states: `corn_n0_attrib_2026_10_17.py` (`MODES=free,minn,nstress,canopy,water,all`).
-- After any engine change run `agricultural/prototypes/sync_engine_pages.py` (rebuilds the embedded engines in `engine-demo.html`, `model-validation.html`, `head-to-head.html`).
+- The three older pages (`engine-demo.html`, `model-validation.html`, `head-to-head.html`) carry the engine from 2026-10-19 and are frozen: the 2026-10-20 cleanup removed functions their glue may call, so do not run `sync_engine_pages.py` without retesting them. After an engine change run `snapshot_2026_10_20.py check` against a saved snapshot (pure deletions must print IDENTICAL) and `check_parity_2026_10_19.py` (must print WORST 0.0).
 - Validate Pyodide-facing glue with the exact embedded Python run in CPython, and a mocked pyodide in headless Chromium. Two concurrent `pyodide.runPythonAsync` calls share one global namespace: always `await` them in sequence.
 - Delete Cycles output after parsing; keep disk free.
 

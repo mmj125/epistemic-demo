@@ -2,19 +2,23 @@
 
 Method. `agricultural/prototypes/inventory_2026_10_20.py` sorts every module-level constant of `cycles_engine_validate.py` by name rules and the provenance written in its own comments. Classes are a first pass by hand-written name lists, so a few names may sit in the wrong class; the counts are close, not exact. Crop dictionaries (`engine_api.py`) are covered separately below.
 
-## Counts (242 constants)
+## Counts
 
-| Class | Count | Meaning |
-|---|---|---|
-| DOC | 24 | documented in the paper, SI, crop file, guide, or a standard reference |
-| ENG | 18 | engine design choice or numerical setting |
-| C | 56 | constant fitted or measured on Cycles' output, form from the paper or literature |
-| D | 38 | whole law identified from Cycles' output (form and constants) |
-| LEG | 37 | superseded legacy constant, overridden by a newer path |
-| OFF | 38 | option switched off by default |
-| DIAG | 31 | diagnostic hook, no model effect |
+Before the cleanup (242 module constants) and after it (165), same classes:
 
-Of the 136 constants that run in the default configuration (DOC, ENG, C, D), 94 (69%) are Cycles-derived, 24 (18%) are documented, 18 (13%) are engine choices. A further 106 (44% of all constants) are dead or diagnostic and make the module harder to audit.
+| Class | Before | After | Meaning |
+|---|---|---|---|
+| DOC | 24 | 20 | documented in the paper, SI, crop file, guide, or a standard reference |
+| ENG | 18 | 11 | engine design choice or numerical setting |
+| C | 56 | 48 | constant fitted or measured on Cycles' output, form from the paper or literature |
+| D | 38 | 29 | whole law identified from Cycles' output (form and constants) |
+| LEG | 37 | 19 | superseded legacy constant, overridden by a newer path |
+| OFF | 38 | 8 | option switched off by default |
+| DIAG | 31 | 30 | diagnostic hook, no model effect (kept: the forced-state attribution method needs them) |
+
+After the cleanup, of the 108 constants that run in the default configuration, 77 (71%) are Cycles-derived, 20 (19%) documented, 11 (10%) engine choices. Removing dead code did not reduce the Cycles-derived share, because the dead code was not where the fitting lives. The engine file went from 5,100 to 4,400 lines, with output checked identical after every deletion (`snapshot_2026_10_20.py`).
+
+Corrections to the first version of this inventory: the heat penalty (`C1_HEAT_T0`, `C1_VPD_POW`, `HEAT_A`) and the VPD variants (`VPD_FAO56`, `VPD_POW`, `VPD_D0`) were already overridden by `VPD_CYCLES_EXACT` and did nothing; they are deleted. The live VPD is a formula reconstructed from Cycles' VPD output column (class D). The first fallow window of every run (before the six-pool state exists) still uses an older layer-1 denitrification law (`denitrification_rate_rel` and its `DENITRIF_THR_*` constants), so those are live in year one only; initializing the six-pool state before that window would let them go.
 
 ## Class D, laws identified from Cycles' output (38)
 
@@ -79,3 +83,18 @@ How will a replacement for D-class laws be validated when the only reference is 
 ## Stale note
 
 `CLAUDE.md` gave soybean harvest index as 0.5, 0.311, 0.58; the code and `soy_hi_fit.py` use 0.4, 0.15, 3.4. Corrected 2026-10-20.
+
+## Cleanup results, 2026-10-20
+
+Deleted with output verified identical: legacy denitrification, nitrification and volatilization laws, layered mineralization, uptake variants, mineral-N decomposition limiter, FD power law, empirical net-N formula, heat penalty and VPD variants, O2 stress, root-harvest pulse, residue N link, FAO evaporation branch, planting moisture gate, and 15 harness environment hooks that pointed at removed constants (`ENGINE_OVR` now refuses unknown names).
+
+Tested on 94 corn sites (paired, held-out, 3 N rates) and 24 sites for the other crops:
+
+| Change | Result | Decision |
+|---|---|---|
+| Snow with published SWAT values (melt base 0.5 C, 4.5 mm/C/day) | corn neutral (MAE change at most 0.001); soybean +0.004 worse [CI excludes zero], wheat N=0 / 90 +0.008 / +0.014 worse [CI excludes zero] | not adopted, current values kept |
+| SI.12 and SI.13 saturation constants (fH exponent 6, no floor, fD 4.5 and 3.0) | corn N=0 MAE +0.056 worse [CI -0.079,-0.038], N=150 +0.016 worse [-0.025,-0.008], over-yield bias +0.29 to +0.37 | not adopted: the fitted values compensate something at N=0 |
+| SI.14 variable microbial C:N (`SIXPOOL_CN_VARIABLE`, microbial N tracked) | neutral on corn, silage, sorghum, wheat (changes under 0.003, CIs include zero) | adopted, now default |
+| N2O as fixed shares (1% of nitrified, 10% of denitrified N) instead of the fitted concentration law | site correlation with Cycles N2O 0.83 / 0.80 / 0.54 to 0.83 / 0.87 / 0.80 at N=0 / 150 / 400; level x3.4 / 1.3 / 0.8 against x2.4 / 1.1 / 1.6 | adopted (output only) |
+
+Open: the saturation constants cost accuracy at N=0 (the unexplained over-yield and the cold-season net mineralization surplus), so removing that fit needs the N=0 mechanism first. Old fitting scripts (`opt_*.py`, `calibrate*.py`, `audit_sweep.py`) reference removed constants and no longer run; the public pages carry the engine from before this cleanup and have not been re-synced.

@@ -2060,6 +2060,7 @@ SIXPOOL_EPS_C_KM_PRODUCT = 0.0165  # back-calculated combined eps_c*fA*k_m rate 
 # real 0.013-0.02/day range), itself already carrying the same fA~1 assumption used here, so
 # dividing by SIXPOOL_EPS_C below to recover k_m alone needs no further fA correction.
 SIXPOOL_KM = SIXPOOL_EPS_C_KM_PRODUCT / SIXPOOL_EPS_C
+SIXPOOL_CN_VARIABLE = True   # SI Eq. SI.14 variable microbial C:N (see sixpool_step)
 CN_RATIO_SOM = 11.0  # SUPERSEDED 2026-10-02, kept only as the pre-fix historical constant (see
 SIXPOOL_CN_CRA = 86.0  # real STAND/FLAT RESID C:N, soilLayersCN.txt, Rock Springs ContinuousCorn.
 SIXPOOL_CN_CRTZ = 52.0  # real root-tissue C:N, computed from CornRM.90.txt's ROOT BIOMASS/ROOT N.
@@ -2354,6 +2355,7 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
     if "ml" in state and layers is not None:
         return sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff)
     cs, cm, cra, crtz, crm, csx = state["cs"], state["cm"], state["cra"], state["crtz"], state["crm"], state["csx"]
+    cm0 = cm
     ml_sub = state.get("ml_sub", False)
     fe = sixpool_fe(tmean, relwet, ml_sub)
     if SIXPOOL_N_LIMIT_MM and state.get("n_conc1") is not None:
@@ -2421,6 +2423,21 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
                   + cs_loss * 1000 / SIXPOOL_CN_CS)
     n_immobilized = (cm_gain_from_residue * 1000 / SIXPOOL_CN_CM
                       + cs_gain * 1000 / SIXPOOL_CN_CS)
+    if ml_sub and SIXPOOL_CN_VARIABLE:
+        # SI Eq. SI.14: the C:N of newly formed microbial biomass depends on the C:N of the decomposing residue and on the soil mineral N concentration (8.5 to 11.25);
+        # microbial N is tracked so that the N released when microbes turn over is the N they actually hold
+        nm = state.get("nm")
+        if nm is None:
+            nm = cm0 * 1000 / SIXPOOL_CN_CM
+        _n_dec = decomp_ra / SIXPOOL_CN_CRA + decomp_rtz / SIXPOOL_CN_CRTZ + decomp_rm / SIXPOOL_CN_CRM
+        cnd = gross_residue_decomp / _n_dec if _n_dec > 1e-15 else SIXPOOL_CN_CRTZ
+        _xr = (cnd / 110.0) ** 3
+        cn_new = 8.5 + 5.5 * (_xr / (1.0 + _xr)) * (0.5 / (1.0 + ((state.get("n_conc1") or 0.0) / 8.0) ** 3))
+        n_in = cm_gain_from_residue * 1000 / cn_new
+        n_loss_m = nm * cm_loss / cm0 if cm0 > 1e-12 else 0.0
+        state["nm"] = max(0.0, nm + n_in - n_loss_m)
+        n_released = _n_ra + decomp_rtz * 1000 / SIXPOOL_CN_CRTZ + decomp_rm * 1000 / SIXPOOL_CN_CRM + n_loss_m + cs_loss * 1000 / SIXPOOL_CN_CS
+        n_immobilized = n_in + cs_gain * 1000 / SIXPOOL_CN_CS
     if ml_sub:
         if SIXPOOL_DIAG is not None:
             SIXPOOL_DIAG.append((cs_loss, gross_residue_decomp, co2_residue, n_released - n_immobilized, 0.0, cm_loss, decomp_ra, decomp_rtz, cm_gain_from_residue, cs_gain, co2_cm))
@@ -2821,24 +2838,19 @@ def volatilization_rate(tsoil, nh4_kg_ha, theta1=None):
         + VOLATILIZATION_RATE_D * math.log(th))))
 
 
-# Nitrous oxide emission (2026-10-02), back-calculated from Cycles' N.txt (16 sites, 40,268 denitrification days):
-# N2O FROM NITRIF = 0.0025 x NH4 NITRIFICAT (daily median 0.0025 at every site; means 0.0025-0.005 where a few wet
-# days run higher), and N2O FROM DENIT / NO3 DENITRIF = 0.00121 x (profile NO3 kg N/ha)^0.887 (ln R^2 0.69, rms 0.58;
-# 0.017 at ~1 kg N/ha to 0.17 at ~195), capped at 0.5. Cycles reports N2O only; it has no nitric oxide (NO) output.
-N2O_NITRIF_FRAC = 0.00983948
-N2O_DENIT_A = 0.00073326
-N2O_DENIT_B = 0.816
-N2O_DENIT_CAP = 0.5
+# Nitrous oxide emission: N2O-N is a fixed share of each process flux: 1% of nitrified N and 10% of denitrified N (round literature-range values; the IPCC Tier 1 direct
+# emission factor is 1% of N input). 2026-10-20: replaces a nitrate-concentration law back-calculated from Cycles' output (N2O_DENIT_A x NO3^0.816); against Cycles on 24 sites
+# the constant share raises the site correlation of N2O from 0.80 to 0.87 at N=150 and from 0.54 to 0.80 at N=400. Output only: N2O does not feed back into any pool.
+N2O_NITRIF_FRAC = 0.01
+N2O_DENIT_FRAC = 0.10
 
 
 def n2o_from_nitrification(nitrified_kg_ha):
     return N2O_NITRIF_FRAC * nitrified_kg_ha
 
 
-def n2o_from_denitrification(denitrified_kg_ha, no3_before_kg_ha):
-    if denitrified_kg_ha <= 0 or no3_before_kg_ha <= 0:
-        return 0.0
-    return denitrified_kg_ha * min(N2O_DENIT_CAP, N2O_DENIT_A * no3_before_kg_ha ** N2O_DENIT_B)
+def n2o_from_denitrification(denitrified_kg_ha):
+    return N2O_DENIT_FRAC * max(0.0, denitrified_kg_ha)
 
 
 IMMOB_FROM_NO3 = True   # opt-in: net immobilization (negative net mineralization) is drawn from NH4 first, then nitrate top-down (paper Sec 2.6: the microbial pool assimilates N from the ammonium and nitrate pools); False = NH4 only, the shortfall is dropped
@@ -2936,7 +2948,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
                 for i in range(len(no3_layers)):
                     no3_layers[i] *= (1.0 - _f)
                 nstate["n_no3"] = max(0.0, _no3_pre - d)
-                nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_denitrification(d, _no3_pre)
+                nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_denitrification(d)
                 denit += d
         elif model_denitrification:
             # first fallow window of a run: the six-pool state does not exist yet, so the older layer-1 rate law acts (to be replaced by initializing the six-pool state first)
@@ -2944,7 +2956,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
                 raise ValueError("denitrification needs per-layer nitrate")
             _no3_pre = nstate["n_no3"]
             d = no3_layers[0] * denitrification_rate_rel(layers[0]["theta"] / layers[0]["sat"], nstate["tsoil_lag"]) * _denit_depth_factor(layers)
-            nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_denitrification(d, _no3_pre)
+            nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_denitrification(d)
             no3_layers[0] -= d
             nstate["n_no3"] = max(0.0, nstate["n_no3"] - d)
             denit += d
@@ -3990,7 +4002,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             if DIAG_DENIT is not None: DIAG_DENIT.append((_DIAG_YEAR, w["doy"], (_SUBDAY_REL1_EFF if (SUBDAY_DENIT and _SUBDAY_REL1_EFF is not None) else layers[0]["theta"] / layers[0]["sat"]), n_no3, sixpool_state.get("resp_mg_ha", 0.0), denitrif_today, layers[0]["theta"] / layers[0]["sat"], tuple(no3_layers)))
             if denitrif_today > 0 and n_no3 > 0:
                 _f = denitrif_today / n_no3
-                n2o_total += n2o_from_denitrification(denitrif_today, n_no3)
+                n2o_total += n2o_from_denitrification(denitrif_today)
                 for i in range(len(no3_layers)):
                     no3_layers[i] *= (1.0 - _f)
                 n_no3 = max(0.0, n_no3 - denitrif_today)

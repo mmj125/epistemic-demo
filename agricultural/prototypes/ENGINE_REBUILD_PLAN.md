@@ -625,3 +625,6 @@ Sources checked: Cycles guide (NITRIF_RATE, POT_DENITRIF_RATE, DENITRIF_HALF_RAT
 
 ### 2026-10-19 (late 6): paper's own saturation constants, negative
 `SIXPOOL_ML_FH_P=6, SIXPOOL_ML_FH_FLOOR=0, SIXPOOL_ML_FD_SI=(4.5, 3.0)` (SI.12 and SI.13 as printed) leave the engine's cold-season net mineralization where it was (kg N/ha/day, 24 sites, N=0, Cycles | engine: Jan 0.038 | 0.051 unchanged, Mar 0.069 | 0.087 versus 0.085 before, Apr 0.109 | 0.132 versus 0.128). The winter excess is not in the saturation terms. Not adopted; carbon-pool respiration split by pool is the remaining untested lead.
+
+### 2026-10-20: cleanup pass (see agricultural/FITTED_INVENTORY_2026-10-20.md)
+Dead code removed (engine 5,100 to 4,400 lines, output identical at each step). Adopted: SI.14 variable microbial C:N (neutral), N2O as constant shares (1% nitrified, 10% denitrified; N2O site correlation up, output only). Not adopted: SWAT snow values (soybean and wheat about 1 to 2% worse, CIs exclude zero), SI.12 and SI.13 saturation constants (corn N=0 MAE +0.056 [0.038,0.079] worse). Exact-output regression: `snapshot_2026_10_20.py save|check`; API and harness parity: `check_parity_2026_10_19.py`.
