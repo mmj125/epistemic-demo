@@ -2790,20 +2790,32 @@ SOIL_TEMP_LAG_K = 0.15  # reuses simulate_soil_temp()'s own already-validated la
 # not air, temperature, and this engine's main day loop otherwise only ever tracks air tmean.
 
 
-NITRIF_RATIO_PARAMS = dict(k=0.1340, ts=0.2460, t0=13.355, r0=8.982, q=8.074, ks=568.5)   # rebuild phase 4 (2026-10-16): fitted to Cycles' daily nitrification with Cycles' own states (nlaw_param.py, 94 sites, held out by site): R2 0.51 -> 0.81, annual rms log error 0.76 -> 0.29
+NITRIF_RATIO_PARAMS = dict(k=0.2774, r0=8.196, q=6.561, ks=391.1, f0=0.7908, s=0.0828)   # 2026-10-20: fitted to Cycles' daily layer-1 states (nitrif_forms_2026_10_20.py, 250k days, S4): R2 0.832; was logistic temperature, no moisture, R2 0.715
 
 
-def nitrification_flux_ratio(nh4_kg_ha, no3_surface_kg_ha, tsoil_c):
-    """Daily nitrification (kg N/ha) = NH4 x k x logistic(T) / (1 + (NO3/NH4 / r0)^q) / (1 + NH4/ks). The decisive term is the ratio inhibition:
-    Cycles' implied rate is flat at about 0.1/day while surface NO3:NH4 is below about 5 and collapses to zero past about 10 (q = 8, a near step at a
-    ratio of 9), so nitrification stops once nitrate has built up relative to ammonium. The temperature-only logistic the engine used before
-    explained 26 to 51% of daily variance; this form explains 81% (HGB ceiling 0.90). Uses the surface layer's nitrate, as the fit did."""
+def nitrification_temp_factor(t):
+    """Stockle and Campbell (1989) Eq. 11 (Watts and Hanks 1978), relative to the 35 C rate."""
+    if t <= 0.0:
+        return 0.0
+    if t < 10.0:
+        return 0.0105 * t + 0.00095 * t * t
+    if t < 35.0:
+        return 0.032 * t - 0.12
+    return max(0.0, 4.5 - 0.1 * t) if t < 45.0 else 0.0
+
+
+def nitrification_flux_ratio(nh4_kg_ha, no3_surface_kg_ha, tsoil_c, sat_frac):
+    """Daily nitrification (kg N/ha) = NH4 x k x fT(T) x fW(layer-1 saturation) / (1 + (NO3/NH4 / r0)^q) / (1 + NH4/ks). fT is the published
+    Stockle and Campbell (1989) Eq. 11, which matches Cycles' temperature response in shape. Cycles' implied rate per kg NH4 is flat up to a surface
+    NO3:NH4 of about 6 and collapses by 12 (no source gives this; it holds in every NH4 concentration bin), and drops sharply above a layer-1
+    saturation of about 0.8 (no source gives the form; a logistic cutoff). Parameters are measured on Cycles' own daily states."""
     if nh4_kg_ha <= 1e-9:
         return 0.0
     P = NITRIF_RATIO_PARAMS
     r = max(no3_surface_kg_ha, 0.0) / nh4_kg_ha
     x = (r / P["r0"]) ** P["q"] if r < 1e3 else 1e30
-    return nh4_kg_ha * P["k"] / (1.0 + math.exp(-P["ts"] * (tsoil_c - P["t0"]))) / (1.0 + x) / (1.0 + nh4_kg_ha / P["ks"])
+    fw = 1.0 / (1.0 + math.exp(max(-50.0, min(50.0, (sat_frac - P["f0"]) / P["s"]))))
+    return nh4_kg_ha * P["k"] * nitrification_temp_factor(tsoil_c) * fw / (1.0 + x) / (1.0 + nh4_kg_ha / P["ks"])
 
 
 # Wind-driven volatilization (2026-10-20). Cycles zeroes volatilization at zero wind and is
@@ -2918,7 +2930,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("netmin", ()):
                 _smin = _FORCE_CUR["netmin"][w["doy"]]   # diagnostic: Cycles' own net mineralization flux in the fallow windows too
             nstate["n_nh4"], nstate["n_no3"] = apply_net_min(nstate["n_nh4"], nstate["n_no3"], no3_layers, _smin, sixpool_state)
-        nit = nitrification_flux_ratio(nstate["n_nh4"], (no3_layers[0] if no3_layers is not None else nstate["n_no3"]), nstate["tsoil_lag"])
+        nit = nitrification_flux_ratio(nstate["n_nh4"], (no3_layers[0] if no3_layers is not None else nstate["n_no3"]), nstate["tsoil_lag"], layers[0]["theta"] / layers[0]["sat"])
         vol = (volatilization_flux(nstate["tsoil_lag"], nstate["n_nh4"], layers[0], w["wind"], layers[0].get("ph"))
                if model_volatilization else 0.0)
         nstate["n_nh4"] = max(0.0, nstate["n_nh4"] - nit - vol)
@@ -3966,7 +3978,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             # up to ~0.145/day, volatilization up to ~0.044/day observed) that this is a safe
             # explicit-Euler approximation, the same one already used for every other daily
             # rate in this engine.
-            nitrif_amt_today = nitrification_flux_ratio(n_nh4, (no3_layers[0] if no3_layers is not None else n_no3), tsoil_lag)
+            nitrif_amt_today = nitrification_flux_ratio(n_nh4, (no3_layers[0] if no3_layers is not None else n_no3), tsoil_lag, layers[0]["theta"] / layers[0]["sat"])
             volat_amt_today = (volatilization_flux(tsoil_lag, n_nh4, layers[0], w["wind"], layers[0].get("ph"))
                                if model_volatilization else 0.0)
             n_nh4 = max(0.0, n_nh4 - nitrif_amt_today - volat_amt_today)
