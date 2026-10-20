@@ -2754,6 +2754,24 @@ def denitrification_flux_resp(no3_total_kg_ha, theta_rel1, resp_mg_ha):
     return min(no3_total_kg_ha, DENITRIF_RESP_K * no3_total_kg_ha ** DENITRIF_RESP_NO3_POW * c ** DENITRIF_RESP_C_POW * min(max(theta_rel1, 0.02), 1.2) ** DENITRIF_RESP_REL_POW)
 
 
+DENIT_STARTDAY = True
+DENIT_SD = dict(K=0.367, kh=31.52, a=0.79, s0=0.736, sc=0.074)   # 2026-10-20: measured on Cycles' daily layer-1 states (denit_satvar_2026_10_20.py, start-of-day nitrate and saturation, R2 0.876)
+
+
+def denitrification_startday(no3_1_start, layer0, theta1_start, resp_mg_ha, no3_1_now):
+    """Daily denitrification (kg N/ha), layer 1 only = K x respired C x c/(c + kh) x logistic(s), c the start-of-day layer-1 nitrate (mg/kg) and
+    s = (theta - a pwp)/(sat - a pwp) the start-of-day layer-1 saturation measured above part of the wilting point. Cycles' flux acts on the START-of-day
+    state (same-row states explain 0.65, start-of-day 0.75, with the pwp-shifted saturation and a logistic cutoff 0.876); the form is measured on
+    Cycles, no published equation fits (Stockle and Campbell 1989 first-order form explains 0.07)."""
+    if no3_1_start <= 0.0:
+        return 0.0
+    P = DENIT_SD
+    c = no3_1_start / (sixpool_bulk_density(layer0["sat"]) * layer0["thick"] * 10.0)
+    s = max(0.0, min(1.5, (theta1_start - P["a"] * layer0["pwp"]) / (layer0["sat"] - P["a"] * layer0["pwp"])))
+    g = 1.0 / (1.0 + math.exp(max(-50.0, min(50.0, -(s - P["s0"]) / P["sc"]))))
+    return min(max(no3_1_now, 0.0), P["K"] * max(resp_mg_ha * 1000.0, 0.0) * c / (c + P["kh"]) * g)
+
+
 WINTERKILL_SOIL_T = True
 
 
@@ -2846,16 +2864,24 @@ def volatilization_flux(tsoil, nh4_kg_ha, layer0, wind_ms, ph=None):
 # Nitrous oxide emission: N2O-N is a fixed share of each process flux: 1% of nitrified N and 10% of denitrified N (round literature-range values; the IPCC Tier 1 direct
 # emission factor is 1% of N input). 2026-10-20: replaces a nitrate-concentration law back-calculated from Cycles' output (N2O_DENIT_A x NO3^0.816); against Cycles on 24 sites
 # the constant share raises the site correlation of N2O from 0.80 to 0.87 at N=150 and from 0.54 to 0.80 at N=400. Output only: N2O does not feed back into any pool.
-N2O_NITRIF_FRAC = 0.01
-N2O_DENIT_FRAC = 0.10
+# N2O (2026-10-20, n2o_shares_2026_10_20.py, 920k Cycles daily rows). Cycles' shares are not constants: the N2O share of nitrification is 0.26 percent
+# until layer-1 saturation passes about 0.8 and then rises to 8 percent (logistic centre 0.84, R2 0.77 against 0.15 for a constant); the N2O share of
+# denitrification rises with the start-of-day layer-1 nitrate concentration (0.02 at 0 to 2 mg/kg, 0.4 above 80) and falls with saturation
+# (A c^0.385 exp(-1.53 s), R2 0.77 against 0.65 for a constant). The earlier constants (0.01, 0.10) were set on end-of-day totals.
+N2O_NIT = dict(a=0.0026, b=0.0696, s0=0.8394, w=0.0129)
+N2O_DEN = dict(A=0.1155, p=0.3849, q=1.5325)
 
 
-def n2o_from_nitrification(nitrified_kg_ha):
-    return N2O_NITRIF_FRAC * nitrified_kg_ha
+def n2o_from_nitrification(nitrified_kg_ha, sat_frac):
+    P = N2O_NIT
+    return nitrified_kg_ha * (P["a"] + P["b"] / (1.0 + math.exp(max(-50.0, min(50.0, -(sat_frac - P["s0"]) / P["w"])))))
 
 
-def n2o_from_denitrification(denitrified_kg_ha):
-    return N2O_DENIT_FRAC * max(0.0, denitrified_kg_ha)
+def n2o_from_denitrification(denitrified_kg_ha, no3_mgkg_start, sat_start):
+    if denitrified_kg_ha <= 0.0:
+        return 0.0
+    P = N2O_DEN
+    return denitrified_kg_ha * min(1.0, P["A"] * max(no3_mgkg_start, 1e-3) ** P["p"] * math.exp(-P["q"] * min(max(sat_start, 0.0), 1.2)))
 
 
 IMMOB_FROM_NO3 = True   # opt-in: net immobilization (negative net mineralization) is drawn from NH4 first, then nitrate top-down (paper Sec 2.6: the microbial pool assimilates N from the ammonium and nitrate pools); False = NH4 only, the shortfall is dropped
@@ -2895,6 +2921,8 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
     leached = denit = volat = 0.0
     no3_layers = nstate.get("no3_layers")
     for w in rows:
+        _dn_th0 = layers[0]["theta"]
+        _dn_no3_0 = no3_layers[0] if no3_layers is not None else 0.0
         if SNOW_MODEL:
             w = snow_adjust(layers, w, lat_deg)
         _rc = residue_cover_frac(sixpool_state)
@@ -2937,7 +2965,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
         nstate["n_no3"] += nit
         if no3_layers is not None:
             no3_layers[0] += nit
-        nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_nitrification(nit)
+        nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_nitrification(nit, layers[0]["theta"] / layers[0]["sat"])
         volat += vol
         profile_water_mm = sum(l["theta"] * l["thick"] * 1000 for l in layers)
         if no3_layers is None and profile_water_mm > 0 and nstate["n_no3"] > 0 and drainage_mm > 0:
@@ -2946,14 +2974,18 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             leached += lost
         if model_denitrification and sixpool_state is not None and no3_layers is not None:
             _no3_pre = nstate["n_no3"]
-            d = denitrification_flux_resp(_no3_pre, (_SUBDAY_REL1_EFF if (SUBDAY_DENIT and _SUBDAY_REL1_EFF is not None) else layers[0]["theta"] / layers[0]["sat"]), sixpool_state.get("resp_mg_ha", 0.0))
+            d = (denitrification_startday(_dn_no3_0, layers[0], _dn_th0, sixpool_state.get("resp_mg_ha", 0.0), no3_layers[0]) if DENIT_STARTDAY else
+                 denitrification_flux_resp(_no3_pre, (_SUBDAY_REL1_EFF if (SUBDAY_DENIT and _SUBDAY_REL1_EFF is not None) else layers[0]["theta"] / layers[0]["sat"]), sixpool_state.get("resp_mg_ha", 0.0)))
             if DIAG_DENIT is not None: DIAG_DENIT.append((_DIAG_YEAR, w["doy"], (_SUBDAY_REL1_EFF if (SUBDAY_DENIT and _SUBDAY_REL1_EFF is not None) else layers[0]["theta"] / layers[0]["sat"]), _no3_pre, sixpool_state.get("resp_mg_ha", 0.0), d, layers[0]["theta"] / layers[0]["sat"], tuple(no3_layers)))
             if d > 0 and _no3_pre > 0:
-                _f = d / _no3_pre
-                for i in range(len(no3_layers)):
-                    no3_layers[i] *= (1.0 - _f)
+                if DENIT_STARTDAY:
+                    no3_layers[0] -= d
+                else:
+                    _f = d / _no3_pre
+                    for i in range(len(no3_layers)):
+                        no3_layers[i] *= (1.0 - _f)
                 nstate["n_no3"] = max(0.0, _no3_pre - d)
-                nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_denitrification(d)
+                nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_denitrification(d, _dn_no3_0 / (sixpool_bulk_density(layers[0]["sat"]) * layers[0]["thick"] * 10.0), _dn_th0 / layers[0]["sat"])
                 denit += d
         elif model_denitrification:
             # first fallow window of a run: the six-pool state does not exist yet, so the older layer-1 rate law acts (to be replaced by initializing the six-pool state first)
@@ -2961,7 +2993,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
                 raise ValueError("denitrification needs per-layer nitrate")
             _no3_pre = nstate["n_no3"]
             d = no3_layers[0] * denitrification_rate_rel(layers[0]["theta"] / layers[0]["sat"], nstate["tsoil_lag"]) * _denit_depth_factor(layers)
-            nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_denitrification(d)
+            nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_denitrification(d, _dn_no3_0 / (sixpool_bulk_density(layers[0]["sat"]) * layers[0]["thick"] * 10.0), _dn_th0 / layers[0]["sat"])
             no3_layers[0] -= d
             nstate["n_no3"] = max(0.0, nstate["n_no3"] - d)
             denit += d
@@ -3837,6 +3869,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     canopy_n_kg_ha = 0.0
 
     for w in weather_rows:
+        _dn_th0 = layers[0]["theta"]
+        _dn_no3_0 = no3_layers[0] if no3_layers is not None else 0.0
         if SNOW_MODEL:
             w = snow_adjust(layers, w, crop["lat_deg"])
         last_doy = w["doy"]
@@ -3983,7 +4017,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                                if model_volatilization else 0.0)
             n_nh4 = max(0.0, n_nh4 - nitrif_amt_today - volat_amt_today)
             n_no3 += nitrif_amt_today
-            n2o_total += n2o_from_nitrification(nitrif_amt_today)
+            n2o_total += n2o_from_nitrification(nitrif_amt_today, layers[0]["theta"] / layers[0]["sat"])
             if no3_layers is not None:
                 no3_layers[0] += nitrif_amt_today
             if n_volatilized_pool_total is not None:
@@ -3998,13 +4032,17 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         if model_denitrification and n_pool is not None:
             if sixpool_state is None or no3_layers is None or n_no3 is None or n_pool_by_layer is not None:
                 raise ValueError("denitrification needs the six-pool background model with per-layer nitrate")
-            denitrif_today = denitrification_flux_resp(n_no3, (_SUBDAY_REL1_EFF if (SUBDAY_DENIT and _SUBDAY_REL1_EFF is not None) else layers[0]["theta"] / layers[0]["sat"]), sixpool_state.get("resp_mg_ha", 0.0))
+            denitrif_today = (denitrification_startday(_dn_no3_0, layers[0], _dn_th0, sixpool_state.get("resp_mg_ha", 0.0), no3_layers[0]) if DENIT_STARTDAY else
+                              denitrification_flux_resp(n_no3, (_SUBDAY_REL1_EFF if (SUBDAY_DENIT and _SUBDAY_REL1_EFF is not None) else layers[0]["theta"] / layers[0]["sat"]), sixpool_state.get("resp_mg_ha", 0.0)))
             if DIAG_DENIT is not None: DIAG_DENIT.append((_DIAG_YEAR, w["doy"], (_SUBDAY_REL1_EFF if (SUBDAY_DENIT and _SUBDAY_REL1_EFF is not None) else layers[0]["theta"] / layers[0]["sat"]), n_no3, sixpool_state.get("resp_mg_ha", 0.0), denitrif_today, layers[0]["theta"] / layers[0]["sat"], tuple(no3_layers)))
             if denitrif_today > 0 and n_no3 > 0:
                 _f = denitrif_today / n_no3
-                n2o_total += n2o_from_denitrification(denitrif_today)
-                for i in range(len(no3_layers)):
-                    no3_layers[i] *= (1.0 - _f)
+                n2o_total += n2o_from_denitrification(denitrif_today, _dn_no3_0 / (sixpool_bulk_density(layers[0]["sat"]) * layers[0]["thick"] * 10.0), _dn_th0 / layers[0]["sat"])
+                if DENIT_STARTDAY:
+                    no3_layers[0] -= denitrif_today
+                else:
+                    for i in range(len(no3_layers)):
+                        no3_layers[i] *= (1.0 - _f)
                 n_no3 = max(0.0, n_no3 - denitrif_today)
             n_denitrified_total += denitrif_today
         if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("loss", ()) and no3_layers is not None and n_no3 is not None:
