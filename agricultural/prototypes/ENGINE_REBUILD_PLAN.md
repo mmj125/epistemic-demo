@@ -628,3 +628,6 @@ Sources checked: Cycles guide (NITRIF_RATE, POT_DENITRIF_RATE, DENITRIF_HALF_RAT
 
 ### 2026-10-20: cleanup pass (see agricultural/FITTED_INVENTORY_2026-10-20.md)
 Dead code removed (engine 5,100 to 4,400 lines, output identical at each step). Adopted: SI.14 variable microbial C:N (neutral), N2O as constant shares (1% nitrified, 10% denitrified; N2O site correlation up, output only). Not adopted: SWAT snow values (soybean and wheat about 1 to 2% worse, CIs exclude zero), SI.12 and SI.13 saturation constants (corn N=0 MAE +0.056 [0.038,0.079] worse). Exact-output regression: `snapshot_2026_10_20.py save|check`; API and harness parity: `check_parity_2026_10_19.py`.
+
+### 2026-10-20 (later): soil temperature by heat conduction
+Fitted lag table replaced by `hc_make`/`hc_step` (D 0.08 m2/day, surface at air temperature, 3 m at the running mean): layer rms against Cycles 1.24 / 1.52 / 1.22 C against 1.27 / 1.50 / 1.13, winter bias 0.00 against +0.68, summer -0.31 against -0.92. Engine cost: corn N=0 MAE +0.007 [0.002,0.013], wheat N=0 +0.006, rest neutral, pooled correlation unchanged, adopted. Net mineralization in the cold half is NOT fixed by the better temperature (cold-season surplus unchanged), so that gap is carbon-pool respiration. Exact-output snapshots: `/tmp/w/snap_hc.json` is the new reference (regenerate with `snapshot_2026_10_20.py save`).

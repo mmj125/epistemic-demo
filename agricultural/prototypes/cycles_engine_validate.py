@@ -2449,18 +2449,69 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
 
 SIXPOOL_ML_ROOT_DECAY_M = 0.25  # exponential depth distribution of root-carbon input (layer midpoint)
 SIXPOOL_ML_TMEAN_INIT = 11.0  # initial annual-mean air temperature (C) for the soil-temperature model
-# Soil temperature by layer midpoint depth from air temperature: T = Tmean + g*(lag(air,k) - Tmean).
-# (zmid upper bound m, lag k, gain g) fitted against Cycles' own environ.txt SOIL TMP, 8 sites x 11 years x
-# all layers: rms 0.85-1.09 C (a plain first-order lag per layer gave 2-3.5 C at depth).
-SIXPOOL_ML_TEMP_TABLE = ((0.25, 0.80, 0.9), (0.6, 0.50, 0.8), (1.0, 0.15, 0.7), (99.0, 0.06, 0.5))
 
 
-def sixpool_ml_temp_params(zmid):
-    for zmax, k, g in SIXPOOL_ML_TEMP_TABLE:
-        if zmid < zmax:
-            return k, g
-    return SIXPOOL_ML_TEMP_TABLE[-1][1], SIXPOOL_ML_TEMP_TABLE[-1][2]
 SIXPOOL_ML_TILL_DEPTH_M = 0.15  # tillage disturbance factor applies only to layers starting above this depth
+
+
+SOILT_DIFFUSIVITY_M2_DAY = 0.08   # thermal diffusivity; the SI quotes a damping depth of 0.13 to 0.25 m for the daily wave, i.e. 0.05 to 0.2 m2/day
+SOILT_DEEP_M = 3.0
+
+
+def hc_make(layer_thicks, tmean_init):
+    """Heat-conduction grid for soil temperature: a geometric finite-volume grid (cells of 0.02 m growing by 25 percent) down to SOILT_DEEP_M, the surface held at the day's mean
+    air temperature and the bottom at the running long-term mean. Layer temperatures are cell temperatures weighted by overlap with each soil layer."""
+    h, z = [], 0.0
+    w = 0.02
+    while z < SOILT_DEEP_M - 1e-9:
+        w = min(w, SOILT_DEEP_M - z); h.append(w); z += w; w *= 1.25
+    n = len(h)
+    mid = [sum(h[:i]) + h[i] / 2.0 for i in range(n)]
+    D = SOILT_DIFFUSIVITY_M2_DAY
+    g = [D / (mid[i + 1] - mid[i]) for i in range(n - 1)]          # conductance between cell i and i+1 (m2/day per m)
+    g_top, g_bot = D / mid[0], D / (SOILT_DEEP_M - mid[-1])
+    a, b, c = [0.0] * n, [0.0] * n, [0.0] * n
+    for i in range(n):
+        gl = g[i - 1] if i > 0 else g_top
+        gu = g[i] if i < n - 1 else g_bot
+        a[i] = -gl / h[i] if i > 0 else 0.0
+        c[i] = -gu / h[i] if i < n - 1 else 0.0
+        b[i] = 1.0 + (gl + gu) / h[i]
+    cp = [0.0] * n
+    for i in range(n):
+        cp[i] = c[i] / b[i] if i == 0 else c[i] / (b[i] - a[i] * cp[i - 1])
+    edges, z0 = [], 0.0
+    for t in layer_thicks:
+        edges.append((z0, z0 + t)); z0 += t
+    wts = []
+    for (e0, e1) in edges:
+        ws, zc = [], 0.0
+        for i in range(n):
+            ov = max(0.0, min(zc + h[i], e1) - max(zc, e0)); zc += h[i]
+            ws.append(ov)
+        tot = sum(ws)
+        wts.append([x / tot for x in ws] if tot > 0 else None)
+    return dict(n=n, a=a, b=b, cp=cp, g_top=g_top / h[0], g_bot=g_bot / h[-1], T=[tmean_init] * n, tm=tmean_init, wts=wts)
+
+
+def hc_step(hc, tair):
+    """One day: implicit conduction step with the surface at tair; returns the layer temperatures."""
+    n, a, b, cp, T = hc["n"], hc["a"], hc["b"], hc["cp"], hc["T"]
+    hc["tm"] += (tair - hc["tm"]) / 365.0
+    d = list(T)
+    d[0] += hc["g_top"] * tair
+    d[-1] += hc["g_bot"] * hc["tm"]
+    dp = [0.0] * n
+    dp[0] = d[0] / b[0]
+    for i in range(1, n):
+        dp[i] = (d[i] - a[i] * dp[i - 1]) / (b[i] - a[i] * cp[i - 1])
+    T[-1] = dp[-1]
+    for i in range(n - 2, -1, -1):
+        T[i] = dp[i] - cp[i] * T[i + 1]
+    out = []
+    for ws in hc["wts"]:
+        out.append(sum(x * y for x, y in zip(ws, T)) if ws is not None else hc["tm"])
+    return out
 
 
 def sixpool_ml_init(layers, profile_raw):
@@ -2471,7 +2522,7 @@ def sixpool_ml_init(layers, profile_raw):
     subs, z = [], 0.0
     for l, raw in zip(layers, profile_raw):
         sub = sixpool_init_state(l, raw["clay"], raw["soc"], depth_m=raw["thick"])
-        sub["z0"], sub["zmid"], sub["tl"], sub["ml_sub"] = z, z + raw["thick"] / 2.0, None, True
+        sub["z0"], sub["zmid"], sub["ml_sub"] = z, z + raw["thick"] / 2.0, True
         subs.append(sub)
         z += raw["thick"]
     return dict(ml=subs, cs=sum(x["cs"] for x in subs), cm=sum(x["cm"] for x in subs),
@@ -2498,14 +2549,12 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
     wsum = sum(wts) or 1.0
     total = 0.0
     resp_tot = 0.0
+    _hc = state.get("hc")
+    if _hc is None:
+        _hc = state["hc"] = hc_make([2.0 * (x["zmid"] - x["z0"]) for x in subs], SIXPOOL_ML_TMEAN_INIT)
+    _t_hc = hc_step(_hc, tmean)
     for i, (sub, l) in enumerate(zip(subs, layers)):
-        k, g = sixpool_ml_temp_params(sub["zmid"])
-        if sub["tl"] is None:
-            sub["tl"] = tmean
-            sub["tm"] = SIXPOOL_ML_TMEAN_INIT
-        sub["tl"] += k * (tmean - sub["tl"])
-        sub["tm"] += (tmean - sub["tm"]) / 365.0
-        t_layer = sub["tm"] + g * (sub["tl"] - sub["tm"])
+        t_layer = _t_hc[i]
         relwet = ((l["theta"] - l["pwp"]) / (l["fc"] - l["pwp"]) if l["fc"] > l["pwp"] else 1.0)
         sub["n_min"] = state.get("n_min")
         sub["n_conc1"] = state.get("n_conc1")
@@ -3825,8 +3874,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     # artifact of the old mechanism's specific shape. Corn/soybean/silage corn's own DEFAULT
     # validation (n_rate_kg_ha=None) is completely unaffected either way, since this whole
     # block only runs when n_pool is not None.
-    _wk_tl = None
-    _wk_tm = SIXPOOL_ML_TMEAN_INIT
+    _wk_hc = hc_make([layers[0]["thick"]], SIXPOOL_ML_TMEAN_INIT)
     _V = crop.get("vern")
     vern_acc, pw_acc, post_acc, flowered, tt_dev = 0.0, 0.0, 0.0, False, 0.0
     winter_killed = False
@@ -3870,12 +3918,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # nights of -40 C. The air rule killed 190 of 333 surviving winters; this rule 27 of 333 while catching 5 of the 7 real kills. Layer-1 temperature is
         # the same lag filter the six-pool uses (correlation 0.96 with Cycles' soil_temperature.1 winter minimum, bias -1.5 C: no snow insulation).
         _wk_tmean = (w["tx"] + w["tn"]) / 2.0
-        if _wk_tl is None:
-            _wk_tl = _wk_tmean
-        _wk_k, _wk_g = sixpool_ml_temp_params(layers[0]["thick"] / 2.0)
-        _wk_tl += _wk_k * (_wk_tmean - _wk_tl)
-        _wk_tm += (_wk_tmean - _wk_tm) / 365.0
-        _wk_soil = _wk_tm + _wk_g * (_wk_tl - _wk_tm)
+        _wk_soil = hc_step(_wk_hc, _wk_tmean)[0]
         if (_wk_soil if WINTERKILL_SOIL_T else w["tn"]) < crop.get("winterkill_temp", -math.inf):
             winter_killed = True
             break

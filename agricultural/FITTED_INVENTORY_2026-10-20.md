@@ -98,3 +98,16 @@ Tested on 94 corn sites (paired, held-out, 3 N rates) and 24 sites for the other
 | N2O as fixed shares (1% of nitrified, 10% of denitrified N) instead of the fitted concentration law | site correlation with Cycles N2O 0.83 / 0.80 / 0.54 to 0.83 / 0.87 / 0.80 at N=0 / 150 / 400; level x3.4 / 1.3 / 0.8 against x2.4 / 1.1 / 1.6 | adopted (output only) |
 
 Open: the saturation constants cost accuracy at N=0 (the unexplained over-yield and the cold-season net mineralization surplus), so removing that fit needs the N=0 mechanism first. Old fitting scripts (`opt_*.py`, `calibrate*.py`, `audit_sweep.py`) reference removed constants and no longer run; the public pages carry the engine from before this cleanup and have not been re-synced.
+
+## Soil temperature replaced by heat conduction, 2026-10-20
+
+The fitted per-layer lag table (`SIXPOOL_ML_TEMP_TABLE`, 4 depth zones with a rate and a gain each, plus an initial mean) is replaced by a 1-D heat-conduction model (`hc_make`, `hc_step`): the surface is held at the day's mean air temperature, the bottom (3 m) at the running long-term mean, and one thermal diffusivity, 0.08 m2/day, which sits inside the range the SI implies (a daily damping depth of 0.13 to 0.25 m is 0.05 to 0.2 m2/day). The same model now drives the winterkill soil-temperature test. `soiltemp_physical_2026_10_20.py` compares models against Cycles' soil temperature on 24 sites:
+
+| Model | Layer 1 rms (C) | Layer 2 | Layer 3 | Layer 1 winter bias | Summer bias |
+|---|---|---|---|---|---|
+| Fitted lag table | 1.27 | 1.50 | 1.13 | +0.68 | -0.92 |
+| Heat conduction, D 0.08 | 1.24 | 1.52 | 1.22 | 0.00 | -0.31 |
+
+Lagging the surface boundary or using two diffusivities by depth did not help. Effect on the engine (paired, held-out): corn N=0 MAE +0.007 (1.3%) worse [CI -0.013,-0.002], N=150 and 400 neutral; wheat N=0 +0.006 (1.4%) and N=90 +0.003 worse, N=150 neutral; silage and sorghum neutral within noise; pooled correlations unchanged; run time unchanged (1.7 s for 37 years). Adopted under the rule applied this session for replacing a fitted law with a documented one: pooled correlation unchanged and MAE cost within 2%.
+
+Not replaceable from the sources we have: the nitrification ratio rule and the volatilization law (no published form; the guide names `NITRIF_RATE` and gives no equation; volatilization needs soil pH and wind that our soil grid does not carry), `SOLUTE_VOL_SAT`, the evaporation law and the decomposition temperature and moisture tables.
