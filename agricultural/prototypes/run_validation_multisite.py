@@ -12,13 +12,10 @@ from cycles_engine_validate import *
 import run_validation as rv
 cev.N_DEMAND_SCALE = float(os.environ.get("N_DEMAND_SCALE", cev.N_DEMAND_SCALE))
 cev.ROOT_DENSITY_DECAY_M = float(os.environ["ROOT_DECAY"]) if os.environ.get("ROOT_DECAY") else cev.ROOT_DENSITY_DECAY_M
-cev.SURFACE_AIRDRY_FRAC = float(os.environ["AIRDRY"]) if os.environ.get("AIRDRY") else cev.SURFACE_AIRDRY_FRAC
 cev.N_UPTAKE_RATE_PER_DAY = float(os.environ["UPTAKE_RATE"]) if os.environ.get("UPTAKE_RATE") else cev.N_UPTAKE_RATE_PER_DAY
 cev.KHE_SCALE = float(os.environ["KHE"]) if os.environ.get("KHE") else cev.KHE_SCALE
-cev.FORCE_CROPSYST_EVAP = os.environ.get("CS_EVAP", "1") == "1"
 if os.environ.get("PSI_ANCHOR"): cev.PSI_E_FROM_ANCHOR = os.environ["PSI_ANCHOR"]=="1"   # only override when set (a default of off here silently disabled the engine default)
 if os.environ.get("CS_AD"): cev.CROPSYST_AIRDRY_FRAC = float(os.environ["CS_AD"])
-if os.environ.get("PLANT_GATE"): cev.PLANT_MOISTURE_GATE = os.environ["PLANT_GATE"]=="1"
 if os.environ.get("NGF"): cev.NET_GROWTH_FRACTION = float(os.environ["NGF"])
 if os.environ.get("ROOT_POW"): cev.ROOT_TRI_POW = float(os.environ["ROOT_POW"])
 if os.environ.get("EPS_H"): cev.SIXPOOL_ML_EPS_H = float(os.environ["EPS_H"])
@@ -29,7 +26,9 @@ for _o in os.environ.get("ENGINE_OVR","").split(";"):   # 2026-10-15: generic en
     if _o:
         _k,_v=_o.split("=",1)
         if _k.startswith("CROP."): rv.CORN[_k[5:]]=eval(_v)   # crop-dict constant, e.g. CROP.tr_threshold_t=13
-        else: setattr(cev,_k,eval(_v))
+        else:
+            if not hasattr(cev,_k): raise SystemExit(f'ENGINE_OVR: {_k} is not an engine constant (removed or misspelled)')
+            setattr(cev,_k,eval(_v))
 if os.environ.get("CONFIG")=="shipped":   # 2026-10-16 rebuild phase 1: score what engine-demo.html actually runs (bare simulate_season, no flags, no regional factor, fresh start each season)
     for _k,_v in (("REGIONAL","0"),("LEAD_YEARS","0"),("PER_LAYER","0"),("NITRATE_LAYERS","0"),("CARRY_N","0")): os.environ[_k]=_v
 CY=os.environ.get("CY_DIR","/tmp/cycles-run15")  # a local Cycles v1.5.20 release directory (binary + input/), not committed. Reference moved from v1.4.4 to v1.5.20 on 2026-10-12.
