@@ -151,7 +151,7 @@ def eto_fao56(doy, tmax, tmin, rs, rhmax, rhmin, wind_z, lat_deg, alt_m=0.0, win
 PSI_E_FROM_ANCHOR = True    # default since 2026-10-08 (16-site N150 grain MAE 1.37 -> 1.11, corr 0.77 -> 0.82); see saxton_rawls()
 
 
-def saxton_rawls(sand_pct, clay_pct, om_pct):
+def saxton_rawls(sand_pct, clay_pct, om_pct, fc_measured=None, pwp_measured=None, bd_measured=None):
     S, C, OM = sand_pct / 100, clay_pct / 100, om_pct
     theta_1500t = (-0.024 * S + 0.487 * C + 0.006 * OM
                    + 0.005 * (S * OM) - 0.013 * (C * OM) + 0.068 * (S * C) + 0.031)
@@ -164,6 +164,9 @@ def saxton_rawls(sand_pct, clay_pct, om_pct):
     theta_s33 = theta_s33t + (0.636 * theta_s33t - 0.107)
     theta_sat = theta_33 + theta_s33 - 0.097 * S + 0.043
     pwp, fc, sat = max(0.01, theta_1500), max(0.02, theta_33), max(0.05, theta_sat)
+    if fc_measured is not None and pwp_measured is not None:   # measured water retention (volumetric, 33 and 1500 kPa) replaces the texture estimate; B, psi_e and ksat follow from it below
+        fc, pwp = fc_measured, pwp_measured
+        sat = max(1.0 - bd_measured / 2.65 if bd_measured else sat, fc + 0.02)
 
     # Secondary parameters (Saxton & Rawls 2006, Soil Sci. Soc. Am. J. 70(5), Table 1,
     # Eq. 4/14-18) -- obtained directly from the paper (Matt supplied the PDF 2026-09-23

@@ -4,7 +4,7 @@ Reports (1) within-site agreement of detrended year-to-year yield, (2) pooled st
 import json,glob,os,sys
 import numpy as np, pandas as pd
 CY="/tmp/cycles-run15"
-sc=json.load(open('sitesets/fresh94_county.json')); eng=json.load(open('/tmp/w/engine_county_runs.json'))
+sc=json.load(open('sitesets/fresh94_county.json')); eng=json.load(open(os.environ.get('ENGRUN','/tmp/w/engine_county_runs.json')))
 obs=pd.read_csv('data/nass_county_yield_fresh94.csv',dtype={'fips':str})
 Y0,Y1=1982,2016
 CROPS={"corn":dict(sel=lambda d:(d.COMMODITY_DESC=="CORN")&(d.UTIL_PRACTICE_DESC=="GRAIN")&(d.PRODN_PRACTICE_DESC=="ALL PRODUCTION PRACTICES")&(d.UNIT_DESC=="BU / ACRE"),conv=0.062770,cy=lambda s:f"{s}N150"),
@@ -20,7 +20,7 @@ def detrend(y,x):
 def stats(crop,cfg):
     d=obs[cfg["sel"](obs)]; rows=[]
     for site,c in sc.items():
-        if not c["fips"] or site not in eng or "error" in eng[site][crop]: continue
+        if not c["fips"] or site not in eng or crop not in eng[site] or "error" in eng[site][crop]: continue
         o=d[d.fips==c["fips"]].groupby("YEAR")["VALUE"].mean()*cfg["conv"]
         e={int(k):v for k,v in eng[site][crop].items()}; cy=cyc(cfg["cy"](site))
         if cy is None: continue
