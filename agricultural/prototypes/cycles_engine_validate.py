@@ -2790,7 +2790,7 @@ SOIL_TEMP_LAG_K = 0.15  # reuses simulate_soil_temp()'s own already-validated la
 # not air, temperature, and this engine's main day loop otherwise only ever tracks air tmean.
 
 
-NITRIF_RATIO_PARAMS = dict(k=0.2774, r0=8.196, q=6.561, ks=391.1, f0=0.7908, s=0.0828)   # 2026-10-20: fitted to Cycles' daily layer-1 states (nitrif_forms_2026_10_20.py, 250k days, S4): R2 0.832; was logistic temperature, no moisture, R2 0.715
+NITRIF_RATIO_PARAMS = dict(k=0.2059, r0=8.2177, q=6.1948, f0=0.7952, s=0.0779)   # 2026-10-20: measured on Cycles' daily layer-1 states with the start-of-day NH4 and NO3 (previous day's end state) and the day's soil temperature and saturation (nitrif_timing_2026_10_20.py, R2 0.990; the earlier fit used end-of-day states, R2 0.83, and its constants were biased)
 
 
 def nitrification_temp_factor(t):
@@ -2805,9 +2805,9 @@ def nitrification_temp_factor(t):
 
 
 def nitrification_flux_ratio(nh4_kg_ha, no3_surface_kg_ha, tsoil_c, sat_frac):
-    """Daily nitrification (kg N/ha) = NH4 x k x fT(T) x fW(layer-1 saturation) / (1 + (NO3/NH4 / r0)^q) / (1 + NH4/ks). fT is the published
+    """Daily nitrification (kg N/ha) = NH4 x k x fT(T) x fW(layer-1 saturation) / (1 + (NO3/NH4 / r0)^q). fT is the published
     Stockle and Campbell (1989) Eq. 11, which matches Cycles' temperature response in shape. Cycles' implied rate per kg NH4 is flat up to a surface
-    NO3:NH4 of about 6 and collapses by 12 (no source gives this; it holds in every NH4 concentration bin), and drops sharply above a layer-1
+    NO3:NH4 of about 6 and collapses by 12 (no source gives this; it holds in every NH4 concentration bin and fits at R2 0.99 with start-of-day states), and drops sharply above a layer-1
     saturation of about 0.8 (no source gives the form; a logistic cutoff). Parameters are measured on Cycles' own daily states."""
     if nh4_kg_ha <= 1e-9:
         return 0.0
@@ -2815,7 +2815,7 @@ def nitrification_flux_ratio(nh4_kg_ha, no3_surface_kg_ha, tsoil_c, sat_frac):
     r = max(no3_surface_kg_ha, 0.0) / nh4_kg_ha
     x = (r / P["r0"]) ** P["q"] if r < 1e3 else 1e30
     fw = 1.0 / (1.0 + math.exp(max(-50.0, min(50.0, (sat_frac - P["f0"]) / P["s"]))))
-    return nh4_kg_ha * P["k"] * nitrification_temp_factor(tsoil_c) * fw / (1.0 + x) / (1.0 + nh4_kg_ha / P["ks"])
+    return nh4_kg_ha * P["k"] * nitrification_temp_factor(tsoil_c) * fw / (1.0 + x)
 
 
 # Wind-driven volatilization (2026-10-20). Cycles zeroes volatilization at zero wind and is
@@ -2823,10 +2823,10 @@ def nitrification_flux_ratio(nh4_kg_ha, no3_surface_kg_ha, tsoil_c, sat_frac):
 # volat_form_2026_10_20.py): flux = exp(A) * c^B * theta1^C * wind * exp(E * T), c the layer-1
 # NH4 concentration (mg/kg), R2 0.835 in log space, wind exponent 1.004 free. Cycles ignores pH,
 # so there is no pH term (pH is an opt-in, see VOLAT_PH_SLOPE).
-VOLAT_WIND_LN_A = -11.2675
-VOLAT_WIND_B = 0.8125
-VOLAT_WIND_C = -1.4498
-VOLAT_WIND_E = 0.1505
+VOLAT_WIND_LN_A = -11.2896
+VOLAT_WIND_B = 0.8588
+VOLAT_WIND_C = -1.4581
+VOLAT_WIND_E = 0.1456
 VOLAT_PH_SLOPE = 0.0   # ln-units of flux per pH unit above 7 (0 = off, as in Cycles); chemistry gives about ln(10) = 2.3 below pKa 9.25
 
 

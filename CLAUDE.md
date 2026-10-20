@@ -33,6 +33,7 @@ Model only. No UI, pedagogy, lesson copy or classroom framing until the engine i
 2. No site is special. Rock Springs is a crude crash guard only. Quote only multi-site results: 94 fresh sites (`sitesets/fresh94.json`), 24-site quick set, paired bootstrap, `scorecard.py`. `sitesets/holdout.json` (100 sites) is locked until the final report.
 3. Quote N=0 results only from the continuous chain (`LEAD_YEARS=continuous`); short lead-ins over-yield unfertilized corn.
 4. Check any figure against code or data before relying on it. Stale numbers have misled us repeatedly.
+   Cycles daily rows are END-of-day states; a day's flux acts on the START-of-day state (previous row). Fitting fluxes on same-row states cost the nitrification law 0.16 of R2 (0.83 against 0.99 with start-of-day states, 2026-10-20).
 5. Before each substantial step: expected change and why, the contingency, and whether a higher-level diagnostic should come first.
 6. Do not repeat the same kind of step after two failures; change kind (attribution, input audit, structural change).
 7. Before a new mechanism, read the sources: `GenericCrops.crop` (all fields), the Cycles guide (`git clone --depth 1 https://github.com/PSUmodeling/Cycles`, read `docs/input.md`, `docs/output.md`), the paper and SI (committed PDFs, `git show origin/main:<file>`), Cycles daily and annual output, `ENGINE_REBUILD_PLAN.md`, `REFIT_PLAN.md`, `MECHANISM_LOG.md`. State which were checked.
