@@ -18,15 +18,9 @@ cev.KHE_SCALE = float(os.environ["KHE"]) if os.environ.get("KHE") else cev.KHE_S
 cev.FORCE_CROPSYST_EVAP = os.environ.get("CS_EVAP", "1") == "1"
 if os.environ.get("PSI_ANCHOR"): cev.PSI_E_FROM_ANCHOR = os.environ["PSI_ANCHOR"]=="1"   # only override when set (a default of off here silently disabled the engine default)
 if os.environ.get("CS_AD"): cev.CROPSYST_AIRDRY_FRAC = float(os.environ["CS_AD"])
-if os.environ.get("FE_POW"): cev.FE_TEMP_POW = float(os.environ["FE_POW"])
-if os.environ.get("FE_K"): cev.FE_TEMP_CYCLES_K = float(os.environ["FE_K"])
 if os.environ.get("PLANT_GATE"): cev.PLANT_MOISTURE_GATE = os.environ["PLANT_GATE"]=="1"
 if os.environ.get("NGF"): cev.NET_GROWTH_FRACTION = float(os.environ["NGF"])
-if os.environ.get("NLIM"): cev.SIXPOOL_N_LIMIT = os.environ["NLIM"]=="1"
-if os.environ.get("NLIM_MIN"): cev.SIXPOOL_NLIM_MIN = float(os.environ["NLIM_MIN"])
-if os.environ.get("NLIM_C"): cev.SIXPOOL_NLIM_CENTER = float(os.environ["NLIM_C"])
 if os.environ.get("ROOT_POW"): cev.ROOT_TRI_POW = float(os.environ["ROOT_POW"])
-if os.environ.get("N_A"): cev.SIXPOOL_ML_N_A = float(os.environ["N_A"])
 if os.environ.get("EPS_H"): cev.SIXPOOL_ML_EPS_H = float(os.environ["EPS_H"])
 if os.environ.get("EVAPP"): cev.EVAP_LAW_PARAMS = tuple(float(x) for x in os.environ["EVAPP"].split(","))   # 2026-10-19: soil evaporation law (air-dry fraction, critical fraction, exponent)
 if os.environ.get("CRA_TAU"): cev.CRA_MATURATION_TAU_DAYS = float(os.environ["CRA_TAU"])
@@ -115,8 +109,6 @@ def corr(a,b):
     ma,mb=statistics.mean(a),statistics.mean(b); sa=math.sqrt(sum((x-ma)**2 for x in a)); sb=math.sqrt(sum((x-mb)**2 for x in b))
     return sum((a[i]-ma)*(b[i]-mb) for i in range(len(a)))/(sa*sb) if sa and sb else float('nan')
 def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
-    if os.environ.get('NETMULT_JSON'):
-        import json as _j; cev.SIXPOOL_NET_MULT=_j.load(open(os.environ['NETMULT_JSON'])).get(site,1.0)
     crop=dict(rv.CORN); crop["lat_deg"]=cell_lat
     if CROPSEL=='soy':
         import run_validation_rotation2 as _r2; crop=dict(_r2.SOYBEAN); crop['lat_deg']=cell_lat
@@ -128,7 +120,7 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     if os.environ.get('NGF') and 'ngf_faithful' in crop: crop['ngf_faithful']=float(os.environ['NGF'])   # 2026-10-18 growth-scalar sweep for the forced-state measurement
     if os.environ.get("REGIONAL","0")=="1" and CROPSEL!='soy':   # 2026-10-15 (default ON since the fresh-site validation, REFIT_PLAN row 38): regionalized net-N multiplier and grain factor from site covariates (regional_params.py)
         import importlib; _rp=importlib.import_module(os.environ.get('REGMOD','regional_params'))
-        _m,_g=_rp.regional_params(wx,soil_raw,REG_LON); cev.SIXPOOL_NET_MULT=_m; crop["calibration_factor"]=crop["calibration_factor"]*_g
+        _m,_g=_rp.regional_params(wx,soil_raw,REG_LON); crop["calibration_factor"]=crop["calibration_factor"]*_g
     if os.environ.get("LWP_WILT"): crop["lwp_wilting_point"]=float(os.environ["LWP_WILT"])
     if os.environ.get("GRAINSITE_JSON"):   # 2026-10-15: per-site grain calibration multiplier (regionalized)
         import json as _j2; crop["calibration_factor"]=crop["calibration_factor"]*_j2.load(open(os.environ["GRAINSITE_JSON"])).get(site,1.0)

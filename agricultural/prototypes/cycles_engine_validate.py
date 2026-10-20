@@ -2191,62 +2191,19 @@ SIXPOOL_TOPSOIL_DEPTH_M = 0.05  # fixed at Cycles' own REAL layer-1 thickness fo
 # a given lookup's layer0 happens to be" isn't the quantity SIXPOOL_KS was fit against).
 
 
-FE_TEMP_POW = 1.0   # 1 = original quadratic; <1 = flatter normalised response (opt-in)
-FE_TEMP_CYCLES_K = 0.0   # 0 = original quadratic; >0 = Cycles-measured temperature curve times this scale
-FE_TEMP_CYCLES_PTS = ((-10.5, 0.112), (-7.5, 0.114), (-4.5, 0.145), (-1.5, 0.157), (1.5, 0.163), (4.5, 0.160),
-                      (7.5, 0.166), (10.5, 0.173), (13.5, 0.191), (16.5, 0.215), (19.5, 0.250), (22.5, 0.269),
-                      (25.5, 0.333), (28.5, 0.559))
-
-
-SIXPOOL_FE_TEMP_PTS = None   # (default set below the measured table, 2026-10-19) piecewise-linear fT table (T, fT) measured from Cycles v1.5.20 composite_factor / the engine moisture factor on moist days (fe_season_2026_10_19.py); None = the quadratic below
 SIXPOOL_FE_TEMP_PTS_MEASURED = ((0.0, 0.0), (1.5, 0.026), (3.5, 0.045), (5.5, 0.077), (7.5, 0.120), (9.5, 0.170), (11.5, 0.231), (13.5, 0.303), (15.5, 0.385), (17.5, 0.468), (19.5, 0.554), (21.5, 0.641), (23.5, 0.731), (25.5, 0.810), (27.5, 0.877), (31.0, 1.0))
 
 SIXPOOL_FE_TEMP_PTS = SIXPOOL_FE_TEMP_PTS_MEASURED   # adopted 2026-10-19: 94 sites corn, grain MAE gain +0.011 [+0.007,+0.014] / +0.006 [+0.003,+0.010] / +0.005 [+0.003,+0.008] at N=0/150/400, better at 65 to 70 of 94 sites; the old quadratic was 6 to 15% high between 3 and 11 C
 
 
 def sixpool_fe_temp(tmean):
-    if SIXPOOL_FE_TEMP_PTS:
-        _p = SIXPOOL_FE_TEMP_PTS
-        if tmean <= _p[0][0]:
-            return _p[0][1]
-        for (_x0, _y0), (_x1, _y1) in zip(_p, _p[1:]):
-            if tmean <= _x1:
-                return _y0 + (_y1 - _y0) * (tmean - _x0) / (_x1 - _x0)
-        return _p[-1][1]
-    return _sixpool_fe_temp_quadratic(tmean)
-
-
-def _sixpool_fe_temp_quadratic(tmean):
-    """Real, back-calculated fE temperature response: a quadratic fit against Cycles' own
-    FACTOR COMP. column (soilLayersCN.txt), isolated from moisture by restricting the fit to
-    near-field-capacity days. Unverified above ~26C (Rock Springs' real record never gets
-    hotter) -- clamped to 1.0 for any warmer extrapolation rather than let the raw quadratic
-    run past its real fitted range (it crosses 1.0 again around 28-29C if left unclamped)."""
-    if FE_TEMP_POW != 1.0:
-        # Flatter temperature response, normalised so the rate at 18 C is unchanged (Cycles' factor rises ~1.7x
-        # between 12 and 24 C where the quadratic below rises ~2.7x): f = f_old^p * f_old(18)^(1-p).
-        _q = lambda x: 0.00095 + 0.01165 * x + 0.000822 * x * x
-        if tmean <= 0:
-            return 0.0
-        return max(0.0, min(1.0, (_q(tmean) ** FE_TEMP_POW) * (_q(18.0) ** (1.0 - FE_TEMP_POW))))
-    if FE_TEMP_CYCLES_K:
-        # Cycles' own mean FACTOR COMP. by soil temperature (relwet 0.7-1.3, 6 sites, layer 1), scaled by
-        # FE_TEMP_CYCLES_K; much flatter than the quadratic below (12->24C: x1.7 vs x2.7).
-        pts = FE_TEMP_CYCLES_PTS
-        if tmean <= pts[0][0]:
-            v = pts[0][1]
-        elif tmean >= pts[-1][0]:
-            v = pts[-1][1] + (pts[-1][1] - pts[-2][1]) / (pts[-1][0] - pts[-2][0]) * (tmean - pts[-1][0])
-        else:
-            v = pts[-1][1]
-            for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
-                if tmean <= x1:
-                    v = y0 + (y1 - y0) * (tmean - x0) / (x1 - x0)
-                    break
-        return max(0.0, min(1.0, FE_TEMP_CYCLES_K * v))
-    if tmean <= 0:
-        return 0.0
-    return max(0.0, min(1.0, 0.00095 + 0.01165 * tmean + 0.000822 * tmean * tmean))
+    _p = SIXPOOL_FE_TEMP_PTS
+    if tmean <= _p[0][0]:
+        return _p[0][1]
+    for (_x0, _y0), (_x1, _y1) in zip(_p, _p[1:]):
+        if tmean <= _x1:
+            return _y0 + (_y1 - _y0) * (tmean - _x0) / (_x1 - _x0)
+    return _p[-1][1]
 
 
 def sixpool_fe_moisture(relwet):
@@ -2320,15 +2277,6 @@ def sixpool_fh(cs, csx):
 # fD form 1-1/(1+(a*r)^b) fits best at a=9.95, b=1.145, ks=0.000348 (rms log error 0.347; the old
 # a=4.5, b=3, ks=0.00032 gives 0.563; no fD at all gives 0.393). Used only by the per-layer pool.
 SIXPOOL_DIAG = None  # optional list; when set, sixpool_step appends (cs_loss, residue_decomp, residue_co2) per call
-# Cycles' own annual net N mineralization (N.txt MINERALIZATION + IMMOBILIZATION) regressed on its own
-# annual soilC.txt columns, 528 site-years x 16 sites: net N = 186.8*SOM_RESPIRED_C - 78.1*HUMIFIED_C
-# - 7.6*RES_RESPIRED_C (kg N per Mg C), R^2 = 0.972, per-site mean residual under 25 kg N. Humified
-# share of decomposed residue C (HUMIFIED/(HUMIFIED+RES RESPIRED)) falls from ~0.53 at low Cs/Csx to
-# ~0.1 by Cs/Csx = 1: ~0.53*(1-r^12) (a flat eps_c*fH with exponent 6 gave 0.35 at r=0.7 and 0 at r>1).
-SIXPOOL_ML_N_A = 90.564  # 2026-10-15 joint refit with the SI fD respiration law (opt_joint.py, REFIT_PLAN row 43); was 72.0  # was 186.8 (fit on respiration terms alone); 140 chosen 2026-10-07 on the 16-site table (N0 corn bias +1.44 -> +0.21, leaching 1.06 -> 0.90, wheat chain 0.25 -> 0.52) at a cost to fertilized corn (N150 bias -0.70 -> -1.01); see MECHANISM_LOG.md
-SIXPOOL_ML_N_B = 37.689  # 2026-10-15 joint refit (row 43); was 33.0  # was 78.1 (fit on respiration terms); refit 2026-10-12 together with N_A and realized-growth root carbon on 28 sites run as one continuous Cycles-style chain
-SIXPOOL_ML_N_C = 7.6
-SIXPOOL_ML_N_B_CLAY = 0.0   # 2026-10-15 opt-in: immobilization coefficient B scales as 1 + k*(clay-0.25)/0.25 (Cycles' net-N response to fertilizer falls with clay: +27 on sand to +13 on heavy clay kg N/ha; the engine's did not)
 SIXPOOL_ML_EPS_H = 0.53
 # Clay-dependent humified fraction of decomposed residue (opt-in, 2026-10-07): (a, b) in a + b*(1-exp(-5.5*clay_frac)),
 # the C-Farm Eq. 4a clay shape (Kemanian & Stockle 2010) fitted to Cycles' humified/(humified+residue respired) over 16 sites:
@@ -2343,13 +2291,7 @@ SIXPOOL_ML_FH_FLOOR = 0.2  # Cycles still humifies ~0.12-0.17 of decomposed resi
 # depth term, 0.563 with the original constants); per-site mean bias within +/-0.27 except Wisconsin -0.39.
 SIXPOOL_ML_DEPTH_Q = 0.108  # 2026-10-15 designed fallow experiment (row 42): Cycles' respiration has almost no depth decay once Cs/Csx saturation is modeled; was 4.44
 SIXPOOL_ML_KS = 0.00020816  # 2026-10-15 joint refit (row 43); was 0.000680
-SIXPOOL_ML_FD_P = 1.0  # exponent on (Cs/Csx)/SIXPOOL_ML_FD_R0 in the per-layer SOM respiration rate (0 = off); Cycles v1.5.20 annual respiration rate rises ~ with layer-1 saturation ratio (log-log slope 0.95 over 16 sites)
-SIXPOOL_ML_N_USE_TOTAL = True  # True: net N is driven by Cs plus microbial respiration, the same definition as Cycles' SOM respired C column that the 186.8/78.1/7.6 coefficients were fitted on
-SIXPOOL_ML_N_SAT_Q = 0.0  # exponent on the initial saturation ratio in the net-N term (0 = off)
 SIXPOOL_ML_FD_SI = (4.26, 2.53)  # 2026-10-15 default: the SI Eq. SI.13 saturating form fitted to Cycles' per-layer respiration in designed fallow runs (row 42), rms 0.20 vs 0.54 for the power law; was None  # 2026-10-13: the SI form fitted to Cycles annual respiration (see comment above); None restores the power law
-SIXPOOL_ML_FD_FIXED = False  # 2026-10-12 test: hold the saturation ratio at its initial value
-SIXPOOL_ML_FD_R0 = 0.573  # 2026-10-12: FD_P=1 with R0 0.573 matches Cycles SOM respiration across 8 sites (0.14 to 3.3 Mg C/ha/yr); N_A 120, N_B 40
-SIXPOOL_ML_FD_CAP = 1e9  # upper limit on the saturation factor (1.0 = only reduce respiration at low saturation)
 # (An fD-style Cs/Csx saturation term, sixpool_fd_ml with constants 9.95/1.145, was removed 2026-10-08: unused since the
 # per-layer fit found no Cs/Csx dependence in SOM respiration; see sixpool_step's `fd = 1.0` for the ml_sub branch.)
 
@@ -2466,29 +2408,9 @@ def cra_maturity_fraction(age_days):
     return 1.0 - math.exp(-age_days / CRA_MATURATION_TAU_DAYS)
 
 
-SIXPOOL_N_LIMIT = False  # opt-in (2026-10-08): nitrogen limitation of decomposition, see sixpool_n_factor()
-SIXPOOL_NLIM_MIN = 0.40     # decomposition multiplier with no mineral N
-SIXPOOL_NLIM_CENTER = 30.0  # profile mineral N (kg/ha) at the logistic midpoint
-SIXPOOL_NLIM_WIDTH = 6.0
-
-
-def sixpool_n_factor(mineral_n_kg_ha):
-    """Decomposition multiplier from profile mineral N (kg N/ha). Fitted 2026-10-08 on weekly sums of Cycles'
-    own SOM respiration, unfertilized over fertilized run on identical inputs (16 sites, first four years,
-    before pools diverge): the ratio is 0.40 below 10 kg N/ha, 0.59 at 20-30, 0.81 at 30-40, 0.94 at 40-50 and
-    about 1 above 50, i.e. Cycles' decomposition is limited by mineral N. Logistic fit to that curve."""
-    if mineral_n_kg_ha is None:
-        return 1.0
-    return SIXPOOL_NLIM_MIN + (1.0 - SIXPOOL_NLIM_MIN) / (1.0 + math.exp(-(mineral_n_kg_ha - SIXPOOL_NLIM_CENTER) / SIXPOOL_NLIM_WIDTH))
-
-
 SIXPOOL_N_LIMIT_MM = True  # 2026-10-13: Cycles decomposition is limited by layer-1 mineral N concentration (measured on 28 sites, 53k days: residue decomposition relative to potential is flat above ~3 mg/kg and falls steeply below, 0.33 of plateau under 0.5 mg/kg, 0.6 at 0.5-1, 0.81 at 1-2)
-SIXPOOL_N_HALF_CLAY = 0.0   # see sixpool_step(); 0 = off
 SIXPOOL_N_HALF_MGKG = 0.623485  # refit 2026-10-15 (row 44); was 0.45  # half-saturation of c/(c+K)
 SIXPOOL_N_FMIN = 0.516973  # refit 2026-10-15 (row 44); was 0.3   # floor: Cycles' decomposition stays at about a third of its plateau even below 0.5 mg/kg (a zero floor stalls the whole system)
-SIXPOOL_N_FMIN_RES = None   # see sixpool_step: separate gate for residue decomposition (None = same gate as SOM)
-SIXPOOL_N_POT_MULT_RES = 1.6
-SIXPOOL_N_HALF_RES_MULT = 1.0
 SIXPOOL_N_POT_MULT = 1.17694  # refit 2026-10-15 with the stoichiometry path (row 44); was 1.6    # decomposition rates are potential (unlimited-N) rates times this when the limit is on
 
 
@@ -2500,9 +2422,6 @@ def n_conc_layer1(layers, nh4_kg_ha, no3_layers, no3_total):
     return ((nh4_kg_ha or 0.0) + no3_0) / mass
 
 
-SIXPOOL_N_LIMIT_PER_LAYER = False  # use each layer's own nitrate concentration (NH4 stays with layer 1) instead of layer 1's for every layer
-
-
 def n_conc_layers(layers, nh4_kg_ha, no3_layers, no3_total):
     out = []
     for i, l in enumerate(layers):
@@ -2510,10 +2429,6 @@ def n_conc_layers(layers, nh4_kg_ha, no3_layers, no3_total):
         no3_i = no3_layers[i] if no3_layers is not None else (no3_total if i == 0 else 0.0)
         out.append((((nh4_kg_ha or 0.0) if i == 0 else 0.0) + no3_i) / mass)
     return out
-
-
-SIXPOOL_NET_MULT = 1.0  # multiplier on the per-layer net N flux (2026-10-13 emulator test: scaled per site to a regression or Cycles' own site mean)
-SIXPOOL_ML_STOICH = True  # 2026-10-15 default (REFIT_PLAN row 44): explicit per-pool C:N stoichiometry reproduces Cycles' fertilizer response of net mineralization (falls with fertilizer at low SOC) that the regression form could not; held-out -11.1% with refit constants. Was False  # per-layer mode: return explicit-stoichiometry net N (released - immobilized at each pool's C:N) instead of the fitted regression (2026-10-13 test)
 
 
 def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=None):
@@ -2552,30 +2467,16 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
     cs, cm, cra, crtz, crm, csx = state["cs"], state["cm"], state["cra"], state["crtz"], state["crm"], state["csx"]
     ml_sub = state.get("ml_sub", False)
     fe = sixpool_fe(tmean, relwet, ml_sub)
-    fe_res = None
-    if SIXPOOL_N_LIMIT:
-        fe *= sixpool_n_factor(state.get("n_min"))
     if SIXPOOL_N_LIMIT_MM and state.get("n_conc1") is not None:
         _c = state["n_conc1"]
-        _khalf = SIXPOOL_N_HALF_MGKG * math.exp(-SIXPOOL_N_HALF_CLAY * (state.get("clay", 0.25) - 0.25) / 0.25)   # 2026-10-15 opt-in clay dependence of the N gate: heavy clay saturates at lower concentration, so fertilizer raises net N less
+        _khalf = SIXPOOL_N_HALF_MGKG   # 2026-10-15 opt-in clay dependence of the N gate: heavy clay saturates at lower concentration, so fertilizer raises net N less
         _gate = SIXPOOL_N_POT_MULT * (SIXPOOL_N_FMIN + (1.0 - SIXPOOL_N_FMIN) * _c / (_c + _khalf))
-        # 2026-10-15 opt-in separate, stronger N limitation of RESIDUE decomposition (C:N 30-86) than of soil organic matter (C:N ~10):
-        # designed fertilized runs (REFIT_PLAN row 44) show Cycles' net mineralization FALLS with fertilizer at low SOC / cool sites because
-        # immobilization rises ~10x while gross mineralization rises ~3x; one shared gate cannot do that.
-        if SIXPOOL_N_FMIN_RES is not None:
-            _gate_res = SIXPOOL_N_POT_MULT_RES * (SIXPOOL_N_FMIN_RES + (1.0 - SIXPOOL_N_FMIN_RES) * _c / (_c + _khalf * SIXPOOL_N_HALF_RES_MULT))
-            fe_res = fe * _gate_res
         fe *= _gate
     fh = sixpool_fh(cs, csx)
     if ml_sub:
         _ratio = cs / csx if csx > 0 else 0.0
-        if SIXPOOL_ML_FD_FIXED:
-            _ratio = state.setdefault("fd_ref", _ratio)  # saturation ratio at the start: differentiates sites, but does not make respiration fall as Cs^2 over time within a site
-        if SIXPOOL_ML_FD_SI is not None:
-            _a, _b = SIXPOOL_ML_FD_SI
-            fd = 1.0 - 1.0 / (1.0 + (_a * max(0.0, _ratio)) ** _b)  # the SI's saturating form: rises with Cs/Csx at low saturation, flat near saturation
-        else:
-            fd = 1.0 if SIXPOOL_ML_FD_P == 0.0 else min(SIXPOOL_ML_FD_CAP, (max(0.03, _ratio) / SIXPOOL_ML_FD_R0) ** SIXPOOL_ML_FD_P)  # was 1.0 (no Cs/Csx dependence)
+        _a, _b = SIXPOOL_ML_FD_SI
+        fd = 1.0 - 1.0 / (1.0 + (_a * max(0.0, _ratio)) ** _b)  # the SI's saturating form: rises with Cs/Csx at low saturation, flat near saturation
         ks_use = SIXPOOL_ML_KS * math.exp(-SIXPOOL_ML_DEPTH_Q * state["zmid"])
     else:
         fd = sixpool_fd(cs, csx)
@@ -2591,7 +2492,7 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
     # the harvest-crediting reset (simulate_season()) that also resets this to 0.0 at the
     # same moment the fresh pulse lands, so the two always stay in sync.
 
-    _fer = fe if fe_res is None else fe_res
+    _fer = fe
     decomp_ra = _fer * SIXPOOL_KRA * cra_maturity * cra
     _cra_before = cra
     decomp_rtz = _fer * SIXPOOL_K_RTZ * crtz
@@ -2635,19 +2536,10 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
                   + cs_loss * 1000 / SIXPOOL_CN_CS)
     n_immobilized = (cm_gain_from_residue * 1000 / SIXPOOL_CN_CM
                       + cs_gain * 1000 / SIXPOOL_CN_CS)
-    if ml_sub and SIXPOOL_ML_STOICH:
+    if ml_sub:
         if SIXPOOL_DIAG is not None:
             SIXPOOL_DIAG.append((cs_loss, gross_residue_decomp, co2_residue, n_released - n_immobilized, 0.0, cm_loss, decomp_ra, decomp_rtz, cm_gain_from_residue, cs_gain, co2_cm))
         return n_released - n_immobilized
-    if ml_sub:
-        _nboost = 1.0
-        if SIXPOOL_ML_N_SAT_Q != 0.0:
-            _nboost = (max(0.03, state.setdefault("n_ref_ratio", cs / csx if csx > 0 else 0.0)) / SIXPOOL_ML_FD_R0) ** SIXPOOL_ML_N_SAT_Q  # site constant: N supply differs across sites with initial carbon saturation, without a Cs^2 feedback over time
-        n_net = (SIXPOOL_ML_N_A * SIXPOOL_NET_MULT * _nboost * (cs_loss + (co2_cm if SIXPOOL_ML_N_USE_TOTAL else 0.0)) - SIXPOOL_ML_N_B * max(0.0, 1.0 + SIXPOOL_ML_N_B_CLAY * (state.get("clay", 0.25) - 0.25) / 0.25) * cm_gain_from_residue
-                 - SIXPOOL_ML_N_C * (gross_residue_decomp - cm_gain_from_residue))
-        if SIXPOOL_DIAG is not None:
-            SIXPOOL_DIAG.append((cs_loss, gross_residue_decomp, co2_residue, n_net, 0.0, cm_loss, decomp_ra, decomp_rtz, cm_gain_from_residue, cs_gain, co2_cm))
-        return n_net
     if SIXPOOL_DIAG is not None:
         SIXPOOL_DIAG.append((cs_loss, gross_residue_decomp, co2_residue, n_released, n_immobilized, cm_loss, decomp_ra, decomp_rtz, cm_gain_from_residue, cs_gain, co2_cm))
     return n_released - n_immobilized
@@ -2715,8 +2607,6 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
         relwet = ((l["theta"] - l["pwp"]) / (l["fc"] - l["pwp"]) if l["fc"] > l["pwp"] else 1.0)
         sub["n_min"] = state.get("n_min")
         sub["n_conc1"] = state.get("n_conc1")
-        if SIXPOOL_N_LIMIT_PER_LAYER and state.get("n_conc_layers") is not None and i > 0:
-            sub["n_conc1"] = state["n_conc_layers"][i]
         if i == 0:
             sub["cra"], sub["crm"], sub["cra_age"] = state["cra"], state["crm"], state["cra_age"]
             sub["cra_n"] = state.get("cra_n")
