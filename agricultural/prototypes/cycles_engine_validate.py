@@ -4442,7 +4442,10 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # nothing was ever returning carbon that the live crop's own root growth didn't already
         # provide. See sixpool_offseason_decay's own docstring for the other half of this fix
         # (letting it decompose for real before the next season, not carry forward untouched).
-        ag_residue_mg_ha = max(0.0, ag_biomass_mg_ha - grain_mg_ha)
+        # What leaves the field: grain for a grain crop, the clipped forage for a crop harvested before maturity (harvest_ttf < 1, silage: Cycles removes 90 percent
+        # of the harvestable above-ground biomass, so the residue is the remainder, not above-ground biomass minus grain).
+        _removed_mg_ha = forage_mg_ha if harvest_ttf < 1.0 else grain_mg_ha
+        ag_residue_mg_ha = max(0.0, ag_biomass_mg_ha - _removed_mg_ha)
         sixpool_state["cra"] = sixpool_state.get("cra", 0.0) + ag_residue_mg_ha * CARBON_FRACTION_DM
         # Reset cra_age to 0 whenever fresh stover lands -- see CRA_MATURATION_TAU_DAYS's own
         # docstring (2026-10-02). A disclosed simplification when cra already held some
