@@ -4,7 +4,7 @@ import os,sys,json,csv,shutil,subprocess,re
 os.environ.setdefault("REGIONAL","0"); os.environ["LEAD_YEARS"]="continuous"; os.environ["N_LEVELS"]="0,150"; sys.path.insert(0,'/home/user/epistemic-demo/agricultural/prototypes')
 import numpy as np, run_validation_multisite as m
 from multiprocessing import Pool
-S=json.load(open('/tmp/w/s24.json')); SITES=sorted(S)[:12]
+S=json.load(open('/tmp/w/s24.json')); SITES=sorted(S)
 KILL=("TILLAGE\nYEAR                                1\nDOY                                 105\nTOOL                                Kill_Crop\nCROP_NAME                           WinterRye\nFRAC_THERMAL_TIME                   0.0\nKILL_EFFICIENCY                     0.0\n\n")
 RYE=("\nPLANTING\nYEAR                                1\nDOY                                 288\nEND_DOY                             -999\nCROP                                WinterRye\nMAX_SMC                             -999\nMIN_SMC                             -999\nMAX_SOIL_TEMP                       -999\nMIN_SOIL_TEMP                       -999\nUSE_AUTO_IRR                        0\nUSE_AUTO_FERT                       0\nDENSITY                             1.0\nCLIPPING_START                      1\nCLIPPING_END                        366\nMAXIMUM_SOIL_COVERAGE               100\nSTANDING_RESIDUE_AT_HARVEST         50\nRESIDUE_REMOVED                     0\nCLIPPING_BIOMASS_THRESHOLD_LOWER    0.5\nCLIPPING_BIOMASS_THRESHOLD_UPPER    999\nCLIPPING_BIOMASS_DESTINY            RETURN\nHARVEST_TIMING                      -999\nKILL_AFTER_HARVEST                  1\n")
 def rd(p): return [r for r in csv.DictReader(open(p)) if r['date'][0]!='#']

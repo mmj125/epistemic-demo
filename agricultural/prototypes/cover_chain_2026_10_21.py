@@ -3,7 +3,7 @@ import os,sys,json,copy
 os.environ.setdefault("REGIONAL","0"); sys.path.insert(0,'/home/user/epistemic-demo/agricultural/prototypes')
 import numpy as np, run_validation_multisite as m, run_validation_rotation2 as r2, cycles_engine_validate as E
 from multiprocessing import Pool
-S=json.load(open('/tmp/w/s24.json')); SITES=sorted(S)[:12]
+S=json.load(open('/tmp/w/s24.json')); SITES=sorted(S)
 REF=json.load(open('/tmp/w/cover_ref.json'))
 def rye_crop(cl,soil_raw):
     c=dict(r2.WHEAT); c["lat_deg"]=cl; c["vern"]=dict(E.WINTER_PHENOLOGY); c["vern"]["tt_flower_pmax"]=290.0; c["base_t"]=E.WINTER_PHENOLOGY["base_t"]
@@ -40,7 +40,7 @@ if __name__=="__main__":
         e_rye=[];c_rye=[];e_dy=[];c_dy=[];e_dl=[];c_dl=[];e_nup=[];c_n=[];ycb=[];lcb=[]
         persite=[]
         for site,o in R:
-            ref=REF[site][str(N)]; o=o[N]; ys=[y for y in sorted(o['cov']) if y>=1983 and str(y) in ref['rye'] and str(y) in ref['H'] and y in o['base']]
+            ref=REF[site][str(N)]; o=o[N]; ys=[y for y in sorted(o['cov']) if y>=1983 and all(str(y) in ref[k] for k in ('rye','H','Hb','A','Ab')) and y in o['base'] and o['cov'][y][2]==o['cov'][y][2]]; nskip=[y for y in sorted(o['cov']) if y>=1983 and o['cov'][y][2]!=o['cov'][y][2]]; skipped=globals().setdefault('SK',{}); skipped[(site,N)]=len(nskip)
             er=[o['cov'][y][2] for y in ys]; cr=[ref['rye'][str(y)][0] for y in ys]
             e_rye+=er; c_rye+=cr; e_nup+=[o['cov'][y][3] for y in ys]; c_n+=[ref['rye'][str(y)][2] for y in ys]
             e_dy+=[o['cov'][y][0]-o['base'][y][0] for y in ys]; c_dy+=[ref['H'][str(y)]-ref['Hb'][str(y)] for y in ys]
@@ -50,4 +50,4 @@ if __name__=="__main__":
         e_rye,c_rye=map(np.array,(e_rye,c_rye))
         print(f"N={N}: rye shoots at kill: engine {e_rye.mean():.2f} vs Cycles {c_rye.mean():.2f} Mg/ha, year corr {np.corrcoef(e_rye,c_rye)[0,1]:.2f}; engine N uptake {np.nanmean(e_nup):.0f} (total) vs Cycles shoot N {np.mean(c_n):.0f} kg/ha")
         print(f"   corn yield change: engine {np.mean(e_dy):+.2f} vs Cycles {np.mean(c_dy):+.2f} Mg/ha | leaching change: engine {np.mean(e_dl):+.1f} vs Cycles {np.mean(c_dl):+.1f} kg N/ha")
-        print("   per-site rye (engine, Cycles):",[(s[:4],round(a,1),round(b,1)) for s,a,b in persite])
+        print("   site-years where the engine planted no rye (corn still growing at DOY 288):",sum(v for (st,n),v in SK.items() if n==N)); print("   per-site rye (engine, Cycles):",[(s[:4],round(a,1),round(b,1)) for s,a,b in persite])

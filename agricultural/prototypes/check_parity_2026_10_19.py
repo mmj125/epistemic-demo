@@ -20,6 +20,18 @@ for name,(lat,lon) in SITES.items():
                 leach=h.get("n_leached_kg_ha",0)   # the harness already adds the off-season windows into this field
                 d=max(d,abs(g-a["grain"]),abs(h["total"]-a["total"]),abs(leach-a["n_leached"]))
             print(f"{name} {key} N={N}: max abs difference {d:.2e}  ({len(H)} years)"); worst=max(worst,d)
+    # cover crop (2026-10-21): corn with cereal rye, API against the chain called directly
+    import cycles_engine_validate as E, run_validation_rotation2 as r2
+    for N in (0,150):
+        crop=dict(m.rv.CORN) if hasattr(m,"rv") else dict(m.cev.CORN); crop["lat_deg"]=cl; crop["make_layers"]=api._make_layers(soil); kw=E.standard_kwargs(soil,N)
+        m.CROPSEL="corn"; crop=dict(m.cev.CORN) if False else crop
+        rye=dict(r2.WHEAT); rye["lat_deg"]=cl; rye["vern"]=dict(E.WINTER_PHENOLOGY); rye["vern"]["tt_flower_pmax"]=290.0; rye["base_t"]=E.WINTER_PHENOLOGY["base_t"]
+        rye.update(hi_x=0.0,hi_o=0.0,calibration_factor=1.0,tr_threshold_t=8.0,residue_n_from_plant=True); rye["make_layers"]=api._make_layers(soil)
+        H=E.simulate_continuous(wx,crop,carry_n=True,cover=dict(crop=rye,plant_doy=288,kill_doy=105),**kw)
+        cfg=dict(crop="corn",start_year=1980,end_year=2016,n_rate=N,n_timing="planting",fert_source="uan",cover_crop="rye",cover_plant_doy=288,cover_kill_doy=105)
+        R={r["year"]:r for r in json.loads(api.run(json.dumps(cfg)))["annual"]}
+        d=max(max(abs(H[y]["grain"]-R[y]["grain"]),abs((H[y].get("cover") or {}).get("ag",0)-(R[y]["cover_ag"] or 0))) for y in H if y in R)
+        print(f"{name} corn + rye cover N={N}: max abs difference {d:.2e}  ({len(H)} years)"); worst=max(worst,d)
     for N in (0,150):
         H=mw.engine_chain(wx,soil,cl,N,None)
         cfg=dict(crop="wheat",start_year=1980,end_year=2016,n_rate=N,n_timing="planting",fert_source="uan")

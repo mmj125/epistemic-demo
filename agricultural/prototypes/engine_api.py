@@ -73,6 +73,11 @@ SCHEMA = {
             {"id": "tillage_when", "label": "When", "type": "select", "default": "planting", "options": [["planting", "At planting"], ["day", "On a day of year (must fall after planting)"]], "show_if": {"tillage_implement": "!None"}},
             {"id": "tillage_doy", "label": "Day of year", "type": "number", "default": 140, "min": 100, "max": 300, "step": 1, "show_if": {"tillage_when": "day", "tillage_implement": "!None"}},
         ]},
+        {"id": "cover", "label": "Cover crop", "applies_to": ["corn", "silage", "sorghum"], "fields": [
+            {"id": "cover_crop", "label": "Cover crop after harvest", "type": "select", "default": "none", "options": [["none", "None"], ["rye", "Cereal rye"]]},
+            {"id": "cover_plant_doy", "label": "Cover crop planted, day of year", "type": "number", "default": 288, "min": 240, "max": 330, "step": 1, "show_if": {"cover_crop": "!none"}},
+            {"id": "cover_kill_doy", "label": "Cover crop killed, day of year (next spring)", "type": "number", "default": 105, "min": 60, "max": 150, "step": 1, "show_if": {"cover_crop": "!none"}},
+        ]},
         {"id": "irrigation", "label": "Irrigation", "applies_to": ["corn", "silage", "sorghum", "soybean"], "fields": [
             {"id": "irrigation_on", "label": "Irrigate", "type": "select", "default": "no", "options": [["no", "No"], ["auto", "Automatic (refill at a soil water trigger)"]]},
             {"id": "irrigation_trigger", "label": "Trigger (fraction of available water depleted)", "type": "number", "default": 0.5, "min": 0.1, "max": 0.9, "step": 0.05, "show_if": {"irrigation_on": "auto"}},
@@ -83,6 +88,7 @@ SCHEMA = {
     "notes": [
         "Weather: gridded daily record 1980 to 2016 at the nearest 0.5 degree cell. Soil: nearest STATSGO2 profile; layers can be edited.",
         "Runs start from the first year with no spin-up, as Cycles does, so early years reflect the starting soil.",
+        "A cover crop is planted after the main crop is harvested and killed the next spring, on the same soil water and nitrogen. Cereal rye is simulated as winter cereal with the cereal rye values of the Cycles crop file. Its N losses are counted in the year it is killed.",
         "Soybean fixes its own N, so the fertilizer inputs do not apply to it. Winter wheat is planted in the fall (day 289) with its own fixed planting and tillage.",
     ],
 }
@@ -94,6 +100,7 @@ ANNUAL_COLUMNS = [
     ["n_volatilized", "Ammonia volatilization", "kg N/ha"], ["n2o", "N2O emission", "kg N/ha"], ["runoff", "Runoff", "mm"],
     ["n_mineral_end", "Mineral N at season end", "kg N/ha"], ["winter_killed", "Winter killed", ""],
 ]
+COVER_COLUMNS = [["cover_ag", "Cover crop biomass at kill", "Mg/ha"], ["cover_n_uptake", "Cover crop N uptake", "kg N/ha"]]
 DAILY_COLUMNS = [
     ["doy", "Day of year", ""], ["ttf", "Thermal time fraction", "-"], ["canopy", "Light interception", "-"], ["water_stress", "Water stress factor", "-"],
     ["n_stress", "N stress factor", "-"], ["ag_mg_ha", "Aboveground biomass", "Mg/ha"], ["n_plant", "Crop N", "kg N/ha"], ["n_no3", "Soil nitrate", "kg N/ha"],
@@ -145,7 +152,8 @@ def _row_out(y, r, carry):
         leach += r["fallow_n_leached"]; den += r["fallow_n_denitrified"]; vol += r["fallow_n_volatilized"]; n2o += r.get("fallow_n2o", 0.0)
     return dict(year=y, plant_doy=r.get("plant_doy"), harvest_doy=r.get("last_doy"), grain=r.get("forage") if r.get("_forage") else r.get("grain"), total=r.get("total"), ag=r.get("ag"),
                 n_uptake=r.get("n_uptake_kg_ha"), n_leached=leach, n_denitrified=den, n_volatilized=vol, n2o=n2o, runoff=r.get("runoff_mm"),
-                n_mineral_end=r.get("n_remaining_kg_ha"), winter_killed=bool(r.get("winter_killed")))
+                n_mineral_end=r.get("n_remaining_kg_ha"), winter_killed=bool(r.get("winter_killed")),
+                cover_ag=(r.get("cover") or {}).get("ag"), cover_n_uptake=(r.get("cover") or {}).get("n_uptake"))
 
 
 def _daily_out(r):
@@ -156,6 +164,15 @@ def _daily_out(r):
         out.append([d.get("doy"), d.get("ttf"), d.get("canopy"), d.get("water_stress"), d.get("n_stress"), d.get("ag_mg_ha"), d.get("n_plant"), d.get("n_no3"), d.get("n_nh4")]
                    + [th[i] if i < len(th) else None for i in range(4)])
     return out
+
+
+def _rye_crop(lat, soil):
+    """Cereal rye cover crop: the winter-wheat configuration with the two WinterRye crop-file values that differ (flowering at Pmax 290, transpiration threshold 8 C); nothing is harvested and its plant N returns with its residue."""
+    c = dict(_WHEAT); c["lat_deg"] = lat
+    c["vern"] = dict(E.WINTER_PHENOLOGY); c["vern"]["tt_flower_pmax"] = 290.0; c["base_t"] = E.WINTER_PHENOLOGY["base_t"]
+    c.update(hi_x=0.0, hi_o=0.0, calibration_factor=1.0, tr_threshold_t=8.0, residue_n_from_plant=True)
+    c["make_layers"] = _make_layers(soil)
+    return c
 
 
 def _spring_chain(cfg, crop_key, wx, soil, lat):
@@ -184,7 +201,15 @@ def _spring_chain(cfg, crop_key, wx, soil, lat):
     first = int(cfg["start_year"]); last = int(cfg["end_year"])
     yrs = [y for y in sorted(wx) if first <= y <= last]
     pw = (int(cfg.get("plant_min_doy", 110)), int(cfg.get("plant_max_doy", 131)))
-    res = E.simulate_continuous(wx, crop, years=yrs, plant_window=pw, plant_min_soil_t=float(cfg.get("plant_min_soil_t", 12.0)), carry_n=not soy, **kw)
+    cover = None
+    if cfg.get("cover_crop", "none") not in ("none", "", None):
+        if soy:
+            raise ValueError("Cover crops are available for corn, silage corn and sorghum.")
+        cp, ck = int(cfg.get("cover_plant_doy", 288)), int(cfg.get("cover_kill_doy", 105))
+        if ck >= pw[0]:
+            raise ValueError("The cover crop must be killed before the earliest planting day.")
+        cover = dict(crop=_rye_crop(lat, soil), plant_doy=cp, kill_doy=ck)
+    res = E.simulate_continuous(wx, crop, years=yrs, plant_window=pw, plant_min_soil_t=float(cfg.get("plant_min_soil_t", 12.0)), carry_n=not soy, cover=cover, **kw)
     if crop_key == "silage":
         for r in res.values():
             r["_forage"] = True
@@ -253,4 +278,5 @@ def run(config_json):
     notes = []
     if crop_key == "wheat":
         notes.append("Wheat N losses cover the growing season only (fall planting to harvest).")
-    return json.dumps(dict(annual=annual, annual_columns=ANNUAL_COLUMNS, daily=daily, daily_columns=DAILY_COLUMNS, notes=notes, api_version=API_VERSION))
+    covered = any(r.get("cover_ag") is not None for r in annual)
+    return json.dumps(dict(annual=annual, annual_columns=ANNUAL_COLUMNS + (COVER_COLUMNS if covered else []), daily=daily, daily_columns=DAILY_COLUMNS, notes=notes, api_version=API_VERSION))
