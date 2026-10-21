@@ -4446,7 +4446,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                                  ag_mg_ha=round(ag_biomass * 10, 4), n_plant=round(canopy_n_kg_ha, 2),
                                  theta=[round(l["theta"], 4) for l in layers],
                                  n_no3=round(n_no3, 3) if n_no3 is not None else None,
-                                 n_nh4=round(n_nh4, 3) if n_nh4 is not None else None))
+                                 n_nh4=round(n_nh4, 3) if n_nh4 is not None else None,
+                                 no3_layers=[round(x, 3) for x in no3_layers] if no3_layers else None))
 
         if tillage_dr > 0:
             tillage_dr -= tillage_dr * tillage_dr_decay(layers)
