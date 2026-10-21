@@ -67,6 +67,7 @@ SCHEMA = {
             {"id": "n_frac1", "label": "Share applied first (%)", "type": "number", "default": 50, "min": 0, "max": 100, "step": 5, "show_if": {"n_timing": "split"}},
             {"id": "n_doy2", "label": "Second application, day of year", "type": "number", "default": 160, "min": 1, "max": 365, "step": 1, "show_if": {"n_timing": "split"}},
             {"id": "manure_n", "label": "Manure N (kg N/ha per year)", "type": "number", "default": 0, "min": 0, "max": 400, "step": 10, "applies_to": ["corn", "silage", "sorghum"]},
+            {"id": "manure_source", "label": "Manure type", "type": "select", "default": "dairy", "options": [[k, k.capitalize()] for k in E.MANURE_SOURCES], "show_if": {"manure_n": "!0"}, "applies_to": ["corn", "silage", "sorghum"]},
         ]},
         {"id": "tillage", "label": "Tillage", "applies_to": ["corn", "silage", "sorghum", "soybean"], "fields": [
             {"id": "tillage_implement", "label": "Implement", "type": "select", "default": "None", "options": [[t, t.replace("_", " ")] for t in TILLAGE]},
@@ -189,11 +190,12 @@ def _spring_chain(cfg, crop_key, wx, soil, lat):
         if float(cfg.get("n_rate", 0) or 0) > 0:
             kw["fertilizer_source"] = src
         if float(cfg.get("manure_n", 0) or 0) > 0:
-            kw["manure_n_kg_ha"] = float(cfg["manure_n"])
+            kw["manure_n_kg_ha"] = float(cfg["manure_n"]); kw["manure_source"] = cfg.get("manure_source", "dairy")
     if crop_key == "silage":
         kw["harvest_ttf"] = 0.85   # Cycles harvests silage at 85 percent of maturity
     ti = cfg.get("tillage_implement", "None")
     if ti and ti != "None":
+        kw["tillage_clay_frac"] = float(soil[0]["clay"]) / 100.0   # the tillage decomposition speed-up depends on the site's topsoil clay (default 0.21 is not the site)
         kw["tillage_implement"] = ti; kw["tillage_doy"] = "planting" if cfg.get("tillage_when", "planting") == "planting" else int(cfg.get("tillage_doy", 140))
     if cfg.get("irrigation_on") == "auto":
         kw["irrigation_trigger_frac"] = float(cfg.get("irrigation_trigger", 0.5)); kw["irrigation_amount_mm"] = float(cfg.get("irrigation_mm", 25))

@@ -30,7 +30,7 @@ def one(site):
     lat,lon=S[site]; wx,_=m.fd.resolve_field_weather(lat,lon); soil,_,_=m.fd.resolve_field_soil(lat,lon); cl=m.lat_of(lat,lon); m.REG_LON=lon
     nm=site+"mg"; m.write_inputs(nm,lat,lon,wx,soil,cl); out={}
     def eng(N,**ex):
-        kw=E.standard_kwargs(soil,N); pw=ex.pop("plant_window",(110,131)); kw.update(ex)
+        kw=E.standard_kwargs(soil,N); pw=ex.pop("plant_window",(110,131)); kw.update(ex); kw["tillage_clay_frac"]=soil[0]["clay"]/100.0
         r=E.simulate_continuous(wx,corn_crop(cl,soil),carry_n=True,plant_window=pw,**kw); o={}
         for y,v in r.items():
             f=lambda k,fk:(v.get(k) or 0.0)+v.get(fk,0.0)
