@@ -1373,7 +1373,7 @@ TILLAGE_IMPLEMENTS = {
 }
 
 
-def mix_tilled_layers(layers, depth_m, mixing_efficiency):
+def mix_tilled_layers(layers, depth_m, mixing_efficiency, profile_raw=None):
     """Homogenizes soil moisture within the tilled depth, weighted by the real implement's
     mixing_efficiency (from TILLAGE_IMPLEMENTS above). Real Cycles applies this exact
     coefficient to mixing organic carbon/nitrogen pools in its six-pool soil system
@@ -1405,9 +1405,25 @@ def mix_tilled_layers(layers, depth_m, mixing_efficiency):
     if not affected or zone_mm <= 0:
         return
     mean_theta = water_mm / zone_mm
+    # Texture and organic matter mix the same way (2026-10-21; Kemanian et al. 2024 Sec. 2.6: tillage "mixes all soil layer attributes based on a soil mixing efficiency
+    # coefficient" and "tends to homogenize soil texture in the tilled layers"; Cycles' own annualSOM output shows layer bulk density changing after a chisel pass).
+    # The mixed texture is kept on the layer dict, so repeated passes accumulate, and fc, pwp, sat, ksat, psi_e and B are recomputed from it.
+    tex_mean = None
+    if profile_raw is not None:
+        for l, raw in zip(layers, profile_raw):
+            if "_tex" not in l:
+                l["_tex"] = dict(sand=raw["sand"], clay=raw["clay"], soc=raw["soc"])   # soc stays the layer's own: Cycles' water contents do not follow the mixed organic matter (f051)
+        tex_mean = {k: sum(l["_tex"][k] * l["thick"] * f for l, f in affected) / sum(l["thick"] * f for l, f in affected) for k in ("sand", "clay")}
     for l, frac in affected:
         blend = frac * mixing_efficiency
         l["theta"] = l["theta"] * (1 - blend) + mean_theta * blend
+        if tex_mean is not None:
+            t = l["_tex"]
+            for k in tex_mean:
+                t[k] = t[k] * (1 - blend) + tex_mean[k] * blend
+            h = saxton_rawls(t["sand"], t["clay"], t["soc"] * OM_FROM_SOC)
+            l.update(fc=h["fc"], pwp=h["pwp"], sat=h["sat"], ksat_mm_day=h["ksat_mm_day"], psi_e_kpa=h["psi_e_kpa"], B=h["B"])
+            l["theta"] = min(max(l["theta"], l["pwp"]), l["sat"])
 
 
 # ---------------------------------------------------------------------------
@@ -3237,7 +3253,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                      n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
                      manure_source=None,
                      irrigation_trigger_frac=None, irrigation_amount_mm=25.0,
-                     tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21,
+                     tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21, tillage_mix_texture=True,
                      fert_placement_implement=None, soil_ph=None,
                      spinup_rows=None, curve_number=75.0, slope_pct=0.0, initial_layers=None,
                      soil_evap_model="faostandard", n_root_limited=False, wue_co2_scale=1.0, rue_co2_scale=1.0,
@@ -4027,8 +4043,28 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # The cumulative disturbance rating (tillage_dr) jumps by the real implement's
         # SOIL_DISTURB_RATIO the same day -- see tillage_ft()/tillage_dr_decay() above.
         if tillage_doy is not None and w["doy"] == tillage_doy:
-            mix_tilled_layers(layers, tillage_depth_m, tillage_mixing_efficiency)
+            mix_tilled_layers(layers, tillage_depth_m, tillage_mixing_efficiency, sixpool_profile_raw if tillage_mix_texture else None)
             tillage_dr += tillage_disturb_rating
+            if sixpool_state is not None and "ml" in sixpool_state and tillage_mix_texture and tillage_mixing_efficiency > 0:
+                # the per-layer carbon pools (extensive, Mg C/ha per layer) mix by the same coefficient, conserving the tilled-zone total
+                _zone = []; _d = 0.0
+                for _l, _x in zip(layers, sixpool_state["ml"]):
+                    if _d >= tillage_depth_m: break
+                    _zone.append((_x, _l["thick"], min(_l["thick"], tillage_depth_m - _d) / _l["thick"])); _d += _l["thick"]
+                for _k in ("cs", "cm", "crtz", "crm", "csx"):
+                    _den = sum(_t * _f for _x, _t, _f in _zone)
+                    if _den <= 0: continue
+                    _cbar = sum(_x[_k] * _f for _x, _t, _f in _zone) / _den
+                    for _x, _t, _f in _zone:
+                        _b = _f * tillage_mixing_efficiency
+                        _x[_k] = _x[_k] * (1 - _b) + _cbar * _t * _b
+                sixpool_state["cs"] = sum(_x["cs"] for _x in sixpool_state["ml"]); sixpool_state["cm"] = sum(_x["cm"] for _x in sixpool_state["ml"]); sixpool_state["csx"] = sum(_x["csx"] for _x in sixpool_state["ml"])
+                # surface residue mixes into the tilled layers too (Cycles output: belowground residue 0.9 vs 0.02 Mg/ha right after a chisel pass): that share of the surface
+                # residue carbon becomes incorporated residue in those layers (by thickness within the depth), decomposing there
+                _tt = sum(_t * _f for _x, _t, _f in _zone)
+                if _tt > 0 and sixpool_state["cra"] > 0:
+                    _mv = sixpool_state["cra"] * tillage_mixing_efficiency; sixpool_state["cra"] -= _mv
+                    for _x, _t, _f in _zone: _x["crtz"] += _mv * _t * _f / _tt
 
         # Irrigation (if requested) triggers off YESTERDAY's ending soil moisture, same
         # quantity water_stress is computed from below, and is added to today's water input
