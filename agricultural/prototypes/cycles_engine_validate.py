@@ -2389,7 +2389,7 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
     decomp_rtz = _fer * SIXPOOL_K_RTZ * crtz
     decomp_rm = _fer * SIXPOOL_KRM * crm
     cra = max(0.0, cra - decomp_ra)
-    _n_ra = decomp_ra * 1000 / SIXPOOL_CN_CRA
+    _n_ra = decomp_ra * 1000 / state.get("cra_cn", SIXPOOL_CN_CRA)
     crtz = max(0.0, crtz - decomp_rtz)
     crm = max(0.0, crm - decomp_rm)
 
@@ -2430,7 +2430,7 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
         nm = state.get("nm")
         if nm is None:
             nm = cm0 * 1000 / SIXPOOL_CN_CM
-        _n_dec = decomp_ra / SIXPOOL_CN_CRA + decomp_rtz / SIXPOOL_CN_CRTZ + decomp_rm / SIXPOOL_CN_CRM
+        _n_dec = decomp_ra / state.get("cra_cn", SIXPOOL_CN_CRA) + decomp_rtz / SIXPOOL_CN_CRTZ + decomp_rm / SIXPOOL_CN_CRM
         cnd = gross_residue_decomp / _n_dec if _n_dec > 1e-15 else SIXPOOL_CN_CRTZ
         _xr = (cnd / 110.0) ** 3
         cn_new = 8.5 + 5.5 * (_xr / (1.0 + _xr)) * (0.5 / (1.0 + ((state.get("n_conc1") or 0.0) / 8.0) ** 3))
@@ -2562,6 +2562,7 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
         sub["n_conc1"] = state.get("n_conc1")
         if i == 0:
             sub["cra"], sub["crm"], sub["cra_age"] = state["cra"], state["crm"], state["cra_age"]
+            sub["cra_cn"] = state.get("cra_cn", SIXPOOL_CN_CRA)
         ft = ft_eff if sub["z0"] < SIXPOOL_ML_TILL_DEPTH_M else 1.0
         if DIAG_FE is not None: DIAG_FE.append((_DIAG_YEAR, _DIAG_CTX.get("doy"), i, t_layer, relwet, sixpool_fe(t_layer, relwet, True)))
         _v = sixpool_step(sub, t_layer, relwet, root_c_input_mg_ha * wts[i] / wsum, ft)
@@ -3020,9 +3021,15 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
     return leached, denit, volat
 
 
-def _season_chain(weather_by_year, year_range, crop, plant_window, plant_min_soil_t, carry_n, initial_mineral_n, season_kwargs):
+def _season_chain(weather_by_year, year_range, crop, plant_window, plant_min_soil_t, carry_n, initial_mineral_n, season_kwargs, cover=None):
     """Shared engine of simulate_season_with_leadin() and simulate_continuous(): yields (year, result) for each year in
-    year_range, carrying soil water, mineral N and six-pool carbon forward between years."""
+    year_range, carrying soil water, mineral N and six-pool carbon forward between years.
+    cover (2026-10-21): optional dict(crop=, plant_doy=, kill_doy=), a cover crop planted on plant_doy after the main crop's harvest and killed on kill_doy of
+    the next year, simulated as its own season on the shared soil (needs carry_n). Its residue and root carbon go to the six-pool state, its N uptake and
+    water use come out of the same layers; its season losses are added to the year it ends in, and result["cover"] holds its biomass and N at kill."""
+    if cover is not None and not carry_n:
+        raise ValueError("a cover crop needs carry_n (shared mineral N state)")
+    cover_planted = False
     result = None
     layers = None
     nstate = None
@@ -3033,7 +3040,8 @@ def _season_chain(weather_by_year, year_range, crop, plant_window, plant_min_soi
         tsoil = simulate_soil_temp([(d[k]["tx"] + d[k]["tn"]) / 2 for k in doys], k=0.15)
         plant_doy = find_planting_doy(dict(zip(doys, tsoil)), plant_window, plant_min_soil_t)
         rows = [d[k] for k in range(plant_doy, 300) if k in d]
-        spinup = [d[k] for k in range(1, plant_doy) if k in d]
+        _spin0 = 1
+        _cover_res = None
         global _FORCE_CUR, _DIAG_YEAR
         _FORCE_CUR = FORCE_SERIES.get(y) if FORCE_SERIES else None
         _DIAG_YEAR = y
@@ -3046,6 +3054,23 @@ def _season_chain(weather_by_year, year_range, crop, plant_window, plant_min_soi
             layers = crop["make_layers"]()
         fallow_tot = [0.0, 0.0, 0.0]
         de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
+        if cover is not None and cover_planted and nstate is not None and (y - 1) in weather_by_year:
+            _dp = weather_by_year[y - 1]
+            _rye_rows = [_dp[k] for k in range(cover["plant_doy"], 367) if k in _dp] + [d[k] for k in range(1, cover["kill_doy"]) if k in d]
+            _kwc = {k: v for k, v in kw.items() if k not in ("n_rate_kg_ha", "n_applications", "fertilizer_source", "n_credit_kg_ha", "manure_n_kg_ha", "initial_n_state", "sixpool_initial_state")}
+            _kwc["n_rate_kg_ha"] = 0
+            _ns = dict(nstate); _ns.pop("n2o", None)
+            _kwc.update(initial_n_state=_ns, initial_layers=layers, spinup_rows=None)
+            if sixpool_state is not None:
+                _kwc["sixpool_initial_state"] = sixpool_state
+            _cover_res = simulate_season(_rye_rows, cover["crop"], **_kwc)
+            layers = _cover_res["final_layers"]
+            nstate = dict(_cover_res["final_n_state"])
+            sixpool_state = copy.deepcopy(_cover_res["sixpool_final_state"]) if "sixpool_final_state" in _cover_res else None
+            fallow_tot = [_cover_res.get("n_leached_kg_ha", 0.0), _cover_res.get("n_denitrified_kg_ha", 0.0), _cover_res.get("n_volatilized_pool_kg_ha", 0.0)]
+            _spin0 = cover["kill_doy"]
+            de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
+        spinup = [d[k] for k in range(_spin0, plant_doy) if k in d]
         if carry_n:
             if nstate is None:
                 _nh4_0 = initial_mineral_n["nh4"] if initial_mineral_n else 0.0
@@ -3056,8 +3081,8 @@ def _season_chain(weather_by_year, year_range, crop, plant_window, plant_min_soi
                                               de_state=de_state,
                                               model_denitrification=kw.get("model_denitrification", True),
                                               model_volatilization=kw.get("model_volatilization", True))
-            fallow_tot = [lch, dn, vl]
-            n2o_pre = nstate.pop("n2o", 0.0)
+            fallow_tot = [fallow_tot[0] + lch, fallow_tot[1] + dn, fallow_tot[2] + vl]
+            n2o_pre = nstate.pop("n2o", 0.0) + (_cover_res.get("n2o_emitted_kg_ha", 0.0) if _cover_res is not None else 0.0)
             kw["initial_n_state"] = dict(nstate)
             if sixpool_state is not None:
                 kw["sixpool_initial_state"] = sixpool_state
@@ -3067,7 +3092,9 @@ def _season_chain(weather_by_year, year_range, crop, plant_window, plant_min_soi
         result["plant_doy"] = plant_doy
         layers = result["final_layers"]
         last = result.get("last_doy") or 299
-        bridge = [d[k] for k in range(last + 1, 367) if k in d] if carry_n else [d[k] for k in range(301, 367) if k in d]
+        _bridge_end = (cover["plant_doy"] if cover is not None else 367)
+        cover_planted = cover is not None and last < cover["plant_doy"]
+        bridge = [d[k] for k in range(last + 1, _bridge_end) if k in d] if carry_n else [d[k] for k in range(301, 367) if k in d]
         de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
         if carry_n:
             nstate = dict(result["final_n_state"])
@@ -3080,6 +3107,8 @@ def _season_chain(weather_by_year, year_range, crop, plant_window, plant_min_soi
             result["fallow_n_leached"], result["fallow_n_denitrified"], result["fallow_n_volatilized"] = fallow_tot
             result["fallow_n2o"] = n2o_pre + nstate.pop("n2o", 0.0)
             result["end_n_state"] = dict(nstate)
+            if _cover_res is not None:
+                result["cover"] = dict(ag=_cover_res["ag"], total=_cover_res["total"], n_uptake=_cover_res.get("n_uptake_kg_ha", 0.0), n_leached=_cover_res.get("n_leached_kg_ha", 0.0))
         else:
             run_bare_fallow_window(layers, bridge, lat_deg=crop["lat_deg"], curve_number=season_kwargs.get("curve_number", 75.0), slope_pct=season_kwargs.get("slope_pct", 0.0), de_state=de_state)
         yield y, result
@@ -3193,13 +3222,13 @@ def standard_kwargs(soil_raw, n_rate_kg_ha):
 
 
 def simulate_continuous(weather_by_year, crop, years=None, plant_window=(110, 131), plant_min_soil_t=12.0, carry_n=False,
-                        initial_mineral_n=None, **season_kwargs):
+                        initial_mineral_n=None, cover=None, **season_kwargs):
     """One continuous multi-year run from the first weather year (or years[0]), the way Cycles runs a 1980-2016 simulation:
     soil water, mineral N and carbon carry across every year with no re-start. Returns {year: result}. Each year costs one
     season, where simulate_season_with_leadin(lead_years=full) re-runs the whole history for every target year."""
     yrs = sorted(weather_by_year) if years is None else list(years)
     out = {}
-    for y, r in _season_chain(weather_by_year, yrs, crop, plant_window, plant_min_soil_t, carry_n, initial_mineral_n, season_kwargs):
+    for y, r in _season_chain(weather_by_year, yrs, crop, plant_window, plant_min_soil_t, carry_n, initial_mineral_n, season_kwargs, cover=cover):
         out[y] = r
     return out
 
@@ -4446,6 +4475,16 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # of the harvestable above-ground biomass, so the residue is the remainder, not above-ground biomass minus grain).
         _removed_mg_ha = forage_mg_ha if harvest_ttf < 1.0 else grain_mg_ha
         ag_residue_mg_ha = max(0.0, ag_biomass_mg_ha - _removed_mg_ha)
+        # Surface residue C:N (2026-10-21): the new residue's N is the plant's above-ground N when the crop is flagged residue_n_from_plant (a cover crop,
+        # whole plant returned); otherwise the long-run constant SIXPOOL_CN_CRA measured on Cycles' corn residue. The pool keeps one blended C:N.
+        _c_new = ag_residue_mg_ha * CARBON_FRACTION_DM
+        if crop.get("residue_n_from_plant") and _c_new > 1e-9:
+            _n_new = max(N_AG_FRACTION * canopy_n_kg_ha, 1e-3)
+        else:
+            _n_new = _c_new * 1000.0 / SIXPOOL_CN_CRA
+        _c_old = sixpool_state.get("cra", 0.0); _n_old = _c_old * 1000.0 / sixpool_state.get("cra_cn", SIXPOOL_CN_CRA)
+        if (crop.get("residue_n_from_plant") or "cra_cn" in sixpool_state) and _c_old + _c_new > 1e-9:
+            sixpool_state["cra_cn"] = (_c_old + _c_new) * 1000.0 / max(_n_old + _n_new, 1e-9)
         sixpool_state["cra"] = sixpool_state.get("cra", 0.0) + ag_residue_mg_ha * CARBON_FRACTION_DM
         # Reset cra_age to 0 whenever fresh stover lands -- see CRA_MATURATION_TAU_DAYS's own
         # docstring (2026-10-02). A disclosed simplification when cra already held some
