@@ -2084,19 +2084,14 @@ SIXPOOL_TOPSOIL_DEPTH_M = 0.05  # fixed at Cycles' own REAL layer-1 thickness fo
 # a given lookup's layer0 happens to be" isn't the quantity SIXPOOL_KS was fit against).
 
 
-SIXPOOL_FE_TEMP_PTS_MEASURED = ((0.0, 0.0), (1.5, 0.026), (3.5, 0.045), (5.5, 0.077), (7.5, 0.120), (9.5, 0.170), (11.5, 0.231), (13.5, 0.303), (15.5, 0.385), (17.5, 0.468), (19.5, 0.554), (21.5, 0.641), (23.5, 0.731), (25.5, 0.810), (27.5, 0.877), (31.0, 1.0))
-
-SIXPOOL_FE_TEMP_PTS = SIXPOOL_FE_TEMP_PTS_MEASURED   # adopted 2026-10-19: 94 sites corn, grain MAE gain +0.011 [+0.007,+0.014] / +0.006 [+0.003,+0.010] / +0.005 [+0.003,+0.008] at N=0/150/400, better at 65 to 70 of 94 sites; the old quadratic was 6 to 15% high between 3 and 11 C
+SIXPOOL_FE_TEMP_TO, SIXPOOL_FE_TEMP_C = 36.098, 2.177   # 2026-10-21: Campbell's temperature function, the form Stockle and Campbell 1989 Eq. 18 uses (there c = 4), fitted to Cycles' composite factor with start-of-day moisture (fe_timing_2026_10_21.py, R2 0.960); replaces a 16-point measured table that it reproduces to rms 0.011 (grain MAE gain +0.010 [+0.003,+0.018] at N=0, neutral at N=150, 24 sites)
 
 
 def sixpool_fe_temp(tmean):
-    _p = SIXPOOL_FE_TEMP_PTS
-    if tmean <= _p[0][0]:
-        return _p[0][1]
-    for (_x0, _y0), (_x1, _y1) in zip(_p, _p[1:]):
-        if tmean <= _x1:
-            return _y0 + (_y1 - _y0) * (tmean - _x0) / (_x1 - _x0)
-    return _p[-1][1]
+    if tmean <= 0.0:
+        return 0.0
+    t = tmean + SIXPOOL_FE_TEMP_C; o = SIXPOOL_FE_TEMP_TO + SIXPOOL_FE_TEMP_C
+    return min(1.0, max(0.0, (2.0 * t * t * o * o - t ** 4) / o ** 4))
 
 
 def sixpool_fe_moisture(relwet):
@@ -2131,6 +2126,9 @@ def sixpool_fe_moisture_ml(relwet):
         if relwet <= x1:
             return y0 + (y1 - y0) * (relwet - x0) / (x1 - x0)
     return pts[-1][1]
+
+
+SIXPOOL_START_MOISTURE = True   # decomposition reads the layer water content at the START of the day (Cycles' composite factor does: R2 0.956 with yesterday's moisture, 0.856 with today's)
 
 
 def sixpool_fe(tmean, relwet, ml=False):
@@ -2558,7 +2556,8 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
     _t_hc = hc_step(_hc, tmean)
     for i, (sub, l) in enumerate(zip(subs, layers)):
         t_layer = _t_hc[i]
-        relwet = ((l["theta"] - l["pwp"]) / (l["fc"] - l["pwp"]) if l["fc"] > l["pwp"] else 1.0)
+        _th_fe = state["theta_start"][i] if (SIXPOOL_START_MOISTURE and state.get("theta_start") is not None) else l["theta"]
+        relwet = ((_th_fe - l["pwp"]) / (l["fc"] - l["pwp"]) if l["fc"] > l["pwp"] else 1.0)
         sub["n_min"] = state.get("n_min")
         sub["n_conc1"] = state.get("n_conc1")
         if i == 0:
@@ -2937,6 +2936,8 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
     for w in rows:
         _dn_th0 = [l["theta"] for l in layers]
         _dn_no3_0 = list(no3_layers) if no3_layers is not None else [0.0] * len(layers)
+        if sixpool_state is not None:
+            sixpool_state["theta_start"] = _dn_th0
         if SNOW_MODEL:
             w = snow_adjust(layers, w, lat_deg)
         _rc = residue_cover_frac(sixpool_state)
@@ -3887,6 +3888,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     for w in weather_rows:
         _dn_th0 = [l["theta"] for l in layers]
         _dn_no3_0 = list(no3_layers) if no3_layers is not None else [0.0] * len(layers)
+        if sixpool_state is not None:
+            sixpool_state["theta_start"] = _dn_th0
         if SNOW_MODEL:
             w = snow_adjust(layers, w, crop["lat_deg"])
         last_doy = w["doy"]
