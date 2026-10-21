@@ -1,0 +1,324 @@
+diff --git a/agricultural/prototypes/cycles_engine_validate.py b/agricultural/prototypes/cycles_engine_validate.py
+index 70fd6d6..0699459 100644
+--- a/agricultural/prototypes/cycles_engine_validate.py
++++ b/agricultural/prototypes/cycles_engine_validate.py
+@@ -2312,7 +2312,8 @@ def n_conc_layer1(layers, nh4_kg_ha, no3_layers, no3_total):
+     l = layers[0]
+     mass = sixpool_bulk_density(l["sat"]) * l["thick"] * 10.0   # kg soil per ha divided by 1e6 -> (kg N/ha)/(mg/kg) factor
+     no3_0 = no3_layers[0] if no3_layers is not None else no3_total * min(1.0, l["thick"] / 1.0)
+-    return ((nh4_kg_ha or 0.0) + no3_0) / mass
++    nh4_0 = (nh4_kg_ha[0] if isinstance(nh4_kg_ha, (list, tuple)) else (nh4_kg_ha or 0.0))
++    return (nh4_0 + no3_0) / mass
+ 
+ 
+ def n_conc_layers(layers, nh4_kg_ha, no3_layers, no3_total):
+@@ -2320,7 +2321,8 @@ def n_conc_layers(layers, nh4_kg_ha, no3_layers, no3_total):
+     for i, l in enumerate(layers):
+         mass = sixpool_bulk_density(l["sat"]) * l["thick"] * 10.0
+         no3_i = no3_layers[i] if no3_layers is not None else (no3_total if i == 0 else 0.0)
+-        out.append((((nh4_kg_ha or 0.0) if i == 0 else 0.0) + no3_i) / mass)
++        nh4_i = (nh4_kg_ha[i] if i < len(nh4_kg_ha) else 0.0) if isinstance(nh4_kg_ha, (list, tuple)) else ((nh4_kg_ha or 0.0) if i == 0 else 0.0)
++        out.append((nh4_i + no3_i) / mass)
+     return out
+ 
+ 
+@@ -2552,6 +2554,7 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
+     wsum = sum(wts) or 1.0
+     total = 0.0
+     resp_tot = 0.0
++    _nm_layers = []
+     _hc = state.get("hc")
+     if _hc is None:
+         _hc = state["hc"] = hc_make([2.0 * (x["zmid"] - x["z0"]) for x in subs], SIXPOOL_ML_TMEAN_INIT)
+@@ -2567,6 +2570,7 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
+         if DIAG_FE is not None: DIAG_FE.append((_DIAG_YEAR, _DIAG_CTX.get("doy"), i, t_layer, relwet, sixpool_fe(t_layer, relwet, True)))
+         _v = sixpool_step(sub, t_layer, relwet, root_c_input_mg_ha * wts[i] / wsum, ft)
+         total += _v
++        _nm_layers.append(_v)
+         resp_tot += sub.get("resp_mg_ha", 0.0)
+         if i == 0:
+             state["cra"], state["crm"], state["cra_age"] = sub["cra"], sub["crm"], sub["cra_age"]
+@@ -2574,6 +2578,8 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
+     state["cm"] = sum(x["cm"] for x in subs)
+     if DIAG_CPOOL is not None: DIAG_CPOOL.append((_DIAG_YEAR, _DIAG_CTX.get("doy"), [x["cs"] for x in subs], [x["cm"] for x in subs], [x["crtz"] for x in subs], state["cra"]))
+     state["resp_mg_ha"] = resp_tot
++    state["netmin_layers"] = _nm_layers
++    state["t_layers"] = list(_t_hc)
+     if DIAG_RESP is not None:
+         DIAG_RESP.append((_DIAG_YEAR, resp_tot, total))
+     return total
+@@ -2918,6 +2924,56 @@ def apply_net_min(nh4, no3, no3_layers, smin, sixpool_state=None):
+         N_UNMET.append((_DIAG_YEAR, _DIAG_CTX.get("doy"), need))   # immobilization the mineral pool could not supply (the engine drops it)
+     return nh4, no3
+ 
++NH4_LAYERED = True   # ammonium tracked per layer (Cycles' N process arrays are per layer, SI of Cycles-L): mineralization lands in the layer where it happens, every layer nitrifies with the same law
++NH4_ROOT_ACCESS = True   # ammonium uptake limited to layers the roots have reached (False: all ammonium reachable, as the lumped pool was)
++NH4_LAYER_TEMP = "hc"   # layer temperature for nitrification: "hc" = heat-conduction layer temperatures, "lag0" = lagged air temperature in layer 1 and hc below
++
++
++def nh4_rescale(vec, total):
++    """Make the per-layer ammonium list sum to `total` after a scalar-only change (proportional, or all into layer 1 if it was empty)."""
++    cur = sum(vec)
++    if cur > 1e-12:
++        f = total / cur
++        for i in range(len(vec)):
++            vec[i] *= f
++    else:
++        for i in range(len(vec)):
++            vec[i] = 0.0
++        vec[0] = total
++
++
++def nh4_apply_netmin(nh4_layers, no3_layers, nm_layers):
++    """Per-layer net mineralization: positive into the layer's NH4; negative (immobilization) from the layer's own NH4 then its own nitrate."""
++    for i, v in enumerate(nm_layers[:len(nh4_layers)]):
++        if v >= 0.0:
++            nh4_layers[i] += v
++            continue
++        need = -v
++        t = min(nh4_layers[i], need); nh4_layers[i] -= t; need -= t
++        if need > 0.0 and IMMOB_FROM_NO3 and no3_layers is not None:
++            t = min(no3_layers[i], need); no3_layers[i] -= t; need -= t
++        if need > 1e-12 and N_UNMET is not None:
++            N_UNMET.append((_DIAG_YEAR, _DIAG_CTX.get("doy"), need))
++
++
++def nh4_nitrify_volatilize(nh4_layers, no3_layers, layers, sixpool_state, tsoil_lag, wind, model_volatilization, ph=None):
++    """One day of per-layer nitrification (layer start-of-day NH4 and NO3, layer temperature and saturation) and surface volatilization. Mutates the lists;
++    returns (nitrified total, volatilized, n2o from nitrification)."""
++    tl = sixpool_state.get("t_layers") if sixpool_state is not None else None
++    nit_tot = 0.0; n2o = 0.0
++    nits = []
++    for i in range(len(nh4_layers)):
++        T = (tl[i] if (tl is not None and len(tl) > i and not (i == 0 and NH4_LAYER_TEMP == "lag0")) else tsoil_lag)
++        nits.append(nitrification_flux_ratio(nh4_layers[i], no3_layers[i], T, layers[i]["theta"] / layers[i]["sat"]))
++    vol = volatilization_flux(tsoil_lag, nh4_layers[0], layers[0], wind, ph) if model_volatilization else 0.0
++    for i, nit in enumerate(nits):
++        nh4_layers[i] = max(0.0, nh4_layers[i] - nit - (vol if i == 0 else 0.0))
++        no3_layers[i] += nit
++        n2o += n2o_from_nitrification(nit, layers[i]["theta"] / layers[i]["sat"])
++        nit_tot += nit
++    return nit_tot, vol, n2o
++
++
+ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=75.0, slope_pct=0.0,
+                         lat_deg=40.6875, de_state=None, model_denitrification=True, model_volatilization=True):
+     """Bare-soil water balance PLUS the nitrogen dynamics that keep running with no crop: sixpool
+@@ -2934,6 +2990,12 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
+     denitrification (10 vs 52) could not be reproduced no matter how good the rate laws were."""
+     leached = denit = volat = 0.0
+     no3_layers = nstate.get("no3_layers")
++    nh4_layers = None
++    if NH4_LAYERED and no3_layers is not None:
++        nh4_layers = nstate.get("nh4_layers")
++        if nh4_layers is None:
++            nh4_layers = [nstate["n_nh4"]] + [0.0] * (len(layers) - 1)
++        nstate["nh4_layers"] = nh4_layers
+     for w in rows:
+         _dn_th0 = [l["theta"] for l in layers]
+         _dn_no3_0 = list(no3_layers) if no3_layers is not None else [0.0] * len(layers)
+@@ -2956,8 +3018,8 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
+             relwet = ((layers[0]["theta"] - layers[0]["pwp"]) / (layers[0]["fc"] - layers[0]["pwp"])
+                       if layers[0]["fc"] > layers[0]["pwp"] else 1.0)
+             sixpool_state["n_min"] = nstate["n_nh4"] + nstate["n_no3"]
+-            sixpool_state["n_conc1"] = n_conc_layer1(layers, nstate["n_nh4"], no3_layers, nstate["n_no3"])
+-            sixpool_state["n_conc_layers"] = n_conc_layers(layers, nstate["n_nh4"], no3_layers, nstate["n_no3"])
++            sixpool_state["n_conc1"] = n_conc_layer1(layers, (nh4_layers if nh4_layers is not None else nstate["n_nh4"]), no3_layers, nstate["n_no3"])
++            sixpool_state["n_conc_layers"] = n_conc_layers(layers, (nh4_layers if nh4_layers is not None else nstate["n_nh4"]), no3_layers, nstate["n_no3"])
+             _dn0 = len(SIXPOOL_DIAG) if SIXPOOL_DIAG is not None else 0
+             _DIAG_CTX["doy"] = w["doy"]
+             _smin = sixpool_step(sixpool_state, tmean, relwet, 0.0, 1.0, layers)
+@@ -2971,15 +3033,26 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
+                 _gross = (0.0, 0.0, 0.0, 0.0)
+             if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("netmin", ()):
+                 _smin = _FORCE_CUR["netmin"][w["doy"]]   # diagnostic: Cycles' own net mineralization flux in the fallow windows too
+-            nstate["n_nh4"], nstate["n_no3"] = apply_net_min(nstate["n_nh4"], nstate["n_no3"], no3_layers, _smin, sixpool_state)
+-        nit = nitrification_flux_ratio(nstate["n_nh4"], (no3_layers[0] if no3_layers is not None else nstate["n_no3"]), nstate["tsoil_lag"], layers[0]["theta"] / layers[0]["sat"])
+-        vol = (volatilization_flux(nstate["tsoil_lag"], nstate["n_nh4"], layers[0], w["wind"], layers[0].get("ph"))
+-               if model_volatilization else 0.0)
+-        nstate["n_nh4"] = max(0.0, nstate["n_nh4"] - nit - vol)
+-        nstate["n_no3"] += nit
+-        if no3_layers is not None:
+-            no3_layers[0] += nit
+-        nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_nitrification(nit, layers[0]["theta"] / layers[0]["sat"])
++            if nh4_layers is not None and not (_FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("netmin", ())) and sixpool_state.get("netmin_layers") is not None:
++                nh4_apply_netmin(nh4_layers, no3_layers, sixpool_state["netmin_layers"])
++                nstate["n_nh4"] = sum(nh4_layers); nstate["n_no3"] = sum(no3_layers)
++            else:
++                nstate["n_nh4"], nstate["n_no3"] = apply_net_min(nstate["n_nh4"], nstate["n_no3"], no3_layers, _smin, sixpool_state)
++                if nh4_layers is not None:
++                    nh4_rescale(nh4_layers, nstate["n_nh4"])
++        if nh4_layers is not None:
++            nit, vol, _n2o = nh4_nitrify_volatilize(nh4_layers, no3_layers, layers, sixpool_state, nstate["tsoil_lag"], w["wind"], model_volatilization, layers[0].get("ph"))
++            nstate["n_nh4"] = sum(nh4_layers); nstate["n_no3"] = sum(no3_layers)
++            nstate["n2o"] = nstate.get("n2o", 0.0) + _n2o
++        else:
++            nit = nitrification_flux_ratio(nstate["n_nh4"], (no3_layers[0] if no3_layers is not None else nstate["n_no3"]), nstate["tsoil_lag"], layers[0]["theta"] / layers[0]["sat"])
++            vol = (volatilization_flux(nstate["tsoil_lag"], nstate["n_nh4"], layers[0], w["wind"], layers[0].get("ph"))
++                   if model_volatilization else 0.0)
++            nstate["n_nh4"] = max(0.0, nstate["n_nh4"] - nit - vol)
++            nstate["n_no3"] += nit
++            if no3_layers is not None:
++                no3_layers[0] += nit
++            nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_nitrification(nit, layers[0]["theta"] / layers[0]["sat"])
+         volat += vol
+         profile_water_mm = sum(l["theta"] * l["thick"] * 1000 for l in layers)
+         if no3_layers is None and profile_water_mm > 0 and nstate["n_no3"] > 0 and drainage_mm > 0:
+@@ -3016,6 +3089,8 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
+         if DIAG_NFLUX is not None:
+             DIAG_NFLUX.append((_DIAG_YEAR, w["doy"], locals().get("_smin", 0.0), nit, vol, locals().get("d", 0.0)) + tuple(locals().get("_gross", (0.0, 0.0, 0.0))))
+         nstate["n_no3"], nstate["n_nh4"] = _npool_hook(no3_layers, nstate["n_no3"], nstate["n_nh4"], w["doy"])
++        if nh4_layers is not None:
++            nh4_rescale(nh4_layers, nstate["n_nh4"])
+     return leached, denit, volat
+ 
+ 
+@@ -3832,6 +3907,14 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
+             no3_layers[0] += fresh
+         else:
+             no3_layers[0] = n_no3
++    nh4_layers = None
++    if NH4_LAYERED and no3_layers is not None and n_nh4 is not None:
++        nh4_layers = [0.0] * len(layers)
++        if initial_n_state is not None and initial_n_state.get("nh4_layers"):
++            nh4_layers = list(initial_n_state["nh4_layers"])
++            nh4_layers[0] += n_nh4 - initial_n_state["n_nh4"]
++        else:
++            nh4_layers[0] = n_nh4
+     last_doy = None
+     # Real, continuous NH4-pool ammonia volatilization (2026-10-02, see volatilization_flux()'s
+     # own docstring) -- only meaningful alongside the NH4/NO3 split above, since it drains the
+@@ -4028,14 +4111,20 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
+             # up to ~0.145/day, volatilization up to ~0.044/day observed) that this is a safe
+             # explicit-Euler approximation, the same one already used for every other daily
+             # rate in this engine.
+-            nitrif_amt_today = nitrification_flux_ratio(n_nh4, (no3_layers[0] if no3_layers is not None else n_no3), tsoil_lag, layers[0]["theta"] / layers[0]["sat"])
+-            volat_amt_today = (volatilization_flux(tsoil_lag, n_nh4, layers[0], w["wind"], layers[0].get("ph"))
+-                               if model_volatilization else 0.0)
+-            n_nh4 = max(0.0, n_nh4 - nitrif_amt_today - volat_amt_today)
+-            n_no3 += nitrif_amt_today
+-            n2o_total += n2o_from_nitrification(nitrif_amt_today, layers[0]["theta"] / layers[0]["sat"])
+-            if no3_layers is not None:
+-                no3_layers[0] += nitrif_amt_today
++            if nh4_layers is not None:
++                nitrif_amt_today, volat_amt_today, _n2o_n = nh4_nitrify_volatilize(nh4_layers, no3_layers, layers, sixpool_state, tsoil_lag, w["wind"], model_volatilization, layers[0].get("ph"))
++                n_nh4 = sum(nh4_layers)
++                n_no3 = sum(no3_layers)
++                n2o_total += _n2o_n
++            else:
++                nitrif_amt_today = nitrification_flux_ratio(n_nh4, (no3_layers[0] if no3_layers is not None else n_no3), tsoil_lag, layers[0]["theta"] / layers[0]["sat"])
++                volat_amt_today = (volatilization_flux(tsoil_lag, n_nh4, layers[0], w["wind"], layers[0].get("ph"))
++                                   if model_volatilization else 0.0)
++                n_nh4 = max(0.0, n_nh4 - nitrif_amt_today - volat_amt_today)
++                n_no3 += nitrif_amt_today
++                n2o_total += n2o_from_nitrification(nitrif_amt_today, layers[0]["theta"] / layers[0]["sat"])
++                if no3_layers is not None:
++                    no3_layers[0] += nitrif_amt_today
+             if n_volatilized_pool_total is not None:
+                 n_volatilized_pool_total += volat_amt_today
+ 
+@@ -4140,6 +4229,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
+                 no3_layers[:] = [_f_no3] + [0.0] * (len(no3_layers) - 1)
+             n_no3 = sum(no3_layers)
+             n_pool = n_nh4 + n_no3
++            if nh4_layers is not None:
++                nh4_rescale(nh4_layers, n_nh4)
+         if n_pool is not None:
+             if w["doy"] in applications_by_doy:
+                 if n_pool_by_layer is not None:
+@@ -4147,6 +4238,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
+                 elif n_nh4 is not None:
+                     _dose_today = applications_by_doy[w["doy"]]
+                     n_nh4 += _dose_today * mineral_nh4_frac
++                    if nh4_layers is not None:
++                        nh4_layers[0] += _dose_today * mineral_nh4_frac
+                     n_no3 += _dose_today * mineral_no3_frac  # see fertilizer_source's own
+                     if no3_layers is not None:
+                         no3_layers[0] += _dose_today * mineral_no3_frac
+@@ -4165,8 +4258,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
+                                        * CARBON_FRACTION_DM * ROOT_C_INPUT_FACTOR)
+                 ft_eff = 1.0 + tillage_ft(tillage_dr, tillage_ftx_val)
+                 sixpool_state["n_min"] = ((n_nh4 or 0.0) + (n_no3 or 0.0)) if n_nh4 is not None else n_pool
+-                sixpool_state["n_conc1"] = n_conc_layer1(layers, n_nh4 if n_nh4 is not None else 0.0, no3_layers, (n_no3 or 0.0) if n_nh4 is not None else n_pool)
+-                sixpool_state["n_conc_layers"] = n_conc_layers(layers, n_nh4 if n_nh4 is not None else 0.0, no3_layers, (n_no3 or 0.0) if n_nh4 is not None else n_pool)
++                _nh4_arg = nh4_layers if nh4_layers is not None else (n_nh4 if n_nh4 is not None else 0.0)
++                sixpool_state["n_conc1"] = n_conc_layer1(layers, _nh4_arg, no3_layers, (n_no3 or 0.0) if n_nh4 is not None else n_pool)
++                sixpool_state["n_conc_layers"] = n_conc_layers(layers, _nh4_arg, no3_layers, (n_no3 or 0.0) if n_nh4 is not None else n_pool)
+                 _DIAG_CTX["doy"] = w["doy"]
+                 background_today = sixpool_step(sixpool_state, tmean, relwet_topsoil, root_c_input_today, ft_eff, layers)
+                 if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("netmin", ()):
+@@ -4178,8 +4272,13 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
+                 # not because a negative value is itself wrong.
+                 if n_pool_by_layer is not None:
+                     n_pool_by_layer[0] = max(0.0, n_pool_by_layer[0] + background_today)
++                elif n_nh4 is not None and nh4_layers is not None and sixpool_state.get("netmin_layers") is not None and not (_FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("netmin", ())):
++                    nh4_apply_netmin(nh4_layers, no3_layers, sixpool_state["netmin_layers"])
++                    n_nh4 = sum(nh4_layers); n_no3 = sum(no3_layers)
+                 elif n_nh4 is not None:
+                     n_nh4, n_no3 = apply_net_min(n_nh4, n_no3, no3_layers, background_today, sixpool_state)  # background mineralization is
++                    if nh4_layers is not None:
++                        nh4_rescale(nh4_layers, n_nh4)
+                     # ammonification -- NH4 first, by definition -- see nh4_no3_split's docstring
+                 else:
+                     n_pool = max(0.0, n_pool + background_today)
+@@ -4191,6 +4290,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
+                     n_pool_by_layer[0] += background_today
+                 elif n_nh4 is not None:
+                     n_nh4 += background_today
++                    if nh4_layers is not None:
++                        nh4_layers[0] += background_today
+                 else:
+                     n_pool += background_today
+             if n_pool_by_layer is not None:
+@@ -4243,7 +4344,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
+                 # growth it permits. Fixed point on F: growth = potential x F, demand from that growth, uptake = min(supply cap, demand), concentration after the uptake over the
+                 # above-ground biomass including the POTENTIAL growth (the dilution the plant is trying to make), critical curve at the biomass after realized growth, F = law(ratio).
+                 _acc = layer_depth_fraction_within(layers, root_depth)
+-                _reach = n_nh4 + sum(max(0.0, no3_layers[_i] - N_UPTAKE_FLOOR_MGKG * sixpool_bulk_density(layers[_i]["sat"]) * layers[_i]["thick"] * 10.0) * _acc[_i] for _i in range(len(layers)))
++                _reach = (sum(nh4_layers[_i] * (_acc[_i] if NH4_ROOT_ACCESS else 1.0) for _i in range(len(layers))) if nh4_layers is not None else n_nh4) + sum(max(0.0, no3_layers[_i] - N_UPTAKE_FLOOR_MGKG * sixpool_bulk_density(layers[_i]["sat"]) * layers[_i]["thick"] * 10.0) * _acc[_i] for _i in range(len(layers)))
+                 _urs = crop.get("n_uptake_rate", N_UPTAKE_RATE_PER_DAY)
+                 _caps = _reach if _urs is None else _reach * _urs
+                 _sf_s = shoot_fraction(ttf, crop["fsti"], crop["fstf"], crop.get("ttf50")); _rr_s = crop.get("root_retained_frac", 1.0)
+@@ -4299,7 +4400,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
+                     else:
+                         _avail = [no3_layers[i] * access[i] for i in range(len(layers))]
+                         reach_no3 = sum(_avail)
+-                    reachable = n_nh4 + reach_no3
++                    _nh4_reach = sum(nh4_layers[i] * (access[i] if NH4_ROOT_ACCESS else 1.0) for i in range(len(layers))) if nh4_layers is not None else n_nh4
++                    reachable = _nh4_reach + reach_no3
+                     _ur = crop.get("n_uptake_rate", N_UPTAKE_RATE_PER_DAY)
+                     _cap = reachable if _ur is None else reachable * _ur
+                     n_uptake_kg_ha = min(_cap, demand_today_kg_ha)
+@@ -4307,7 +4409,12 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
+                         n_uptake_kg_ha = min(reachable, _FORCE_CUR["uptake"][w["doy"]])   # diagnostic: Cycles' own daily plant N uptake
+                     if reachable > 1e-9:
+                         frac = n_uptake_kg_ha / reachable
+-                        n_nh4 = max(0.0, n_nh4 - n_nh4 * frac)
++                        if nh4_layers is not None:
++                            for i in range(len(layers)):
++                                nh4_layers[i] = max(0.0, nh4_layers[i] - nh4_layers[i] * (access[i] if NH4_ROOT_ACCESS else 1.0) * frac)
++                            n_nh4 = sum(nh4_layers)
++                        else:
++                            n_nh4 = max(0.0, n_nh4 - n_nh4 * frac)
+                         for i in range(len(layers)):
+                             no3_layers[i] = max(0.0, no3_layers[i] - _avail[i] * frac)
+                     n_no3 = sum(no3_layers)
+@@ -4352,6 +4459,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
+ 
+         if (NPOOL_FORCE is not None or NLAYER_FORCE is not None) and no3_layers is not None and n_no3 is not None and n_nh4 is not None:
+             n_no3, n_nh4 = _npool_hook(no3_layers, n_no3, n_nh4, w["doy"])
++            if nh4_layers is not None:
++                nh4_rescale(nh4_layers, n_nh4)
+             if n_pool is not None:
+                 n_pool = n_no3 + n_nh4
+         if record_history:
+@@ -4450,7 +4559,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
+         result["sixpool_final_state"] = copy.deepcopy(sixpool_state)
+     if n_nh4 is not None:
+         result["final_n_state"] = dict(n_nh4=n_nh4, n_no3=n_no3, tsoil_lag=tsoil_lag,
+-                                       no3_layers=list(no3_layers) if no3_layers is not None else None)
++                                       no3_layers=list(no3_layers) if no3_layers is not None else None,
++                                       nh4_layers=list(nh4_layers) if nh4_layers is not None else None)
+         result["last_doy"] = last_doy
+     if initial_layers is not None:
+         result["final_layers"] = layers
