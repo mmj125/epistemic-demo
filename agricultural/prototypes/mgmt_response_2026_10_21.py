@@ -15,7 +15,7 @@ MAN="\nFIXED_FERTILIZATION\nYEAR                                1\nDOY          
 def variant(t,txt):
     if t=="till": i=txt.index("TILLAGE"); return txt[:i]+TILL+txt[i:]
     if t=="late": return txt.replace("DOY                                 110","DOY                                 135").replace("END_DOY                             131","END_DOY                             156")
-    if t=="irrig": return txt.replace("USE_AUTO_IRR                        0","USE_AUTO_IRR                        1")+IRR
+    if t=="irrig": return txt.replace("USE_AUTO_IRR                        0","USE_AUTO_IRR                        1")+IRR.replace("@LL@",str(LL[0]))
     if t=="manure": return txt+MAN
 def parse(d):
     H={};A={}
@@ -26,9 +26,15 @@ def parse(d):
         q=line.strip().split(",")
         if len(q)>=12: A[int(q[0])]=dict(leach=float(q[4])+float(q[5]),denit=float(q[8]),volat=float(q[10]),n2o=float(q[11]))
     return H,A
+LL=[3]
 def one(site):
     lat,lon=S[site]; wx,_=m.fd.resolve_field_weather(lat,lon); soil,_,_=m.fd.resolve_field_soil(lat,lon); cl=m.lat_of(lat,lon); m.REG_LON=lon
     nm=site+"mg"; m.write_inputs(nm,lat,lon,wx,soil,cl); out={}
+    z=0.0
+    for i,l in enumerate(soil):
+        z+=l["thick"]
+        if z>=1.0: break
+    LL[0]=i+1   # layers down to about 1 m
     def eng(N,**ex):
         kw=E.standard_kwargs(soil,N); pw=ex.pop("plant_window",(110,131)); kw.update(ex); kw["tillage_clay_frac"]=soil[0]["clay"]/100.0
         r=E.simulate_continuous(wx,corn_crop(cl,soil),carry_n=True,plant_window=pw,**kw); o={}
@@ -42,7 +48,7 @@ def one(site):
         return {y:dict(grain=H[y],**A[y]) for y in H if y in A}
     for t in TREATS:
         N=0 if t=="manure" else 150
-        kwt={"till":dict(tillage_implement="Chisel+planter",tillage_doy="planting"),"late":dict(plant_window=(135,156)),"irrig":dict(irrigation_trigger_frac=0.5,irrigation_amount_mm=25.0),"manure":dict(manure_n_kg_ha=150.0,manure_source="dairy")}[t]
+        kwt={"till":dict(tillage_implement="Chisel+planter",tillage_doy="planting"),"late":dict(plant_window=(135,156)),"irrig":dict(irrigation_trigger_frac=0.5,irrigation_refill_layers=LL[0],irrigation_window=(150,260)),"manure":dict(manure_n_kg_ha=150.0,manure_source="dairy")}[t]
         out[t]=dict(eb=eng(N,**(dict(tillage_implement="Planter_double_disk_opnr",tillage_doy="planting") if t=="till" else {})),et=eng(N,**kwt),cb=None,ct=cyc(t,N))
         b,_=m.run_cycles(site,N); _,Ab=m.run_cycles(site,N); out[t]["cb"]={y:dict(grain=b[y]["grain"],**Ab[y]) for y in b if y in Ab}
     return site,out

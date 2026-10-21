@@ -3252,7 +3252,7 @@ def simulate_continuous(weather_by_year, crop, years=None, plant_window=(110, 13
 def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False,
                      n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
                      manure_source=None,
-                     irrigation_trigger_frac=None, irrigation_amount_mm=25.0,
+                     irrigation_trigger_frac=None, irrigation_amount_mm=25.0, irrigation_refill_layers=None, irrigation_window=(1, 366),
                      tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21, tillage_mix_texture=True,
                      fert_placement_implement=None, soil_ph=None,
                      spinup_rows=None, curve_number=75.0, slope_pct=0.0, initial_layers=None,
@@ -4071,7 +4071,17 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # before infiltration/redistribution -- so irrigated water shows up in today's
         # available water exactly like an equivalent rain event would.
         irrigation_mm = 0.0
-        if irrigation_trigger_frac is not None:
+        if irrigation_trigger_frac is not None and irrigation_refill_layers is not None:
+            # Cycles' AUTO_IRRIGATION (input.md): when the plant available water over the layers down to LAST_SOIL_LAYER has been depleted past the threshold, add the water
+            # that brings those layers to field capacity; events only inside START_DOY..STOP_DOY
+            if irrigation_window[0] <= w["doy"] <= irrigation_window[1]:
+                _il = layers[:irrigation_refill_layers]
+                _cap = sum((l["fc"] - l["pwp"]) * l["thick"] for l in _il)
+                _av = sum(max(0.0, min(l["theta"], l["fc"]) - l["pwp"]) * l["thick"] for l in _il)
+                if _cap > 0 and _av / _cap < irrigation_trigger_frac:
+                    irrigation_mm = sum(max(0.0, l["fc"] - l["theta"]) * l["thick"] for l in _il) * 1000.0
+                    irrigation_total_mm += irrigation_mm
+        elif irrigation_trigger_frac is not None:
             pre_avail_frac = root_zone_availability(layers, root_depth)
             if pre_avail_frac < irrigation_trigger_frac:
                 irrigation_mm = irrigation_amount_mm

@@ -82,7 +82,9 @@ SCHEMA = {
         {"id": "irrigation", "label": "Irrigation", "applies_to": ["corn", "silage", "sorghum", "soybean"], "fields": [
             {"id": "irrigation_on", "label": "Irrigate", "type": "select", "default": "no", "options": [["no", "No"], ["auto", "Automatic (refill at a soil water trigger)"]]},
             {"id": "irrigation_trigger", "label": "Trigger (fraction of available water depleted)", "type": "number", "default": 0.5, "min": 0.1, "max": 0.9, "step": 0.05, "show_if": {"irrigation_on": "auto"}},
-            {"id": "irrigation_mm", "label": "Amount per event (mm)", "type": "number", "default": 25, "min": 5, "max": 100, "step": 5, "show_if": {"irrigation_on": "auto"}},
+            {"id": "irrigation_depth_m", "label": "Refill depth (m; each event brings the soil above it to field capacity)", "type": "number", "default": 1.0, "min": 0.3, "max": 2.0, "step": 0.1, "show_if": {"irrigation_on": "auto"}},
+            {"id": "irrigation_start", "label": "First day of year events can occur", "type": "number", "default": 150, "min": 1, "max": 365, "step": 1, "show_if": {"irrigation_on": "auto"}},
+            {"id": "irrigation_stop", "label": "Last day of year events can occur", "type": "number", "default": 260, "min": 1, "max": 365, "step": 1, "show_if": {"irrigation_on": "auto"}},
         ]},
     ],
     "soil_columns": [["thick", "Thickness (m)"], ["clay", "Clay (%)"], ["sand", "Sand (%)"], ["soc", "Organic C (%)"]],
@@ -198,7 +200,14 @@ def _spring_chain(cfg, crop_key, wx, soil, lat):
         kw["tillage_clay_frac"] = float(soil[0]["clay"]) / 100.0   # the tillage decomposition speed-up depends on the site's topsoil clay (default 0.21 is not the site)
         kw["tillage_implement"] = ti; kw["tillage_doy"] = "planting" if cfg.get("tillage_when", "planting") == "planting" else int(cfg.get("tillage_doy", 140))
     if cfg.get("irrigation_on") == "auto":
-        kw["irrigation_trigger_frac"] = float(cfg.get("irrigation_trigger", 0.5)); kw["irrigation_amount_mm"] = float(cfg.get("irrigation_mm", 25))
+        # Cycles' AUTO_IRRIGATION: the trigger is the fraction of plant available water DEPLETED; an event refills the layers down to the depth to field capacity
+        kw["irrigation_trigger_frac"] = 1.0 - float(cfg.get("irrigation_trigger", 0.5))
+        _z, _n = 0.0, 0
+        for _l in soil:
+            _n += 1; _z += _l["thick"]
+            if _z >= float(cfg.get("irrigation_depth_m", 1.0)): break
+        kw["irrigation_refill_layers"] = _n
+        kw["irrigation_window"] = (int(cfg.get("irrigation_start", 150)), int(cfg.get("irrigation_stop", 260)))
     kw["record_history"] = True
     first = int(cfg["start_year"]); last = int(cfg["end_year"])
     yrs = [y for y in sorted(wx) if first <= y <= last]
