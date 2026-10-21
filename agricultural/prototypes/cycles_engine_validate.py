@@ -1760,6 +1760,8 @@ DIAG_DENIT = None   # appends (year, doy, layer-1 relative saturation used, prof
 N_UNMET = None   # diagnostic: appends (year, doy, kg N/ha) of net immobilization the mineral pool could not supply
 N_SIMULTANEOUS = True   # ADOPTED 2026-10-19 (corn 94 sites vs the same code without it: grain MAE gain +0.039 [+0.028,+0.051] / +0.012 [+0.006,+0.017] / 0.000 at N=0/150/400); simultaneous solve of uptake, growth and N factor within the day (see simulate_season)
 N_UPTAKE_RATE_PER_DAY = None  # None = uptake limited only by demand (validated default); else also capped at this fraction/day of the reachable mineral N pool (nitrate_per_layer path)
+DIAG_LOSTC = None
+RHIZO_N_UPTAKE = os.environ.get("RHIZO_N", "0") == "1"   # 2026-10-21: the N for the share of root growth that leaves the plant (1 - root_retained_frac) is also taken from the mineral pool
 N_DEMAND_SCALE = 0.70   # 2026-10-17 measured: Cycles unstressed marginal total-N concentration of new growth is 0.68 (corn, silage corn) to 0.75 (winter wheat) of the crop-file dilution curve marginal a(1-b)W^-b, growth-weighted over 16 sites x 3 N rates (n_demand_ratio_2026_10_17.py). Was 0.874562 (a leaching fit).
 GROWTH_CANOPY_LAG = 1.0   # days between the reported canopy and the canopy that drives radiation-limited growth (1 = previous day; 1.5 = mean of the previous two days); per-crop key growth_canopy_lag overrides
 GROWTH_PREV_CANOPY = True   # step 6: radiation-limited growth uses the canopy at the start of the day (previous day's)
@@ -3836,6 +3838,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     n_denitrified_total = 0.0 if (n_pool is not None and model_denitrification) else None
     n2o_total = 0.0
     n_uptake_total = 0.0 if n_pool is not None else None
+    n_rhizo_total = 0.0
     # n_pool_by_layer: the real per-layer tracking n_root_limited needs (see
     # simulate_season()'s own docstring) -- None whenever n_root_limited is False (the
     # default) or nitrogen tracking is off entirely, so every existing caller is unaffected.
@@ -4250,6 +4253,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 root_c_input_today = (10.0 * dGB_water_limited * (n_stress_prev if ROOT_C_REALIZED_GROWTH else 1.0) * (1.0 - shoot_fraction(ttf, crop["fsti"], crop["fstf"], crop.get("ttf50")))
                                        * CARBON_FRACTION_DM * ROOT_C_INPUT_FACTOR)
                 ft_eff = 1.0 + tillage_ft(tillage_dr, tillage_ftx_val)
+                if DIAG_LOSTC is not None: DIAG_LOSTC.append((_DIAG_YEAR, root_c_input_today * (1.0 - 1.0 / ROOT_C_INPUT_FACTOR), root_c_input_today))
                 sixpool_state["n_min"] = ((n_nh4 or 0.0) + (n_no3 or 0.0)) if n_nh4 is not None else n_pool
                 sixpool_state["n_conc1"] = n_conc_layer1(layers, n_nh4 if n_nh4 is not None else 0.0, no3_layers, (n_no3 or 0.0) if n_nh4 is not None else n_pool)
                 sixpool_state["n_conc_layers"] = n_conc_layers(layers, n_nh4 if n_nh4 is not None else 0.0, no3_layers, (n_no3 or 0.0) if n_nh4 is not None else n_pool)
@@ -4396,6 +4400,19 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                         n_nh4 = max(0.0, n_nh4 - n_nh4 * frac)
                         for i in range(len(layers)):
                             no3_layers[i] = max(0.0, no3_layers[i] - _avail[i] * frac)
+                    if RHIZO_N_UPTAKE and _rr0 < 1.0 and n_uptake_kg_ha > 0:
+                        # The root mass that leaves the plant (rhizodeposits, root turnover: 1 - root_retained_frac of root growth) carries N at the concentration of the retained roots,
+                        # taken from the soil and returned to it as organic N. Sink = (lost / retained root mass) x root N = (1 - rr) / rr x (1 - N_AG_FRACTION) x uptake = 8.0% of
+                        # uptake for corn. Measured on Cycles' daily budget at 24 sites: its mineral pool loses 0.082 (N=0) and 0.093 (N=150) x the plant N gain beyond the plant's
+                        # own N (residual against plant N, corr -0.97 / -0.91); the new-growth concentration would give 14 to 15%.
+                        _rh = n_uptake_kg_ha * (1.0 - N_AG_FRACTION) * (1.0 - _rr0) / _rr0
+                        _left = reachable - n_uptake_kg_ha
+                        if _left > 1e-9 and _rh > 0:
+                            _rh = min(_rh, _left); _f2 = _rh / _left
+                            n_nh4 = max(0.0, n_nh4 - n_nh4 * _f2)
+                            for i in range(len(layers)):
+                                no3_layers[i] = max(0.0, no3_layers[i] - no3_layers[i] * access[i] * _f2)
+                            n_rhizo_total += _rh
                     n_no3 = sum(no3_layers)
                     n_pool = n_nh4 + n_no3
                 else:
@@ -4447,7 +4464,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                                  theta=[round(l["theta"], 4) for l in layers],
                                  n_no3=round(n_no3, 3) if n_no3 is not None else None,
                                  n_nh4=round(n_nh4, 3) if n_nh4 is not None else None,
-                                 no3_layers=[round(x, 3) for x in no3_layers] if no3_layers else None))
+                                 no3_layers=[round(x, 3) for x in no3_layers] if no3_layers else None,
+                                 netmin=round(locals().get("background_today", 0.0) or 0.0, 4), denit=round(locals().get("denitrif_today", 0.0) or 0.0, 4), leach=round(n_leached_today or 0.0, 4),
+                                 nitr=round(locals().get("nitrif_amt_today", 0.0) or 0.0, 4)))
 
         if tillage_dr > 0:
             tillage_dr -= tillage_dr * tillage_dr_decay(layers)
@@ -4500,6 +4519,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         result["history"] = history
     if n_uptake_total is not None:
         result["n_uptake_kg_ha"] = n_uptake_total
+        result["n_rhizo_kg_ha"] = n_rhizo_total
         result["n_remaining_kg_ha"] = sum(n_pool_by_layer) if n_pool_by_layer is not None else n_pool
         if n_nh4 is not None:
             result["n_nh4_remaining_kg_ha"] = n_nh4

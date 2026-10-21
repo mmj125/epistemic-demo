@@ -10,7 +10,7 @@ def one(args):
     for y,v in r.items():
         if y<1983: continue
         pd=v.get("plant_doy")
-        for h in v["history"]: rows.append([si,N,y,h["doy"],h["n_no3"],h["n_nh4"],h["n_plant"],h["n_stress"],h["ag_mg_ha"]])
+        for h in v["history"]: rows.append([si,N,y,h["doy"],h["n_no3"],h["n_nh4"],h["n_plant"],h["n_stress"],h["ag_mg_ha"],h["netmin"],h["denit"],h["leach"],h["nitr"]])
     return rows
 if __name__=="__main__":
     R=Pool(4).map(one,[(s,N) for s in range(24) for N in (0,150)]); A=np.array([r for x in R for r in x]); np.savez("/tmp/w/nbe.npz",A=A); print(A.shape)
