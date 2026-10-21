@@ -1761,7 +1761,7 @@ N_UNMET = None   # diagnostic: appends (year, doy, kg N/ha) of net immobilizatio
 N_SIMULTANEOUS = True   # ADOPTED 2026-10-19 (corn 94 sites vs the same code without it: grain MAE gain +0.039 [+0.028,+0.051] / +0.012 [+0.006,+0.017] / 0.000 at N=0/150/400); simultaneous solve of uptake, growth and N factor within the day (see simulate_season)
 N_UPTAKE_RATE_PER_DAY = None  # None = uptake limited only by demand (validated default); else also capped at this fraction/day of the reachable mineral N pool (nitrate_per_layer path)
 DIAG_LOSTC = None
-RHIZO_N_UPTAKE = os.environ.get("RHIZO_N", "0") == "1"   # 2026-10-21: the N for the share of root growth that leaves the plant (1 - root_retained_frac) is also taken from the mineral pool
+RHIZO_N_UPTAKE = os.environ.get("RHIZO_N", "1") == "1"   # 2026-10-21: the N for the share of root growth that leaves the plant (1 - root_retained_frac) is also taken from the mineral pool
 N_DEMAND_SCALE = 0.70   # 2026-10-17 measured: Cycles unstressed marginal total-N concentration of new growth is 0.68 (corn, silage corn) to 0.75 (winter wheat) of the crop-file dilution curve marginal a(1-b)W^-b, growth-weighted over 16 sites x 3 N rates (n_demand_ratio_2026_10_17.py). Was 0.874562 (a leaching fit).
 GROWTH_CANOPY_LAG = 1.0   # days between the reported canopy and the canopy that drives radiation-limited growth (1 = previous day; 1.5 = mean of the previous two days); per-crop key growth_canopy_lag overrides
 GROWTH_PREV_CANOPY = True   # step 6: radiation-limited growth uses the canopy at the start of the day (previous day's)
