@@ -2639,19 +2639,20 @@ MANURE_SOURCES = {
     # the record but NOT yet fed into any mineralization pathway (see manure_source's own
     # docstring below for why) -- a disclosed, not-yet-modeled simplification, same category
     # as every other "real data exists, only part of it is wired in" gap in this engine.
+    # c_per_norg: kg organic C per kg organic N, C_Organic over N_Organic from the same catalog (2026-10-21), used to put the organic fraction into the surface residue pool.
     # Real cross-check this data corroborates rather than contradicts: the already-disclosed
     # SI Sec. IX Iowa case credits manure at "0.5 the availability of mineral N" -- Iowa is
     # real hog country, and Swine_Manure's own nh4_frac here is 0.553, strikingly close to
     # that independently-disclosed 0.5 figure for what was very plausibly the same manure type.
-    "dairy": dict(nh4_frac=0.184, norg_frac=0.816),
-    "beef": dict(nh4_frac=0.250, norg_frac=0.750),
-    "veal": dict(nh4_frac=0.442, norg_frac=0.558),
-    "swine": dict(nh4_frac=0.553, norg_frac=0.447),
-    "sheep": dict(nh4_frac=0.368, norg_frac=0.632),
-    "goat": dict(nh4_frac=0.371, norg_frac=0.629),
-    "horse": dict(nh4_frac=0.300, norg_frac=0.700),
-    "chicken": dict(nh4_frac=0.200, norg_frac=0.800),
-    "turkey": dict(nh4_frac=0.135, norg_frac=0.865),
+    "dairy": dict(nh4_frac=0.184, norg_frac=0.816, c_per_norg=13.9),
+    "beef": dict(nh4_frac=0.250, norg_frac=0.750, c_per_norg=14.0),
+    "veal": dict(nh4_frac=0.442, norg_frac=0.558, c_per_norg=14.1),
+    "swine": dict(nh4_frac=0.553, norg_frac=0.447, c_per_norg=11.9),
+    "sheep": dict(nh4_frac=0.368, norg_frac=0.632, c_per_norg=12.1),
+    "goat": dict(nh4_frac=0.371, norg_frac=0.629, c_per_norg=11.8),
+    "horse": dict(nh4_frac=0.300, norg_frac=0.700, c_per_norg=20.0),
+    "chicken": dict(nh4_frac=0.200, norg_frac=0.800, c_per_norg=11.0),
+    "turkey": dict(nh4_frac=0.135, norg_frac=0.865, c_per_norg=9.8),
 }
 
 
@@ -3755,6 +3756,13 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         if fert_placement_implement not in TILLAGE_IMPLEMENTS:
             raise ValueError(f"Unknown fertilizer placement implement {fert_placement_implement!r} -- see TILLAGE_IMPLEMENTS for the real Cycles v1.4.4 implement catalog.")
         fert_mixing_efficiency = TILLAGE_IMPLEMENTS[fert_placement_implement][2]
+    if manure_n_kg_ha and manure_source is not None and sixpool_state is not None:
+        # Organic fraction of the manure goes to the surface residue pool with its own C:N (Cycles decomposes it; the NH4 fraction is credited to the mineral pool above).
+        _ms = MANURE_SOURCES[manure_source]
+        _n_org = manure_n_kg_ha * _ms["norg_frac"]; _c_org = _n_org * _ms["c_per_norg"] / 1000.0
+        _c_old = sixpool_state.get("cra", 0.0); _n_old = _c_old * 1000.0 / sixpool_state.get("cra_cn", SIXPOOL_CN_CRA)
+        sixpool_state["cra_cn"] = (_c_old + _c_org) * 1000.0 / max(_n_old + _n_org, 1e-9)
+        sixpool_state["cra"] = _c_old + _c_org
     wx_by_doy = {w["doy"]: w for w in weather_rows} if soil_ph is not None else None
 
     def mineral_retention_for_doy(doy):
