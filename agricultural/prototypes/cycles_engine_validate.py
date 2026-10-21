@@ -1761,6 +1761,7 @@ N_UNMET = None   # diagnostic: appends (year, doy, kg N/ha) of net immobilizatio
 N_SIMULTANEOUS = True   # ADOPTED 2026-10-19 (corn 94 sites vs the same code without it: grain MAE gain +0.039 [+0.028,+0.051] / +0.012 [+0.006,+0.017] / 0.000 at N=0/150/400); simultaneous solve of uptake, growth and N factor within the day (see simulate_season)
 N_UPTAKE_RATE_PER_DAY = None  # None = uptake limited only by demand (validated default); else also capped at this fraction/day of the reachable mineral N pool (nitrate_per_layer path)
 DIAG_LOSTC = None
+ROOT_C_AT_HARVEST = os.environ.get("ROOT_AT_HARVEST", "0") == "1"   # 2026-10-21: retained root carbon enters the residue pool at the end of the crop, not daily
 RHIZO_N_UPTAKE = os.environ.get("RHIZO_N", "1") == "1"   # 2026-10-21: the N for the share of root growth that leaves the plant (1 - root_retained_frac) is also taken from the mineral pool
 N_DEMAND_SCALE = 0.70   # 2026-10-17 measured: Cycles unstressed marginal total-N concentration of new growth is 0.68 (corn, silage corn) to 0.75 (winter wheat) of the crop-file dilution curve marginal a(1-b)W^-b, growth-weighted over 16 sites x 3 N rates (n_demand_ratio_2026_10_17.py). Was 0.874562 (a leaching fit).
 GROWTH_CANOPY_LAG = 1.0   # days between the reported canopy and the canopy that drives radiation-limited growth (1 = previous day; 1.5 = mean of the previous two days); per-crop key growth_canopy_lag overrides
@@ -3839,6 +3840,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     n2o_total = 0.0
     n_uptake_total = 0.0 if n_pool is not None else None
     n_rhizo_total = 0.0
+    root_hold_c = 0.0
     # n_pool_by_layer: the real per-layer tracking n_root_limited needs (see
     # simulate_season()'s own docstring) -- None whenever n_root_limited is False (the
     # default) or nitrogen tracking is off entirely, so every existing caller is unaffected.
@@ -4253,6 +4255,12 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 root_c_input_today = (10.0 * dGB_water_limited * (n_stress_prev if ROOT_C_REALIZED_GROWTH else 1.0) * (1.0 - shoot_fraction(ttf, crop["fsti"], crop["fstf"], crop.get("ttf50")))
                                        * CARBON_FRACTION_DM * ROOT_C_INPUT_FACTOR)
                 ft_eff = 1.0 + tillage_ft(tillage_dr, tillage_ftx_val)
+                if ROOT_C_AT_HARVEST and crop.get("root_retained_frac", 1.0) < 1.0:
+                    # the roots the plant keeps are alive until the crop ends and only then become residue (Cycles' dailyResidue: root residue 0.4 to 0.6 Mg/ha through the
+                    # season, 2.97 right after harvest); only the share that leaves the plant (rhizodeposits, turnover) enters the soil pool daily
+                    _rr_h = crop.get("root_retained_frac", 1.0)
+                    root_hold_c += root_c_input_today * _rr_h
+                    root_c_input_today = root_c_input_today * (1.0 - _rr_h)
                 if DIAG_LOSTC is not None: DIAG_LOSTC.append((_DIAG_YEAR, root_c_input_today * (1.0 - 1.0 / ROOT_C_INPUT_FACTOR), root_c_input_today))
                 sixpool_state["n_min"] = ((n_nh4 or 0.0) + (n_no3 or 0.0)) if n_nh4 is not None else n_pool
                 sixpool_state["n_conc1"] = n_conc_layer1(layers, n_nh4 if n_nh4 is not None else 0.0, no3_layers, (n_no3 or 0.0) if n_nh4 is not None else n_pool)
@@ -4567,6 +4575,13 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # to age 0 rather than tracking a real mixed-age blend, since this pool only ever
         # receives one discrete addition per season, not a continuous trickle.
         sixpool_state["cra_age"] = 0.0
+        if root_hold_c > 0.0:
+            if "ml" in sixpool_state:
+                _wts = [math.exp(-_x["zmid"] / SIXPOOL_ML_ROOT_DECAY_M) for _x in sixpool_state["ml"]]; _ws = sum(_wts)
+                for _x, _wv in zip(sixpool_state["ml"], _wts): _x["crtz"] += root_hold_c * _wv / _ws
+            else:
+                sixpool_state["crtz"] += root_hold_c
+            root_hold_c = 0.0
         result["sixpool_final_state"] = copy.deepcopy(sixpool_state)
     if n_nh4 is not None:
         result["final_n_state"] = dict(n_nh4=n_nh4, n_no3=n_no3, tsoil_lag=tsoil_lag,
