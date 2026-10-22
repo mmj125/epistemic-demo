@@ -2816,7 +2816,15 @@ def denitrification_startday(no3_1_start, layer0, theta1_start, resp_mg_ha, no3_
     c = no3_1_start / (sixpool_bulk_density(layer0["sat"]) * layer0["thick"] * 10.0)
     s = max(0.0, min(1.5, (theta1_start - P["a"] * layer0["pwp"]) / (layer0["sat"] - P["a"] * layer0["pwp"])))
     g = 1.0 / (1.0 + math.exp(max(-50.0, min(50.0, -(s - P["s0"]) / P["sc"]))))
+    if DENIT_DAYCENT is not None:
+        D = DENIT_DAYCENT
+        g = 1.0 / (1.0 + math.exp(max(-50.0, min(50.0, -(s - D["s0"]) / D["sc"]))))
+        flux = D["amp"] * min(1.15 * c ** 0.57, 0.1 * max(resp_mg_ha * 1000.0, 0.0) ** 1.3) * g   # the published numbers read as kg N/ha/d: that is the scale on which Cycles matches (amp 0.74 in denit_daycent_2026_10_22.py)
+        return min(max(no3_1_now, 0.0), flux)
     return min(max(no3_1_now, 0.0), P["K"] * max(resp_mg_ha * 1000.0, 0.0) * c / (c + P["kh"]) * g)
+
+
+DENIT_DAYCENT = None   # dict(amp, s0, sc): DAYCENT total N gas, min(1.15 NO3^0.57, 0.1 CO2^1.3) (Parton et al. 2001, Del Grosso 2000; g N/ha/d, NO3 mg/kg, CO2 kg C/ha/d) times a logistic in layer-1 saturation; None = the fitted law above
 
 
 WINTERKILL_SOIL_T = True
