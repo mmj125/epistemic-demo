@@ -4410,12 +4410,13 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                         n_nh4 = max(0.0, n_nh4 - n_nh4 * frac)
                         for i in range(len(layers)):
                             no3_layers[i] = max(0.0, no3_layers[i] - _avail[i] * frac)
-                    if RHIZO_N_UPTAKE and _rr0 < 1.0 and n_uptake_kg_ha > 0:
+                    _rr_sink = crop.get("rhizo_rr", _rr0)   # a crop whose growth path keeps all root growth (wheat) names the lost share here; Cycles loses 40% of root growth for every crop
+                    if RHIZO_N_UPTAKE and _rr_sink < 1.0 and n_uptake_kg_ha > 0:
                         # The root mass that leaves the plant (rhizodeposits, root turnover: 1 - root_retained_frac of root growth) carries N at the concentration of the retained roots,
                         # taken from the soil and returned to it as organic N. Sink = (lost / retained root mass) x root N = (1 - rr) / rr x (1 - N_AG_FRACTION) x uptake = 8.0% of
                         # uptake for corn. Measured on Cycles' daily budget at 24 sites: its mineral pool loses 0.082 (N=0) and 0.093 (N=150) x the plant N gain beyond the plant's
                         # own N (residual against plant N, corr -0.97 / -0.91); the new-growth concentration would give 14 to 15%.
-                        _rh = n_uptake_kg_ha * (1.0 - N_AG_FRACTION) * (1.0 - _rr0) / _rr0
+                        _rh = n_uptake_kg_ha * crop.get("rhizo_root_n_share", 1.0 - N_AG_FRACTION) * (1.0 - _rr_sink) / _rr_sink   # root N share of plant N: corn 0.12, wheat 0.082 (Cycles daily output)
                         _left = reachable - n_uptake_kg_ha
                         if _left > 1e-9 and _rh > 0:
                             _rh = min(_rh, _left); _f2 = _rh / _left

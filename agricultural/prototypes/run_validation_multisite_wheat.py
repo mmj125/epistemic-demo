@@ -60,6 +60,7 @@ def engine_chain(wx,soil,cl,N,calib):
     if os.environ.get("WHEAT_VERN","1")=="1":   # disclosed winter phenology (vernalization, photoperiod, grain filling); 0 = the old single-threshold phenology
         crop["vern"]=dict(E.WINTER_PHENOLOGY); crop["base_t"]=E.WINTER_PHENOLOGY["base_t"]
     if calib is not None: crop["calibration_factor"]=calib
+    if os.environ.get("WHEAT_RHIZO","1")=="1": crop["rhizo_rr"]=0.6; crop["rhizo_root_n_share"]=0.082   # 2026-10-22: Cycles' wheat budget loses 5.7% of plant N beyond the plant's own; (0.4/0.6) x root N share 0.082 = 5.5%
     def ml():
         L=[]
         for l in soil:
