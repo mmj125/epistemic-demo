@@ -2801,8 +2801,31 @@ def denitrification_layers(no3_start, theta_start, layers, sixpool_state, no3_no
     out = []
     for i in range(min(DENIT_NLAYERS, len(layers))):
         r = ml[i].get("resp_mg_ha", 0.0) if (ml is not None and len(ml) > i) else (sixpool_state.get("resp_mg_ha", 0.0) if i == 0 else 0.0)
+        if DENIT_APEX:
+            out.append(denitrification_apex(no3_start[i], layers[i], theta_start[i], r, no3_now[i], (sixpool_state or {}).get("clay", 0.25)))
+            continue
         out.append(denitrification_startday(no3_start[i], layers[i], theta_start[i], r, no3_now[i]))
     return out
+
+
+DENIT_APEX = False   # True: per-layer denitrification as published for EPIC/APEX (Kemanian and Williams, CEAP 2011 APEX upgrades, Eqs 1 to 4), no fitted constant
+DENIT_APEX_PARAMS = dict(rmax=32e-6, half=60.0, cresp=50.0, expo=60.0, amp=1.0)   # kg N/kg soil/d, mg N/kg, mg C/kg/d, steepness; amp scales the whole law (1.0 = as published)
+
+
+def denitrification_apex(no3_start_kg_ha, layer, theta_start, resp_mg_ha, no3_now_kg_ha, fclay):
+    """Rdn = rho dz Rmax fNO3 fresp fw (kg N/ha/d). fNO3 = NO3/(NO3 + 60) with NO3 in mg N/kg soil; fresp = min(1, CO2/50) with CO2 in mg C/kg soil/d;
+    fw = 1/(1 + ((1 - Av)/(0.90 + 0.1 fclay))^-60) with Av the air-filled volume (m3/m3) at the start of the day."""
+    if no3_start_kg_ha <= 0.0:
+        return 0.0
+    P = DENIT_APEX_PARAMS
+    bd = sixpool_bulk_density(layer["sat"])
+    mass = bd * layer["thick"] * 1e7                                  # kg soil/ha
+    c = no3_start_kg_ha * 1e6 / mass                                  # mg N/kg
+    co2 = max(resp_mg_ha * 1000.0, 0.0) * 1e6 / mass                  # mg C/kg soil/d
+    av = max(layer["sat"] - theta_start, 0.0)
+    fw = 1.0 / (1.0 + ((1.0 - av) / (0.90 + 0.1 * fclay)) ** (-P["expo"]))
+    flux = P["amp"] * mass * P["rmax"] * (c / (c + P["half"])) * min(1.0, co2 / P["cresp"]) * fw
+    return min(max(no3_now_kg_ha, 0.0), flux)
 
 
 def denitrification_startday(no3_1_start, layer0, theta1_start, resp_mg_ha, no3_1_now):
