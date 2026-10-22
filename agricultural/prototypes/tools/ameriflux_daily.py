@@ -32,7 +32,7 @@ def reduce_zip(path):
         rd = csv.reader(lines)
         head = next(rd)
         ts = head.index("TIMESTAMP_START") if "TIMESTAMP_START" in head else 0
-        keep = [i for i, h in enumerate(head) if i != ts and not h.startswith("TIMESTAMP") and not re.search(r"_(QC|SE|N|RANDUNC|JOINTUNC)", h) and not h.endswith("_FLAG")]
+        keep = [i for i, h in enumerate(head) if i != ts and not h.startswith("TIMESTAMP") and not re.search(r"(_QC|_SE|_N|_RANDUNC|_JOINTUNC)(_|$)", h) and not h.endswith("_FLAG")]
         sums = defaultdict(lambda: defaultdict(float)); cnt = defaultdict(lambda: defaultdict(int)); nrec = defaultdict(int)
         for row in rd:
             if len(row) <= ts: continue

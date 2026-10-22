@@ -1,4 +1,4 @@
-AmeriFlux daily files for the Mead, Nebraska sites (CC-BY-4.0). Do not commit the raw zips (hundreds of MB). Reduce each zip on your own computer:
+AmeriFlux daily files for the Mead, Nebraska sites (CC-BY-4.0). Do not commit the raw zips (hundreds of MB). Reduce each zip on your own computer. No Python needed: double-click `agricultural/prototypes/tools/ameriflux_daily.html`, drop the zip on the page, and save the CSV it offers (runs entirely in the browser). With Python instead:
 
     python3 agricultural/prototypes/tools/ameriflux_daily.py AMF_US-Ne3_BASE_*.zip
 

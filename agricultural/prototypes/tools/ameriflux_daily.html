@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AmeriFlux Daily Reducer</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1f2421; --muted:#5b645e; --line:#d9d6cc; --accent:#2f6b4f; --card:#ffffff; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#151816; --fg:#e8ebe6; --muted:#9aa49d; --line:#2c332e; --accent:#6fbf94; --card:#1d221f; } }
+  :root[data-theme="dark"] { --bg:#151816; --fg:#e8ebe6; --muted:#9aa49d; --line:#2c332e; --accent:#6fbf94; --card:#1d221f; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, sans-serif; }
+  main { max-width:640px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { font-size:1.4rem; margin:0 0 4px; }
+  p.lead { color:var(--muted); margin:0 0 20px; }
+  #drop { border:2px dashed var(--line); border-radius:12px; padding:36px 16px; text-align:center; background:var(--card); cursor:pointer; }
+  #drop.over { border-color:var(--accent); }
+  #drop b { color:var(--accent); }
+  .row { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-top:12px; }
+  .row .name { font-weight:600; word-break:break-all; }
+  .row .msg { color:var(--muted); font-size:.92rem; }
+  progress { width:100%; height:8px; margin-top:8px; accent-color:var(--accent); }
+  a.btn { display:inline-block; margin-top:8px; padding:8px 14px; border-radius:8px; background:var(--accent); color:#fff; text-decoration:none; font-weight:600; }
+  .err { color:#b3402f; }
+  small { color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>AmeriFlux daily reducer</h1>
+  <p class="lead">Drop an AmeriFlux BASE or FLUXNET zip here. It reads the half-hourly file inside, averages it to one row per day, and gives you a small CSV to commit. Everything happens in this browser tab; nothing is uploaded.</p>
+  <div id="drop"><b>Drop a .zip here</b> or click to choose one<br><small>Several zips at once are fine.</small></div>
+  <input id="file" type="file" accept=".zip" multiple hidden>
+  <div id="out"></div>
+  <p><small>Daily mean of every variable present (P is the daily sum); a variable needs 40 percent of the day's records or the cell is blank; -9999 is missing. Units stay as AmeriFlux gives them. Data are CC-BY-4.0: cite the site DOI (US-Ne1 10.17190/AMF/1246084, US-Ne2 10.17190/AMF/1246085, US-Ne3 10.17190/AMF/1246086) and acknowledge AmeriFlux when publishing.</small></p>
+</main>
+<script>
+"use strict";
+const MIN_FRAC = 0.40, SUM_VARS = new Set(["P", "P_F"]);
+const drop = document.getElementById("drop"), input = document.getElementById("file"), out = document.getElementById("out");
+drop.addEventListener("click", () => input.click());
+drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); run([...e.dataTransfer.files]); });
+input.addEventListener("change", () => run([...input.files]));
+
+async function run(files) {
+  for (const f of files) {
+    const row = document.createElement("div"); row.className = "row";
+    row.innerHTML = '<div class="name"></div><div class="msg">Reading zip</div><progress max="1" value="0"></progress>';
+    row.querySelector(".name").textContent = f.name; out.prepend(row);
+    try { await reduce(f, row); } catch (e) { row.querySelector(".msg").innerHTML = '<span class="err">' + String(e.message || e).replace(/</g, "&lt;") + "</span>"; row.querySelector("progress").remove(); }
+  }
+}
+
+async function entries(file) {
+  const tail = new Uint8Array(await file.slice(Math.max(0, file.size - 70000)).arrayBuffer());
+  let e = -1;
+  for (let i = tail.length - 22; i >= 0; i--) if (tail[i] === 0x50 && tail[i+1] === 0x4b && tail[i+2] === 5 && tail[i+3] === 6) { e = i; break; }
+  if (e < 0) throw new Error("This does not look like a zip file.");
+  const dv = new DataView(tail.buffer);
+  let n = dv.getUint16(e + 10, true), cdSize = dv.getUint32(e + 12, true), cdOff = dv.getUint32(e + 16, true);
+  if (cdOff === 0xffffffff || n === 0xffff) {
+    const loc = e - 20; if (dv.getUint32(loc, true) !== 0x07064b50) throw new Error("Unsupported zip64 layout.");
+    const z64 = Number(dv.getBigUint64(loc + 8, true));
+    const z = new DataView(await file.slice(z64, z64 + 56).arrayBuffer());
+    n = Number(z.getBigUint64(32, true)); cdSize = Number(z.getBigUint64(40, true)); cdOff = Number(z.getBigUint64(48, true));
+  }
+  const cd = new DataView(await file.slice(cdOff, cdOff + cdSize).arrayBuffer()), td = new TextDecoder();
+  const list = []; let p = 0;
+  for (let k = 0; k < n; k++) {
+    if (cd.getUint32(p, true) !== 0x02014b50) break;
+    const method = cd.getUint16(p + 10, true); let csize = cd.getUint32(p + 20, true), usize = cd.getUint32(p + 24, true);
+    const nl = cd.getUint16(p + 28, true), xl = cd.getUint16(p + 30, true), cl = cd.getUint16(p + 32, true); let off = cd.getUint32(p + 42, true);
+    const name = td.decode(new Uint8Array(cd.buffer, p + 46, nl));
+    if (csize === 0xffffffff || usize === 0xffffffff || off === 0xffffffff) {
+      let q = p + 46 + nl, end = q + xl;
+      while (q + 4 <= end) { const id = cd.getUint16(q, true), sz = cd.getUint16(q + 2, true);
+        if (id === 1) { let r = q + 4; if (usize === 0xffffffff) { usize = Number(cd.getBigUint64(r, true)); r += 8; } if (csize === 0xffffffff) { csize = Number(cd.getBigUint64(r, true)); r += 8; } if (off === 0xffffffff) { off = Number(cd.getBigUint64(r, true)); } }
+        q += 4 + sz; }
+    }
+    list.push({ name, method, csize, usize, off }); p += 46 + nl + xl + cl;
+  }
+  return list;
+}
+
+function pick(list) {
+  const ok = n => /\.csv$/i.test(n) && !/BADM|BIF|VARINFO/i.test(n);
+  let c = list.filter(e => ok(e.name) && /_(HH|HR)_/.test(e.name));
+  if (!c.length) c = list.filter(e => ok(e.name) && /(HH|HR)/.test(e.name));
+  if (!c.length) throw new Error("No half-hourly or hourly csv in this zip. Files: " + list.map(e => e.name).join(", "));
+  return c.sort((a, b) => a.name < b.name ? -1 : 1)[0];
+}
+
+async function reduce(file, row) {
+  const list = await entries(file), ent = pick(list), msg = row.querySelector(".msg"), bar = row.querySelector("progress");
+  const lh = new DataView(await file.slice(ent.off, ent.off + 30).arrayBuffer());
+  const start = ent.off + 30 + lh.getUint16(26, true) + lh.getUint16(28, true);
+  let stream = file.slice(start, start + ent.csize).stream();
+  if (ent.method === 8) stream = stream.pipeThrough(new DecompressionStream("deflate-raw"));
+  else if (ent.method !== 0) throw new Error("Unsupported compression method " + ent.method);
+  const reader = stream.pipeThrough(new TextDecoderStream()).getReader();
+  const site = (ent.name.match(/([A-Z]{2}-[A-Za-z0-9]+)/) || [, "site"])[1];
+  msg.textContent = "Averaging " + ent.name + " to daily values";
+  let buf = "", head = null, ts = 0, keep = [], names = [], sums = new Map(), cnt = new Map(), nrec = new Map(), got = 0;
+  const bad = /(_QC|_SE|_N|_RANDUNC|_JOINTUNC)(_|$)/;
+  function line(l) {
+    if (!l || l[0] === "#") return;
+    const r = l.split(",");
+    if (!head) {
+      head = r.map(s => s.trim()); ts = Math.max(0, head.indexOf("TIMESTAMP_START"));
+      head.forEach((h, i) => { if (i !== ts && !h.startsWith("TIMESTAMP") && !bad.test(h) && !h.endsWith("_FLAG")) { keep.push(i); names.push(h); } });
+      return;
+    }
+    const d = r[ts].slice(0, 8); nrec.set(d, (nrec.get(d) || 0) + 1);
+    let s = sums.get(d), c = cnt.get(d); if (!s) { s = new Float64Array(keep.length); c = new Int32Array(keep.length); sums.set(d, s); cnt.set(d, c); }
+    for (let k = 0; k < keep.length; k++) { const x = r[keep[k]]; if (x === undefined || x === "") continue; const v = +x; if (!Number.isFinite(v) || v <= -9998) continue; s[k] += v; c[k]++; }
+  }
+  for (;;) {
+    const { value, done } = await reader.read(); if (done) break;
+    got += value.length; buf += value; let i, from = 0;
+    while ((i = buf.indexOf("\n", from)) >= 0) { line(buf.slice(from, i).replace(/\r$/, "")); from = i + 1; }
+    buf = buf.slice(from); bar.value = Math.min(1, got / Math.max(1, ent.usize));
+  }
+  line(buf.replace(/\r$/, ""));
+  const days = [...sums.keys()].sort(), lines = ["date," + names.join(",")];
+  for (const d of days) {
+    const s = sums.get(d), c = cnt.get(d), n = nrec.get(d), cells = [d.slice(0, 4) + "-" + d.slice(4, 6) + "-" + d.slice(6, 8)];
+    for (let k = 0; k < keep.length; k++) cells.push(c[k] === 0 || c[k] < MIN_FRAC * n ? "" : String(+((SUM_VARS.has(names[k]) ? s[k] : s[k] / c[k]).toPrecision(5))));
+    lines.push(cells.join(","));
+  }
+  const blob = new Blob([lines.join("\n") + "\n"], { type: "text/csv" }), url = URL.createObjectURL(blob), fn = site + "_daily.csv";
+  bar.remove();
+  msg.innerHTML = days.length + " days, " + names.length + " variables, " + Math.round(blob.size / 1024) + " KB. ";
+  const a = document.createElement("a"); a.className = "btn"; a.href = url; a.download = fn; a.textContent = "Save " + fn; msg.appendChild(document.createElement("br")); msg.appendChild(a);
+}
+</script>
+</body>
+</html>
