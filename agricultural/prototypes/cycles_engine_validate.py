@@ -1762,6 +1762,7 @@ N_SIMULTANEOUS = True   # ADOPTED 2026-10-19 (corn 94 sites vs the same code wit
 N_UPTAKE_RATE_PER_DAY = None  # None = uptake limited only by demand (validated default); else also capped at this fraction/day of the reachable mineral N pool (nitrate_per_layer path)
 DIAG_LOSTC = None
 ROOT_C_AT_HARVEST = os.environ.get("ROOT_AT_HARVEST", "0") == "1"   # 2026-10-21: retained root carbon enters the residue pool at the end of the crop, not daily
+NH4_UPTAKE_W = float(os.environ.get("NH4_UPTAKE_W", "1.0"))   # weight of the ammonium pool in the pool the crop draws from (1 = pro rata with nitrate, as before; 0 = nitrate only)
 RHIZO_N_UPTAKE = os.environ.get("RHIZO_N", "1") == "1"   # 2026-10-21: the N for the share of root growth that leaves the plant (1 - root_retained_frac) is also taken from the mineral pool
 N_DEMAND_SCALE = 0.70   # 2026-10-17 measured: Cycles unstressed marginal total-N concentration of new growth is 0.68 (corn, silage corn) to 0.75 (winter wheat) of the crop-file dilution curve marginal a(1-b)W^-b, growth-weighted over 16 sites x 3 N rates (n_demand_ratio_2026_10_17.py). Was 0.874562 (a leaching fit).
 GROWTH_CANOPY_LAG = 1.0   # days between the reported canopy and the canopy that drives radiation-limited growth (1 = previous day; 1.5 = mean of the previous two days); per-crop key growth_canopy_lag overrides
@@ -4399,7 +4400,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     else:
                         _avail = [no3_layers[i] * access[i] for i in range(len(layers))]
                         reach_no3 = sum(_avail)
-                    reachable = n_nh4 + reach_no3
+                    reachable = NH4_UPTAKE_W * n_nh4 + reach_no3
                     _ur = crop.get("n_uptake_rate", N_UPTAKE_RATE_PER_DAY)
                     _cap = reachable if _ur is None else reachable * _ur
                     n_uptake_kg_ha = min(_cap, demand_today_kg_ha)
@@ -4407,7 +4408,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                         n_uptake_kg_ha = min(reachable, _FORCE_CUR["uptake"][w["doy"]])   # diagnostic: Cycles' own daily plant N uptake
                     if reachable > 1e-9:
                         frac = n_uptake_kg_ha / reachable
-                        n_nh4 = max(0.0, n_nh4 - n_nh4 * frac)
+                        n_nh4 = max(0.0, n_nh4 - NH4_UPTAKE_W * n_nh4 * frac)
                         for i in range(len(layers)):
                             no3_layers[i] = max(0.0, no3_layers[i] - _avail[i] * frac)
                     _rr_sink = crop.get("rhizo_rr", _rr0)   # a crop whose growth path keeps all root growth (wheat) names the lost share here; Cycles loses 40% of root growth for every crop
@@ -4420,7 +4421,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                         _left = reachable - n_uptake_kg_ha
                         if _left > 1e-9 and _rh > 0:
                             _rh = min(_rh, _left); _f2 = _rh / _left
-                            n_nh4 = max(0.0, n_nh4 - n_nh4 * _f2)
+                            n_nh4 = max(0.0, n_nh4 - NH4_UPTAKE_W * n_nh4 * _f2)
                             for i in range(len(layers)):
                                 no3_layers[i] = max(0.0, no3_layers[i] - no3_layers[i] * access[i] * _f2)
                             n_rhizo_total += _rh
