@@ -1763,6 +1763,7 @@ N_UPTAKE_RATE_PER_DAY = None  # None = uptake limited only by demand (validated 
 DIAG_LOSTC = None
 ROOT_C_AT_HARVEST = os.environ.get("ROOT_AT_HARVEST", "0") == "1"   # 2026-10-21: retained root carbon enters the residue pool at the end of the crop, not daily
 NH4_UPTAKE_W = float(os.environ.get("NH4_UPTAKE_W", "1.0"))   # weight of the ammonium pool in the pool the crop draws from (1 = pro rata with nitrate, as before; 0 = nitrate only)
+IMMOB_SPLIT = os.environ.get("IMMOB_SPLIT", "nh4first")   # nh4first (net form, as before) or prorata
 RHIZO_N_UPTAKE = os.environ.get("RHIZO_N", "1") == "1"   # 2026-10-21: the N for the share of root growth that leaves the plant (1 - root_retained_frac) is also taken from the mineral pool
 N_DEMAND_SCALE = 0.70   # 2026-10-17 measured: Cycles unstressed marginal total-N concentration of new growth is 0.68 (corn, silage corn) to 0.75 (winter wheat) of the crop-file dilution curve marginal a(1-b)W^-b, growth-weighted over 16 sites x 3 N rates (n_demand_ratio_2026_10_17.py). Was 0.874562 (a leaching fit).
 GROWTH_CANOPY_LAG = 1.0   # days between the reported canopy and the canopy that drives radiation-limited growth (1 = previous day; 1.5 = mean of the previous two days); per-crop key growth_canopy_lag overrides
@@ -2461,6 +2462,7 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
         state["nm"] = max(0.0, nm + n_in - n_loss_m)
         n_released = _n_ra + decomp_rtz * 1000 / SIXPOOL_CN_CRTZ + decomp_rm * 1000 / SIXPOOL_CN_CRM + n_loss_m + cs_loss * 1000 / SIXPOOL_CN_CS
         n_immobilized = n_in + cs_gain * 1000 / SIXPOOL_CN_CS
+    state["gmin"], state["gimm"] = n_released, n_immobilized   # gross flows (kg N/ha), exposed for the ammonium and nitrate bookkeeping
     if ml_sub:
         if SIXPOOL_DIAG is not None:
             SIXPOOL_DIAG.append((cs_loss, gross_residue_decomp, co2_residue, n_released - n_immobilized, 0.0, cm_loss, decomp_ra, decomp_rtz, cm_gain_from_residue, cs_gain, co2_cm))
@@ -2592,6 +2594,7 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
         resp_tot += sub.get("resp_mg_ha", 0.0)
         if i == 0:
             state["cra"], state["crm"], state["cra_age"] = sub["cra"], sub["crm"], sub["cra_age"]
+    state["gmin"] = sum(x.get("gmin", 0.0) for x in subs); state["gimm"] = sum(x.get("gimm", 0.0) for x in subs)
     state["cs"] = sum(x["cs"] for x in subs)
     state["cm"] = sum(x["cm"] for x in subs)
     if DIAG_CPOOL is not None: DIAG_CPOOL.append((_DIAG_YEAR, _DIAG_CTX.get("doy"), [x["cs"] for x in subs], [x["cm"] for x in subs], [x["crtz"] for x in subs], state["cra"]))
@@ -2926,6 +2929,23 @@ IMMOB_FROM_NO3 = True   # opt-in: net immobilization (negative net mineralizatio
 
 def apply_net_min(nh4, no3, no3_layers, smin, sixpool_state=None):
     """Returns (nh4, no3) after a day's net mineralization. Positive goes to NH4. Negative takes NH4 first then nitrate (top layer down) when IMMOB_FROM_NO3, else only NH4 and the remainder is dropped."""
+    if IMMOB_SPLIT == "prorata" and sixpool_state is not None and "gmin" in sixpool_state and IMMOB_FROM_NO3:
+        # Cycles carries gross mineralization into ammonium and immobilization out of ammonium and nitrate (Kemanian 2024 Sec 2.6: the microbial pool "assimilates N from the
+        # ammonium and nitrate pools"); the split is not documented, here in proportion to the two pools
+        nh4 = nh4 + sixpool_state["gmin"]
+        imm = sixpool_state["gimm"]; tot = nh4 + (sum(no3_layers) if no3_layers is not None else no3)
+        if imm > 0 and tot > 1e-12:
+            take = min(imm, tot); fn = nh4 / tot
+            nh4 -= take * fn
+            rest = take * (1.0 - fn)
+            if no3_layers is not None:
+                s_no3 = sum(no3_layers)
+                if s_no3 > 1e-12:
+                    for i in range(len(no3_layers)): no3_layers[i] -= rest * no3_layers[i] / s_no3
+                no3 = sum(no3_layers)
+            else:
+                no3 -= rest
+        return max(0.0, nh4), no3
     if smin >= 0 or not IMMOB_FROM_NO3:
         return max(0.0, nh4 + smin), no3
     need = -smin; t = min(nh4, need); nh4 -= t; need -= t
