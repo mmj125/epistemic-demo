@@ -90,7 +90,7 @@ Management
 Counts from the table above (60 rows): by first-listed class A 24, B 9, C 2, D 18, E 7; counting every class a row mentions A 24, B 9, C 7, D 21, E 12.
 
 Sources still needed (ranked by how many D entries they could replace)
-1. N uptake and root N access: Godwin and Jones 1991, Stockle and Debaeke 1997 (CropSyst uptake functions). Not in the repo.
+1. N uptake and root N access: no source found that reproduces Cycles. Tested and failed against Cycles' daily uptake: the pool cap (engine), mass flow, the CropSyst Eq. 26 shape, and Stockle and Campbell 1989 Eqs. 17 and 18 (plan 2026-10-22). Godwin and Jones 1991 and Stockle and Debaeke 1997 are not in the repo and untested; low expected value.
 2. Nitrogen losses: a published volatilization model with wind dependence, and a published N2O model (Cycles-L paper cites sources in its Sec. 2; the SI may name them).
 3. Evaporation and residue cover: Campbell 1985 chapters on evaporation and residue (Matt can copy sections).
 4. Decomposition environmental factors: Kemanian et al. 2011 and Pravia et al. 2019.
