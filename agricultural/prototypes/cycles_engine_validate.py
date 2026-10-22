@@ -1777,6 +1777,8 @@ N_UPTAKE_FLOOR_MGKG = 0.3   # 2026-10-13 (was 1.0, 28-site sweep 0..1.0): minimu
 N_STRESS_AG_BASIS = False
 N_AG_FRACTION = 0.88
 N_STRESS_R0, N_STRESS_R1, N_STRESS_SMAX, N_STRESS_Q = 0.641, 0.281, 0.764, 0.90
+if os.environ.get("NSTRESS_REFIT", "0") == "1":   # 2026-10-21: refit on Cycles' own daily plant states (nstress_refit_2026_10_21.py), removes the +0.017 / +0.024 bias at N=150 / 0
+    N_STRESS_R0, N_STRESS_R1, N_STRESS_SMAX, N_STRESS_Q = 0.621, 0.247, 0.794, 0.668
 N_STRESS_KNEE_RATIO = 0.26
 N_STRESS_GROWTH_POW = 1.0   # 2026-10-15 fit: growth uses n_stress**pow; Cycles grows ~13% more under N stress than (1-stress) x unstressed growth
 N_STRESS_ZERO_RATIO = 0.86  # was 0.62; refit 2026-10-12 with SIXPOOL_ML_N_A 76 on 28 sites (fertilized corn bias -0.36 to +0.11)
