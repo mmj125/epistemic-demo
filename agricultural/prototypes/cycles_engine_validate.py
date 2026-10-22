@@ -2869,17 +2869,23 @@ def nitrification_temp_factor(t):
     return max(0.0, 4.5 - 0.1 * t) if t < 45.0 else 0.0
 
 
+NITRIF_FW_DOC = False   # True: the nitrification moisture factor is Stockle and Campbell 1989 Eq. 8 instead of the fitted logistic cutoff
+
+
 def nitrification_flux_ratio(nh4_kg_ha, no3_surface_kg_ha, tsoil_c, sat_frac):
     """Daily nitrification (kg N/ha) = NH4 x k x fT(T) x fW(layer-1 saturation) / (1 + (NO3/NH4 / r0)^q). fT is the published
     Stockle and Campbell (1989) Eq. 11, which matches Cycles' temperature response in shape. Cycles' implied rate per kg NH4 is flat up to a surface
     NO3:NH4 of about 6 and collapses by 12 (no source gives this; it holds in every NH4 concentration bin and fits at R2 0.99 with start-of-day states), and drops sharply above a layer-1
-    saturation of about 0.8 (no source gives the form; a logistic cutoff). Parameters are measured on Cycles' own daily states."""
+    saturation of about 0.8 (no source gives the form; a logistic cutoff; Stockle and Campbell Eq. 8 tested 2026-10-22, NITRIF_FW_DOC, volatilization 1.25 to 1.91x). Parameters are measured on Cycles' own daily states."""
     if nh4_kg_ha <= 1e-9:
         return 0.0
     P = NITRIF_RATIO_PARAMS
     r = max(no3_surface_kg_ha, 0.0) / nh4_kg_ha
     x = (r / P["r0"]) ** P["q"] if r < 1e3 else 1e30
-    fw = 1.0 / (1.0 + math.exp(max(-50.0, min(50.0, (sat_frac - P["f0"]) / P["s"]))))
+    if NITRIF_FW_DOC:
+        fw = 1.111 * sat_frac if sat_frac < 0.9 else max(0.0, 10.0 - 10.0 * sat_frac)   # Stockle and Campbell 1989 Eq. 8
+    else:
+        fw = 1.0 / (1.0 + math.exp(max(-50.0, min(50.0, (sat_frac - P["f0"]) / P["s"]))))
     return nh4_kg_ha * P["k"] * nitrification_temp_factor(tsoil_c) * fw / (1.0 + x)
 
 
