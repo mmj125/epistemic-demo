@@ -839,3 +839,8 @@ Each switch removed or set to a neutral/documented value versus the adopted base
 - WUE_CO2_EXP 0: neutral (probably inert at the fixed CO2 of these runs).
 - cnpow: override name did not exist, no result; not run.
 Cost ranking (similarity lost when removed): Fe temperature >> canopy faithful > resint > solute volume > nitrification ratio (volatilization) > N demand scale (losses). Snow and CO2 exponent: no measurable cost.
+
+## 2026-10-22 ablation, batch 2 (corn, 94 sites)
+- `SUBDAY_DENIT=False`: identical to base to every printed digit. The within-day saturation (`_SUBDAY_REL1_EFF`) is evidently None in the continuous-chain path, so the switch is inert there; the ledger row should say so (and the first fallow window uses the older law).
+- `EVAP_ZONE_DEPTH_M=None`: crashed (the zone code subtracts from it); no result. Soil evaporation cannot be ablated by override. It would need a code path for the CropSyst form on the zone state, not run.
+- Third run repeated the snow ablation on corn (tag mislabelled `frAB_snowwheat`); a wheat snow test needs the wheat harness and is still open.
