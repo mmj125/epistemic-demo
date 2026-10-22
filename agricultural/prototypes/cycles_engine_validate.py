@@ -2107,7 +2107,7 @@ SIXPOOL_TOPSOIL_DEPTH_M = 0.05  # fixed at Cycles' own REAL layer-1 thickness fo
 # a given lookup's layer0 happens to be" isn't the quantity SIXPOOL_KS was fit against).
 
 
-SIXPOOL_FE_TEMP_TO, SIXPOOL_FE_TEMP_C = 36.098, 2.177   # 2026-10-21: Campbell's temperature function, the form Stockle and Campbell 1989 Eq. 18 uses (there c = 4), fitted to Cycles' composite factor with start-of-day moisture (fe_timing_2026_10_21.py, R2 0.960); replaces a 16-point measured table that it reproduces to rms 0.011 (grain MAE gain +0.010 [+0.003,+0.018] at N=0, neutral at N=150, 24 sites)
+SIXPOOL_FE_TEMP_TO, SIXPOOL_FE_TEMP_C = 37.5, 4.0   # 2026-10-22: c = 4 as documented (Stockle and Campbell 1989 Eq. 18), To the one fitted parameter; the earlier pair 36.098 / 2.177 was better by 0.02 Mg/ha grain MAE (plan batch 3). 2026-10-21: Campbell's temperature function, the form Stockle and Campbell 1989 Eq. 18 uses (there c = 4), fitted to Cycles' composite factor with start-of-day moisture (fe_timing_2026_10_21.py, R2 0.960); replaces a 16-point measured table that it reproduces to rms 0.011 (grain MAE gain +0.010 [+0.003,+0.018] at N=0, neutral at N=150, 24 sites)
 
 
 def sixpool_fe_temp(tmean):
@@ -2139,9 +2139,16 @@ SIXPOOL_FE_MOISTURE_PTS = ((-0.3, 0.0), (0.0, 0.04), (0.05, 0.13), (0.15, 0.38),
 # the wilting point) over-estimated dry-soil fE 2-5x and missed the mild decline above field capacity.
 
 
+FE_MOISTURE_DOC = (0.22, 3.0)   # adopted 2026-10-22 (plan batch 4); (half response, power) = Cycles docs DECOMP_HALF_RESP 0.22, DECOMP_RESP_POWER 3.0 applied to relative wetness; None = the fitted table
+
+
 def sixpool_fe_moisture_ml(relwet):
     """fE moisture response, per-layer mode (piecewise linear through SIXPOOL_FE_MOISTURE_PTS, flat beyond the ends).
     relwet = (theta-pwp)/(fc-pwp)."""
+    if FE_MOISTURE_DOC is not None:
+        r = max(relwet, 0.0)
+        h, k = FE_MOISTURE_DOC
+        return r ** k / (r ** k + h ** k)
     pts = SIXPOOL_FE_MOISTURE_PTS
     if relwet <= pts[0][0]:
         return pts[0][1]

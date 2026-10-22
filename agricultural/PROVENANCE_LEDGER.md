@@ -63,8 +63,8 @@ Nitrogen cycle
 | Decomposition rate constants | `SIXPOOL_KS`, `_KRA`, `_K_RTZ`, `_KRM`, `_KM`, `SIXPOOL_ML_KS`, `SIXPOOL_ML_DEPTH_Q`, `SIXPOOL_DEPTH_*` | D | Back-calculated from Cycles output |
 | Microbial efficiency | `SIXPOOL_EPS_C` 0.4, `SIXPOOL_FA` 1.0, `SIXPOOL_ML_EPS_H` | E placeholders; `SIXPOOL_ML_HUM_CLAY` is C | C-Farm Eq. 4a shape fitted to Cycles |
 | Pool C:N ratios | `SIXPOOL_CN_*` | D | Read from Cycles output files (Rock Springs) |
-| Environmental factor, temperature | `SIXPOOL_FE_TEMP_*` | C | Campbell function (Stockle and Campbell 1989 Eq. 18) fitted to Cycles' composite factor |
-| Environmental factor, moisture | `SIXPOOL_FE_MOISTURE_PTS` | D | Table measured on Cycles |
+| Environmental factor, temperature | `SIXPOOL_FE_TEMP_*` | C | Campbell function (Stockle and Campbell 1989 Eq. 18) with the documented c = 4 (2026-10-22); only To (37.5) is fitted, to Cycles' composite factor. The earlier two-parameter fit (36.098, 2.177) is 0.02 Mg/ha better in grain MAE |
+| Environmental factor, moisture | `FE_MOISTURE_DOC` | A | 2026-10-22: Hill form r^3/(r^3+0.22^3) on relative wetness, the Cycles docs' DECOMP_HALF_RESP 0.22 and DECOMP_RESP_POWER 3.0 (reading of 'saturation' as relative wetness is an assumption, suspect with its test: grain neutral, leaching 1.24 to 1.19x). The 9-point table `SIXPOOL_FE_MOISTURE_PTS` (class D) stays as the off switch |
 | N limitation of decomposition | `SIXPOOL_N_*` | D | Measured on 28 sites |
 | Residue decay timing | `CRA_MATURATION_TAU_DAYS` 1.0 | D | |
 | Nitrification | `nitrification_temp_factor` B (Stockle and Campbell 1989 Eq. 11); `NITRIF_RATIO_PARAMS` D | B + D | Law reproduces Cycles' states to 0.8 to 1.0 |
