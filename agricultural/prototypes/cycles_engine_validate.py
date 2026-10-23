@@ -1790,6 +1790,7 @@ def shoot_fraction(ttf, fsti, fstf, ttf50=None):
 # When n_rate_kg_ha is left as None (the default), none of this runs and
 # behavior is byte-identical to before this feature existed -- verified by
 # re-running run_validation.py / run_validation_rotation2.py unchanged.
+PLANT_DAY_TT = os.environ.get("PLANT_DAY_TT", "1") == "1"   # True = the engine counts the planting day's thermal time (until 2026-10-23); False = Cycles' convention, accumulation starts the day after planting
 N_SOLVE_DEBUG = None
 DIAG_DENIT = None   # appends (year, doy, layer-1 relative saturation used, profile nitrate, respired C, denitrification) per day; None = off
 N_UNMET = None   # diagnostic: appends (year, doy, kg N/ha) of net immobilization the mineral pool could not supply
@@ -4116,6 +4117,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             winter_killed = True
             break
         dtt = thermal_time_increment(w["tx"], w["tn"], crop["base_t"], crop["opt_t"], crop["max_t"])
+        if not PLANT_DAY_TT and w is weather_rows[0]:
+            dtt = 0.0   # Cycles' thermal_time is 0 on the planting date and accumulates from the next day; the engine had counted the planting day (a constant 10 to 17 C day lead over Cycles, wheat and corn)
         tt_cum += dtt
         if _V is None:
             tt_dev = tt_cum
