@@ -1,7 +1,7 @@
 """One uniform scorecard at the current defaults (2026-10-23): five crops, pooled r, grain level and MAE, and N-loss levels in kg N/ha per year, engine against Cycles v1.5.20.
 Spring crops: 94 fresh sites, YEAR_STEP=2, continuous chain; wheat: 60 sites, FALLN=60. Inputs are the run files named below."""
 import json, glob, numpy as np
-RUN = dict(corn="frAB_apex25", silage="frN_silage_apex", sorghum="frN_sorghum_apex", soybean="frNOW_soy")
+RUN = dict(corn="cur_corn", silage="cur_silage", sorghum="cur_sorghum", soybean="cur_soy")
 def load(pre):
     D = {}
     for f in glob.glob(f"/tmp/w/{pre}_[0-3].json"): D.update(json.load(open(f)))
@@ -30,7 +30,7 @@ def lw(pre):
     for o in (0, 1):
         for r in json.load(open(f"/tmp/w/{pre}_{o}.json")): D[r[0]] = r[2]
     return D
-A = lw("wh_apex")
+A = lw("cur_wheat")
 for key in ("N0|calib", "N90|calib", "N150|calib"):
     row(f"wheat {key[:-6]}", [np.array(A[s][key]["grain"]["pairs"]) for s in sorted(A)])
 print("(loss columns are engine/Cycles in kg N/ha per year; wheat harness records no N losses)")
