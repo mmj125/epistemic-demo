@@ -2245,9 +2245,10 @@ SIXPOOL_ML_FH_FLOOR = 0.2  # Cycles still humifies ~0.12-0.17 of decomposed resi
 # 528 site-years, with a free fD shape collapsed to a constant (b -> 0), so the best form is
 # resp = KS * sum_i fE_i * Cs_i * exp(-Q * zmid_i), rms log error 0.204 (0.347 with the SI fD form and no
 # depth term, 0.563 with the original constants); per-site mean bias within +/-0.27 except Wisconsin -0.39.
-SIXPOOL_ML_DEPTH_Q = 0.108  # 2026-10-15 designed fallow experiment (row 42): Cycles' respiration has almost no depth decay once Cs/Csx saturation is modeled; was 4.44
-SIXPOOL_ML_KS = 0.00020816  # 2026-10-15 joint refit (row 43); was 0.000680
-SIXPOOL_ML_FD_SI = (4.26, 2.53)  # 2026-10-15 default: the SI Eq. SI.13 saturating form fitted to Cycles' per-layer respiration in designed fallow runs (row 42), rms 0.20 vs 0.54 for the power law; was None  # 2026-10-13: the SI form fitted to Cycles annual respiration (see comment above); None restores the power law
+# 2026-10-23: Pravia et al. 2019 (Agric Syst 171:13-22) Eqs 3 and 4 as published: kx 0.00015 d-1, fs = 1 - 1/(1 + (Cs/Cx/0.22)^3), no depth term (depth enters through Cx and Cs/Cx); the fitted trio was 0.000208, (4.26, 2.53), q 0.108
+SIXPOOL_ML_DEPTH_Q = 0.0  # 2026-10-15 designed fallow experiment (row 42): Cycles' respiration has almost no depth decay once Cs/Csx saturation is modeled; was 4.44
+SIXPOOL_ML_KS = 0.00015  # 2026-10-15 joint refit (row 43); was 0.000680
+SIXPOOL_ML_FD_SI = (1.0 / 0.22, 3.0)  # 2026-10-15 default: the SI Eq. SI.13 saturating form fitted to Cycles' per-layer respiration in designed fallow runs (row 42), rms 0.20 vs 0.54 for the power law; was None  # 2026-10-13: the SI form fitted to Cycles annual respiration (see comment above); None restores the power law
 # (An fD-style Cs/Csx saturation term, sixpool_fd_ml with constants 9.95/1.145, was removed 2026-10-08: unused since the
 # per-layer fit found no Cs/Csx dependence in SOM respiration; see sixpool_step's `fd = 1.0` for the ml_sub branch.)
 
