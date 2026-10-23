@@ -2843,8 +2843,8 @@ def denitrification_layers(no3_start, theta_start, layers, sixpool_state, no3_no
     return out
 
 
-DENIT_APEX = False   # True: per-layer denitrification as published for EPIC/APEX (Kemanian and Williams, CEAP 2011 APEX upgrades, Eqs 1 to 4), no fitted constant
-DENIT_APEX_PARAMS = dict(rmax=32e-6, half=60.0, cresp=50.0, expo=60.0, amp=1.0)   # kg N/kg soil/d, mg N/kg, mg C/kg/d, steepness; amp scales the whole law (1.0 = as published)
+DENIT_APEX = True   # ADOPTED 2026-10-23: per-layer denitrification as published for EPIC/APEX (Kemanian and Williams, CEAP 2011 APEX upgrades, Eqs 1 to 4); False restores the law fitted to Cycles (DENIT_SD)
+DENIT_APEX_PARAMS = dict(rmax=32e-6, half=60.0, cresp=50.0, expo=60.0, amp=2.5)   # amp 2.5 is NOT sourced (class C suspect; the Cycles docs name POT_DENITRIF_RATE as a calibration multiplier without a default); the other four constants are as published; kg N/kg soil/d, mg N/kg, mg C/kg/d, steepness; amp scales the whole law (1.0 = as published)
 
 
 def denitrification_apex(no3_start_kg_ha, layer, theta_start, resp_mg_ha, no3_now_kg_ha, fclay):
