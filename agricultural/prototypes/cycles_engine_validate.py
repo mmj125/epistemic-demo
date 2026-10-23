@@ -3108,7 +3108,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
     return leached, denit, volat
 
 
-def _season_chain(weather_by_year, year_range, crop, plant_window, plant_min_soil_t, carry_n, initial_mineral_n, season_kwargs, cover=None):
+def _season_chain(weather_by_year, year_range, crop, plant_window, plant_min_soil_t, carry_n, initial_mineral_n, season_kwargs, cover=None, year_plan=None):
     """Shared engine of simulate_season_with_leadin() and simulate_continuous(): yields (year, result) for each year in
     year_range, carrying soil water, mineral N and six-pool carbon forward between years.
     cover (2026-10-21): optional dict(crop=, plant_doy=, kill_doy=), a cover crop planted on plant_doy after the main crop's harvest and killed on kill_doy of
@@ -3125,7 +3125,9 @@ def _season_chain(weather_by_year, year_range, crop, plant_window, plant_min_soi
         d = weather_by_year[y]
         doys = sorted(d)
         tsoil = simulate_soil_temp([(d[k]["tx"] + d[k]["tn"]) / 2 for k in doys], k=0.15)
-        plant_doy = find_planting_doy(dict(zip(doys, tsoil)), plant_window, plant_min_soil_t)
+        _yp = (year_plan or {}).get(y, {})   # 2026-10-23: optional per-year plan {year: dict(crop=, plant_doy=, kw={season kwargs overrides})}; None = unchanged behaviour
+        ycrop = _yp.get("crop", crop)
+        plant_doy = _yp.get("plant_doy") or find_planting_doy(dict(zip(doys, tsoil)), plant_window, plant_min_soil_t)
         rows = [d[k] for k in range(plant_doy, 300) if k in d]
         _spin0 = 1
         _cover_res = None
@@ -3133,6 +3135,7 @@ def _season_chain(weather_by_year, year_range, crop, plant_window, plant_min_soi
         _FORCE_CUR = FORCE_SERIES.get(y) if FORCE_SERIES else None
         _DIAG_YEAR = y
         kw = dict(season_kwargs)
+        kw.update(_yp.get("kw", {}))
         if "wue_co2_scale" not in kw:
             kw["wue_co2_scale"] = (CO2_PPM_BY_YEAR.get(y, CO2_REF_PPM) / CO2_REF_PPM) ** WUE_CO2_EXP
         if "rue_co2_scale" not in kw:
@@ -3173,9 +3176,9 @@ def _season_chain(weather_by_year, year_range, crop, plant_window, plant_min_soi
             kw["initial_n_state"] = dict(nstate)
             if sixpool_state is not None:
                 kw["sixpool_initial_state"] = sixpool_state
-            result = simulate_season(rows, crop, spinup_rows=None, initial_layers=layers, **kw)
+            result = simulate_season(rows, ycrop, spinup_rows=None, initial_layers=layers, **kw)
         else:
-            result = simulate_season(rows, crop, spinup_rows=spinup, initial_layers=layers, **kw)
+            result = simulate_season(rows, ycrop, spinup_rows=spinup, initial_layers=layers, **kw)
         result["plant_doy"] = plant_doy
         layers = result["final_layers"]
         last = result.get("last_doy") or 299
@@ -3184,8 +3187,11 @@ def _season_chain(weather_by_year, year_range, crop, plant_window, plant_min_soi
         bridge = [d[k] for k in range(last + 1, _bridge_end) if k in d] if carry_n else [d[k] for k in range(301, 367) if k in d]
         de_state = dict(de=0.0, tew=compute_tew(layers[0]["fc"], layers[0]["pwp"]), rew=REW_DEFAULT_MM)
         if carry_n:
-            nstate = dict(result["final_n_state"])
-            sixpool_state = copy.deepcopy(result["sixpool_final_state"]) if "sixpool_final_state" in result else None
+            if "final_n_state" in result:
+                nstate = dict(result["final_n_state"])
+                sixpool_state = copy.deepcopy(result["sixpool_final_state"]) if "sixpool_final_state" in result else None
+            else:   # a crop path without an N model (soybean): the mineral N and carbon state pass through the year unchanged
+                nstate = dict(nstate); nstate.pop("n2o", None)
             lch, dn, vl = run_fallow_n_window(layers, bridge, nstate, sixpool_state, lat_deg=crop["lat_deg"], curve_number=season_kwargs.get("curve_number", 75.0), slope_pct=season_kwargs.get("slope_pct", 0.0),
                                               de_state=de_state,
                                               model_denitrification=kw.get("model_denitrification", True),
@@ -3309,13 +3315,13 @@ def standard_kwargs(soil_raw, n_rate_kg_ha):
 
 
 def simulate_continuous(weather_by_year, crop, years=None, plant_window=(110, 131), plant_min_soil_t=12.0, carry_n=False,
-                        initial_mineral_n=None, cover=None, **season_kwargs):
+                        initial_mineral_n=None, cover=None, year_plan=None, **season_kwargs):
     """One continuous multi-year run from the first weather year (or years[0]), the way Cycles runs a 1980-2016 simulation:
     soil water, mineral N and carbon carry across every year with no re-start. Returns {year: result}. Each year costs one
     season, where simulate_season_with_leadin(lead_years=full) re-runs the whole history for every target year."""
     yrs = sorted(weather_by_year) if years is None else list(years)
     out = {}
-    for y, r in _season_chain(weather_by_year, yrs, crop, plant_window, plant_min_soil_t, carry_n, initial_mineral_n, season_kwargs, cover=cover):
+    for y, r in _season_chain(weather_by_year, yrs, crop, plant_window, plant_min_soil_t, carry_n, initial_mineral_n, season_kwargs, cover=cover, year_plan=year_plan):
         out[y] = r
     return out
 
