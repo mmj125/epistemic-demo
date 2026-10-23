@@ -1,6 +1,6 @@
 """One uniform scorecard at the current defaults (2026-10-23): five crops, pooled r, grain level and MAE, and N-loss levels in kg N/ha per year, engine against Cycles v1.5.20.
 Spring crops: 94 fresh sites, YEAR_STEP=2, continuous chain; wheat: 60 sites, FALLN=60. Inputs are the run files named below."""
-import json, glob, numpy as np
+import json, glob, sys, numpy as np
 RUN = dict(corn="cur_corn", silage="cur_silage", sorghum="cur_sorghum", soybean="cur_soy")
 def load(pre):
     D = {}
@@ -34,3 +34,8 @@ A = lw("cur_wheat")
 for key in ("N0|calib", "N90|calib", "N150|calib"):
     row(f"wheat {key[:-6]}", [np.array(A[s][key]["grain"]["pairs"]) for s in sorted(A)])
 print("(loss columns are engine/Cycles in kg N/ha per year; wheat harness records no N losses)")
+# metrics beyond pooled r (CCC, Nash-Sutcliffe, site-mean and within-site correlation, anomaly spread, bias by yield tercile, N response), added 2026-10-23
+import runpy
+print()
+sys.argv = ["metrics_panel", "corn=cur_corn", "silage=cur_silage", "sorghum=cur_sorghum"]
+runpy.run_path("metrics_panel_2026_10_23.py", run_name="__main__")
