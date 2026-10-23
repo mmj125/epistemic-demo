@@ -12,7 +12,7 @@ def run(path):
                soil_classification=one("GRP_SOIL_CLASSIFICATION").get("SOIL_CLASSIFICATION"),
                planting=sorted(by.get("GRP_DM_PLANTING", []), key=lambda r: r.get("DM_DATE_START") or ""),
                fertilizer=sorted(by.get("GRP_DM_FERT_M", []), key=lambda r: r.get("DM_DATE_START") or ""),
-               irrigation=by.get("GRP_DM_IRRIG", []), tillage=sorted(by.get("GRP_DM_TILL", []), key=lambda r: r.get("DM_DATE") or ""),
+               fert_organic=by.get("GRP_DM_FERT_O", []), irrigation=sorted(by.get("GRP_DM_WATER", []), key=lambda r: r.get("DM_DATE_START") or r.get("DM_DATE") or ""), tillage=sorted(by.get("GRP_DM_TILL", []), key=lambda r: r.get("DM_DATE") or ""),
                production=sorted(by.get("GRP_AG_PROD_CROP", []), key=lambda r: r.get("AG_PROD_DATE_START") or ""),
                biomass=sorted(by.get("GRP_AG_BIOMASS_CROP", []), key=lambda r: r.get("AG_BIOMASS_DATE") or ""),
                lai=sorted(by.get("GRP_LAI", []), key=lambda r: r.get("LAI_DATE") or ""), groups_present=sorted(by))

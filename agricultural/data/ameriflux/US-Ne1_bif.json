@@ -1,0 +1,1986 @@
+{
+ "site": "US-Ne1",
+ "location": {
+  "LOCATION_LAT": "41.1651",
+  "LOCATION_LONG": "-96.4766",
+  "LOCATION_ELEV": "361",
+  "LOCATION_DATE_START": "20010525"
+ },
+ "soil_texture_pct": {
+  "SOIL_TEX_SAND": "11",
+  "SOIL_TEX_SILT": "52",
+  "SOIL_TEX_CLAY": "37"
+ },
+ "soil_depth_cm": {
+  "SOIL_DEPTH": "180"
+ },
+ "climate": {
+  "MAT": "10.07",
+  "MAP": "790.37",
+  "CLIMATE_KOEPPEN": "Dfa"
+ },
+ "soil_classification": "Deep silty clay loams of: Yutan (fine-silty, mixed, superactive, mesic Mollic Hapludalfs), Tomek (fine, smectitic, mesic Pachic Argialbolls), Filbert (fine, smectitic, mesic Vertic Argialbolls), and Filmore (fine, smectitic, mesic Vertic Argialbolls).",
+ "planting": [
+  {
+   "DM_PLANTING": "Sowing crop seeds",
+   "DM_DATE_START": "201404211330",
+   "DM_DATE_END": "201404211845",
+   "DM_COMMENT": "\u200bDekalb 65-79 (GENSS SmartStax)  115 CRM 2875 GDU, 34000 Target Seed Rate, JD7215/JD1770NT 16row,  80 Acres Completed  13:30-18:45"
+  },
+  {
+   "DM_PLANTING": "Sowing crop seeds",
+   "DM_DATE_START": "201404220730",
+   "DM_DATE_END": "201404221100",
+   "DM_COMMENT": "\u200bDekalb 65-79 (GENSS SmartStax)  115 CRM 2875 GDU, 34000 Target Seed Rate, JD7215/JD1770NT 16row,  80 Acres Complete field. 7:30-11:06. Fuel 49.5 gal. total for both days  (20140421 nda 20140422) combined."
+  },
+  {
+   "DM_PLANTING": "Sowing crop seeds",
+   "DM_DATE_START": "201504291650",
+   "DM_DATE_END": "201504292000",
+   "DM_COMMENT": "Corn,  Pioneer P1311AMX 113CRM, 32,000 seeds/acre Target Rate, 28.6 ac ,16:50-20:00 ,  JD7215Rw/JD1770 16R"
+  },
+  {
+   "DM_PLANTING": "Sowing crop seeds",
+   "DM_DATE_START": "201504300728",
+   "DM_DATE_END": "201504301430",
+   "DM_COMMENT": "Corn,  Pioneer P1311AMX 113CRM, 32000 Target Rate, remainder of field , 7:28-14:30 ,  JD7215Rw/JD1770 16R , Fuel 48.5 gallons for both days (20150429 and 20150430) combined"
+  },
+  {
+   "DM_PLANTING": "Sowing crop seeds",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201605191005",
+   "DM_DATE_END": "201605191715",
+   "DM_COMMENT": "Corn, Pioneer P1197AMT 32,000 Seeds/acre, JD7215R w/JD1770 16row,  10:05-17:15.  Complete."
+  },
+  {
+   "DM_PLANTING": "Sowing crop seeds",
+   "DM_SURF": "2",
+   "DM_DATE_START": "201606081000",
+   "DM_DATE_END": "201606081100",
+   "DM_COMMENT": "Replant fill-in wet/flooded areas 2.3 acre Pioneer P0801AMXT JD7215R w/JD17000 8row"
+  },
+  {
+   "DM_PLANTING": "Sowing crop seeds",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201704270730",
+   "DM_DATE_END": "201704271530",
+   "DM_COMMENT": "Pioneer 1197AMT 35,000 seed/acre,  07:30-15:20, JD 7250R w/1770 16 row,  Fuel 49 gal."
+  },
+  {
+   "DM_PLANTING": "Sowing crop seeds",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201805080805",
+   "DM_DATE_END": "201805081605",
+   "DM_COMMENT": "Corn DKC 64-34 ,37,000 seeds per acre, operator used incorrect vacumn pressure will monitor closely due to increased population, JD 7215R w/16 row JD 1775, time 8:05-1605 49 gal fuel"
+  },
+  {
+   "DM_PLANTING": "Sowing crop seeds",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202004200900",
+   "DM_DATE_END": "202004201700",
+   "DM_DATE_UNC": "0.15",
+   "DM_COMMENT": "JD8345R and JD1795 Planter, corn hybrid: P1366Q, 33,000 seeds/acre,  121.9 acres, Total fuel: 64.0 gal"
+  },
+  {
+   "DM_PLANTING": "Sowing crop seeds",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202104270830",
+   "DM_DATE_END": "202104271635",
+   "DM_COMMENT": "Corn, Dekalb 63-90, 33,000 seeds/acre, 122.1 acres, JD 8410RX Tractor and JD 1795 Planter, 56 gal fuel, 7:47  8.1 hrs"
+  }
+ ],
+ "fertilizer": [
+  {
+   "DM_FERT_M": "N",
+   "DM_DATE_START": "201404220800",
+   "DM_DATE_END": "201404221000",
+   "DM_COMMENT": "28% UAN (urea ammonium nitrate), 110 lb N/ac,    JD4830, . 8:00-10:00 & 13:00-14:30,     combined herbicide/fertilizer application"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_DATE_START": "201404221300",
+   "DM_DATE_END": "201404221430",
+   "DM_COMMENT": "UAN (urea ammonium nitrate) 28%, 110 lb N/ac,    JD4830,  8:00-10:00 & 13:00-14:30,  combined herbicide/fertilizer application"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_DATE_START": "201406101100",
+   "DM_DATE_END": "201406140700",
+   "DM_COMMENT": "UAN  (urea ammonium nitrate) 28% 35 lb N/acre,   0.30 in. water,  fertigation,  Started 6/10  Stuck at 313 CW, Restarted 6/12 stuck at 243, Restarted 6/13 from 268 CCW to 249 unexpected N only shutdown, continued with water only to 243, restarted CCW  from 249 to 243 with N to complete"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_DATE_START": "201407020800",
+   "DM_DATE_END": "201407030800",
+   "DM_COMMENT": "UAN  (urea ammonium nitrate) 28%  35 lb N/ac, .30\" water,  fertigation"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_DATE_START": "201411121100",
+   "DM_DATE_END": "201411121430",
+   "DM_COMMENT": "UAN  (urea ammonium nitrate) 28% 40 lb N/ac 107 acre complete.  11:00-14:30 JD4830 100'Boom"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_DATE_START": "201411130830",
+   "DM_DATE_END": "201411130930",
+   "DM_COMMENT": "UAN  (urea ammonium nitrate) 28%  40 lb N/acre    pre-tillage. JD4830 100'Boom  Complete field"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_DATE_START": "201503310915",
+   "DM_DATE_END": "201503311835",
+   "DM_COMMENT": "Target rate 170 lb N as 82% NH3 (anhydrous ammonia) knife. 9:15-18:35. Fuel 80.6 gal.  See applicaition map (orange 30' swath).  JD7830w/NH3 20' & JD7215w/NH3  30'"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_DATE_START": "201504010820",
+   "DM_DATE_END": "201504011600",
+   "DM_COMMENT": "Target rate 135 lb N as 82% NH3 (anhydrous ammonia)  knife. 8:20-16:00, Fuel 84.7 gal."
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_DATE_START": "201505121900",
+   "DM_DATE_END": "201505122145",
+   "DM_COMMENT": "30 lb N  28% UAN (urea ammonium nitrate) with 0.26 in water, 18 hour scheduled rotation 19:02,\u00a0 239 degrees CCW,  (between IMZ 2 and IMZ3). Stuck pivot 192  21:43, Restart  5/13 09:05.  Rain interupted 5/13/15 19:55 11:05 at 353 deg."
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_DATE_START": "201505180700",
+   "DM_DATE_END": "201505182200",
+   "DM_COMMENT": "30 lb N  28% UAN (urea ammonium nitrate) with 0.26 in water. fertigation started Tues May 12 was completed Monday, after a rain interruption.  The fertigation was started with the pivot standing between IMZ 2 and IMZ 3 moving CCW.   Therefore IMZ 3 received fertilizer May 12 and all remaining IMZs on May 18."
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_DATE_START": "201507011401",
+   "DM_DATE_END": "201507021105",
+   "DM_COMMENT": "34 lb N  28% UAN  (urea ammonium nitrate) with .33 in water,  Start CW from 260, 14:01,  Chemigation Advanced Pivot Plan, 25.5 hrs,  Rain interupted 7/2/15 11:05 at 197"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_DATE_START": "201507041011",
+   "DM_DATE_END": "201507041505",
+   "DM_COMMENT": "34 lb N 28% UAN (urea ammonium nitrate) with .33 in water. Restart 10:11 from 197, End 15:05 at 260,  Complete."
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_SURF": "73",
+   "DM_DATE_START": "201603171300",
+   "DM_DATE_END": "201603171815",
+   "DM_COMMENT": "170 lb N, 9 and 13 Knife w/78xx Tractors, 9Knife 28 acre 12:15-18:35  IMZs and Towers, 13Knife 59 acre 13:00-18:15"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_SURF": "27",
+   "DM_DATE_START": "201603180830",
+   "DM_DATE_END": "201603181100",
+   "DM_COMMENT": "170 lb N, 13 Knife w/JD7215R Tractor, 8:30-11:00 37acre. Complete field. Total fuel for NH3 operation 72.4 gal. for both days."
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_DATE_START": "201607010000",
+   "DM_DATE_END": "201607021200",
+   "DM_DATE_UNC": "0.25",
+   "DM_COMMENT": "44 lb N per acre with 0.49 in. of water, stopped 07/02 due to rain, resumed 07/09, stopped, pivot became stuck,  resumed 07/11, stopped due to heavy rain, resumed 07/15, comepleted 7/20"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_DATE_START": "201607090000",
+   "DM_DATE_END": "201607111600",
+   "DM_DATE_UNC": "0.25",
+   "DM_COMMENT": "44 lb N per acre with 0.49 in. of water, stopped 07/02 due to rain, resumed 07/09, stopped, pivot became stuck,  resumed 07/11, stopped due to heavy rain, resumed 07/15, comepleted 7/20"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_DATE_START": "201607200800",
+   "DM_DATE_END": "201607202000",
+   "DM_DATE_UNC": "0.25",
+   "DM_COMMENT": "44 lb N per acre with 0.49 in. of water, stopped 07/02 due to rain, resumed 07/09, stopped, pivot became stuck,  resumed 07/11, stopped due to heavy rain, resumed 07/15, comepleted 7/20"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_SURF": "15",
+   "DM_DATE_START": "201702221130",
+   "DM_DATE_END": "201702221330",
+   "DM_COMMENT": "custom application By Aurura co-op with air boom floater, 11-52-0 400 lb/acre, sulfur 10 lb/acre , Zinc  3 lb/acre. Nutrient Rate 44lb N/acre, 208lb P/acre, Applied dry granular surface application on areas around the the Towers and IMZ's Time 11:30-13:30"
+  },
+  {
+   "DM_FERT_M": "P",
+   "DM_SURF": "15",
+   "DM_DATE_START": "201702221130",
+   "DM_DATE_END": "201702221330",
+   "DM_COMMENT": "custom application By Aurura co-op with air boom floater, 11-52-0 400 lb/acre, sulfur 10 lb/acre , Zinc  3 lb/acre. Nutrient Rate 44lb N/acre, 208lb P/acre, Applied dry granular surface application on areas around the the Towers and IMZ's Time 11:30-13:30"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_SURF": "85",
+   "DM_DATE_START": "201702230830",
+   "DM_DATE_END": "201702231130",
+   "DM_COMMENT": "custom application By Aurura co-op with air boom floater, 11-52-0 400 lb/acre, sulfur 10 lb/acre , Zinc  3 lb/acre. Nutrient Rate 44 lb N/acre, 208 lb P/acre.  Applied dry granular  surface application on bulk areas outside of Towers and IMZ's.  Time 8:30 -11:30"
+  },
+  {
+   "DM_FERT_M": "P",
+   "DM_SURF": "85",
+   "DM_DATE_START": "201702230830",
+   "DM_DATE_END": "201702231130",
+   "DM_COMMENT": "custom application By Aurura co-op with air boom floater, 11-52-0 400 lb/acre, sulfur 10 lb/acre , Zinc  3 lb/acre. Nutrient Rate 44 lb N/acre, 208 lb P/acre.  Applied dry granular  surface application on bulk areas outside of Towers and IMZ's.  Time 8:30 -11:30"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201703220800",
+   "DM_DATE_END": "201703221700",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "125 lb N/acre, JD8250R w/NH3 30',JD8215R w/20' NH3"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201704270700",
+   "DM_DATE_END": "201704271530",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "JD4830 100', N 30lb/acre 28% UAN,  Powermax 1qt/acre, Atrazine4L 1qt/acre, Corvus 3.5oz/acre"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201706300830",
+   "DM_DATE_END": "201707021100",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "49 lbN/acre UAN28%, 0.49\"water completed 7/2/17"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_SURF": "97",
+   "DM_DATE_START": "201711270800",
+   "DM_DATE_END": "201711271659",
+   "DM_COMMENT": "170lbsN/acre time 0800-1659,  JD 7250R w/13knife, 116.2 acres left 12 passes around north IMZ's and towers for 9 knife, Fuel 47 gal"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_SURF": "3",
+   "DM_DATE_START": "201711281013",
+   "DM_DATE_END": "201711281139",
+   "DM_COMMENT": "170lbsN/acre,  1013-1139, JD 7250R w/13knife, 10.6 acres around towers and IMZ's fuel8.9 gal"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201805081600",
+   "DM_DATE_END": "201805081906",
+   "DM_COMMENT": "30 lb N/acre UAN 28% 10 gal/acre, water 5 gal/acre, Powermax 1qt/acre, Atrazine 1 qt/acre, Corcus 4oz/acre, Crop Oil Concentrate 19.02oz/acre, AMS 2.3lb/acre, JD 4038R with 100 ft boom, 125 Acres Did do a sprayer cleanout bordered all end rows 16:00-19:06 20 gal fuel"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202003311307",
+   "DM_DATE_END": "202003312028",
+   "DM_COMMENT": "JD8370R w 12 row applicator, 140 lbs/acre N, 106.9 acrees, start 13:07, Stop 20:28, 66.0 gal fuel total usage for both days."
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202004010850",
+   "DM_DATE_END": "202004011016",
+   "DM_COMMENT": "JD8370R w 12 row applicator,  140 lbs/acre N, 18.4 Acres, Start 08:50, Stop 10:16, Total fuel : 66.0 gal fuel total usage for both days."
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202004210900",
+   "DM_DATE_END": "202004211100",
+   "DM_DATE_UNC": "0.1",
+   "DM_COMMENT": "pre-emergent spraying, JD4830, 123.8 Acres,  28% UAN 13.5 gal/ac,  Corvus 4 oz/ac,  NIS 5 oz/ac,  Atrazine 4L 32 oz/ac"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202006230900",
+   "DM_DATE_END": "202006240900",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "CW 256-256, 0.68 in water, 40 lbs N/acre of 28% UAN"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202104300730",
+   "DM_DATE_END": "202104301030",
+   "DM_COMMENT": "Pre-emergent   8 fl.oz/acre  DiFlexx, 32 fl.oz/acre Anthem ATZ, 19.4 fl.oz/acre COC, 10.11 Gal/acre 28% UAN,  4.8 Gal/acre water used as carrier.RG1100C Rogator, 10.1 gallon fuel, 2, 3 hours operating time start 7:30 AM, stop 10:30 AM"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202106100930",
+   "DM_DATE_END": "202106101030",
+   "DM_COMMENT": "3.2 acres were applied with 65.1 gallons of 28-0-0,  Used Hagie DTS10 to apply UAN to create high nitrogen rate strips as well as rate blocks for references for OptRx system to use for future side dress UAN application, Fuel usage estimated 1.5 gallons, Start time: 9:30, End time: 10:30.  North side reference strip is halfway between north IMZ locations and tower area. South reference strip is south of south IMZ locations."
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202107061100",
+   "DM_DATE_END": "202107061800",
+   "DM_COMMENT": "118.3 acres were applied with 781.5 gallons of 28-0-0 UAN, OptRx crop canopy sensors mounted on Hagie DTS10, \u200b\u200b27.0 gal fuel, Start Time: 11:00, End Time: 18:00"
+  }
+ ],
+ "fert_organic": [
+  {
+   "DM_FERT_O": "Liquid manure",
+   "DM_SURF": "58",
+   "DM_DATE_START": "202012040500",
+   "DM_DATE_END": "202012041800",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "beef manure slurry application by knife injection, 4,797 gal/acre, hose manuvering tractor, tractor and coulter injection knife pulling manure hose, northwest-southeast diagonal, starting with longest diagonal first, working north half"
+  },
+  {
+   "DM_FERT_O": "Liquid manure",
+   "DM_SURF": "42",
+   "DM_DATE_START": "202012050600",
+   "DM_DATE_END": "202012051500",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "beef manure slurry application by knife injection, 4,797 gal/acre, hose manuvering tractor, tractor and coulter injection knife pulling manure hose, Northwest-southeast diagonal, starting with longest diagonal first, from longest diagonal working south applying to south half of field"
+  }
+ ],
+ "irrigation": [
+  {
+   "DM_WATER": "Irrigation",
+   "DM_DATE_START": "201406101100",
+   "DM_DATE_END": "201406140700",
+   "DM_COMMENT": "UAN  (urea ammonium nitrate) 28% 35 lb N/acre,   0.30 in. water,  fertigation,  Started 6/10  Stuck at 313 CW, Restarted 6/12 stuck at 243, Restarted 6/13 from 268 CCW to 249 unexpected N only shutdown, continued with water only to 243, restarted CCW  from 249 to 243 with N to complete"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_DATE_START": "201407020800",
+   "DM_DATE_END": "201407030800",
+   "DM_COMMENT": "UAN  (urea ammonium nitrate) 28%  35 lb N/ac, .30\" water,  fertigation"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_DATE_START": "201407080730",
+   "DM_DATE_END": "201407120330",
+   "DM_DATE_UNC": "0.5",
+   "DM_COMMENT": "\u200b1.25\" CW from 273 7:30 92 hr rotation."
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_DATE_START": "201407140730",
+   "DM_DATE_END": "201407180330",
+   "DM_DATE_UNC": "0.5",
+   "DM_COMMENT": "\u200b1.25\" CW from 273 7:30 92 hr rotation."
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_DATE_START": "201407190730",
+   "DM_DATE_END": "201407230400",
+   "DM_DATE_UNC": "0.16",
+   "DM_COMMENT": "\u200b1.25\" CW from 273 7:30 92 hr rotation."
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_DATE_START": "201407250730",
+   "DM_DATE_END": "201407290300",
+   "DM_DATE_UNC": "0.16",
+   "DM_COMMENT": "\u200b1.25 in ,  CW, from 273 7:30 92 hr rotation."
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_DATE_START": "201407300930",
+   "DM_DATE_END": "201408061200",
+   "DM_DATE_UNC": "0.16",
+   "DM_COMMENT": "1.25\" CW from 261 96hr.\u00a0 Pivot failure stop\u00a0at 323 degrees (IMZ4 watered but not others.\u00a0 Rain 7/31. Restart 8/3 from 323."
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_DATE_START": "201408180830",
+   "DM_DATE_END": "201408221030",
+   "DM_DATE_UNC": "0.16",
+   "DM_COMMENT": "1.25\" CW from 260"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_DATE_START": "201505121900",
+   "DM_DATE_END": "201505122145",
+   "DM_COMMENT": "30 lb N  28% UAN (urea ammonium nitrate) with 0.26 in water, 18 hour scheduled rotation 19:02,\u00a0 239 degrees CCW,  (between IMZ 2 and IMZ3). Stuck pivot 192  21:43, Restart  5/13 09:05.  Rain interupted 5/13/15 19:55 11:05 at 353 deg."
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_DATE_START": "201505180700",
+   "DM_DATE_END": "201505182200",
+   "DM_COMMENT": "30 lb N  28% UAN (urea ammonium nitrate) with 0.26 in water. fertigation started Tues May 12 was completed Monday, after a rain interruption.  The fertigation was started with the pivot standing between IMZ 2 and IMZ 3 moving CCW.   Therefore IMZ 3 received fertilizer May 12 and all remaining IMZs on May 18."
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_DATE_START": "201507011401",
+   "DM_DATE_END": "201507021105",
+   "DM_COMMENT": "34 lb N  28% UAN  (urea ammonium nitrate) with .33 in water,  Start CW from 260, 14:01,  Chemigation Advanced Pivot Plan, 25.5 hrs,  Rain interupted 7/2/15 11:05 at 197"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_DATE_START": "201507041011",
+   "DM_DATE_END": "201507041505",
+   "DM_COMMENT": "34 lb N 28% UAN (urea ammonium nitrate) with .33 in water. Restart 10:11 from 197, End 15:05 at 260,  Complete."
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_DATE_START": "201507131400",
+   "DM_DATE_END": "201507141500",
+   "DM_DATE_UNC": "0.1",
+   "DM_COMMENT": "\u200b1.28 in.  CW from 273 14:00 (+-2 hrs) 92 hr rotation. Interrupted 7/14 15:00 due to rain.  All CSP1 North IMZs will have been irrigated.   No irrigation over Towers."
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_DATE_START": "201507171000",
+   "DM_DATE_END": "201507201800",
+   "DM_DATE_UNC": "0.1",
+   "DM_COMMENT": "1.28 in. 356 degr completed 7/20/2015 265 degr"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_DATE_START": "201507240800",
+   "DM_DATE_END": "201507261300",
+   "DM_DATE_UNC": "0.1",
+   "DM_COMMENT": "1.29 in. 265 degr.  interrupted due to rain.  7/26 stop at 226 degrees 13:00"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_DATE_START": "201508030800",
+   "DM_DATE_END": "201508071245",
+   "DM_DATE_UNC": "0.1",
+   "DM_COMMENT": "Resume 1.29 in. 47 degr. CW stop at 226 degr 08/07 1245"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_DATE_START": "201508141646",
+   "DM_DATE_END": "201508150412",
+   "DM_DATE_UNC": "0.1",
+   "DM_COMMENT": "Resume 1.29 in 226 degr 1646 ,  completed 8/15/2015 0412 265 degr"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_DATE_START": "201607010000",
+   "DM_DATE_END": "201607021200",
+   "DM_DATE_UNC": "0.25",
+   "DM_COMMENT": "44 lb N per acre with 0.49 in. of water, stopped 07/02 due to rain, resumed 07/09, stopped, pivot became stuck,  resumed 07/11, stopped due to heavy rain, resumed 07/15, comepleted 7/20"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_DATE_START": "201607090000",
+   "DM_DATE_END": "201607111600",
+   "DM_DATE_UNC": "0.25",
+   "DM_COMMENT": "44 lb N per acre with 0.49 in. of water, stopped 07/02 due to rain, resumed 07/09, stopped, pivot became stuck,  resumed 07/11, stopped due to heavy rain, resumed 07/15, comepleted 7/20"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201607200730",
+   "DM_DATE_END": "201607251300",
+   "DM_COMMENT": "0.90 in ., Completed 7/25"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201607200800",
+   "DM_DATE_END": "201607202000",
+   "DM_DATE_UNC": "0.25",
+   "DM_COMMENT": "44 lb N per acre with 0.49 in. of water, stopped 07/02 due to rain, resumed 07/09, stopped, pivot became stuck,  resumed 07/11, stopped due to heavy rain, resumed 07/15, comepleted 7/20"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201607280700",
+   "DM_DATE_END": "201608031400",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "1.27 in. stopped due to rain, resumed , Completed 8/3"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201608090700",
+   "DM_DATE_UNC": "0.5",
+   "DM_COMMENT": "Rain interrrupted at 99 deg.  Cycle was not completed due to continued rains.  From 267 to 99 deg (CW) 1.27\".  From 99 to 266 deg (CW) 0\""
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201706300830",
+   "DM_DATE_END": "201707021100",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "49 lbN/acre UAN28%, 0.49\"water completed 7/2/17"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201707060800",
+   "DM_DATE_END": "201707101000",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "1.25 in, completed 7/10"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201707140500",
+   "DM_DATE_END": "201707162200",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "1.25 in, completed 7/16"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201707180800",
+   "DM_DATE_END": "201707231100",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "1.25 in., Completed 7/23"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201707310800",
+   "DM_DATE_END": "201708051000",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "1.25 in,  Completed 8/05"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201708080700",
+   "DM_DATE_END": "201708110700",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "1.25 in,  start 259 deg ran 58 hrs to 108 deg, stopped 08/11  end irrigation"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201805101537",
+   "DM_DATE_END": "201805110719",
+   "DM_COMMENT": "Start 05/10 15:37 at 272 degrees CW  Stop 05/11 07:19 at 48 degrees due to rain. ran dry CW to 271 degrees stopped 05/11 22:09. Applied  .58 inches"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201806180600",
+   "DM_DATE_END": "201806190730",
+   "DM_DATE_UNC": "0.1",
+   "DM_COMMENT": "CW 276 degrees to 17 degrees @101hr rotation, recieved .60 in precip on 6/18/18 pivot in the IMZ area will shutoff pending additional rain, Stop at 17 degrees.  Irrigation event cancelled due to full soil water profile.  Reset pivot location to 276.    276 CW to 17,  0 .69 inch/acre"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201807160730",
+   "DM_DATE_END": "201807170730",
+   "DM_COMMENT": "277 degrees CW to 350 degrees   applied rate 1.35 inch/acre, stopped at 350 due to rain on 7/17/18 then restarted to 277, ran dry to 265"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201808010730",
+   "DM_DATE_END": "201808080500",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "265 degrees to 265 degrees CW, applied 1.34 inch finished 8/8/2018"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201808080730",
+   "DM_DATE_END": "201808142330",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "265 degrees  to 265 degrees CW,  applied 1.34 inch, Finished  8/14/2018"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202004240800",
+   "DM_DATE_END": "202004250030",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "CW 271-271, 0.50 in ,  Runtime  40.2 hr"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202006230900",
+   "DM_DATE_END": "202006240900",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "CW 256-256, 0.68 in water, 40 lbs N/acre of 28% UAN"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202006290900",
+   "DM_DATE_END": "202007061704",
+   "DM_COMMENT": "CW 303-187, 0.60 in, 16:13, CW 303 to 187 Stopped 7/1/20 02:30 at 187 due to rain, restarted 7/6/2020 7:28 CW 187 to 256, End 7/6/2020  17:04"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202007061710",
+   "DM_DATE_END": "202007102115",
+   "DM_COMMENT": "CW 256-256, 1.25 in, Runtime 100 hr."
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202007140900",
+   "DM_DATE_END": "202007181300",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "CW 273-273, 1.25 in, Runtime 100 hr."
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202007220900",
+   "DM_DATE_END": "202007291300",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "CW 272-272, 1.25 in, Stopped 7/25 4:00 AM. Started again on 7/27 and finished 7/29"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202008020900",
+   "DM_DATE_END": "202008061300",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "CCW 274-274, 1.27 in, Runtime 100 hr."
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202008110900",
+   "DM_DATE_END": "202008151300",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "CCW 274-273, 1.25 in, Runtime 100 hr."
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202008240900",
+   "DM_DATE_END": "202008281300",
+   "DM_COMMENT": "CCW 273-273, 1.25 in, Runtime 100 hr"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202008310500",
+   "DM_DATE_END": "202009021400",
+   "DM_DATE_UNC": "0.3",
+   "DM_COMMENT": "CW 273 to 273, 1.00 inch, Runtime 81 hr"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202104301556",
+   "DM_DATE_END": "202105011656",
+   "DM_COMMENT": "0.31 in, CW 274-273 3:56 PM startup,  25 hours runtime, \u200b\u200bFor incorporation of UAN and activation of herbicide"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202107090730",
+   "DM_DATE_END": "202107180730",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "1.25 in.,  \u200b\u200b270-270 Counter clockwise, Shut down at 163 degrees on 7/10 due to rain, Restarted 7/14, finished 7/18"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202107210900",
+   "DM_DATE_END": "202107251800",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "1.25 in., 270-270 Counter clock-wise,  finished 7/25"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202107281230",
+   "DM_DATE_END": "202108031800",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "1.25 in., 270-270 Counter clockwise,  stopped at 43 on 7/31 due to rain event,  restarted 8/2/2021,  finished 8/3/2021"
+  },
+  {
+   "DM_WATER": "Irrigation",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202108241230",
+   "DM_DATE_END": "202108291245",
+   "DM_COMMENT": "1.25 in, Start time 12:30 PM  at position 270 running CCW. Ran until position 219 on 8/25 at 8:07 AM, suspended due to rain. Restarted 8/27, 8:02 AM and ran until position 007 on 8/29 at 12:45 PM, cancelled due to rain."
+  }
+ ],
+ "tillage": [
+  {
+   "DM_TILL": "Conservation",
+   "DM_DATE_START": "201411121245",
+   "DM_DATE_END": "201411121945",
+   "DM_COMMENT": "\u200bSurface of soil frozen. Snow 1\"\u00a0present. 12:45-19:45  Heading  (SW>NE  JD8270R w/Landoll 12.5\" mulch tiller"
+  },
+  {
+   "DM_TILL": "Conservation",
+   "DM_DATE_START": "201411130730",
+   "DM_DATE_END": "201411131830",
+   "DM_COMMENT": "Completed flux tower and IMZ areas  Heading  (SW>NE"
+  },
+  {
+   "DM_TILL": "Conservation",
+   "DM_DATE_START": "201411140730",
+   "DM_DATE_END": "201411141530",
+   "DM_COMMENT": "Heading  (SW>NE) 7:30-15:15\u00a0  JD7200R+Landoll  9-Shank 12.5' mulch-tiller 275.5 g diesel fuel"
+  },
+  {
+   "DM_TILL": "Conservation",
+   "DM_DATE_START": "201503301404",
+   "DM_DATE_END": "201503301824",
+   "DM_COMMENT": "Start disking. 40 acres complete,  14:04-18:24, JD7820 w/JD Disk 22 ft."
+  },
+  {
+   "DM_TILL": "Conservation",
+   "DM_DATE_START": "201503310800",
+   "DM_DATE_END": "201503311730",
+   "DM_COMMENT": "Complete tillage. 8:00-17:30.  Fuel 132 gallons for both days (20153030 and 20153031) combined, JD7820 w/JD Disk 22 ft."
+  },
+  {
+   "DM_TILL": "Conservation",
+   "DM_DATE_START": "201504291000",
+   "DM_DATE_END": "201504292030",
+   "DM_COMMENT": "Finishing disk operation,  10:00-20:30,  JD7830 w/JD Disk 22'"
+  },
+  {
+   "DM_TILL": "Conservation",
+   "DM_DATE_START": "201511140850",
+   "DM_DATE_END": "201511142150",
+   "DM_COMMENT": "Complete tillage, 8:50-21:50,  Fuel 151 gal, JD8270R+Landoll  9-Shank 12.5' mulch-tille"
+  },
+  {
+   "DM_TILL": "Conventional",
+   "DM_SURF": "78",
+   "DM_DATE_START": "201603170822",
+   "DM_DATE_END": "201603171825",
+   "DM_COMMENT": "Begin disking heading 103   8:22-18:25 94 acres, JD7820 w/22' JD Disk"
+  },
+  {
+   "DM_TILL": "Conventional",
+   "DM_SURF": "22",
+   "DM_DATE_START": "201603180800",
+   "DM_DATE_END": "201603181100",
+   "DM_COMMENT": "Finish Disking 8:00-11:00  Fuel 88.5 gal,  JD7820 w/22' JD Disk"
+  },
+  {
+   "DM_TILL": "Conservation",
+   "DM_SURF": "29",
+   "DM_DATE_START": "201610310800",
+   "DM_DATE_END": "201610312000",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "Diagonal Heading 112.5  10/31 35 acres, 11/1 47ac, 11/2 23 ac, completed 11/4 22 ac.  JD8270R w/ Landoll mulch-tiller 12.5',"
+  },
+  {
+   "DM_TILL": "Conservation",
+   "DM_SURF": "39",
+   "DM_DATE_START": "201611010800",
+   "DM_DATE_END": "201611011600",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "Diagonal Heading 112.5  10/31 35 acres, 11/1 47ac, 11/2 23 ac, completed 11/4 22 ac.  JD8270R w/ Landoll mulch-tiller 12.5', Fuel 264 gal total both days"
+  },
+  {
+   "DM_TILL": "Conservation",
+   "DM_SURF": "19",
+   "DM_DATE_START": "201611020800",
+   "DM_DATE_END": "201611021600",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "Diagonal Heading 112.5  10/31 35 acres, 11/1 47ac, 11/2 23 ac, completed 11/4 22 ac.  JD8270R w/ Landoll mulch-tiller 12.5', Fuel 264 gal total both days"
+  },
+  {
+   "DM_TILL": "Conventional",
+   "DM_SURF": "37",
+   "DM_DATE_START": "201703200830",
+   "DM_DATE_END": "201703201730",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "JD8215R JD22ft Disk Heading at 80 degrees , 4 in depth"
+  },
+  {
+   "DM_TILL": "Conventional",
+   "DM_SURF": "18",
+   "DM_DATE_START": "201703210830",
+   "DM_DATE_END": "201703211730",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "JD8215R JD22ft Disk Heading at 80 degrees , 4 in depth"
+  },
+  {
+   "DM_TILL": "Conventional",
+   "DM_SURF": "10",
+   "DM_DATE_START": "201703220830",
+   "DM_DATE_END": "201703221630",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "JD8215R JD22ft Disk Heading at 80 degrees , 4 in depth, flux tower and north IMZ areas, total fuel for operation 125 gal."
+  },
+  {
+   "DM_TILL": "Conservation",
+   "DM_SURF": "16",
+   "DM_DATE_START": "201711070800",
+   "DM_DATE_END": "201711071700",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "Diagonal heading 67 degrees\u00a011-7 to11-10 completed, JD 7250R w/landoll Landoll mulch-tiller 12.5', 12 in depth"
+  },
+  {
+   "DM_TILL": "Conservation",
+   "DM_SURF": "15",
+   "DM_DATE_START": "201711080800",
+   "DM_DATE_END": "201711081700",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "Diagonal heading 67 degrees\u00a011-7 to11-10 completed, JD 7250R w/landoll Landoll mulch-tiller 12.5', 12 in depth"
+  },
+  {
+   "DM_TILL": "Conservation",
+   "DM_SURF": "14",
+   "DM_DATE_START": "201711090800",
+   "DM_DATE_END": "201711091700",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "Diagonal heading 67 degrees\u00a011-7 to11-10 completed, JD 7250R w/landoll Landoll mulch-tiller 12.5', 12 in depth"
+  },
+  {
+   "DM_TILL": "Conservation",
+   "DM_SURF": "14",
+   "DM_DATE_START": "201711100800",
+   "DM_DATE_END": "201711101700",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "Diagonal heading 67 degrees\u00a011-7 to11-10 completed, JD 7250R w/landoll Landoll mulch-tiller 12.5', 12 in depth, Fuel used for total operation over 4 days:  225.9 gal"
+  },
+  {
+   "DM_TILL": "Conventional",
+   "DM_SURF": "14",
+   "DM_DATE_START": "201711150800",
+   "DM_DATE_END": "201711151700",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "diagonal\u00a0heading 92 degrees, JD 7250R w/JD 22ft disk, 4 inch depth"
+  },
+  {
+   "DM_TILL": "Conventional",
+   "DM_SURF": "14",
+   "DM_DATE_START": "201711160800",
+   "DM_DATE_END": "201711161700",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "diagonal\u00a0heading 92 degrees, JD 7250R w/JD 22ft disk, 4 inch depth"
+  },
+  {
+   "DM_TILL": "Conventional",
+   "DM_SURF": "13",
+   "DM_DATE_START": "201711170800",
+   "DM_DATE_END": "201711171700",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "diagonal\u00a0heading 92 degrees, JD 7250R w/JD 22ft disk, 4 inch depth, Total fuel for operation (3 days): 110 gal"
+  },
+  {
+   "DM_TILL": "Conventional",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201804231055",
+   "DM_DATE_END": "201804231833",
+   "DM_COMMENT": "JD7830 JD630 Disk Heading at 100 degrees, 4 inch depth, 10:55-18:30, 58.57 acre south of towers 45 gal fuel"
+  },
+  {
+   "DM_TILL": "Conventional",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201804240810",
+   "DM_DATE_END": "201804241530",
+   "DM_COMMENT": "JD7830 JD630 Disk Heading at 100 degrees, 4 inch depth, 08:10-15:30, 65 acres Fuel 48.9 gallons"
+  },
+  {
+   "DM_TILL": "Ridge till",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201806051237",
+   "DM_DATE_END": "201806051447",
+   "DM_COMMENT": "volunteer corn removal, JD 7215w/8Row Buffalo row cultivator, 3 inch depth, 12:37-14:47, 102.08 acres, 84 gal fuel"
+  },
+  {
+   "DM_TILL": "Ridge till",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201806061237",
+   "DM_DATE_END": "201806061447",
+   "DM_COMMENT": "volunteer corn removal, JD 7215w/8Row Buffalo row cultivator, 3 inch depth, 19.23 acres, 12:37-14:47, 19.0 gal fuel"
+  },
+  {
+   "DM_TILL": "Conservation",
+   "DM_SURF": "18",
+   "DM_DATE_START": "201811130945",
+   "DM_DATE_END": "201811131140",
+   "DM_COMMENT": "Heading 112 degrees 21.11 acres, Fuel 30 gal Time 9:45-11:40 - 2:20-18:10  ,JD 7250R w Landoll 1700 mulch-tiller 12.5'"
+  },
+  {
+   "DM_TILL": "Conservation",
+   "DM_SURF": "18",
+   "DM_DATE_START": "201811131420",
+   "DM_DATE_END": "201811131810",
+   "DM_COMMENT": "Heading 112 degrees 21.11 acres, Fuel 30 gal Time 9:45-11:40 - 2:20-18:10  ,JD 7250R w Landoll 1700 mulch-tiller 12.5'"
+  },
+  {
+   "DM_TILL": "Conservation",
+   "DM_SURF": "47",
+   "DM_DATE_START": "201811141150",
+   "DM_DATE_END": "201811142325",
+   "DM_COMMENT": "Heading 112 degrees, IMZs, Towers Bulk acres 56 acres, Fuel 103 gal Time 11:50-23:25, JD 7250R w Landoll 1700 mulch-tiller 12.5'"
+  },
+  {
+   "DM_TILL": "Conservation",
+   "DM_SURF": "23",
+   "DM_DATE_START": "201811150730",
+   "DM_DATE_END": "201811151345",
+   "DM_COMMENT": "Heading 112 degrees, Bulk acres 28.23 acres Broke brackets on left assembly,Fuel 56.9 gal Time 0730-13:45, JD 7250R w Landoll 1700 mulch-tiller 12.5'"
+  },
+  {
+   "DM_TILL": "Conservation",
+   "DM_SURF": "21",
+   "DM_DATE_START": "201811201300",
+   "DM_DATE_END": "201811201735",
+   "DM_COMMENT": "Finish all end rows, 25.1 Acres,Fuel 45.2 Time 13:00-17:35, JD 7250R w Landoll 1700 mulch-tiller 12.5'"
+  },
+  {
+   "DM_TILL": "Conventional",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202003310800",
+   "DM_DATE_END": "202003312000",
+   "DM_DATE_UNC": "0.15",
+   "DM_COMMENT": "JD8345 and Mulch Finisher, 129.6 acres, Total fuel:107.6 gal"
+  },
+  {
+   "DM_TILL": "Other",
+   "DM_SURF": "5",
+   "DM_DATE_START": "202111171030",
+   "DM_DATE_END": "202111171230",
+   "DM_DATE_UNC": "0.1",
+   "DM_COMMENT": "Track Fill (fill in center pivot irrigation tracks)  Start 10:30 AM,  finished 12:30 PM, JD 6115R and TracPacker 2.1 engine hours, 6.7 gal fuel (estimated times and fuel use)"
+  }
+ ],
+ "production": [
+  {
+   "AG_PROD_CROP": "1007",
+   "AG_PROD_CROP_ORGAN": "Total",
+   "AG_PROD_CROP_UNIT": "gC m-2",
+   "AG_PROD_DATE_START": "20011016"
+  },
+  {
+   "AG_PROD_CROP": "521",
+   "AG_PROD_CROP_ORGAN": "Foliage",
+   "AG_PROD_CROP_UNIT": "gC m-2",
+   "AG_PROD_DATE_START": "20011016"
+  },
+  {
+   "AG_PROD_CROP": "503",
+   "AG_PROD_CROP_ORGAN": "Foliage",
+   "AG_PROD_CROP_UNIT": "gC m-2",
+   "AG_PROD_DATE_START": "20021015"
+  },
+  {
+   "AG_PROD_CROP": "949",
+   "AG_PROD_CROP_ORGAN": "Total",
+   "AG_PROD_CROP_UNIT": "gC m-2",
+   "AG_PROD_DATE_START": "20021015"
+  },
+  {
+   "AG_PROD_CROP": "470",
+   "AG_PROD_CROP_ORGAN": "Foliage",
+   "AG_PROD_CROP_UNIT": "gC m-2",
+   "AG_PROD_DATE_START": "20031021"
+  },
+  {
+   "AG_PROD_CROP": "908",
+   "AG_PROD_CROP_ORGAN": "Total",
+   "AG_PROD_CROP_UNIT": "gC m-2",
+   "AG_PROD_DATE_START": "20031021"
+  },
+  {
+   "AG_PROD_CROP": "470",
+   "AG_PROD_CROP_ORGAN": "Foliage",
+   "AG_PROD_CROP_UNIT": "gC m-2",
+   "AG_PROD_DATE_START": "20041004"
+  },
+  {
+   "AG_PROD_CROP": "852",
+   "AG_PROD_CROP_ORGAN": "Total",
+   "AG_PROD_CROP_UNIT": "gC m-2",
+   "AG_PROD_DATE_START": "20041004"
+  },
+  {
+   "AG_PROD_CROP": "447",
+   "AG_PROD_CROP_ORGAN": "Foliage",
+   "AG_PROD_CROP_UNIT": "gC m-2",
+   "AG_PROD_DATE_START": "20051009"
+  },
+  {
+   "AG_PROD_CROP": "883",
+   "AG_PROD_CROP_ORGAN": "Total",
+   "AG_PROD_CROP_UNIT": "gC m-2",
+   "AG_PROD_DATE_START": "20051009"
+  }
+ ],
+ "biomass": [
+  {
+   "AG_BIOMASS_CROP": "0.545466",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20010529",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "8.23232",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20010613",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "38.6729",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20010621",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "103.468",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20010629",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "201.247",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20010705",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "307.429",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20010713",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "394.37",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20010719",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "716.088",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20010809",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "790.954",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20010815",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "486",
+   "AG_BIOMASS_CROP_ORGAN": "Total",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20011016"
+  },
+  {
+   "AG_BIOMASS_CROP": "0.21533",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20020529",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "0.920431",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20020603",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "26.4778",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20020618",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "160.285",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20020701",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "240.987",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20020708",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "341.663",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20020715",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "571.758",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20020729",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "779.455",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20020812",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "1083.51",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20020912",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "446",
+   "AG_BIOMASS_CROP_ORGAN": "Total",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20021015"
+  },
+  {
+   "AG_BIOMASS_CROP": "0.892291",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20030606",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "32.6504",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20030625",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "143.449",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20030708",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "305.929",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20030718",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "416.843",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20030728",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "524.921",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20030808",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "830.339",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20030826",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "975.089",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20030926",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "438",
+   "AG_BIOMASS_CROP_ORGAN": "Total",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20031021"
+  },
+  {
+   "AG_BIOMASS_CROP": "2.44095",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20040603",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "20.1132",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20040615",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "129.572",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20040701",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "264.278",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20040713",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "461.193",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20040726",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "521.729",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20040805",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "685.371",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20040817",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "897.17",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20040907",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "848.59",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20040929",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "382",
+   "AG_BIOMASS_CROP_ORGAN": "Total",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20041004"
+  },
+  {
+   "AG_BIOMASS_CROP": "0.815529",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20050531",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "26.2745",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20050617",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "86.8541",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20050627",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "191.885",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20050707",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "369.501",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20050720",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "529.592",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20050801",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "604.729",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20050809",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "892.133",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20050913",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "698.192",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20050919",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "810.81",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20051003",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "436",
+   "AG_BIOMASS_CROP_ORGAN": "Total",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20051009"
+  },
+  {
+   "AG_BIOMASS_CROP": "4.48646",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060601",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "21.3839",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060608",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "65.8304",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060616",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "166.598",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060626",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "337.861",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060706",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "378.321",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060712",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "487.896",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060720",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "604.009",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060728",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "673.598",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060804",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "777.459",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060814",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "934.045",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060824",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "1015.71",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060912",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "4.01429",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20070529",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "19.9757",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20070606",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "46.2953",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20070613",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "103.421",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20070619",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "205.609",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20070626",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "381.806",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20070709",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "486.828",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20070716",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "623.304",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20070724",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "798.899",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20070803",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "898.087",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20070816",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "1112.15",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20070905",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "1065.84",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20070924",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  }
+ ],
+ "lai": [
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20010529",
+   "LAI_TOT": "0.0280863"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20010613",
+   "LAI_TOT": "0.369112"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20010621",
+   "LAI_TOT": "1.29104"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20010629",
+   "LAI_TOT": "2.9447"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20010705",
+   "LAI_TOT": "5.23946"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20010713",
+   "LAI_TOT": "6.03694"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20010719",
+   "LAI_TOT": "6.07868"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20010809",
+   "LAI_TOT": "5.6927"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20010815",
+   "LAI_TOT": "5.37085"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20020529",
+   "LAI_TOT": "0.0111055"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20020603",
+   "LAI_TOT": "0.037466"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20020618",
+   "LAI_TOT": "0.971284"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20020701",
+   "LAI_TOT": "3.94117"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20020708",
+   "LAI_TOT": "5.28064"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20020715",
+   "LAI_TOT": "5.96192"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20020729",
+   "LAI_TOT": "5.7383"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20020812",
+   "LAI_TOT": "5.19254"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20020912",
+   "LAI_TOT": "2.86065"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20030606",
+   "LAI_TOT": "0.029881"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20030625",
+   "LAI_TOT": "1.24674"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20030708",
+   "LAI_TOT": "4.16192"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20030718",
+   "LAI_TOT": "5.53073"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20030728",
+   "LAI_TOT": "5.42715"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20030808",
+   "LAI_TOT": "5.0473"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20030826",
+   "LAI_TOT": "4.66328"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20030926",
+   "LAI_TOT": "2.1481"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20040603",
+   "LAI_TOT": "0.0916126"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20040615",
+   "LAI_TOT": "0.734023"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20040701",
+   "LAI_TOT": "3.45872"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20040713",
+   "LAI_TOT": "5.16325"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20040726",
+   "LAI_TOT": "5.16431"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20040805",
+   "LAI_TOT": "4.64727"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20040817",
+   "LAI_TOT": "4.47174"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20040907",
+   "LAI_TOT": "3.18854"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20040929",
+   "LAI_TOT": "0.21616"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20050531",
+   "LAI_TOT": "0.0442865"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20050617",
+   "LAI_TOT": "0.913908"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20050627",
+   "LAI_TOT": "2.59576"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20050707",
+   "LAI_TOT": "4.6298"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20050720",
+   "LAI_TOT": "5.17823"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20050801",
+   "LAI_TOT": "4.80714"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20050809",
+   "LAI_TOT": "4.65089"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20050913",
+   "LAI_TOT": "1.83752"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20050919",
+   "LAI_TOT": "4.21554"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20051003",
+   "LAI_TOT": "0"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060601",
+   "LAI_TOT": "0.172692"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060608",
+   "LAI_TOT": "0.690853"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060616",
+   "LAI_TOT": "1.83816"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060626",
+   "LAI_TOT": "3.73873"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060706",
+   "LAI_TOT": "5.31928"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060712",
+   "LAI_TOT": "4.784"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060720",
+   "LAI_TOT": "4.76463"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060728",
+   "LAI_TOT": "4.86427"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060804",
+   "LAI_TOT": "4.53377"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060814",
+   "LAI_TOT": "4.1427"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060824",
+   "LAI_TOT": "3.99404"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060912",
+   "LAI_TOT": "0.467287"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20070529",
+   "LAI_TOT": "0.179388"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20070606",
+   "LAI_TOT": "0.534411"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20070613",
+   "LAI_TOT": "1.30622"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20070619",
+   "LAI_TOT": "2.65551"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20070626",
+   "LAI_TOT": "4.769"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20070709",
+   "LAI_TOT": "6.2836"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20070716",
+   "LAI_TOT": "6.11576"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20070724",
+   "LAI_TOT": "6.02431"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20070803",
+   "LAI_TOT": "5.51438"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20070816",
+   "LAI_TOT": "4.98617"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20070905",
+   "LAI_TOT": "2.95974"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20070924",
+   "LAI_TOT": "0.50611"
+  }
+ ],
+ "groups_present": [
+  "GRP_AG_BIOMASS_CROP",
+  "GRP_AG_PROD_CROP",
+  "GRP_BIOMASS_CHEM",
+  "GRP_CLIM_AVG",
+  "GRP_COUNTRY",
+  "GRP_DM_AGRICULTURE",
+  "GRP_DM_EXT_WEATHER",
+  "GRP_DM_FERT_M",
+  "GRP_DM_FERT_O",
+  "GRP_DM_PESTICIDE",
+  "GRP_DM_PLANTING",
+  "GRP_DM_TILL",
+  "GRP_DM_WATER",
+  "GRP_DOI",
+  "GRP_DOI_CONTRIBUTOR",
+  "GRP_DOI_ORGANIZATION",
+  "GRP_DOM_DIST_MGMT",
+  "GRP_FLUX_MEASUREMENTS",
+  "GRP_HEADER",
+  "GRP_HEIGHTC",
+  "GRP_IGBP",
+  "GRP_LAI",
+  "GRP_LAND_OWNERSHIP",
+  "GRP_LMA",
+  "GRP_LOCATION",
+  "GRP_NETWORK",
+  "GRP_PHENOCAM",
+  "GRP_REFERENCE_PAPER",
+  "GRP_RESEARCH_TOPIC",
+  "GRP_SITE_CHAR",
+  "GRP_SITE_DESC",
+  "GRP_SITE_FUNDING",
+  "GRP_SOIL_CHEM",
+  "GRP_SOIL_CLASSIFICATION",
+  "GRP_SOIL_DEPTH",
+  "GRP_SOIL_TEX",
+  "GRP_SPP_O",
+  "GRP_STATE",
+  "GRP_TEAM_MEMBER",
+  "GRP_URL",
+  "GRP_URL_AMERIFLUX",
+  "GRP_UTC_OFFSET"
+ ]
+}
