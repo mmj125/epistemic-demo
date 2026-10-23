@@ -187,13 +187,15 @@ def _rye_crop(lat, soil):
 
 def _spring_chain(cfg, crop_key, wx, soil, lat):
     rotation = crop_key == "rotation"
-    crop = dict(_SILAGE if crop_key == "silage" else _SOYBEAN if crop_key == "soybean" else _CORN)
+    crop = dict(_SILAGE if crop_key == "silage" else _SOYBEAN_N if crop_key == "soybean" else _CORN)
     if crop_key == "sorghum":
         crop.update(_SORGHUM_OVER)
     crop["lat_deg"] = lat
     crop["make_layers"] = _make_layers(soil)
     soy = crop_key == "soybean"
-    kw = {} if soy else E.standard_kwargs(soil, float(cfg.get("n_rate", 0) or 0))
+    kw = E.standard_kwargs(soil, 0.0 if soy else float(cfg.get("n_rate", 0) or 0))   # soybean runs the legume N path (2026-10-23): soil N first, fixation fills the rest, no fertilizer
+    if soy:
+        kw["n_rate_kg_ha"] = 0
     if not soy:
         kw.update(_applications(cfg, crop_key))
         src = cfg.get("fert_source", "uan")
@@ -235,14 +237,14 @@ def _spring_chain(cfg, crop_key, wx, soil, lat):
         kw_soy = {k: v for k, v in kw.items() if k not in ("n_applications", "fertilizer_source", "manure_n_kg_ha", "manure_source")}
         kw_soy["n_rate_kg_ha"] = 0
         year_plan = {y: (dict(crop=crop) if (y - yrs[0]) % 2 == 0 else dict(crop=soy_crop, kw_replace=kw_soy)) for y in yrs}
-    res = E.simulate_continuous(wx, crop, years=yrs, plant_window=pw, plant_min_soil_t=float(cfg.get("plant_min_soil_t", 12.0)), carry_n=not soy, cover=cover, year_plan=year_plan, **kw)
+    res = E.simulate_continuous(wx, crop, years=yrs, plant_window=pw, plant_min_soil_t=float(cfg.get("plant_min_soil_t", 12.0)), carry_n=True, cover=cover, year_plan=year_plan, **kw)
     if rotation:
         for y, r in res.items():
             r["_crop_label"] = "Corn" if (y - yrs[0]) % 2 == 0 else "Soybean"
     if crop_key == "silage":
         for r in res.values():
             r["_forage"] = True
-    return res, (not soy)
+    return res, True
 
 
 def _wheat_chain(cfg, wx, soil, lat):

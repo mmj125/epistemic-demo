@@ -136,9 +136,14 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
         if _o: _k,_v=_o.split("=",1); crop[_k]=eval(_v)
     kw=cev.standard_kwargs(soil_raw,N)   # the single standard configuration lives in the engine module
     if CROPSEL=='silage': kw['harvest_ttf']=0.85   # 2026-10-18 BUG FIX: Cycles harvests silage at 85 percent of maturity (HARVEST_TIMING 85); the silage runner had harvested the engine at full maturity, which alone inflated forage by about 15 to 20 percent
-    if CROPSEL=='soy' or os.environ.get('CONFIG')=='shipped': kw=dict(n_rate_kg_ha=N) if CROPSEL!='soy' else {}
+    SOYL=CROPSEL=='soy' and os.environ.get('SOY_LEGUME','1')=='1'   # 2026-10-23 (default on): continuous soybean on the legume N path (soil N first, fixation fills the rest, residue N returned), so the soybean runs carry N losses
+    if SOYL:
+        import engine_api as _api
+        crop=dict(_api._SOYBEAN_N); crop['lat_deg']=cell_lat; crop['make_layers']=ml
+    if (CROPSEL=='soy' and not SOYL) or os.environ.get('CONFIG')=='shipped': kw=dict(n_rate_kg_ha=N) if CROPSEL!='soy' else {}
+    if SOYL: kw['n_rate_kg_ha']=0
     res={}
-    carry=os.environ.get("CARRY_N","1")=="1" and CROPSEL!='soy'
+    carry=os.environ.get("CARRY_N","1")=="1" and (CROPSEL!='soy' or SOYL)
     lead_env=os.environ.get("LEAD_YEARS","continuous")
     first_year=min(wx)
     ystep=int(os.environ.get("YEAR_STEP","1"))
