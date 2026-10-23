@@ -281,7 +281,12 @@ def _wheat_chain(cfg, wx, soil, lat):
             kw["n_rate_kg_ha"] = 0
         if sp is not None:
             kw["sixpool_initial_state"] = sp
-        res = E.simulate_season(rows(start, start + 400), crop, **kw)
+        # pre-pass for the season's own maturity thermal time (TTf = plant age over thermal time at maturity, paper Sec 2.3; 2026-10-23)
+        _k = dict(kw); _k["initial_n_state"] = dict(nstate); _k["initial_layers"] = copy.deepcopy(layers); _k["record_history"] = False
+        if sp is not None:
+            _k["sixpool_initial_state"] = copy.deepcopy(sp)
+        _c = dict(crop); _c["season_tt_end"] = E.simulate_season(rows(start, start + 400), crop, **_k)["tt_cum_end"]
+        res = E.simulate_season(rows(start, start + 400), _c, **kw)
         layers = res["final_layers"]; nstate = dict(res["final_n_state"]); sp = copy.deepcopy(res.get("sixpool_final_state"))
         prev_end = start + len(res["history"])
         if first <= y + 1 <= last:

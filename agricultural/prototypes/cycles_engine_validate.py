@@ -4142,7 +4142,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             n_stress_prev = _FORCE_CUR["nclock"][w["doy"]]
         _nf = n_stress_prev ** CANOPY_N_POW
         tt_canopy += dtt * _nf * _wf
-        ttf = tt_dev / crop["tt_maturity"]
+        _ttm_season = crop.get("season_tt_end")   # 2026-10-23: TTf as the paper defines it, plant age in thermal time over the thermal time at maturity, with the season's own maturity (winter wheat: pre-pass)
+        ttf = (tt_cum / _ttm_season) if _ttm_season else tt_dev / crop["tt_maturity"]
         if ttf >= harvest_ttf:
             break
         _shape = crop["canopy_shape_faithful"] if (CANOPY_FAITHFUL and "canopy_shape_faithful" in crop) else (CANOPY_SHAPE_FORCE if CANOPY_SHAPE_FORCE is not None else crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE))
@@ -4153,15 +4154,15 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             # derivative is scaled by the stress rate, the senescence part is not. D evaluates the expansion derivative at the thermal clock (corn: offline daily canopy rms 0.136 -> 0.086 on 1776 Cycles
             # site-years with Cycles' stress forced); H evaluates it at the stress-slowed clock so a stressed canopy can catch up once stress eases (winter wheat: 0.200 -> 0.159 against 0.169 for D).
             _a, _b, _c, _d = _shape
-            _x = tt_dev / crop["tt_maturity"]
+            _x = (tt_cum / _ttm_season) if _ttm_season else tt_dev / crop["tt_maturity"]
             if _ei_state is None:
                 _ei_state = _eix / (1 + math.exp(_a) + math.exp(_c)); _xc_h = _x
-            _dx = max(0.0, tt_dev - _ttdev_prev) / crop["tt_maturity"]
+            _dx = (max(0.0, tt_cum - _ttdev_prev) / _ttm_season) if _ttm_season else max(0.0, tt_dev - _ttdev_prev) / crop["tt_maturity"]
             _xe = _xc_h if _form == "H" else _x
             _e1 = math.exp(_a + _b * _xe); _e2 = math.exp(_c + _d * _x); _den = (1 + _e1 + _e2) ** 2
             _ei_state = max(0.0, min(_eix, _ei_state + _eix * (-_b * _e1 * _nf * _wf - _d * _e2) / _den * _dx))
             _xc_h += _dx * _nf * _wf
-            _ttdev_prev = tt_dev
+            _ttdev_prev = tt_cum if _ttm_season else tt_dev
             _ei = _ei_state
         elif CANOPY_TWO_CLOCK:
             _ei = canopy_cover_two(tt_canopy / crop["tt_maturity"], tt_dev / crop["tt_maturity"], _eix, _shape)
@@ -4663,6 +4664,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         result["n_leached_kg_ha"] = n_leached_total
     if irrigation_trigger_frac is not None:
         result["irrigation_mm"] = irrigation_total_mm
+    result["tt_cum_end"] = tt_cum
     if record_history:
         result["history"] = history
     if n_uptake_total is not None:

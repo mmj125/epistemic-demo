@@ -92,7 +92,12 @@ def engine_chain(wx,soil,cl,N,calib):
         if N>0: kw["n_applications"]=([(289,FALLN),(75,N-FALLN)] if (FALLN>0 and N>FALLN) else [(75,N)]); kw["fertilizer_source"]="uan"
         else: kw["n_rate_kg_ha"]=0
         if sp is not None: kw["sixpool_initial_state"]=sp
-        res=E.simulate_season(rows(start,start+400),crop,**kw)
+        if os.environ.get("WHEAT_SEASON_CLOCK","1")=="1":   # 2026-10-23: pre-pass for the season's own maturity thermal time (TTf = tt / tt at maturity, paper Sec 2.3); state is copied so the pass leaves nothing behind
+            _k=dict(kw); _k["initial_n_state"]=dict(nstate); _k["initial_layers"]=copy.deepcopy(layers); _k["record_history"]=False
+            if sp is not None: _k["sixpool_initial_state"]=copy.deepcopy(sp)
+            _p=E.simulate_season(rows(start,start+400),crop,**_k); _c=dict(crop); _c["season_tt_end"]=_p["tt_cum_end"]
+        else: _c=crop
+        res=E.simulate_season(rows(start,start+400),_c,**kw)
         layers=res["final_layers"]; nstate=dict(res["final_n_state"]); sp=copy.deepcopy(res.get("sixpool_final_state"))
         prev_end=start+len(res["history"]); out[y+1]=res
         res["loss"]=dict(leach=_fl[0]+res.get("n_leached_kg_ha",0.0),denit=_fl[1]+res.get("n_denitrified_kg_ha",0.0),volat=_fl[2]+res.get("n_volatilized_pool_kg_ha",0.0),n2o=_fn2o+res.get("n2o_emitted_kg_ha",0.0))   # the fallow window before planting plus the season (2026-10-23)
