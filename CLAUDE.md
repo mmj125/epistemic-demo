@@ -6,12 +6,13 @@ Full history of every decision through 2026-10-17 is in `CLAUDE_ARCHIVE_2026-10-
 
 ## Working with Matt
 
+- **Recommendation gate (Matt, 2026-10-23).** Before recommending any next step, do these four things and show the results inside the recommendation: (1) Payoff: name the done-when criterion, product feature or observation gap it moves, and by how much; if you cannot, do not recommend it. (2) Cheapest test: run the quickest experiment that bounds the benefit (sensitivity, forced states, an upper bound) before proposing the work. (3) Alternative: name the best other option and why this beats it. (4) Unchecked: list what you did not verify. A recommendation without a payoff test is a hypothesis and must be labelled as one. If Matt has to ask "are you sure?", the answer should already have been in the message.
 - Lead with what is wrong or missing, then give a concrete path forward. Stress-test, do not echo, do not flatter.
 - No em or en dashes. No titles of the form "Phrase: longer phrase".
 - Conserve usage. Ask before anything large.
 - "Do X" means act, no option menu. A question ("what would you do") means a short ranked list with a recommendation.
 - When told to continue autonomously: run experiments, report one short paragraph. Do not stop to ask. Do not run more than the budget Matt sets.
-- Adopt a change only if the held-out paired-bootstrap CI excludes zero. Report a negative result in one line.
+- Adopt a change fitted to Cycles only if the held-out paired-bootstrap CI excludes zero; a documented law follows rule 10 instead. Report a negative result in one line.
 - When blocked, go back to the sources (equations, inputs, paper, SI, literature, Cycles output). That found the one real gain on 2026-10-17; tuning terms found none.
 
 ## Agricultural unit: the current job
