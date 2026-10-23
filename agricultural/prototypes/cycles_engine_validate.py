@@ -3134,7 +3134,7 @@ def _season_chain(weather_by_year, year_range, crop, plant_window, plant_min_soi
         global _FORCE_CUR, _DIAG_YEAR
         _FORCE_CUR = FORCE_SERIES.get(y) if FORCE_SERIES else None
         _DIAG_YEAR = y
-        kw = dict(season_kwargs)
+        kw = dict(_yp["kw_replace"]) if "kw_replace" in _yp else dict(season_kwargs)   # kw_replace: a crop path with its own kwargs (soybean has no N model)
         kw.update(_yp.get("kw", {}))
         if "wue_co2_scale" not in kw:
             kw["wue_co2_scale"] = (CO2_PPM_BY_YEAR.get(y, CO2_REF_PPM) / CO2_REF_PPM) ** WUE_CO2_EXP
@@ -4242,9 +4242,10 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     no3_layers[0] += -_delta
                     n_no3 += -_delta
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
-        _w0 = sum(l["theta"] * l["thick"] for l in layers) if DIAG_EVAP is not None else 0.0
+        _w0 = sum(l["theta"] * l["thick"] for l in layers) if (DIAG_EVAP is not None or record_history) else 0.0
         soil_evaporation(layers, eto * (1.0 - res_cover_today), eie, precip_mm=w["pp"] + irrigation_mm - res_evap_today, de_state=de_state, theta_start=_th1_0, snow_day=w.get('snow_day', False),
                           use_cropsyst_formula=(soil_evap_model == "cropsyst"), fallow=False)
+        _sev_mm = (_w0 - sum(l["theta"] * l["thick"] for l in layers)) * 1000.0 if record_history else 0.0   # soil water lost to evaporation today (history only)
         if DIAG_EVAP is not None: DIAG_EVAP.append((_DIAG_YEAR, w["doy"], (_w0 - sum(l["theta"] * l["thick"] for l in layers)) * 1000.0, res_evap_today, eto, res_cover_today))
 
         tmean = (w["tx"] + w["tn"]) / 2
@@ -4548,7 +4549,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                                  n_nh4=round(n_nh4, 3) if n_nh4 is not None else None,
                                  no3_layers=[round(x, 3) for x in no3_layers] if no3_layers else None,
                                  netmin=round(locals().get("background_today", 0.0) or 0.0, 4), denit=round(locals().get("denitrif_today", 0.0) or 0.0, 4), leach=round(n_leached_today or 0.0, 4),
-                                 nitr=round(locals().get("nitrif_amt_today", 0.0) or 0.0, 4)))
+                                 nitr=round(locals().get("nitrif_amt_today", 0.0) or 0.0, 4),
+                                 soil_evap_mm=round(_sev_mm, 3), res_evap_mm=round(res_evap_today, 3), transp_mm=round(TR_actual, 3), eto_mm=round(eto, 3)))
 
         if tillage_dr > 0:
             tillage_dr -= tillage_dr * tillage_dr_decay(layers)
