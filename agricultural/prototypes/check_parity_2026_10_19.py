@@ -32,6 +32,19 @@ for name,(lat,lon) in SITES.items():
         R={r["year"]:r for r in json.loads(api.run(json.dumps(cfg)))["annual"]}
         d=max(max(abs(H[y]["grain"]-R[y]["grain"]),abs((H[y].get("cover") or {}).get("ag",0)-(R[y]["cover_ag"] or 0))) for y in H if y in R)
         print(f"{name} corn + rye cover N={N}: max abs difference {d:.2e}  ({len(H)} years)"); worst=max(worst,d)
+    # corn and soybean rotation (2026-10-23): API against the harness chain with the same year plan
+    _orig=m.simulate_continuous
+    def _rot(wx_,crop_,**kw_):
+        soy_=dict(api._SOYBEAN_N); soy_.update(lat_deg=crop_["lat_deg"],make_layers=crop_["make_layers"]); ks_=dict(kw_); ks_.pop("carry_n",None); ks_["n_rate_kg_ha"]=0; ks_.pop("fertilizer_source",None)
+        return _orig(wx_,crop_,year_plan={y:(dict(crop=crop_) if (y-min(wx_))%2==0 else dict(crop=soy_,kw_replace=ks_)) for y in wx_},**kw_)
+    m.simulate_continuous=_rot; m.CROPSEL="corn"
+    for N in (0,150):
+        H=m.engine(name,wx,soil,cl,N,"leadin"); m.simulate_continuous=_orig
+        cfg=dict(crop="rotation",start_year=1980,end_year=2016,n_rate=N,n_timing="planting",fert_source="uan")
+        R={r["year"]:r for r in json.loads(api.run(json.dumps(cfg)))["annual"]}
+        d=max(max(abs(H[y]["grain"]-R[y]["grain"]),abs(H[y]["total"]-R[y]["total"])) for y in H if y in R)
+        print(f"{name} rotation N={N}: max abs difference {d:.2e}  ({len(H)} years)"); worst=max(worst,d); m.simulate_continuous=_rot
+    m.simulate_continuous=_orig
     for N in (0,150):
         H=mw.engine_chain(wx,soil,cl,N,None)
         cfg=dict(crop="wheat",start_year=1980,end_year=2016,n_rate=N,n_timing="planting",fert_source="uan")

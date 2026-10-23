@@ -271,10 +271,10 @@ $("runBtn").addEventListener("click", async () => {
   } catch (e) { setStatus("Error: " + (e.message || e).toString().split("\n").filter(Boolean).pop()); }
   updateRunBtn();
 });
-const fmt = (v, key) => v === null || v === undefined ? "" : typeof v === "boolean" ? (v ? "yes" : "no") : (key === "year" || /doy$/.test(key)) ? String(Math.round(v)) : Number(v).toFixed(2);
+const fmt = (v, key) => v === null || v === undefined ? "" : typeof v === "boolean" ? (v ? "yes" : "no") : typeof v === "string" ? v : (key === "year" || /doy$/.test(key)) ? String(Math.round(v)) : Number(v).toFixed(2);
 function renderResults() {
   const r = lastResult; $("results").classList.remove("hidden");
-  const cols = r.annual_columns, numeric = cols.filter((c) => c[0] !== "year" && !/doy$/.test(c[0]) && c[0] !== "winter_killed");
+  const cols = r.annual_columns, numeric = cols.filter((c) => c[0] !== "year" && !/doy$/.test(c[0]) && c[0] !== "winter_killed" && c[0] !== "crop");
   $("annualTable").innerHTML = `<tr>${cols.map((c, i) => `<th class="${i ? "" : "l"}">${c[1]}<small>${c[2] || ""}</small></th>`).join("")}</tr>` +
     r.annual.map((a) => `<tr>${cols.map((c, i) => `<td class="${i ? "" : "l"}">${fmt(a[c[0]], c[0])}</td>`).join("")}</tr>`).join("") +
     `<tr class="mean">${cols.map((c, i) => `<td class="${i ? "" : "l"}">${i === 0 ? "Mean" : numeric.includes(c) ? (r.annual.reduce((s, a) => s + (a[c[0]] || 0), 0) / r.annual.length).toFixed(2) : ""}</td>`).join("")}</tr>`;

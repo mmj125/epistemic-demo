@@ -45,3 +45,11 @@ if __name__=="__main__":
                 for y in res:
                     if y>=1983 and y%2==par and str(y) in ay: cl.append(float(ay[str(y)]["NO3_leaching"])+float(ay[str(y)]["NH4_leaching"])); cd.append(float(ay[str(y)]["denitrification"]))
             if lk: print(f"   {ph}: leaching engine {np.mean(lk):.1f} Cycles {np.mean(cl):.1f}; denitrification engine {np.mean(dn):.1f} Cycles {np.mean(cd):.1f}")
+        per=[]
+        for s_,n,res in R:
+            if n!=N: continue
+            ay=C[f"{s_}|{N}"][1]
+            e=[v["fix"] for y,v in res.items() if y%2==1 and y>=1983 and v.get("fix") is not None]; c_=[float(ay[str(y)]["fixation"]) for y in res if y%2==1 and y>=1983 and str(y) in ay]
+            if e and c_: per.append((s_,np.mean(e),np.mean(c_)))
+        if per:
+            a=np.array([[p[1],p[2]] for p in per]); print(f"   per-site mean fixation engine vs Cycles: corr {np.corrcoef(a.T)[0,1]:.2f}, engine min {a[:,0].min():.0f} Cycles min {a[:,1].min():.0f}, sites with engine<30 & Cycles>100: {int(((a[:,0]<30)&(a[:,1]>100)).sum())} of {len(a)}")

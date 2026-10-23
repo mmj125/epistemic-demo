@@ -38,7 +38,7 @@ _WHEAT = {'rhizo_rr': 0.6, 'rhizo_root_n_share': 0.082, 'canopy_form': 'H', 'tt_
           'rad_temp_plateau_t': 15.55, 'tr_max_mm_day': 8, 'root_max_m': 2.0, 'tt_emergence': 100, 'n_max_conc': 0.07, 'n_dilution_slope': 0.45, 'n_min_conc': 0.002, 'lwp_stress_onset': -1000,
           'lwp_wilting_point': -2100, 'threshold_temp_cold_damage': -10}
 
-CROP_LABELS = {"corn": "Corn (grain)", "silage": "Corn (silage)", "sorghum": "Sorghum", "soybean": "Soybean", "wheat": "Winter wheat"}
+CROP_LABELS = {"corn": "Corn (grain)", "silage": "Corn (silage)", "sorghum": "Sorghum", "soybean": "Soybean", "wheat": "Winter wheat", "rotation": "Corn and soybean rotation"}
 
 FERTILIZERS = {k: k.replace("_", " ") for k in E.MINERAL_SOURCES}
 FERTILIZERS["uan"] = "UAN (urea ammonium nitrate)"
@@ -54,22 +54,22 @@ SCHEMA = {
             {"id": "start_year", "label": "First year", "type": "number", "default": 1980, "min": 1980, "max": 2016, "step": 1},
             {"id": "end_year", "label": "Last year", "type": "number", "default": 2016, "min": 1980, "max": 2016, "step": 1},
         ]},
-        {"id": "planting", "label": "Planting", "applies_to": ["corn", "silage", "sorghum", "soybean"], "fields": [
+        {"id": "planting", "label": "Planting", "applies_to": ["corn", "silage", "sorghum", "soybean", "rotation"], "fields": [
             {"id": "plant_min_doy", "label": "Earliest planting day of year", "type": "number", "default": 110, "min": 60, "max": 200, "step": 1},
             {"id": "plant_max_doy", "label": "Latest planting day of year", "type": "number", "default": 131, "min": 60, "max": 220, "step": 1},
             {"id": "plant_min_soil_t", "label": "Minimum soil temperature (C)", "type": "number", "default": 12.0, "min": 0, "max": 25, "step": 0.5},
         ]},
-        {"id": "fertilizer", "label": "Nitrogen fertilizer", "applies_to": ["corn", "silage", "sorghum", "wheat"], "fields": [
+        {"id": "fertilizer", "label": "Nitrogen fertilizer", "applies_to": ["corn", "silage", "sorghum", "wheat", "rotation"], "fields": [
             {"id": "fert_source", "label": "Source", "type": "select", "default": "uan", "options": [[k, v] for k, v in FERTILIZERS.items()]},
             {"id": "n_rate", "label": "Total N (kg N/ha per year)", "type": "number", "default": 150, "min": 0, "max": 650, "step": 10},
             {"id": "n_timing", "label": "Timing", "type": "select", "default": "planting", "options": [["planting", "All at planting"], ["split", "Two applications (day of year)"]]},
             {"id": "n_doy1", "label": "First application, day of year", "type": "number", "default": 110, "min": 1, "max": 365, "step": 1, "show_if": {"n_timing": "split"}},
             {"id": "n_frac1", "label": "Share applied first (%)", "type": "number", "default": 50, "min": 0, "max": 100, "step": 5, "show_if": {"n_timing": "split"}},
             {"id": "n_doy2", "label": "Second application, day of year", "type": "number", "default": 160, "min": 1, "max": 365, "step": 1, "show_if": {"n_timing": "split"}},
-            {"id": "manure_n", "label": "Manure N (kg N/ha per year)", "type": "number", "default": 0, "min": 0, "max": 400, "step": 10, "applies_to": ["corn", "silage", "sorghum"]},
-            {"id": "manure_source", "label": "Manure type", "type": "select", "default": "dairy", "options": [[k, k.capitalize()] for k in E.MANURE_SOURCES], "show_if": {"manure_n": "!0"}, "applies_to": ["corn", "silage", "sorghum"]},
+            {"id": "manure_n", "label": "Manure N (kg N/ha per year)", "type": "number", "default": 0, "min": 0, "max": 400, "step": 10, "applies_to": ["corn", "silage", "sorghum", "rotation"]},
+            {"id": "manure_source", "label": "Manure type", "type": "select", "default": "dairy", "options": [[k, k.capitalize()] for k in E.MANURE_SOURCES], "show_if": {"manure_n": "!0"}, "applies_to": ["corn", "silage", "sorghum", "rotation"]},
         ]},
-        {"id": "tillage", "label": "Tillage", "applies_to": ["corn", "silage", "sorghum", "soybean"], "fields": [
+        {"id": "tillage", "label": "Tillage", "applies_to": ["corn", "silage", "sorghum", "soybean", "rotation"], "fields": [
             {"id": "tillage_implement", "label": "Implement", "type": "select", "default": "None", "options": [[t, t.replace("_", " ")] for t in TILLAGE]},
             {"id": "tillage_when", "label": "When", "type": "select", "default": "planting", "options": [["planting", "At planting"], ["day", "On a day of year (must fall after planting)"]], "show_if": {"tillage_implement": "!None"}},
             {"id": "tillage_doy", "label": "Day of year", "type": "number", "default": 140, "min": 100, "max": 300, "step": 1, "show_if": {"tillage_when": "day", "tillage_implement": "!None"}},
@@ -79,7 +79,7 @@ SCHEMA = {
             {"id": "cover_plant_doy", "label": "Cover crop planted, day of year", "type": "number", "default": 288, "min": 240, "max": 330, "step": 1, "show_if": {"cover_crop": "!none"}},
             {"id": "cover_kill_doy", "label": "Cover crop killed, day of year (next spring)", "type": "number", "default": 105, "min": 60, "max": 150, "step": 1, "show_if": {"cover_crop": "!none"}},
         ]},
-        {"id": "irrigation", "label": "Irrigation", "applies_to": ["corn", "silage", "sorghum", "soybean"], "fields": [
+        {"id": "irrigation", "label": "Irrigation", "applies_to": ["corn", "silage", "sorghum", "soybean", "rotation"], "fields": [
             {"id": "irrigation_on", "label": "Irrigate", "type": "select", "default": "no", "options": [["no", "No"], ["auto", "Automatic (refill at a soil water trigger)"]]},
             {"id": "irrigation_trigger", "label": "Trigger (fraction of available water depleted)", "type": "number", "default": 0.5, "min": 0.1, "max": 0.9, "step": 0.05, "show_if": {"irrigation_on": "auto"}},
             {"id": "irrigation_depth_m", "label": "Refill depth (m; each event brings the soil above it to field capacity)", "type": "number", "default": 1.0, "min": 0.3, "max": 2.0, "step": 0.1, "show_if": {"irrigation_on": "auto"}},
@@ -92,7 +92,7 @@ SCHEMA = {
         "Weather: gridded daily record 1980 to 2016 at the nearest 0.5 degree cell. Soil: nearest STATSGO2 profile; layers can be edited.",
         "Runs start from the first year with no spin-up, as Cycles does, so early years reflect the starting soil.",
         "A cover crop is planted after the main crop is harvested and killed the next spring, on the same soil water and nitrogen. Cereal rye is simulated as winter cereal with the cereal rye values of the Cycles crop file. Its N losses are counted in the year it is killed.",
-        "Soybean fixes its own N, so the fertilizer inputs do not apply to it. Winter wheat is planted in the fall (day 289) with its own fixed planting and tillage.",
+        "Soybean fixes its own N, so the fertilizer inputs do not apply to it. In the corn and soybean rotation the first year is corn and the crops then alternate; fertilizer and manure go on the corn years only, and the soybean years draw soil N first and fix the rest. Table means and the chart mix the two crops, so read the years of each crop separately. Winter wheat is planted in the fall (day 289) with its own fixed planting and tillage.",
     ],
 }
 
@@ -103,6 +103,7 @@ ANNUAL_COLUMNS = [
     ["n_volatilized", "Ammonia volatilization", "kg N/ha"], ["n2o", "N2O emission", "kg N/ha"], ["runoff", "Runoff", "mm"],
     ["n_mineral_end", "Mineral N at season end", "kg N/ha"], ["winter_killed", "Winter killed", ""],
 ]
+ROTATION_COLUMNS = [["crop", "Crop", ""], ["n_fixed", "N fixed by soybean", "kg N/ha"]]
 COVER_COLUMNS = [["cover_ag", "Cover crop biomass at kill", "Mg/ha"], ["cover_n_uptake", "Cover crop N uptake", "kg N/ha"]]
 DAILY_COLUMNS = [
     ["doy", "Day of year", ""], ["ttf", "Thermal time fraction", "-"], ["canopy", "Light interception", "-"], ["water_stress", "Water stress factor", "-"],
@@ -114,7 +115,7 @@ DAILY_COLUMNS = [
 _STATE = {"wx": None, "soil": None, "lat": None}
 
 
-# Soybean with the legume N path (2026-10-23, rotation support): soil N is drawn first, fixation fills the unmet new-growth demand (Kemanian 2024 Sec 2.5), N stress off. Not used by any page yet;
+# Soybean with the legume N path (2026-10-23, rotation support): soil N is drawn first, fixation fills the unmet new-growth demand (Kemanian 2024 Sec 2.5), N stress off. Used by the rotation option;
 # n_demand_scale 0.74 is measured on Cycles' soybean plant N (203 kg N/ha, 24 sites), class D in the ledger.
 _SOYBEAN_N = dict(_SOYBEAN, legume_n=True, n_demand_ref=True, n_uptake_rate=0.03, n_stress_ag_basis=True, n_demand_scale=0.74)
 
@@ -160,7 +161,8 @@ def _row_out(y, r, carry):
     return dict(year=y, plant_doy=r.get("plant_doy"), harvest_doy=r.get("last_doy"), grain=r.get("forage") if r.get("_forage") else r.get("grain"), total=r.get("total"), ag=r.get("ag"),
                 n_uptake=r.get("n_uptake_kg_ha"), n_leached=leach, n_denitrified=den, n_volatilized=vol, n2o=n2o, runoff=r.get("runoff_mm"),
                 n_mineral_end=r.get("n_remaining_kg_ha"), winter_killed=bool(r.get("winter_killed")),
-                cover_ag=(r.get("cover") or {}).get("ag"), cover_n_uptake=(r.get("cover") or {}).get("n_uptake"))
+                cover_ag=(r.get("cover") or {}).get("ag"), cover_n_uptake=(r.get("cover") or {}).get("n_uptake"),
+                crop=r.get("_crop_label"), n_fixed=r.get("n_fixed_kg_ha"))
 
 
 def _daily_out(r):
@@ -184,6 +186,7 @@ def _rye_crop(lat, soil):
 
 
 def _spring_chain(cfg, crop_key, wx, soil, lat):
+    rotation = crop_key == "rotation"
     crop = dict(_SILAGE if crop_key == "silage" else _SOYBEAN if crop_key == "soybean" else _CORN)
     if crop_key == "sorghum":
         crop.update(_SORGHUM_OVER)
@@ -219,13 +222,23 @@ def _spring_chain(cfg, crop_key, wx, soil, lat):
     pw = (int(cfg.get("plant_min_doy", 110)), int(cfg.get("plant_max_doy", 131)))
     cover = None
     if cfg.get("cover_crop", "none") not in ("none", "", None):
-        if soy:
-            raise ValueError("Cover crops are available for corn, silage corn and sorghum.")
+        if soy or rotation:
+            raise ValueError("Cover crops are available for corn, silage corn and sorghum (not for the rotation).")
         cp, ck = int(cfg.get("cover_plant_doy", 288)), int(cfg.get("cover_kill_doy", 105))
         if ck >= pw[0]:
             raise ValueError("The cover crop must be killed before the earliest planting day.")
         cover = dict(crop=_rye_crop(lat, soil), plant_doy=cp, kill_doy=ck)
-    res = E.simulate_continuous(wx, crop, years=yrs, plant_window=pw, plant_min_soil_t=float(cfg.get("plant_min_soil_t", 12.0)), carry_n=not soy, cover=cover, **kw)
+    year_plan = None
+    if rotation:
+        # corn in the first year and every second year after, soybean (legume N path: soil N first, fixation fills the rest) in between; the same planting window for both
+        soy_crop = dict(_SOYBEAN_N); soy_crop["lat_deg"] = lat; soy_crop["make_layers"] = crop["make_layers"]
+        kw_soy = {k: v for k, v in kw.items() if k not in ("n_applications", "fertilizer_source", "manure_n_kg_ha", "manure_source")}
+        kw_soy["n_rate_kg_ha"] = 0
+        year_plan = {y: (dict(crop=crop) if (y - yrs[0]) % 2 == 0 else dict(crop=soy_crop, kw_replace=kw_soy)) for y in yrs}
+    res = E.simulate_continuous(wx, crop, years=yrs, plant_window=pw, plant_min_soil_t=float(cfg.get("plant_min_soil_t", 12.0)), carry_n=not soy, cover=cover, year_plan=year_plan, **kw)
+    if rotation:
+        for y, r in res.items():
+            r["_crop_label"] = "Corn" if (y - yrs[0]) % 2 == 0 else "Soybean"
     if crop_key == "silage":
         for r in res.values():
             r["_forage"] = True
@@ -295,4 +308,4 @@ def run(config_json):
     if crop_key == "wheat":
         notes.append("Wheat N losses cover the growing season only (fall planting to harvest).")
     covered = any(r.get("cover_ag") is not None for r in annual)
-    return json.dumps(dict(annual=annual, annual_columns=ANNUAL_COLUMNS + (COVER_COLUMNS if covered else []), daily=daily, daily_columns=DAILY_COLUMNS, notes=notes, api_version=API_VERSION))
+    return json.dumps(dict(annual=annual, annual_columns=ANNUAL_COLUMNS + (ROTATION_COLUMNS if crop_key == "rotation" else []) + (COVER_COLUMNS if covered else []), daily=daily, daily_columns=DAILY_COLUMNS, notes=notes, api_version=API_VERSION))
