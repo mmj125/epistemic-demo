@@ -25,7 +25,7 @@ def one(site):
                 rows.append([c[0],c[1],h["soil_evap_mm"],c[2],h["res_evap_mm"],c[3],h["transp_mm"]]+c[4]+th[:4])
     return rows
 if __name__=="__main__":
-    A=np.array(sum(Pool(4).map(one,sorted(S)),[])); np.save('/tmp/w/water_budget.npy',A); print(len(A),"days")
+    A=np.array(sum(Pool(4).map(one,sorted(S)),[])); np.save('/tmp/w/water_budget'+os.environ.get('WTAG','')+'.npy',A); print(len(A),"days")
     print("ttf bin | soil evap mm/d Cycles engine | residue evap Cycles engine | transpiration Cycles engine | theta1..4 engine minus Cycles (m3/m3)")
     for lo in np.arange(0,1.0,0.1):
         k=(A[:,0]>=lo)&(A[:,0]<lo+0.1)

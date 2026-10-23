@@ -25,7 +25,7 @@ def one(site):
             rows.append([month,c[0],pw,c[1],ev,c[2],re,c[3],roff,c[4],drain,pp])
     return rows
 if __name__=="__main__":
-    A=np.array(sum(Pool(4).map(one,sorted(S)),[])); np.save('/tmp/w/water_fallow.npy',A); print(len(A),"fallow days")
+    A=np.array(sum(Pool(4).map(one,sorted(S)),[])); np.save('/tmp/w/water_fallow'+os.environ.get('WTAG','')+'.npy',A); print(len(A),"fallow days")
     print("month n | profile water mm Cycles engine (diff) | soil evap Cycles engine | residue evap Cycles engine | runoff Cycles engine | drainage Cycles engine   (mm/day)")
     for mo in range(1,13):
         k=A[:,0]==mo
