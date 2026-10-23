@@ -114,6 +114,10 @@ DAILY_COLUMNS = [
 _STATE = {"wx": None, "soil": None, "lat": None}
 
 
+# Soybean with the legume N path (2026-10-23, rotation support): soil N is drawn first, fixation fills the unmet new-growth demand (Kemanian 2024 Sec 2.5), N stress off. Not used by any page yet;
+# n_demand_scale 0.74 is measured on Cycles' soybean plant N (203 kg N/ha, 24 sites), class D in the ledger.
+_SOYBEAN_N = dict(_SOYBEAN, legume_n=True, n_demand_ref=True, n_uptake_rate=0.03, n_stress_ag_basis=True, n_demand_scale=0.74)
+
 def schema():
     return json.dumps(SCHEMA)
 

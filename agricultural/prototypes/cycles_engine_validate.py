@@ -3879,7 +3879,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     eie_prev_day2 = 0.0
     ag_biomass_at_flowering = None  # captured the first day tt_cum crosses flowering_tt --
     # see the real f_G harvest-index fix below (Kemanian et al. 2007) for why.
-    n_tracking_active = (not crop.get("legume", False)) and (
+    n_tracking_active = (crop.get("legume_n", False) or not crop.get("legume", False)) and (   # legume_n (2026-10-23): a legume runs the N path with stress off and fixation filling the unmet demand (Kemanian 2024 Sec 2.5); default off keeps the old exemption
         n_rate_kg_ha is not None or n_applications or n_credit_kg_ha or manure_n_kg_ha)
     if manure_source is not None:
         if manure_source not in MANURE_SOURCES:
@@ -3964,6 +3964,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     n_denitrified_total = 0.0 if (n_pool is not None and model_denitrification) else None
     n2o_total = 0.0
     n_uptake_total = 0.0 if n_pool is not None else None
+    n_fixed_total = 0.0
     n_rhizo_total = 0.0
     root_hold_c = 0.0
     # n_pool_by_layer: the real per-layer tracking n_root_limited needs (see
@@ -4465,7 +4466,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     n_stress = max(0.0, _knee * (_ratio - N_STRESS_FLOOR_RATIO) / (N_STRESS_KNEE_RATIO - N_STRESS_FLOOR_RATIO))
             if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("nstress", ()):
                 n_stress = _FORCE_CUR["nstress"][w["doy"]]
-            if crop.get("n_simultaneous", N_SIMULTANEOUS) and n_nh4 is not None and no3_layers is not None and dGB_water_limited > 0 and not (_FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("nstress", ())):
+            if crop.get("n_simultaneous", N_SIMULTANEOUS) and not crop.get("legume_n", False) and n_nh4 is not None and no3_layers is not None and dGB_water_limited > 0 and not (_FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("nstress", ())):
                 # 2026-10-19: CropSyst-style simultaneous solve (Stockle, Martin, Campbell 1994, Eq. 29 and 30): the day's N factor is the one consistent with the day's uptake and the
                 # growth it permits. Fixed point on F: growth = potential x F, demand from that growth, uptake = min(supply cap, demand), concentration after the uptake over the
                 # above-ground biomass including the POTENTIAL growth (the dilution the plant is trying to make), critical curve at the biomass after realized growth, F = law(ratio).
@@ -4486,6 +4487,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     _F = 0.5 * _F + 0.5 * _Fn
                 if N_SOLVE_DEBUG is not None: N_SOLVE_DEBUG.append((_DIAG_YEAR, w["doy"], _F, _ratio_s, _U, _dem, _caps, canopy_n_kg_ha, _agp, biomass, dGB_water_limited))
                 n_stress = _F
+            if crop.get("legume_n", False): n_stress = 1.0   # N demand above what the soil supplies is met by fixation (paper Sec 2.5): no N stress
             dGB_n_limited = dGB_water_limited * (n_stress ** N_STRESS_GROWTH_POW)
             n_stress_prev = n_stress
             _sf_now0 = shoot_fraction(ttf, crop["fsti"], crop["fstf"], crop.get("ttf50")); _rr0 = crop.get("root_retained_frac", 1.0)
@@ -4573,6 +4575,10 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     n_pool = max(0.0, n_pool - leached_kg_ha)
                     n_leached_total += leached_kg_ha
             n_uptake_total += n_uptake_kg_ha
+            if crop.get("legume_n", False):
+                _fixed_today = max(0.0, demand_today_kg_ha - n_uptake_kg_ha)   # "without luxury consumption": fixation exactly fills the unmet new-growth demand
+                n_fixed_total += _fixed_today
+                canopy_n_kg_ha += _fixed_today
             canopy_n_kg_ha += n_uptake_kg_ha
 
         if DIAG_NSEASON is not None:
@@ -4659,6 +4665,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     if n_uptake_total is not None:
         result["n_uptake_kg_ha"] = n_uptake_total
         result["n_rhizo_kg_ha"] = n_rhizo_total
+        result["n_fixed_kg_ha"] = n_fixed_total
+        result["n_plant_kg_ha"] = canopy_n_kg_ha
         result["n_remaining_kg_ha"] = sum(n_pool_by_layer) if n_pool_by_layer is not None else n_pool
         if n_nh4 is not None:
             result["n_nh4_remaining_kg_ha"] = n_nh4
@@ -4692,12 +4700,14 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # Surface residue C:N (2026-10-21): the new residue's N is the plant's above-ground N when the crop is flagged residue_n_from_plant (a cover crop,
         # whole plant returned); otherwise the long-run constant SIXPOOL_CN_CRA measured on Cycles' corn residue. The pool keeps one blended C:N.
         _c_new = ag_residue_mg_ha * CARBON_FRACTION_DM
-        if crop.get("residue_n_from_plant") and _c_new > 1e-9:
+        if crop.get("legume_n") and _c_new > 1e-9:
+            _n_new = max(canopy_n_kg_ha * (1.0 - crop.get("grain_n_share", 0.54) - crop.get("root_n_share", 0.065)), 1e-3)   # Cycles' soybean harvest N partition (24 sites, 857 crop-years): grain 0.54, roots 0.065, above-ground residue 0.39 of plant N
+        elif crop.get("residue_n_from_plant") and _c_new > 1e-9:
             _n_new = max(N_AG_FRACTION * canopy_n_kg_ha, 1e-3)
         else:
             _n_new = _c_new * 1000.0 / SIXPOOL_CN_CRA
         _c_old = sixpool_state.get("cra", 0.0); _n_old = _c_old * 1000.0 / sixpool_state.get("cra_cn", SIXPOOL_CN_CRA)
-        if (crop.get("residue_n_from_plant") or "cra_cn" in sixpool_state) and _c_old + _c_new > 1e-9:
+        if (crop.get("residue_n_from_plant") or crop.get("legume_n") or "cra_cn" in sixpool_state) and _c_old + _c_new > 1e-9:
             sixpool_state["cra_cn"] = (_c_old + _c_new) * 1000.0 / max(_n_old + _n_new, 1e-9)
         sixpool_state["cra"] = sixpool_state.get("cra", 0.0) + ag_residue_mg_ha * CARBON_FRACTION_DM
         # Reset cra_age to 0 whenever fresh stover lands -- see CRA_MATURATION_TAU_DAYS's own

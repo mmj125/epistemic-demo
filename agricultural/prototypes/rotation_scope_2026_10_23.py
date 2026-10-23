@@ -4,7 +4,7 @@ import os,sys,json,re,shutil,subprocess
 os.environ.setdefault("REGIONAL","0"); os.environ["LEAD_YEARS"]="continuous"; sys.path.insert(0,'.')
 import numpy as np, run_validation_multisite as m
 from multiprocessing import Pool
-S=json.load(open('/tmp/w/s24.json')); CY=m.CY
+S=json.load(open(os.environ.get('SITES','/tmp/w/s24.json'))); TAG=os.environ.get('ROTTAG',''); CY=m.CY
 def rd(p): return [l.strip().split(",") for l in open(p).read().splitlines() if l and l[0]!='#']
 def one(a):
     site,N=a; lat,lon=S[site]; wx,_=m.fd.resolve_field_weather(lat,lon); soil,_,_=m.fd.resolve_field_soil(lat,lon); cl=m.lat_of(lat,lon); m.REG_LON=lon
@@ -42,4 +42,4 @@ if __name__=="__main__":
                 if a:
                     lk=float(a.get("N_leached",0) or 0)+float(a.get("N_leached_(NO3+NH4)",0) or 0)
         print(f"N={N}: corn after soy mean {np.mean(cy):.2f} Mg/ha (n={len(cy)}), soybean mean {np.mean(sy):.2f} (n={len(sy)})")
-    json.dump({f"{s}|{n}":(res[0],res[1]) for s,n,res,_ in R if res},open('/tmp/w/rot_cycles.json','w'))
+    json.dump({f"{s}|{n}":(res[0],res[1]) for s,n,res,_ in R if res},open('/tmp/w/rot_cycles'+TAG+'.json','w'))
