@@ -137,7 +137,8 @@ def engine_run(site, soil, pl, lat, wx):
     import engine_api as api
     ml = api._make_layers(soil)
     corn = dict(api._CORN); corn.update(lat_deg=lat, make_layers=ml)
-    soy = dict(api._SOYBEAN); soy.update(lat_deg=lat, make_layers=ml)
+    LEG = os.environ.get("MEAD_LEGUME", "1") == "1"   # 2026-10-23: the legume N path (soil N first, fixation, residue N return); MEAD_LEGUME=0 is the earlier soybean path with no N model
+    soy = dict(api._SOYBEAN_N if LEG else api._SOYBEAN); soy.update(lat_deg=lat, make_layers=ml)
     base = E.standard_kwargs(soil, 0); base["record_history"] = True
     irr = {}
     if SITES[site]["irrigated"]:
@@ -152,7 +153,9 @@ def engine_run(site, soil, pl, lat, wx):
             k = dict(n_rate_kg_ha=p["n"], fertilizer_source="uan") if p["n"] > 0 else dict(n_rate_kg_ha=0)
             k.update(_irr_for(irr, p)); yp[y] = dict(crop=corn, plant_doy=p["plant"], kw=k)
         else:
-            yp[y] = dict(crop=soy, plant_doy=p["plant"], kw_replace=dict(record_history=True, **_irr_for(irr, p)))
+            kws = dict(record_history=True, **_irr_for(irr, p))
+            if LEG: kws = dict(base, n_rate_kg_ha=0, **kws)
+            yp[y] = dict(crop=soy, plant_doy=p["plant"], kw_replace=kws)
     return E.simulate_continuous(wx, corn, carry_n=True, year_plan=yp, **base)
 
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "engine_probe":
