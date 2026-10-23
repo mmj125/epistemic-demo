@@ -224,7 +224,7 @@ WHEAT = dict(canopy_form="H",  # 2026-10-17: integrated-derivative canopy, expan
              depletion_fraction=0.55,  # real FAO-56 Table 22 (winter/spring wheat)
              canopy_shape=(5, -14, -15, 16),  # refit from real data -- see MECHANISM_LOG.md item 5;
                                                # fixes level bias, does NOT fix wheat's weak correlation
-             rad_temp_floor=0.257, rad_temp_plateau_t=15.55,  # wheat-specific radiation-temperature
+               # wheat-specific radiation-temperature
              # response (2026-09-23), separate from tr_min_t/tr_threshold_t used for transpiration --
              # fit directly from real Cycles output (see radiation_temp_factor()'s own docstring in
              # cycles_engine_validate.py); wheat's own fall-to-spring season never reaches truly warm,
