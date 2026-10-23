@@ -2996,9 +2996,20 @@ def n2o_from_nitrification(nitrified_kg_ha, sat_frac):
     return nitrified_kg_ha * (P["a"] + P["b"] / (1.0 + math.exp(max(-50.0, min(50.0, -(sat_frac - P["s0"]) / P["w"])))))
 
 
-def n2o_from_denitrification(denitrified_kg_ha, no3_mgkg_start, sat_start):
+N2O_APEX = True   # APEX Eq. 5 (Kemanian and Williams 2011): N2O share of denitrified N = fNO3 (1 - fw^0.5)(1 - fresp^0.33), same fNO3, fw and fresp as the denitrification law; no fitted constant
+
+
+def n2o_from_denitrification(denitrified_kg_ha, no3_mgkg_start, sat_start, layer=None, resp_mg_ha=None, fclay=0.25):
     if denitrified_kg_ha <= 0.0:
         return 0.0
+    if N2O_APEX and layer is not None and resp_mg_ha is not None:
+        P = DENIT_APEX_PARAMS
+        mass = sixpool_bulk_density(layer["sat"]) * layer["thick"] * 1e7
+        co2 = max(resp_mg_ha * 1000.0, 0.0) * 1e6 / mass
+        av = max(layer["sat"] * (1.0 - sat_start), 0.0)
+        fw = 1.0 / (1.0 + ((1.0 - av) / (0.90 + 0.1 * fclay)) ** (-P["expo"]))
+        fr = min(1.0, co2 / P["cresp"])
+        return denitrified_kg_ha * (no3_mgkg_start / (no3_mgkg_start + P["half"])) * (1.0 - fw ** 0.5) * (1.0 - fr ** 0.33)
     P = N2O_DEN
     return denitrified_kg_ha * min(1.0, P["A"] * max(no3_mgkg_start, 1e-3) ** P["p"] * math.exp(-P["q"] * min(max(sat_start, 0.0), 1.2)))
 
@@ -3130,7 +3141,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
                     for i in range(len(no3_layers)):
                         no3_layers[i] *= (1.0 - _f)
                 nstate["n_no3"] = max(0.0, _no3_pre - d)
-                nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_denitrification(d, _dn_no3_0[0] / (sixpool_bulk_density(layers[0]["sat"]) * layers[0]["thick"] * 10.0), _dn_th0[0] / layers[0]["sat"])
+                nstate["n2o"] = nstate.get("n2o", 0.0) + n2o_from_denitrification(d, _dn_no3_0[0] / (sixpool_bulk_density(layers[0]["sat"]) * layers[0]["thick"] * 10.0), _dn_th0[0] / layers[0]["sat"], layers[0], sixpool_state.get("resp_mg_ha", 0.0), sixpool_state.get("clay", 0.25))
                 denit += d
         elif model_denitrification:
             # first fallow window of a run: the six-pool state does not exist yet, so the older layer-1 rate law acts (to be replaced by initializing the six-pool state first)
@@ -4261,7 +4272,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             if DIAG_DENIT is not None: DIAG_DENIT.append((_DIAG_YEAR, w["doy"], (_SUBDAY_REL1_EFF if (SUBDAY_DENIT and _SUBDAY_REL1_EFF is not None) else layers[0]["theta"] / layers[0]["sat"]), n_no3, sixpool_state.get("resp_mg_ha", 0.0), denitrif_today, layers[0]["theta"] / layers[0]["sat"], tuple(no3_layers)))
             if denitrif_today > 0 and n_no3 > 0:
                 _f = denitrif_today / n_no3
-                n2o_total += n2o_from_denitrification(denitrif_today, _dn_no3_0[0] / (sixpool_bulk_density(layers[0]["sat"]) * layers[0]["thick"] * 10.0), _dn_th0[0] / layers[0]["sat"])
+                n2o_total += n2o_from_denitrification(denitrif_today, _dn_no3_0[0] / (sixpool_bulk_density(layers[0]["sat"]) * layers[0]["thick"] * 10.0), _dn_th0[0] / layers[0]["sat"], layers[0], sixpool_state.get("resp_mg_ha", 0.0), sixpool_state.get("clay", 0.25))
                 if DENIT_STARTDAY:
                     for _i, _x in enumerate(_dl):
                         no3_layers[_i] -= _x
