@@ -687,6 +687,37 @@ def soil_evaporation_zone(layers, pot_evap_mm, zone_start):
     return taken
 
 
+SOIL_EVAP_DOC = None   # None: the fitted Cycles law on the top EVAP_ZONE_DEPTH_M (default); "fao56": FAO-56 two-stage Kr with REW and TEW (Allen et al. 1998, Eqs 73 to 77); "cropsyst": the CropSyst Evaporator form
+
+
+def soil_evaporation_fao56(layers, pot_evap_mm, precip_mm, de_state, snow_day=False):
+    """FAO-56 two-stage bare-soil evaporation (Allen et al. 1998, ch. 7 and 8). De is the cumulative depth evaporated since the surface layer was last at
+    field capacity: rain reduces it (Eq. 77 with no runoff, irrigation or transpiration term for the evaporation layer), evaporation raises it. Stage 1 (De <= REW)
+    evaporates at the full demand; stage 2 scales it by Kr = (TEW - De)/(TEW - REW) (Eq. 74). TEW = 1000 (theta_fc - 0.5 theta_pwp) Ze (Eq. 73, `compute_tew`),
+    REW from `REW_DEFAULT_MM`. The water leaves the top EVAP_ZONE_DEPTH_M in equal volumetric steps, never below half the wilting point."""
+    if snow_day:
+        return 0.0
+    tew, rew = de_state["tew"], de_state["rew"]
+    de = max(0.0, de_state["de"] - max(precip_mm, 0.0))
+    kr = 1.0 if de <= rew else max(0.0, (tew - de) / max(1e-9, tew - rew))
+    zl, tot = [], 0.0
+    for l in layers:
+        t = min(l["thick"], max(0.0, EVAP_ZONE_DEPTH_M - tot))
+        if t <= 0:
+            break
+        zl.append((l, t)); tot += t
+    avail = sum(max(0.0, l["theta"] - 0.5 * l["pwp"]) * t for l, t in zl) * 1000.0
+    evap = min(kr * pot_evap_mm, avail)
+    dtheta = evap / (tot * 1000.0)
+    taken = 0.0
+    for l, t in zl:
+        take = min(dtheta, max(0.0, l["theta"] - 0.5 * l["pwp"]))
+        l["theta"] -= take * t / l["thick"]
+        taken += take * t * 1000.0
+    de_state["de"] = min(tew, de + taken)
+    return taken
+
+
 def zone_mean_theta(layers):
     tot, w = 0.0, 0.0
     for l in layers:
@@ -733,6 +764,10 @@ def soil_evaporation(layers, eto_mm, canopy_cover_frac, precip_mm=0.0, de_state=
     if snow_day:
         return 0.0
     demand_mm = eto_mm * (1 - canopy_cover_frac) * SOIL_EVAP_SCALE
+    if SOIL_EVAP_DOC == "fao56" and de_state is not None:
+        return soil_evaporation_fao56(layers, demand_mm, precip_mm, de_state, snow_day)
+    if SOIL_EVAP_DOC == "cropsyst":
+        return soil_evaporation_cropsyst(layers, demand_mm, fallow=fallow, summer_time=summer_time)
     if theta_start is not None:
         return soil_evaporation_zone(layers, demand_mm, theta_start)
     return soil_evaporation_cropsyst(layers, demand_mm, fallow=fallow, summer_time=summer_time)
@@ -3005,6 +3040,9 @@ def apply_net_min(nh4, no3, no3_layers, smin, sixpool_state=None):
         N_UNMET.append((_DIAG_YEAR, _DIAG_CTX.get("doy"), need))   # immobilization the mineral pool could not supply (the engine drops it)
     return nh4, no3
 
+DIAG_FALLOW_WATER = None   # diagnostics: appends the fallow-window daily water terms (see run_fallow_n_window); None = off
+
+
 def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=75.0, slope_pct=0.0,
                         lat_deg=40.6875, de_state=None, model_denitrification=True, model_volatilization=True):
     """Bare-soil water balance PLUS the nitrogen dynamics that keep running with no crop: sixpool
@@ -3031,13 +3069,15 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
         _rc = residue_cover_frac(sixpool_state)
         _re = residue_rain_evap_mm(w["pp"], _rc)
         _th1_0 = zone_mean_theta(layers)
-        drainage_mm, _, n_out = infiltrate(layers, w["pp"] - _re, curve_number, slope_pct, n_by_layer=no3_layers)
+        drainage_mm, _roff, n_out = infiltrate(layers, w["pp"] - _re, curve_number, slope_pct, n_by_layer=no3_layers)
         if no3_layers is not None:
             leached += n_out
             nstate["n_no3"] = sum(no3_layers)
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], lat_deg)
-        soil_evaporation(layers, eto * (1.0 - _rc), 0.0, precip_mm=w["pp"] - _re, de_state=de_state, fallow=True, theta_start=_th1_0, snow_day=w.get('snow_day', False),
+        _ev_taken = soil_evaporation(layers, eto * (1.0 - _rc), 0.0, precip_mm=w["pp"] - _re, de_state=de_state, fallow=True, theta_start=_th1_0, snow_day=w.get('snow_day', False),
                          summer_time=summer_time_from_doy(w["doy"]))
+        if DIAG_FALLOW_WATER is not None:   # (year, doy, precip after snow handling, residue rain evaporation, runoff, drainage, soil evaporation, ETo, profile water mm)
+            DIAG_FALLOW_WATER.append((_DIAG_YEAR, w["doy"], w["pp"], _re, _roff, drainage_mm, _ev_taken, eto, sum(l["theta"] * l["thick"] for l in layers) * 1000.0, _rc))
         _water_hook(layers, w["doy"], no3_layers)
         tmean = (w["tx"] + w["tn"]) / 2.0
         nstate["tsoil_lag"] += SOIL_TEMP_LAG_K * (tmean - nstate["tsoil_lag"])
@@ -3328,7 +3368,7 @@ def simulate_continuous(weather_by_year, crop, years=None, plant_window=(110, 13
 def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_kg_ha=None, record_history=False,
                      n_applications=None, n_credit_kg_ha=0.0, manure_n_kg_ha=0.0, manure_availability=0.5,
                      manure_source=None,
-                     irrigation_trigger_frac=None, irrigation_amount_mm=25.0, irrigation_refill_layers=None, irrigation_window=(1, 366),
+                     irrigation_trigger_frac=None, irrigation_amount_mm=25.0, irrigation_refill_layers=None, irrigation_window=(1, 366), irrigation_events=None,
                      tillage_doy=None, tillage_implement=None, tillage_clay_frac=0.21, tillage_mix_texture=True,
                      fert_placement_implement=None, soil_ph=None,
                      spinup_rows=None, curve_number=75.0, slope_pct=0.0, initial_layers=None,
@@ -4164,6 +4204,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             if pre_avail_frac < irrigation_trigger_frac:
                 irrigation_mm = irrigation_amount_mm
                 irrigation_total_mm += irrigation_mm
+        if irrigation_events and w["doy"] in irrigation_events:   # dated irrigation (mm on that day of year), e.g. a recorded event schedule
+            irrigation_mm += irrigation_events[w["doy"]]
+            irrigation_total_mm += irrigation_events[w["doy"]]
 
         res_cover_today = residue_cover_frac(sixpool_state)
         res_evap_today = residue_rain_evap_mm(w["pp"], res_cover_today)
@@ -4550,7 +4593,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                                  no3_layers=[round(x, 3) for x in no3_layers] if no3_layers else None,
                                  netmin=round(locals().get("background_today", 0.0) or 0.0, 4), denit=round(locals().get("denitrif_today", 0.0) or 0.0, 4), leach=round(n_leached_today or 0.0, 4),
                                  nitr=round(locals().get("nitrif_amt_today", 0.0) or 0.0, 4),
-                                 soil_evap_mm=round(_sev_mm, 3), res_evap_mm=round(res_evap_today, 3), transp_mm=round(TR_actual, 3), eto_mm=round(eto, 3)))
+                                 soil_evap_mm=round(_sev_mm, 3), res_evap_mm=round(res_evap_today, 3), transp_mm=round(TR_actual, 3), eto_mm=round(eto, 3), trp_mm=round(TRp, 3)))
 
         if tillage_dr > 0:
             tillage_dr -= tillage_dr * tillage_dr_decay(layers)
