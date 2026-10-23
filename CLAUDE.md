@@ -21,7 +21,7 @@ Goal: a from-scratch Python reimplementation of Cycles (`agricultural/prototypes
 
 **Done when** (Matt, 2026-10-18):
 1. Five crops reach POOLED correlation above 0.8 against Cycles over held-out site-years (all sites and years pooled, per N rate, and across rates), at several N rates where N matters. Met at every N rate (below). Pooled correlation is blind to bias and to the response to inputs; the panel in `metrics_panel_2026_10_23.py` (concordance, Nash-Sutcliffe, within-site anomaly r and spread, bias by yield tercile, N response) is reported with it.
-2. Leaching is much better. Corn is inside the 1 to 3 kg N/ha target at N<=150 (+0.3 and +2.0); silage N=150 is +5.0; wheat records it now (0.84x to 0.85x of Cycles' at N=90 and 150).
+2. Leaching is much better. Corn is inside the 1 to 3 kg N/ha target at N<=150 (+0.3 and +2.0); silage N=150 is +5.0; wheat is at 0.99x to 1.14x of Cycles'.
 
 ### Where the engine stands (2026-10-23, current defaults, 94 fresh sites, continuous chain, factors 1.0; wheat 60 sites FALLN=60)
 Pooled r | bias | grain MAE (Mg/ha) at N=0/150/400 (wheat 0/90/150), from `scorecard_now_2026_10_23.py` (runs `cur_*`):
@@ -29,8 +29,8 @@ Pooled r | bias | grain MAE (Mg/ha) at N=0/150/400 (wheat 0/90/150), from `score
 - silage 0.937 / 0.920 / 0.954 | -9% / -5% / -7% | 0.88 / 1.70 / 1.61
 - sorghum 0.945 / 0.887 / 0.925 | -14% / -5% / -11% | 0.51 / 1.09 / 1.16
 - soybean (legume N path) 0.959 | -0.04 Mg/ha | 0.33
-- winter wheat (season clock) 0.920 / 0.862 / 0.868 | -16% / +4% / -1% | 0.44 / 0.70 / 0.75
-- N losses engine/Cycles, kg N/ha per year, corn N=0/150/400: leaching 4.9/4.6, 15.3/13.3, 93.1/84.8; denitrification 2.6/2.6, 13.8/18.3, 50.2/65.8; volatilization 3.0/2.7, 14.2/14.4, 38.1/39.6; N2O 0.3/0.5, 1.7/3.6, 7.0/15.7. Denitrification is 0.75x and N2O 0.5x of Cycles' at N>=150. Wheat losses are 0.3x to 0.85x of Cycles' (mineral pool runs dry in spring and summer).
+- winter wheat (season clock, corn N model) 0.929 / 0.879 / 0.877 | +4% / +10% / +6% | 0.37 / 0.72 / 0.75
+- N losses engine/Cycles, kg N/ha per year, corn N=0/150/400: leaching 4.9/4.6, 15.3/13.3, 93.1/84.8; denitrification 2.6/2.6, 13.8/18.3, 50.2/65.8; volatilization 3.0/2.7, 14.2/14.4, 38.1/39.6; N2O 0.3/0.5, 1.7/3.6, 7.0/15.7. Denitrification is 0.75x and N2O 0.5x of Cycles' at N>=150. Wheat N losses engine/Cycles: leaching 0.99 / 1.12 / 1.14, volatilization 1.00 / 0.88 / 0.86, denitrification 0.63 / 0.84 / 0.84, N2O 0.51 / 0.57 / 0.52 at N=0 / 90 / 150.
 - Observations: NASS county yields (94 sites) engine within-site r 0.43 vs Cycles 0.38 for corn, level x0.93; Mead towers: yields as close to the BIF measurements as Cycles'; both models run 16 to 47% high on ET (gridded weather bias) and exaggerate drought losses.
 - Rotation (corn after soybean, engine/Cycles yield): 0.96 / 0.93 at N=0 / 150 (24 tuned sites), 0.99 / 0.95 (24 untouched).
 
@@ -41,15 +41,15 @@ Pooled r | bias | grain MAE (Mg/ha) at N=0/150/400 (wheat 0/90/150), from `score
 - Practical floor: Cycles disagrees with itself by MAE 0.17 (random 10% soil change), 0.74 at N=150 under a neighbouring weather cell, 1.4 under a neighbouring soil map unit, and by 0.80 within-site yearly correlation between its own water schemes.
 
 ### Open work, in order
-1. Wheat's remaining tuned constants (`ttf50` 0.32 vs 0.340 measured with the right clock, `net_growth_fraction` 0.95, `eix_cap` 0.93, canopy form H, `n_demand_scale` 0.8746): they compensated for the old fixed clock; re-check one at a time on the 60 sites.
-2. Wheat spring and summer N: plant N 10 to 20% ahead of Cycles in March to May, July nitrate 6 vs 35 kg/ha, nitrification far lower in summer, so denitrification, volatilization and N2O stay 0.3x to 0.7x.
+1. Wheat over-yields at fertilized rates (+0.36 and +0.28 Mg/ha at N=90 and 150): `net_growth_fraction` 0.95 and `eix_cap` 0.93 carry a compensation (growth efficiency about 20% high on mild autumn days); `ttf50` 0.32 vs 0.340 measured is neutral. Find the cause before touching them (each alone was worse).
+2. Wheat N: denitrification and N2O are still 0.5x to 0.84x of Cycles'; the rye cover crop shares the wheat dict and is untested against Cycles.
 3. Residue as a water-holding layer (needs a published source; the paper is silent), then the evaporation law and a canopy correction as one package, judged on the water budget and the canopy by thermal-time tenth before any yield run.
 4. The weak 150 to 400 response and denitrification/N2O at N>=150 (APEX amplitude 2.5 is an unsourced suspect).
 5. Wheat in rotation, soybean and wheat harness N-loss alignment, the Rock Springs silage rotation (+44%), irrigation response of denitrification (wrong sign).
 6. Final report on the locked holdout (`sitesets/holdout.json`, 100 sites, single use) only when Matt says ready.
 
 ### Rules
-1. No calibration factor that masks a mechanism error. Attribute the gap (force Cycles' states into the engine), find the missing or wrong structure, keep factors at 1.0. Factors still carried are suspects: wheat `net_growth_fraction` 0.95 with `eix_cap` 0.93 and `n_demand_scale` 0.8746 (open work 1); silage corn 1.0 and the shared `NET_GROWTH_FRACTION` 0.955 (unused by the five crops except as a fallback) are done.
+1. No calibration factor that masks a mechanism error. Attribute the gap (force Cycles' states into the engine), find the missing or wrong structure, keep factors at 1.0. Factors still carried are suspects: wheat `net_growth_fraction` 0.95 with `eix_cap` 0.93 (open work 1); silage corn 1.0 and the shared `NET_GROWTH_FRACTION` 0.955 (unused by the five crops except as a fallback) are done.
 2. No site is special. Rock Springs is a crude crash guard only. Quote only multi-site results: 94 fresh sites (`sitesets/fresh94.json`), 24-site quick set (`/tmp/w/s24.json`, regenerate from fresh94), paired bootstrap. `sitesets/holdout.json` is locked until the final report.
 3. Quote N=0 results only from the continuous chain (`LEAD_YEARS=continuous`); short lead-ins over-yield unfertilized corn.
 4. Check any figure against code or data before relying on it. Stale numbers have misled us repeatedly. Cycles daily rows are END-of-day states; a day's flux acts on the START-of-day state (previous row).

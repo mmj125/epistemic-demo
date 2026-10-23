@@ -33,8 +33,8 @@ _SILAGE = {'tt_maturity': 1800, 'flowering_tt': 1000, 'base_t': 6, 'opt_t': 28, 
 _SORGHUM_OVER = dict(tt_maturity=2050, flowering_tt=1300, rue=2.0, wue=9.6, tr_min_t=6, tr_threshold_t=18, kc=1.0, lwp_stress_onset=-1400, lwp_wilting_point=-2300, tr_max_mm_day=9, root_max_m=2.0,
                      tt_emergence=65, threshold_temp_cold_damage=6, canopy_shape_faithful=(6.04, -20.47, -15.52, 15.08), eix_faithful=0.949, ngf_faithful=1.0)
 _WHEAT = {'rhizo_rr': 0.6, 'rhizo_root_n_share': 0.082, 'canopy_form': 'H', 'tt_maturity': 1800, 'flowering_tt': 1250, 'base_t': 0, 'opt_t': 20, 'max_t': 35, 'rue': 1.6, 'wue': 6.0, 'hi_x': 0.52, 'hi_o': 0.2, 'hi_slope': 2.5, 'fsti': 0.45,
-          'fstf': 0.95, 'kc': 1.0, 'eix': 1.0, 'tr_min_t': 0.0, 'tr_threshold_t': 12.0, 'lat_deg': 40.6875, 'n_simultaneous': False, 'eix_cap': 0.93, 'net_growth_fraction': 0.95, 'ttf50': 0.32,
-          'hi_use_thermal_time_fraction': False, 'n_demand_scale': 0.874562, 'calibration_factor': 1.0, 'depletion_fraction': 0.55, 'canopy_shape': (5, -14, -15, 16), 'tr_max_mm_day': 8, 'root_max_m': 2.0, 'tt_emergence': 100, 'n_max_conc': 0.07, 'n_dilution_slope': 0.45, 'n_min_conc': 0.002, 'lwp_stress_onset': -1000,
+          'fstf': 0.95, 'kc': 1.0, 'eix': 1.0, 'tr_min_t': 0.0, 'tr_threshold_t': 12.0, 'lat_deg': 40.6875, 'n_simultaneous': True,'n_demand_ref': True, 'n_stress_ag_basis': True, 'n_uptake_rate': 0.03, 'eix_cap': 0.93, 'net_growth_fraction': 0.95, 'ttf50': 0.32,
+          'hi_use_thermal_time_fraction': False, 'n_demand_scale': 0.75, 'calibration_factor': 1.0, 'depletion_fraction': 0.55, 'canopy_shape': (5, -14, -15, 16), 'tr_max_mm_day': 8, 'root_max_m': 2.0, 'tt_emergence': 100, 'n_max_conc': 0.07, 'n_dilution_slope': 0.45, 'n_min_conc': 0.002, 'lwp_stress_onset': -1000,
           'lwp_wilting_point': -2100, 'threshold_temp_cold_damage': -10}
 
 CROP_LABELS = {"corn": "Corn (grain)", "silage": "Corn (silage)", "sorghum": "Sorghum", "soybean": "Soybean", "wheat": "Winter wheat", "rotation": "Corn and soybean rotation"}
