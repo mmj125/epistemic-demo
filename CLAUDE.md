@@ -21,7 +21,7 @@ Goal: a from-scratch Python reimplementation of Cycles (`agricultural/prototypes
 
 **Done when** (Matt, 2026-10-18):
 1. Five crops reach POOLED correlation above 0.8 against Cycles over held-out site-years (all sites and years pooled, per N rate, and across rates), at several N rates where N matters. Met at every N rate (below). Pooled correlation is blind to bias and to the response to inputs; the panel in `metrics_panel_2026_10_23.py` (concordance, Nash-Sutcliffe, within-site anomaly r and spread, bias by yield tercile, N response) is reported with it.
-2. Leaching is much better. Corn is inside the 1 to 3 kg N/ha target at N<=150 (+0.3 and +2.0); silage N=150 is +5.0; wheat is at 0.99x to 1.14x of Cycles'.
+2. Leaching is much better. Corn is inside the 1 to 3 kg N/ha target at N<=150 (+0.3 and +2.0); silage N=150 is +5.0; wheat is at 1.00x to 1.18x of Cycles' (N=90 and 150 +1.4 and +2.6 kg).
 
 ### Where the engine stands (2026-10-23, current defaults, 94 fresh sites, continuous chain, factors 1.0; wheat 60 sites FALLN=60)
 Pooled r | bias | grain MAE (Mg/ha) at N=0/150/400 (wheat 0/90/150), from `scorecard_now_2026_10_23.py` (runs `cur_*`):
@@ -30,7 +30,7 @@ Pooled r | bias | grain MAE (Mg/ha) at N=0/150/400 (wheat 0/90/150), from `score
 - sorghum 0.945 / 0.887 / 0.925 | -14% / -5% / -11% | 0.51 / 1.09 / 1.16
 - soybean (legume N path) 0.959 | -0.04 Mg/ha | 0.33
 - winter wheat (season clock, corn N model, measured plateau) 0.927 / 0.874 / 0.871 | +0% / +3% / -1% | 0.35 / 0.65 / 0.74
-- N losses engine/Cycles, kg N/ha per year, corn N=0/150/400: leaching 4.9/4.6, 15.3/13.3, 93.1/84.8; denitrification 2.6/2.6, 13.8/18.3, 50.2/65.8; volatilization 3.0/2.7, 14.2/14.4, 38.1/39.6; N2O 0.3/0.5, 1.7/3.6, 7.0/15.7. Denitrification is 0.75x and N2O 0.5x of Cycles' at N>=150. Wheat N losses engine/Cycles: leaching 0.99 / 1.12 / 1.14, volatilization 1.00 / 0.88 / 0.86, denitrification 0.63 / 0.84 / 0.84, N2O 0.51 / 0.57 / 0.52 at N=0 / 90 / 150.
+- N losses engine/Cycles, kg N/ha per year, corn N=0/150/400: leaching 4.9/4.6, 15.3/13.3, 93.1/84.8; denitrification 2.6/2.6, 13.8/18.3, 50.2/65.8; volatilization 3.0/2.7, 14.2/14.4, 38.1/39.6; N2O 0.3/0.5, 1.7/3.6, 7.0/15.7. Denitrification is 0.75x and N2O 0.5x of Cycles' at N>=150. Wheat N losses engine/Cycles at N=0 / 90 / 150: leaching 1.00 / 1.13 / 1.18, volatilization 1.04 / 0.90 / 0.88, denitrification 0.59 / 0.81 / 0.83, N2O 0.5 / 0.55 / 0.55. Soybean (94 sites): leaching 9.6 vs 7.0, denitrification 5.8 vs 6.2, volatilization 6.0 vs 4.5, N2O 0.7 vs 1.0.
 - Observations: NASS county yields (94 sites) engine within-site r 0.43 vs Cycles 0.38 for corn, level x0.93; Mead towers: yields as close to the BIF measurements as Cycles'; both models run 16 to 47% high on ET (gridded weather bias) and exaggerate drought losses.
 - Rotation (corn after soybean, engine/Cycles yield): 0.96 / 0.93 at N=0 / 150 (24 tuned sites), 0.99 / 0.95 (24 untouched).
 
