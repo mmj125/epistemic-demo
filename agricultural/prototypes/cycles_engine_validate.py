@@ -4615,7 +4615,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                                  no3_layers=[round(x, 3) for x in no3_layers] if no3_layers else None,
                                  netmin=round(locals().get("background_today", 0.0) or 0.0, 4), denit=round(locals().get("denitrif_today", 0.0) or 0.0, 4), leach=round(n_leached_today or 0.0, 4),
                                  nitr=round(locals().get("nitrif_amt_today", 0.0) or 0.0, 4),
-                                 soil_evap_mm=round(_sev_mm, 3), res_evap_mm=round(res_evap_today, 3), transp_mm=round(TR_actual, 3), eto_mm=round(eto, 3), trp_mm=round(TRp, 3)))
+                                 soil_evap_mm=round(_sev_mm, 3), res_evap_mm=round(res_evap_today, 3), transp_mm=round(TR_actual, 3), eto_mm=round(eto, 3), trp_mm=round(TRp, 3), gr=round(GR, 4), gt=round(GT, 4), dgb=round(dGB, 6)))
 
         if tillage_dr > 0:
             tillage_dr -= tillage_dr * tillage_dr_decay(layers)
