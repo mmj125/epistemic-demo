@@ -1,7 +1,7 @@
 """Annual soil carbon and net nitrogen terms, engine vs Cycles v1.5.20, N=0, 16 sites (needs /tmp/cycles-run15 outputs). Uses SIXPOOL_DIAG. Set FDP to try SIXPOOL_ML_FD_P."""
 import os,sys,csv,statistics as st
 sys.path.insert(0,'.')
-import cycles_engine_validate as CE
+import rhizo_engine as CE
 CE.SIXPOOL_ML_FD_P=float(os.environ.get("FDP","0"))
 import run_validation_multisite as m
 CE.SIXPOOL_DIAG=[]

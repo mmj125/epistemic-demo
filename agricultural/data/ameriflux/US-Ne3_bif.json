@@ -1,0 +1,1196 @@
+{
+ "site": "US-Ne3",
+ "location": {
+  "LOCATION_LAT": "41.1797",
+  "LOCATION_LONG": "-96.4397",
+  "LOCATION_ELEV": "363"
+ },
+ "soil_texture_pct": {
+  "SOIL_TEX_SAND": "8",
+  "SOIL_TEX_SILT": "57",
+  "SOIL_TEX_CLAY": "35"
+ },
+ "soil_depth_cm": {
+  "SOIL_DEPTH": "180"
+ },
+ "climate": {
+  "MAT": "10.11",
+  "MAP": "783.68",
+  "CLIMATE_KOEPPEN": "Dfa"
+ },
+ "soil_classification": "Deep silty clay loams of: Yutan (fine-silty, mixed, superactive, mesic Mollic Hapludalfs), Tomek (fine, smectitic, mesic Pachic Argialbolls), Filbert (fine, smectitic, mesic Vertic Argialbolls), and Filmore (fine, smectitic, mesic Vertic Argialbolls).",
+ "planting": [
+  {
+   "DM_PLANTING": "Sowing crop seeds",
+   "DM_DATE_START": "201405190830",
+   "DM_DATE_END": "201405191730",
+   "DM_DATE_UNC": "0.04",
+   "DM_COMMENT": "soybeans,  Pioneer 92Y83, 146166 seeds/acre,   JD7215/JD1770 16 row"
+  },
+  {
+   "DM_PLANTING": "Sowing crop seeds",
+   "DM_DATE_START": "201504301440",
+   "DM_DATE_END": "201504302100",
+   "DM_COMMENT": "Corn, Pioneer P1197AM ( 111CRM, 2730GDU) 26,000 seeds/acre Target Rate, 101 ac., 14:40-21:00,  JD7215Rw/JD1770 16 row"
+  },
+  {
+   "DM_PLANTING": "Sowing crop seeds",
+   "DM_DATE_START": "201505010827",
+   "DM_DATE_END": "201505011440",
+   "DM_COMMENT": "Pioneer P1197AM, Corn (111CRM  2730GDU) 26,000 seeds/acre Target Rate, Complete Planting, 60 ac.,  8:27-14:40, JD7215Rw/JD1770 16 row, Fuel 54.5 gal for both 20150430 and 20150501"
+  },
+  {
+   "DM_PLANTING": "Sowing crop seeds",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201605200800",
+   "DM_DATE_END": "201605201600",
+   "DM_DATE_UNC": "0.1",
+   "DM_COMMENT": "Soybeans, Pioneer P33T72, 140,000 seeds/acre"
+  },
+  {
+   "DM_PLANTING": "Sowing crop seeds",
+   "DM_SURF": "3",
+   "DM_DATE_START": "201606091507",
+   "DM_DATE_END": "201606091704",
+   "DM_COMMENT": "Fill in replant wet/flooded areas 5.5 acre. 15:07-17:04"
+  },
+  {
+   "DM_PLANTING": "Sowing crop seeds",
+   "DM_DATE_START": "201705080735",
+   "DM_DATE_END": "201705082050",
+   "DM_COMMENT": "Pioneer 1498AM 28,500 seed/acre, JD 7215R w/8 row Jd 7250R/w 16 Row, 162.2 acres, 0735-1125, 1325-2050, fuel 65 gal"
+  },
+  {
+   "DM_PLANTING": "Sowing crop seeds",
+   "DM_SURF": "91",
+   "DM_DATE_START": "201805091020",
+   "DM_DATE_END": "201805091900",
+   "DM_COMMENT": "Soybeans, Asgrow 36x6, 140,000 seeds/acre, JD 7215R with 1775 16 row, Time 10:20-19:00,  all areas besides towers and IMZ's 148.8 acres, Fuel 45.3 gal"
+  },
+  {
+   "DM_PLANTING": "Sowing crop seeds",
+   "DM_SURF": "9",
+   "DM_DATE_START": "201805101230",
+   "DM_DATE_END": "201805101330",
+   "DM_COMMENT": "Soybeans, Asgrow 36x6, 140,000 seeds/acre, JD 7215R with 1775 16 row, Time 12:30-13:30, Finished area around towers and IMZ's 14.59 acres, Fuel 4.7 gal"
+  },
+  {
+   "DM_PLANTING": "Sowing crop seeds",
+   "DM_SURF": "100",
+   "DM_DATE_START": "201904240710",
+   "DM_DATE_END": "201904241730",
+   "DM_COMMENT": "JD 8345R w/ 1795 16 row planter, Time 07:10-17:30,  Corn P1366AM 27,736 seeds/acre , 163.4 acres, Fuel 66 gal"
+  },
+  {
+   "DM_PLANTING": "Sowing crop seeds",
+   "DM_SURF": "16",
+   "DM_DATE_START": "202005051300",
+   "DM_DATE_END": "202005051700",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "Soybeans, hybrid AG36X6, 140k seeds/acre, JD8345R and JD1795 Planter, \u200b25.9 Acres (end rows), 10.2 gal fuel"
+  },
+  {
+   "DM_PLANTING": "Sowing crop seeds",
+   "DM_SURF": "84",
+   "DM_DATE_START": "202005060800",
+   "DM_DATE_END": "202005061600",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "Soybeans,hybrid AG36X6, 140k seeds/acre, JD8345R and JD1795 Planter, 136.1 Acres, 53.8 gal fuel,"
+  },
+  {
+   "DM_PLANTING": "Sowing crop seeds",
+   "DM_SURF": "100",
+   "DM_DATE_START": "202104290900",
+   "DM_DATE_END": "202104291730",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "\u200b\u200bCorn, Dekalb DK63-57, start 7:30 AM, runtime 8.5 hours, 56.4 gal fuel, operator RT, 28,000 seeds/acre, 150.2 acres, JD 8410RX tractor and JD 1795 planter"
+  }
+ ],
+ "fertilizer": [
+  {
+   "DM_FERT_M": "N",
+   "DM_DATE_START": "201506011745",
+   "DM_DATE_END": "201506012045",
+   "DM_COMMENT": "120 lb N/acre 28% UAN (Urea Ammonium Nitrate), Perimeter recieved 240 lb N rate due to error (10.2 acre),  30 ac complete,  17:45-20:45,  JD7410 w/DMI UAN Coulter Injection Kinfe"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_DATE_START": "201506020730",
+   "DM_DATE_END": "201506021730",
+   "DM_COMMENT": "120 lb N /acre 28% UAN (Urea Ammonium Nitrate), Complete UAN application,  7:30-17:30,  JD7410 w/DMI UAN Coulter Injection Knife,   Worked from north to south."
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_DATE_START": "201704100800",
+   "DM_DATE_END": "201704101930",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "8250R 13 knife 8215R 9 knife, Anhydrous Ammonia (NH3), 140 lb/acre  as 82% NH3, Fuel 78.5 gal"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_DATE_START": "201704110800",
+   "DM_DATE_END": "201704111530",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "8250R 13 knife 8215R 9 knife, Anhydrous Ammonia (NH3), 140 lb/acre  as 82% NH3, Fuel 21.4 gal."
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_SURF": "85",
+   "DM_DATE_START": "201904150900",
+   "DM_DATE_END": "201904151731",
+   "DM_COMMENT": "JD 7215R with 13 Knife,  Time 09:00-17:31,  140lb/acre, 140. 2 acres, Fuel 58.1 gal"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_SURF": "15",
+   "DM_DATE_START": "201904151130",
+   "DM_DATE_END": "201904151400",
+   "DM_COMMENT": "JD 7250R with 9 knife, Time 11:30-14:00, \u00a0140lb/acre, 28.6  acres  by Towers and IMZ's, Fuel 17.9 gal"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_SURF": "46",
+   "DM_DATE_START": "202011050900",
+   "DM_DATE_END": "202011051700",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "170 lbs N/acre, JD7215R and 2510H,  33.0 gal fuel,  4.7 hr,  \u200b75.2 Acres"
+  },
+  {
+   "DM_FERT_M": "N",
+   "DM_SURF": "54",
+   "DM_DATE_START": "202011060900",
+   "DM_DATE_END": "202011061700",
+   "DM_DATE_UNC": "0.2",
+   "DM_COMMENT": "170 lbs N/acre, JD7215R and 2510H, 37.0 gal fuel, 6.3 hr,  \u200b88.5 acres,"
+  }
+ ],
+ "fert_organic": [],
+ "irrigation": [],
+ "tillage": [
+  {
+   "DM_TILL": "Other",
+   "DM_DATE": "20010409",
+   "DM_COMMENT": "field-disk"
+  },
+  {
+   "DM_TILL": "Other",
+   "DM_DATE": "20010410",
+   "DM_COMMENT": "field-disk"
+  },
+  {
+   "DM_TILL": "Other",
+   "DM_DATE": "20010416",
+   "DM_COMMENT": "field-disk"
+  },
+  {
+   "DM_TILL": "Other",
+   "DM_DATE": "20010420",
+   "DM_COMMENT": "field-cultivator"
+  },
+  {
+   "DM_TILL": "Other",
+   "DM_DATE": "20011108",
+   "DM_COMMENT": "subsoiler"
+  }
+ ],
+ "production": [
+  {
+   "AG_PROD_CROP": "335",
+   "AG_PROD_CROP_ORGAN": "Fruits",
+   "AG_PROD_CROP_UNIT": "gC m-2",
+   "AG_PROD_DATE_START": "20011011"
+  },
+  {
+   "AG_PROD_CROP": "713",
+   "AG_PROD_CROP_ORGAN": "Total",
+   "AG_PROD_CROP_UNIT": "gC m-2",
+   "AG_PROD_DATE_START": "20011011"
+  },
+  {
+   "AG_PROD_CROP": "153",
+   "AG_PROD_CROP_ORGAN": "Fruits",
+   "AG_PROD_CROP_UNIT": "gC m-2",
+   "AG_PROD_DATE_START": "20021011"
+  },
+  {
+   "AG_PROD_CROP": "333",
+   "AG_PROD_CROP_ORGAN": "Total",
+   "AG_PROD_CROP_UNIT": "gC m-2",
+   "AG_PROD_DATE_START": "20021011"
+  },
+  {
+   "AG_PROD_CROP": "297",
+   "AG_PROD_CROP_ORGAN": "Fruits",
+   "AG_PROD_CROP_UNIT": "gC m-2",
+   "AG_PROD_DATE_START": "20031002"
+  },
+  {
+   "AG_PROD_CROP": "595",
+   "AG_PROD_CROP_ORGAN": "Total",
+   "AG_PROD_CROP_UNIT": "gC m-2",
+   "AG_PROD_DATE_START": "20031002"
+  },
+  {
+   "AG_PROD_CROP": "157",
+   "AG_PROD_CROP_ORGAN": "Fruits",
+   "AG_PROD_CROP_UNIT": "gC m-2",
+   "AG_PROD_DATE_START": "20041005"
+  },
+  {
+   "AG_PROD_CROP": "295",
+   "AG_PROD_CROP_ORGAN": "Total",
+   "AG_PROD_CROP_UNIT": "gC m-2",
+   "AG_PROD_DATE_START": "20041005"
+  },
+  {
+   "AG_PROD_CROP": "340",
+   "AG_PROD_CROP_ORGAN": "Fruits",
+   "AG_PROD_CROP_UNIT": "gC m-2",
+   "AG_PROD_DATE_START": "20051005"
+  },
+  {
+   "AG_PROD_CROP": "736",
+   "AG_PROD_CROP_ORGAN": "Total",
+   "AG_PROD_CROP_UNIT": "gC m-2",
+   "AG_PROD_DATE_START": "20051005"
+  }
+ ],
+ "biomass": [
+  {
+   "AG_BIOMASS_CROP": "0.179316",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20010529",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "4.95498",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20010613",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "24.5655",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20010621",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "70.8217",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20010628",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "134.91",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20010705",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "228.194",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20010711",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "289.93",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20010718",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "561.582",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20010807",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "601.871",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20010814",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "377",
+   "AG_BIOMASS_CROP_ORGAN": "Total",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20011011"
+  },
+  {
+   "AG_BIOMASS_CROP": "3.61066",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20020611",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "17.1045",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20020625",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "54.9586",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20020709",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "113.902",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20020726",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "186.234",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20020809",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "295.346",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20020904",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "326.067",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20020918",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "180",
+   "AG_BIOMASS_CROP_ORGAN": "Total",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20021011"
+  },
+  {
+   "AG_BIOMASS_CROP": "1.30296",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20030606",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "16.6016",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20030619",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "119.5",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20030703",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "258.393",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20030714",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "346.454",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20030723",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "431.347",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20030804",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "537.022",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20030820",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "551.576",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20030904",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "298",
+   "AG_BIOMASS_CROP_ORGAN": "Total",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20031002"
+  },
+  {
+   "AG_BIOMASS_CROP": "2.69997",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20040624",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "15.4433",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20040706",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "36.7557",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20040716",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "94.415",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20040729",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "179.63",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20040810",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "202.951",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20040819",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "323.139",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20040909",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "272.729",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20040920",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "138",
+   "AG_BIOMASS_CROP_ORGAN": "Total",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20041005"
+  },
+  {
+   "AG_BIOMASS_CROP": "0.616227",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20050524",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "10.9867",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20050608",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "80.4687",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20050621",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "139.718",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20050630",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "286.344",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20050714",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "416.621",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20050728",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "519.051",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20050808",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "599.219",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20050817",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "759.089",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20050907",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "693.619",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20050926",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "397",
+   "AG_BIOMASS_CROP_ORGAN": "Total",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20051005"
+  },
+  {
+   "AG_BIOMASS_CROP": "2.14858",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060602",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "7.23607",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060613",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "10.1197",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060621",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "32.6058",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060629",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "60.7038",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060711",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "115.89",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060717",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "145.204",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060725",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "208.307",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060801",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "258.269",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060810",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "292.672",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060816",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "327.974",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060830",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "346.093",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20060918",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "357.581",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20061009",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "2.55968",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20070530",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "19.6459",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20070611",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "55.6348",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20070618",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "113.479",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20070625",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "217.485",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20070702",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "302.649",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20070711",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "467.562",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20070723",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "571.552",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20070801",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "662.474",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20070814",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "783.428",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20070828",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  },
+  {
+   "AG_BIOMASS_CROP": "813.682",
+   "AG_BIOMASS_CROP_ORGAN": "Foliage",
+   "AG_BIOMASS_CROP_PHEN": "Mixed/unknown",
+   "AG_BIOMASS_CROP_UNIT": "gC m-2",
+   "AG_BIOMASS_DATE": "20070917",
+   "AG_BIOMASS_COMMENT": "(assuming 43#9% C)"
+  }
+ ],
+ "lai": [
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20010529",
+   "LAI_TOT": "0.00829956"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20010613",
+   "LAI_TOT": "0.179909"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20010621",
+   "LAI_TOT": "0.698763"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20010628",
+   "LAI_TOT": "1.86674"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20010705",
+   "LAI_TOT": "2.98488"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20010711",
+   "LAI_TOT": "3.88221"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20010718",
+   "LAI_TOT": "3.82949"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20010807",
+   "LAI_TOT": "3.51071"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20010814",
+   "LAI_TOT": "3.06002"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20020611",
+   "LAI_TOT": "0.136561"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20020625",
+   "LAI_TOT": "0.601432"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20020709",
+   "LAI_TOT": "1.62742"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20020726",
+   "LAI_TOT": "2.51176"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20020809",
+   "LAI_TOT": "3.03821"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20020904",
+   "LAI_TOT": "2.58654"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20020918",
+   "LAI_TOT": "1.11802"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20030606",
+   "LAI_TOT": "0.0497636"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20030619",
+   "LAI_TOT": "0.578451"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20030703",
+   "LAI_TOT": "3.05086"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20030714",
+   "LAI_TOT": "4.27319"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20030723",
+   "LAI_TOT": "4.18771"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20030804",
+   "LAI_TOT": "3.71457"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20030820",
+   "LAI_TOT": "2.3309"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20030904",
+   "LAI_TOT": "0.997021"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20040624",
+   "LAI_TOT": "0.108479"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20040706",
+   "LAI_TOT": "0.466594"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20040716",
+   "LAI_TOT": "1.44989"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20040729",
+   "LAI_TOT": "3.01368"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20040810",
+   "LAI_TOT": "4.47199"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20040819",
+   "LAI_TOT": "3.971"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20040909",
+   "LAI_TOT": "3.7452"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20040920",
+   "LAI_TOT": "0.294001"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20050524",
+   "LAI_TOT": "0.0365886"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20050608",
+   "LAI_TOT": "0.459922"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20050621",
+   "LAI_TOT": "2.31817"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20050630",
+   "LAI_TOT": "3.70015"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20050714",
+   "LAI_TOT": "4.33372"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20050728",
+   "LAI_TOT": "4.13857"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20050808",
+   "LAI_TOT": "4.05191"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20050817",
+   "LAI_TOT": "4.0315"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20050907",
+   "LAI_TOT": "2.44283"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20050926",
+   "LAI_TOT": "0.586247"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060602",
+   "LAI_TOT": "0.0558943"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060613",
+   "LAI_TOT": "0.22549"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060621",
+   "LAI_TOT": "0.39867"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060629",
+   "LAI_TOT": "1.01879"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060711",
+   "LAI_TOT": "1.58403"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060717",
+   "LAI_TOT": "2.70541"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060725",
+   "LAI_TOT": "3.53956"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060801",
+   "LAI_TOT": "4.48073"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060810",
+   "LAI_TOT": "4.4176"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060816",
+   "LAI_TOT": "4.01892"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060830",
+   "LAI_TOT": "3.13145"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20060918",
+   "LAI_TOT": "0.261768"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20061009",
+   "LAI_TOT": "0"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20070530",
+   "LAI_TOT": "0.116478"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20070611",
+   "LAI_TOT": "0.578689"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20070618",
+   "LAI_TOT": "1.58313"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20070625",
+   "LAI_TOT": "2.73203"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20070702",
+   "LAI_TOT": "3.5542"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20070711",
+   "LAI_TOT": "4.12209"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20070723",
+   "LAI_TOT": "4.04477"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20070801",
+   "LAI_TOT": "3.95111"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20070814",
+   "LAI_TOT": "3.78583"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20070828",
+   "LAI_TOT": "2.60061"
+  },
+  {
+   "LAI_TYPE": "LAI",
+   "LAI_DATE": "20070917",
+   "LAI_TOT": "0.168889"
+  }
+ ],
+ "groups_present": [
+  "GRP_AG_BIOMASS_CROP",
+  "GRP_AG_PROD_CROP",
+  "GRP_BIOMASS_CHEM",
+  "GRP_CLIM_AVG",
+  "GRP_COUNTRY",
+  "GRP_DM_AGRICULTURE",
+  "GRP_DM_EXT_WEATHER",
+  "GRP_DM_FERT_M",
+  "GRP_DM_PESTICIDE",
+  "GRP_DM_PLANTING",
+  "GRP_DM_TILL",
+  "GRP_DOI",
+  "GRP_DOI_CONTRIBUTOR",
+  "GRP_DOI_ORGANIZATION",
+  "GRP_DOM_DIST_MGMT",
+  "GRP_FLUX_MEASUREMENTS",
+  "GRP_HEADER",
+  "GRP_HEIGHTC",
+  "GRP_IGBP",
+  "GRP_LAI",
+  "GRP_LAND_OWNERSHIP",
+  "GRP_LMA",
+  "GRP_LOCATION",
+  "GRP_NETWORK",
+  "GRP_PHENOCAM",
+  "GRP_REFERENCE_PAPER",
+  "GRP_RESEARCH_TOPIC",
+  "GRP_SITE_DESC",
+  "GRP_SITE_FUNDING",
+  "GRP_SOIL_CHEM",
+  "GRP_SOIL_CLASSIFICATION",
+  "GRP_SOIL_DEPTH",
+  "GRP_SOIL_TEX",
+  "GRP_SPP_O",
+  "GRP_STATE",
+  "GRP_TEAM_MEMBER",
+  "GRP_URL",
+  "GRP_URL_AMERIFLUX",
+  "GRP_UTC_OFFSET"
+ ]
+}

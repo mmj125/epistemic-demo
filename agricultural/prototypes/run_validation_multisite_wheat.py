@@ -4,7 +4,7 @@ Reports the engine with its calibration_factor AND with it forced to 1.0, so a m
 import os,sys,json,math,shutil,statistics as st,copy
 os.environ["N_LEVELS"]="0,90,150"; os.environ.setdefault("REGIONAL","0")
 sys.path.insert(0,'.')
-import run_validation_multisite as m, run_validation_rotation2 as r2, cycles_engine_validate as E
+import run_validation_multisite as m, run_validation_rotation2 as r2, rhizo_engine as E
 from multiprocessing import Pool
 CY=m.CY
 OP='''PLANTING
@@ -40,6 +40,10 @@ FORM                                Liquid
 METHOD                              Broadcast
 DEPTH                               0.05        # m
 '''
+def cycles_annual(fsite,N):
+    """Cycles' calendar-year N losses {year: dict(leach, denit, volat, n2o)} from the same cache (added 2026-10-23 so the wheat runs can score N losses)."""
+    cache=f"{CY}/cache15_{fsite}N{N}.json"
+    return {int(k):v for k,v in json.load(open(cache))["A"].items()}
 def cycles_ref(fsite,N):
     cache=f"{CY}/cache15_{fsite}N{N}.json"
     if os.path.exists(cache):
@@ -82,15 +86,21 @@ def engine_chain(wx,soil,cl,N,calib):
         de=dict(de=0.0,tew=E.compute_tew(layers[0]["fc"],layers[0]["pwp"]),rew=E.REW_DEFAULT_MM)
         E._DIAG_YEAR=y
         E._FORCE_CUR=(E.FORCE_SERIES.get(y) if E.FORCE_SERIES else None)
-        E.run_fallow_n_window(layers,fallow,nstate,sp,lat_deg=cl,de_state=de,model_denitrification=True,model_volatilization=True)
-        nstate.pop("n2o",None)
+        _fl=E.run_fallow_n_window(layers,fallow,nstate,sp,lat_deg=cl,de_state=de,model_denitrification=True,model_volatilization=True)
+        _fn2o=nstate.pop("n2o",0.0)
         kw=dict(base); kw.update(initial_n_state=dict(nstate),initial_layers=layers,spinup_rows=None,wue_co2_scale=E.CO2_PPM_BY_YEAR.get(y,E.CO2_REF_PPM)/E.CO2_REF_PPM,record_history=True)
         if N>0: kw["n_applications"]=([(289,FALLN),(75,N-FALLN)] if (FALLN>0 and N>FALLN) else [(75,N)]); kw["fertilizer_source"]="uan"
         else: kw["n_rate_kg_ha"]=0
         if sp is not None: kw["sixpool_initial_state"]=sp
-        res=E.simulate_season(rows(start,start+400),crop,**kw)
+        if os.environ.get("WHEAT_SEASON_CLOCK","1")=="1":   # 2026-10-23: pre-pass for the season's own maturity thermal time (TTf = tt / tt at maturity, paper Sec 2.3); state is copied so the pass leaves nothing behind
+            _k=dict(kw); _k["initial_n_state"]=dict(nstate); _k["initial_layers"]=copy.deepcopy(layers); _k["record_history"]=False
+            if sp is not None: _k["sixpool_initial_state"]=copy.deepcopy(sp)
+            _p=E.simulate_season(rows(start,start+400),crop,**_k); _c=dict(crop); _c["season_tt_end"]=_p["tt_cum_end"]
+        else: _c=crop
+        res=E.simulate_season(rows(start,start+400),_c,**kw)
         layers=res["final_layers"]; nstate=dict(res["final_n_state"]); sp=copy.deepcopy(res.get("sixpool_final_state"))
         prev_end=start+len(res["history"]); out[y+1]=res
+        res["loss"]=dict(leach=_fl[0]+res.get("n_leached_kg_ha",0.0),denit=_fl[1]+res.get("n_denitrified_kg_ha",0.0),volat=_fl[2]+res.get("n_volatilized_pool_kg_ha",0.0),n2o=_fn2o+res.get("n2o_emitted_kg_ha",0.0))   # the fallow window before planting plus the season (2026-10-23)
     return out
 def corr(a,b):
     ma,mb=st.mean(a),st.mean(b); sa=math.sqrt(sum((x-ma)**2 for x in a)); sb=math.sqrt(sum((x-mb)**2 for x in b)); return sum((a[i]-ma)*(b[i]-mb) for i in range(len(a)))/(sa*sb) if sa and sb else float('nan')
@@ -107,6 +117,10 @@ def one(a):
             for v,hk,rk in (("grain","grain","grain"),("total_biomass","total","total")):
                 x=[H[y][hk] for y in ys]; z=[R[y][rk] for y in ys]
                 row[v]=dict(real=st.mean(x),model=st.mean(z),mae=st.mean(abs(i-j) for i,j in zip(x,z)),corr=corr(x,z),n=len(ys),pairs=[[round(i,4),round(j,4)] for i,j in zip(x,z)])
+            if tag=="calib":
+                A=cycles_annual(fs,N); yc=[y for y in range(1982,2016) if y in A]; ye=[y for y in ys if "loss" in R[y]]
+                for q in ("leach","denit","volat","n2o"):   # mean annual kg N/ha: engine over its seasons (fallow before planting included, about 35 years) against Cycles' calendar years 1982 to 2015
+                    row[q]=dict(real=st.mean(A[y][q] for y in yc),model=sum(R[y]["loss"][q] for y in ye)/len(ye)*len(ye)/35.0)
             res[f"N{N}|{tag}"]=row
     return site,name,res
 if __name__=="__main__":

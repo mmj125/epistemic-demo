@@ -1,6 +1,6 @@
 """
 Validation harness for the CornSilageSoyWheat rotation (soybean, winter
-wheat, silage corn). See cycles_engine_validate.py's module docstring and
+wheat, silage corn). See rhizo_engine.py's module docstring and
 MECHANISM_LOG.md for what's disclosed vs. approximated vs. still
 genuinely unresolved. Requires the same local Cycles v1.4.4 reference data
 as run_validation.py (see that file / REFERENCE_DATA_DIR).
@@ -12,7 +12,7 @@ import os
 import datetime
 
 sys.path.insert(0, os.path.dirname(__file__))
-from cycles_engine_validate import (
+from rhizo_engine import (
     REFERENCE_DATA_DIR, saxton_rawls, OM_FROM_SOC, simulate_season, CORN_CANOPY_SHAPE,
     INITIAL_MOISTURE_FRACTION, CO2_PPM_BY_YEAR, CO2_REF_PPM,
 )
@@ -54,12 +54,12 @@ SOYBEAN = dict(
                # real cold-kill mechanism (threshold_temp_cold_damage below) -- previous value
                # 1.4297, re-derived 2026-09-30 for the
                # real f_G harvest-index fix (Kemanian et al. 2007) -- see
-               # cycles_engine_validate.py's own HI-computation docstring. Previous value 1.1894,
+               # rhizo_engine.py's own HI-computation docstring. Previous value 1.1894,
                # itself re-derived 2026-09-24 for the
                # real-data TTF50_SHOOT_PARTITION refit (0.5 -> 0.32) + the same-day emergence-gate
                # fix + the cold-temperature radiation-growth reduction + the NET_GROWTH_FRACTION
                # post-limitation growth-conversion fix + the curve-number/f_wc swap (real Eq
-               # SI.5-SI.7, see retention_param_mm()) -- see cycles_engine_validate.py, and re-
+               # SI.5-SI.7, see retention_param_mm()) -- see rhizo_engine.py, and re-
                # derived again 2026-09-25 for the hydraulic-conductance water-stress mechanism
                # (campbell_water_uptake()) -- correlation moved 0.856 -> 0.802 from that switch
                # alone, see MECHANISM_LOG.md/CLAUDE.md for the full account
@@ -77,7 +77,7 @@ SOYBEAN = dict(
                # legume flag) -- this crop selects the new mechanism same as any other.
                threshold_temp_cold_damage=2)  # real GenericCrops.crop THRESHOLD_TEMPERATURE_FOR_
                # COLD_DAMAGE (SoybeanMG.5), added 2026-10-01 for the real cold-kill mechanism --
-               # see cycles_engine_validate.py's own comment at the kill check. Correlation moved
+               # see rhizo_engine.py's own comment at the kill check. Correlation moved
                # 0.871 -> 0.950, the second-largest jump this mechanism produced (after corn's
                # own 0.505 -> 0.691) -- re-derived calibration_factor below for the real mean shift.
 
@@ -86,15 +86,15 @@ WHEAT = dict(canopy_form="H",  # 2026-10-17: integrated-derivative canopy, expan
              rue=1.6, wue=6.0, hi_x=0.52, hi_o=0.2, hi_slope=2.5, fsti=0.45, fstf=0.95,  # 2026-10-17: documented slope m(1-Hmin)/(Hmax-Hmin)=2.5 and the real f_G (the thermal-time exemption is gone, the winter phenology it was covering for is fixed); calibration_factor 1.0,
 
              kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=LAT,
-             n_simultaneous=False,  # 2026-10-19: wheat's N model (pinned demand scale 0.8746, tuned stress interplay) is worse with the simultaneous solve (MAE -0.24 / -0.40 / -0.30 at N=0/90/150), so it keeps the old order until its N model is rebuilt
-             eix_cap=0.93, net_growth_fraction=0.95, ttf50=0.32,  # 2026-10-19: ttf50 0.32 checked (best 0.34 on Cycles' wheat, corn's 0.42 is worse); growth scalar 0.95 is what Cycles' states forced give at N=150 (total biomass 1.112 at 1.057); canopy plateau 0.93 is Cycles' unstressed wheat canopy (p90 0.917, p99 0.942); was 0.86 / 1.057
+             n_simultaneous=True, n_demand_ref=True, n_stress_ag_basis=True, n_uptake_rate=0.03,  # 2026-10-19: wheat's N model (pinned demand scale 0.8746, tuned stress interplay) is worse with the simultaneous solve (MAE -0.24 / -0.40 / -0.30 at N=0/90/150), so it keeps the old order until its N model is rebuilt
+             eix_cap=0.853, net_growth_fraction=0.95, ttf50=0.32,  # 2026-10-19: ttf50 0.32 checked (best 0.34 on Cycles' wheat, corn's 0.42 is worse); growth scalar 0.95 is what Cycles' states forced give at N=150 (total biomass 1.112 at 1.057); canopy plateau 0.93 is Cycles' unstressed wheat canopy (p90 0.917, p99 0.942); was 0.86 / 1.057
                # 2026-10-17: Cycles' unstressed wheat canopy plateaus at 0.857 (engine cap was 0.99, spring canopy +0.05 to +0.12); growth conversion raised to keep the level (wheat_hi_test.py, two disjoint 16-site sets: N=0 MAE -3 to -5%, N=150 neutral)
              hi_use_thermal_time_fraction=False,  # was True (exemption); real exemption, 2026-09-30 -- see
-             # cycles_engine_validate.py's own HI-computation docstring: the real f_G
+             # rhizo_engine.py's own HI-computation docstring: the real f_G
              # (Kemanian et al. 2007) regressed wheat's correlation (0.337->0.163) even
              # though it helped corn/soybean, plausibly tied to wheat's own already-
              # documented winter-dormancy anomaly.
-             n_demand_scale=0.874562,  # SUSPECT, pinned 2026-10-17: measured wheat unstressed ratio is 0.75, but at 0.75 (with or without the corn N stress law) wheat over- or under-yields because its canopy plateau 0.86 and growth conversion 1.057 were tuned under this demand; revisit with the consistent-core package
+             n_demand_scale=0.75,  # SUSPECT, pinned 2026-10-17: measured wheat unstressed ratio is 0.75, but at 0.75 (with or without the corn N stress law) wheat over- or under-yields because its canopy plateau 0.86 and growth conversion 1.057 were tuned under this demand; revisit with the consistent-core package
              make_layers=make_layers, calibration_factor=1.0,  # 2026-10-17 harvest index law (wheat_hi_test.py): no mask. 1.1523 was 2026-10-16 row 50 re-centering (was 1.2052);
              #  # 2026-10-15 re-derived for the N-loss fit (row 46); 1.1099 before  # 2026-10-15 re-derived again (row 46; 1.1099 before the N-loss refit; was 1.1807 originally) after the stoichiometry-path N constants (row 44);  # re-derived 2026-10-02 for
              # sixpool_step()'s own per-pool real C:N fix (CN_RATIO_SOM's single flat ratio
@@ -114,7 +114,7 @@ WHEAT = dict(canopy_form="H",  # 2026-10-17: integrated-derivative canopy, expan
              # file's own note below this one) -- was 0.7506 as of 2026-09-28.
              #
              # 2026-09-29: a real, previously-undiscovered bug was found and fixed in
-             # cycles_engine_validate.py's rothc_temp_factor() usage, via a new pattern-assertion
+             # rhizo_engine.py's rothc_temp_factor() usage, via a new pattern-assertion
              # test suite (pattern_assertions.py) built to check DIRECTION of classroom-relevant
              # claims rather than point accuracy -- it found corn showing ZERO nitrogen response
              # at every multi-site test location, traced to rothc_temp_factor()'s raw output being
@@ -125,7 +125,7 @@ WHEAT = dict(canopy_form="H",  # 2026-10-17: integrated-derivative canopy, expan
              # actually calibrated for. Fixed by normalizing against the empirical mean of that
              # same raw weather factor across every real growing day in the full validated 37-year
              # Rock Springs record (2.025, see ROTHC_WEATHER_FACTOR_NORM's own docstring in
-             # cycles_engine_validate.py for the full derivation) -- this makes a typical Rock
+             # rhizo_engine.py for the full derivation) -- this makes a typical Rock
              # Springs growing day read ~1.0 again, matching the original design intent, while
              # keeping all the real day-to-day/year-to-year variability the raw RothC shape
              # provides. Confirmed by direct A/B toggle of the new normalization constant that
@@ -171,7 +171,7 @@ WHEAT = dict(canopy_form="H",  # 2026-10-17: integrated-derivative canopy, expan
              # in demand_today_kg_ha, inflating daily nitrogen demand roughly an order of magnitude.
              # Caught via the standard "does a very-high N rate converge to the no-tracking baseline"
              # sanity check, which corn's optional N path failed outright (capped at the same yield
-             # and uptake whether given 150 or 2000 kg N/ha) -- see cycles_engine_validate.py's own
+             # and uptake whether given 150 or 2000 kg N/ha) -- see rhizo_engine.py's own
              # comment at the fix site for the full account. Wheat's validation wires nitrogen in by
              # default (below), so it was running this exact buggy math the whole time too. Fixing it
              # moves wheat's own number again, in a DIFFERENT direction than the historical "0.523"
@@ -190,7 +190,7 @@ WHEAT = dict(canopy_form="H",  # 2026-10-17: integrated-derivative canopy, expan
              # calibration_factor before the LWP switch (1.2895) was re-derived 2026-09-25 (a second
              # time the same day) after replacing the season-total quadratic-plateau N-stress
              # mechanism with a real, day-by-day concentration-tracked one (see simulate_season()'s
-             # own comment above canopy_n_kg_ha in cycles_engine_validate.py) -- correlation moved
+             # own comment above canopy_n_kg_ha in rhizo_engine.py) -- correlation moved
              # 0.473 -> (claimed 0.523, per the correction above, not reproducible) from this fix
              # alone, recalibrated at the time to keep the mean matching the real 4.328790555555556
              # Mg/ha in wheat's own real fertilization event (see n_applications=[(75, 90)] on the
@@ -220,14 +220,14 @@ WHEAT = dict(canopy_form="H",  # 2026-10-17: integrated-derivative canopy, expan
              # conversion fix, wheat's own rad_temp_floor/rad_temp_plateau_t refit (0.397 -> 0.399),
              # and the curve-number/f_wc swap (0.399 -> 0.393, the baseline this fix started from)
              # -- see the comments above thermal_time_increment() and radiation_temp_factor() in
-             # cycles_engine_validate.py
+             # rhizo_engine.py
              depletion_fraction=0.55,  # real FAO-56 Table 22 (winter/spring wheat)
              canopy_shape=(5, -14, -15, 16),  # refit from real data -- see MECHANISM_LOG.md item 5;
                                                # fixes level bias, does NOT fix wheat's weak correlation
-             rad_temp_floor=0.257, rad_temp_plateau_t=15.55,  # wheat-specific radiation-temperature
+               # wheat-specific radiation-temperature
              # response (2026-09-23), separate from tr_min_t/tr_threshold_t used for transpiration --
              # fit directly from real Cycles output (see radiation_temp_factor()'s own docstring in
-             # cycles_engine_validate.py); wheat's own fall-to-spring season never reaches truly warm,
+             # rhizo_engine.py); wheat's own fall-to-spring season never reaches truly warm,
              # unambiguously-radiation-limited conditions, so reusing the transpiration threshold
              # (12 degC) undershot real growth at every temperature this crop actually experiences
              tr_max_mm_day=8,  # real GenericCrops.crop TRANSPIRATION_MAX (WinterWheat)
@@ -242,7 +242,7 @@ WHEAT = dict(canopy_form="H",  # 2026-10-17: integrated-derivative canopy, expan
              # effect on validation, confirming this is a pure completeness fix, not a behavior change)
              n_min_conc=0.002,  # real GenericCrops.crop N_MIN_CONCENTRATION_STRAW (0.2%), added
              # 2026-09-25 for the day-by-day concentration-tracked N-stress mechanism -- see
-             # simulate_season()'s own comment above canopy_n_kg_ha in cycles_engine_validate.py.
+             # simulate_season()'s own comment above canopy_n_kg_ha in rhizo_engine.py.
              # 2026-10-18: the 2026-09-28 exemption from campbell_water_uptake() is REVERSED. It was judged on Rock Springs' nine harvests alone; on 30 held-out sites
              # (FALLN=60, paired) the crop-file water mechanism cuts wheat MAE by 0.047/0.156/0.246 Mg/ha at N=0/90/150 (CIs exclude 0, 24 to 25 of 30 sites better).
              lwp_stress_onset=-1000, lwp_wilting_point=-2100,  # real GenericCrops.crop LWP_STRESS_ONSET/LWP_WILTING_POINT (WinterWheat)
@@ -271,7 +271,7 @@ CORN_SILAGE = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_
                     # emergence-gate fix + the cold-temperature radiation-growth reduction + the
                     # NET_GROWTH_FRACTION post-limitation growth-conversion fix + the curve-number/
                     # f_wc swap (real Eq SI.5-SI.7, see retention_param_mm()) -- see
-                    # cycles_engine_validate.py, and again 2026-09-25 for the hydraulic-conductance
+                    # rhizo_engine.py, and again 2026-09-25 for the hydraulic-conductance
                     # water-stress mechanism (campbell_water_uptake()) -- correlation essentially
                     # unchanged from that switch (0.518 -> 0.516)
                     depletion_fraction=0.55,  # real FAO-56 Table 22 value, same crop biology as grain corn
@@ -302,7 +302,7 @@ CORN_SILAGE = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_
                     n_min_conc=0.002,  # real GenericCrops.crop N_MIN_CONCENTRATION_STRAW (0.2%),
                     # added 2026-09-25 for the day-by-day concentration-tracked N-stress mechanism
                     # -- see simulate_season()'s own comment above canopy_n_kg_ha in
-                    # cycles_engine_validate.py. Same not-currently-reachable status as above.
+                    # rhizo_engine.py. Same not-currently-reachable status as above.
                     lwp_stress_onset=-1100, lwp_wilting_point=-2000,  # real GenericCrops.crop
                     # LWP_STRESS_ONSET/LWP_WILTING_POINT (CornSilageRM.90, J/kg, identical to
                     # grain corn's own CornRM.90 values), added 2026-09-25 for

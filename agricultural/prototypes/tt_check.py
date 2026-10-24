@@ -2,7 +2,7 @@
 Usage: python3 tt_check.py"""
 import sys,os,csv,datetime,numpy as np
 sys.path.insert(0,'.');os.environ.setdefault("LEAD_YEARS","continuous");sys.argv=['x']
-import swap_test as S, cycles_engine_validate as E, run_validation_multisite as m
+import swap_test as S, rhizo_engine as E, run_validation_multisite as m
 crop=m.rv.CORN
 print('engine params',crop['base_t'],crop['opt_t'],crop['max_t'],'subdaily',E.THERMAL_TIME_SUBDAILY)
 pts=[]

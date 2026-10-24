@@ -3,7 +3,7 @@ supply = uptake + pool_end + losses is the N that was available to the season; r
 Cycles: dailyN.csv summed over planting..harvest, plant N = max total_nitrogen. Engine: result n_uptake, n_remaining, n_leached, n_denitrified, n_volatilized_pool."""
 import os,sys,csv,json,shutil,datetime,statistics as st
 os.environ["N_LEVELS"]="0,150"; os.environ.setdefault("REGIONAL","0"); sys.path.insert(0,'.')
-import run_validation_multisite as m, cycles_engine_validate as E
+import run_validation_multisite as m, rhizo_engine as E
 from multiprocessing import Pool
 CY=m.CY
 def one(a):

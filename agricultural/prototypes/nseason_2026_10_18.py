@@ -3,7 +3,7 @@ Engine hook DIAG_NSEASON. Cycles dailyN. Closure: pool change + uptake against n
 import os,sys,json,csv,shutil,subprocess,datetime
 os.environ.setdefault("REGIONAL","0"); os.environ["LEAD_YEARS"]="continuous"; os.environ["N_LEVELS"]=os.environ.get("NLEV","0"); sys.path.insert(0,'.')
 NLEV=int(os.environ.get("NLEV","0"))
-import numpy as np, run_validation_multisite as m, cycles_engine_validate as E
+import numpy as np, run_validation_multisite as m, rhizo_engine as E
 from multiprocessing import Pool
 S=json.load(open('/tmp/w/s24.json'))
 def rd(p): return [r for r in csv.DictReader(open(p)) if r['date'][0]!='#']

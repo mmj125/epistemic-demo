@@ -2,7 +2,7 @@
 within-site yearly MAE (grain, factor 1.0, documented HI), share removed vs free, and within-site correlation."""
 import os,sys,json,csv,datetime,shutil,subprocess,statistics as st
 os.environ["N_LEVELS"]="0,150"; os.environ.setdefault("REGIONAL","0"); sys.path.insert(0,'.')
-import run_validation_multisite_wheat as W, run_validation_multisite as m, cycles_engine_validate as E
+import run_validation_multisite_wheat as W, run_validation_multisite as m, rhizo_engine as E
 from multiprocessing import Pool
 CY=m.CY; KEYS={'K':'nclock','L':'wclock','N':'nstress','C':'canopy','M':'netmin'}; MODES=os.environ.get('WMODES','').split(',') if os.environ.get('WMODES') is not None and os.environ.get('WMODES')!='-' else ['','K','L','KL','N','KLN','C','CN']
 if os.environ.get('WMODES')=='': MODES=['']

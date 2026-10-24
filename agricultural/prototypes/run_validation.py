@@ -1,5 +1,5 @@
 """
-Validation harness for cycles_engine_validate.py. Requires a local copy of
+Validation harness for rhizo_engine.py. Requires a local copy of
 Cycles v1.4.4's sample files plus a real run's output (see that file's
 module docstring for exactly what's needed and why they aren't bundled
 in this repo). Not itself needed to use the engine -- this just reproduces
@@ -11,7 +11,7 @@ import sys
 import os
 
 sys.path.insert(0, os.path.dirname(__file__))
-from cycles_engine_validate import (
+from rhizo_engine import (
     REFERENCE_DATA_DIR, saxton_rawls, OM_FROM_SOC, simulate_soil_temp,
     find_planting_doy, simulate_season, CORN_CANOPY_SHAPE, INITIAL_MOISTURE_FRACTION,
     CO2_PPM_BY_YEAR, CO2_REF_PPM,
@@ -32,8 +32,8 @@ CORN = dict(
     # cold-kill mechanism (see threshold_temp_cold_damage below) -- itself replacing 1.0977,
     # re-derived 2026-09-30 for the
     # CORN_CANOPY_SHAPE late-senescence refit (see that constant's own comment in
-    # cycles_engine_validate.py), itself re-derived the same day for the real f_G harvest-index fix
-    # (Kemanian et al. 2007) -- see cycles_engine_validate.py's own HI-computation docstring.
+    # rhizo_engine.py), itself re-derived the same day for the real f_G harvest-index fix
+    # (Kemanian et al. 2007) -- see rhizo_engine.py's own HI-computation docstring.
     # Previous value 0.8490, residual after the AG-biomass fix + corn-specific canopy refit +
     # the 2026-09-23 TTF50_SHOOT_PARTITION refit + the emergence-gate fix + the cold-temperature
     # radiation-growth reduction + the NET_GROWTH_FRACTION post-limitation growth-conversion fix +
@@ -51,7 +51,7 @@ CORN = dict(
     n_max_conc=0.055, n_dilution_slope=0.4, legume=False,  # real GenericCrops.crop values, corn is not a legume
     n_min_conc=0.002,  # real GenericCrops.crop N_MIN_CONCENTRATION_STRAW (0.2%), added 2026-09-25
     # for the day-by-day concentration-tracked N-stress mechanism -- see simulate_season()'s
-    # own comment above canopy_n_kg_ha in cycles_engine_validate.py. Never triggers on this
+    # own comment above canopy_n_kg_ha in rhizo_engine.py. Never triggers on this
     # crop's own default (n_rate_kg_ha=None) validation path.
     depletion_fraction=0.55,  # real FAO-56 Table 22 value for maize, field (grain)
     tr_max_mm_day=10,  # real GenericCrops.crop TRANSPIRATION_MAX (CornRM.90); never triggers at
@@ -64,12 +64,12 @@ CORN = dict(
     lwp_stress_onset=-1100, lwp_wilting_point=-2000,  # real GenericCrops.crop LWP_STRESS_ONSET/
     # LWP_WILTING_POINT (CornRM.90, J/kg), added 2026-09-25 for the real hydraulic-conductance-
     # based transpiration/water-stress mechanism (campbell_water_uptake(), see
-    # cycles_engine_validate.py) -- presence of both fields (plus the already-real
+    # rhizo_engine.py) -- presence of both fields (plus the already-real
     # tr_max_mm_day above) is what selects that mechanism over the older, superseded
     # depletion_fraction/root_zone_availability fallback for this crop.
     threshold_temp_cold_damage=3,  # real GenericCrops.crop THRESHOLD_TEMPERATURE_FOR_COLD_DAMAGE
     # (CornRM.90), added 2026-10-01 for the real cold-kill mechanism -- see
-    # cycles_engine_validate.py's own comment at the kill check for the full account.
+    # rhizo_engine.py's own comment at the kill check for the full account.
 )
 
 SOIL_LAYERS_RAW = [
@@ -105,7 +105,7 @@ def main():
     if not os.path.exists(weather_path) or not os.path.exists(harvest_path):
         print(f"Reference data not found under {REFERENCE_DATA_DIR}.")
         print("Download Cycles v1.4.4 and run the ContinuousCorn sample first -- see")
-        print("cycles_engine_validate.py's module docstring for exact steps.")
+        print("rhizo_engine.py's module docstring for exact steps.")
         return
 
     daily = {}

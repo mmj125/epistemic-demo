@@ -1,7 +1,7 @@
 """Nitrification law against Cycles' own daily states by month, corn (24 sites) and wheat (8 sites), N=0 and 150 (2026-10-22)."""
 import os,sys,json,csv,shutil,subprocess,datetime
 os.environ["REGIONAL"]="0"; os.environ["N_LEVELS"]="0,150"; os.environ["FALLN"]="60"; sys.path.insert(0,'/home/user/epistemic-demo/agricultural/prototypes')
-import numpy as np, mgmt_response_2026_10_21 as G, run_validation_multisite as m, run_validation_multisite_wheat as w, cycles_engine_validate as E
+import numpy as np, mgmt_response_2026_10_21 as G, run_validation_multisite as m, run_validation_multisite_wheat as w, rhizo_engine as E
 from multiprocessing import Pool
 def rd(p): return [r for r in csv.DictReader(open(p)) if not r['date'].startswith('#')]
 S=json.load(open('sitesets/fresh94.json'))

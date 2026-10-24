@@ -1,5 +1,5 @@
 """Validation harness for the TRUE continuous multi-year Rock Springs chain -- see
-cycles_engine_validate.py's run_bare_fallow_window() docstring for why this exists and what
+rhizo_engine.py's run_bare_fallow_window() docstring for why this exists and what
 it found. Requires the same local Cycles v1.4.4 reference data as run_validation.py (see that
 file's module docstring), plus annualN.txt from the same ContinuousCorn output directory for
 the nitrogen-pathway comparison.
@@ -19,8 +19,8 @@ import sys
 import os
 
 sys.path.insert(0, os.path.dirname(__file__))
-import cycles_engine_validate as cev
-from cycles_engine_validate import (
+import rhizo_engine as cev
+from rhizo_engine import (
     REFERENCE_DATA_DIR, simulate_soil_temp, find_planting_doy, simulate_season,
     run_bare_fallow_window, compute_tew, REW_DEFAULT_MM, CO2_PPM_BY_YEAR, CO2_REF_PPM,
 )
@@ -41,7 +41,7 @@ def main():
     annualn_path = os.path.join(REFERENCE_DATA_DIR, "output/ContinuousCorn/annualN.txt")
     if not os.path.exists(weather_path) or not os.path.exists(harvest_path):
         print(f"Reference data not found under {REFERENCE_DATA_DIR}.")
-        print("See cycles_engine_validate.py's module docstring for exact setup steps.")
+        print("See rhizo_engine.py's module docstring for exact setup steps.")
         return
 
     daily = {}

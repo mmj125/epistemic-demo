@@ -3,7 +3,7 @@ and N stress forced in, and compares engine and Cycles on total biomass (incl. r
 harvest-index (or root/shoot) law; if total biomass is off in the same direction, it is covering the daily conversion. Usage: python3 mask_attrib_2026_10_16.py"""
 import os,sys,json,csv,datetime,shutil,subprocess,statistics as st
 os.environ["N_LEVELS"]="0,150"; os.environ.setdefault("REGIONAL","0"); sys.path.insert(0,'.')
-import run_validation_multisite_wheat as W, run_validation_multisite as m, cycles_engine_validate as E, forcelib
+import run_validation_multisite_wheat as W, run_validation_multisite as m, rhizo_engine as E, forcelib
 from multiprocessing import Pool
 CY=m.CY
 def harv(d):

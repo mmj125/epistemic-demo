@@ -2,7 +2,7 @@
 Corn, 12 fresh sites, N=0 and 150. Bins on Cycles' thermal time fraction (thermal_time / maturity). Prints mean Cycles, mean engine, mean difference and rms per bin."""
 import os,sys,json,csv,shutil,datetime,statistics as st
 os.environ["N_LEVELS"]="0,150"; os.environ.setdefault("REGIONAL","0"); sys.path.insert(0,'.')
-import run_validation_multisite as m, cycles_engine_validate as E, forcelib
+import run_validation_multisite as m, rhizo_engine as E, forcelib
 from multiprocessing import Pool
 CY=m.CY; TTM=float(os.environ.get("TTM","1800"))
 KEYS=('nclock','wclock','nstress')

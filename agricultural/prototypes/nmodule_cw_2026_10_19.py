@@ -1,7 +1,7 @@
 """N module with Cycles' canopy and water stress forced (and, with POOL=1, the daily mineral N pools too) (2026-10-19): engine plant N and N factor against Cycles' by thermal-time fraction, corn, 24 sites, N=0/150/400. Isolates the N side from the water and canopy errors."""
 import os,sys,json,csv,shutil,subprocess,datetime
 os.environ.setdefault("REGIONAL","0"); os.environ["LEAD_YEARS"]="continuous"; os.environ["N_LEVELS"]="0,150,400"; sys.path.insert(0,'.')
-import numpy as np, run_validation_multisite as m, cycles_engine_validate as E
+import numpy as np, run_validation_multisite as m, rhizo_engine as E
 from multiprocessing import Pool
 S=json.load(open('/tmp/w/s24.json'))
 def rd(p): return [r for r in csv.DictReader(open(p)) if r['date'][0]!='#']

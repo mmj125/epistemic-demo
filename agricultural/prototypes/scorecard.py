@@ -28,7 +28,7 @@ def worker(out_json, heldout, overrides, quick):
     if quick:
         os.environ["YEAR_STEP"] = "3"
         os.environ["SITES"] = QUICK_SITES_H if heldout else QUICK_SITES_T
-    import cycles_engine_validate as E
+    import rhizo_engine as E
     E.ROOT_C_REALIZED_GROWTH = True
     for a in overrides:
         k, v = a.split("=", 1)
@@ -74,7 +74,7 @@ def metrics(path):
 
 
 def _run_script(name, overrides):
-    shim = ("import sys, runpy; sys.path.insert(0, %r); import cycles_engine_validate as E\n" % HERE
+    shim = ("import sys, runpy; sys.path.insert(0, %r); import rhizo_engine as E\n" % HERE
             + "".join("setattr(E, %r, eval(%r))\n" % tuple(a.split("=", 1)) for a in overrides)
             + "runpy.run_path(%r, run_name='__main__')" % os.path.join(HERE, name))
     return subprocess.run([sys.executable, "-c", shim], cwd=HERE, capture_output=True, text=True).stdout

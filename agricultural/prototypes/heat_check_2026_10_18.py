@@ -3,7 +3,7 @@ engine daily gain (E.DIAG_GROWTH, column 3) against Cycles' daily change in tota
 import os,sys,json,csv,shutil,subprocess,datetime
 os.environ.setdefault("REGIONAL","0"); os.environ["LEAD_YEARS"]="continuous"; sys.path.insert(0,'.')
 NS=int(sys.argv[1]); NLEV=int(sys.argv[2]); os.environ["N_LEVELS"]=str(NLEV)
-import numpy as np, run_validation_multisite as m, cycles_engine_validate as E
+import numpy as np, run_validation_multisite as m, rhizo_engine as E
 if os.environ.get("HEAT_T0"): E.HEAT_T0=float(os.environ["HEAT_T0"]); E.VPD_CYCLES_EXACT=False if os.environ.get("HEAT_ON_EXACT")!="1" else True
 if os.environ.get("HEAT_A"): E.HEAT_A=float(os.environ["HEAT_A"])
 if os.environ.get("HEAT_GT"): E.HEAT_GT=os.environ["HEAT_GT"]=="1"

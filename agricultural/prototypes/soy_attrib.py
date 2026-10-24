@@ -4,7 +4,7 @@ import sys,os,csv,json,random,datetime,numpy as np
 os.environ["REGIONAL"]="0";os.environ["LEAD_YEARS"]="continuous";os.environ["BIGSET"]="/tmp/w/fresh120.json";os.environ["CROPSEL"]="soy"
 NS,OUT=int(sys.argv[1]),sys.argv[2];sys.argv=['x']
 sys.path.insert(0,'.')
-import cycles_engine_validate as E, run_validation_multisite as m
+import rhizo_engine as E, run_validation_multisite as m
 from multiprocessing import Pool
 ALL={k:tuple(v) for k,v in json.load(open("/tmp/w/fresh120.json")).items()}
 random.seed(5);SITES=sorted(random.sample([k for k in sorted(ALL) if os.path.isdir(f'/tmp/cycles-run15/output/{k}soyN0')],NS))

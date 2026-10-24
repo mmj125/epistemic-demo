@@ -4,7 +4,7 @@ Usage: python3 cycles_law_check_2026_10_18.py N_SITES N"""
 import os,sys,json,csv,shutil,subprocess,datetime
 os.environ.setdefault("REGIONAL","0"); os.environ["LEAD_YEARS"]="continuous"; sys.path.insert(0,'.')
 NS=int(sys.argv[1]); NLEV=int(sys.argv[2]); os.environ["N_LEVELS"]=str(NLEV)
-import numpy as np, run_validation_multisite as m, cycles_engine_validate as E, run_validation as rv
+import numpy as np, run_validation_multisite as m, rhizo_engine as E, run_validation as rv
 from multiprocessing import Pool
 S=json.load(open('/tmp/w/s24.json'))
 def rd(p): return [r for r in csv.DictReader(open(p)) if r['date'][0]!='#']

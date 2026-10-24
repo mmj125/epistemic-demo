@@ -3,7 +3,7 @@ Windows (same dates for both models, set by the ENGINE's planting day and last c
 Terms kg N/ha: pool at the start, net mineralization, crop uptake (season), leaching, denitrification, volatilization, pool at the end, closure = start+min-uptake-losses-end."""
 import sys,os,csv,datetime,json,numpy as np
 sys.path.insert(0,'.');os.environ.setdefault("LEAD_YEARS","continuous");os.environ.setdefault("REGIONAL","0");os.environ["N_LEVELS"]=sys.argv[1] if len(sys.argv)>1 else "0"
-import cycles_engine_validate as E, run_validation_multisite as m
+import rhizo_engine as E, run_validation_multisite as m
 from multiprocessing import Pool
 E.ROOT_C_REALIZED_GROWTH=True
 import shutil,subprocess

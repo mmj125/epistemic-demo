@@ -3,7 +3,7 @@ multipliers (weighted by intercepted radiation), season length, biomass and grai
 Usage: python3 yield_attribution.py N   (N = 0 | 150 | 400)"""
 import sys,os,csv,json,datetime,numpy as np
 sys.path.insert(0,'.');os.environ.setdefault("LEAD_YEARS","continuous")
-import cycles_engine_validate as E, run_validation_multisite as m
+import rhizo_engine as E, run_validation_multisite as m
 from multiprocessing import Pool
 E.ROOT_C_REALIZED_GROWTH=True
 N=int(sys.argv[1]) if len(sys.argv)>1 else 150

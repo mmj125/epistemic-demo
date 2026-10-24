@@ -4,7 +4,7 @@ volume (m3/m3); fresp = min(1, CO2/50), CO2 in mg C/kg soil/d. As published (no 
 import sys,numpy as np
 sys.path.insert(0,'.')
 import denit_mgmt_eval_2026_10_21 as V
-import cycles_engine_validate as E
+import rhizo_engine as E
 D=V.load("base"); prev=V.prev
 sat=D["sat_1"]; th=prev(D["th_1"]); dz=D["thick_1"]; y=D["denit"]
 bd=np.vectorize(E.sixpool_bulk_density)(sat)

@@ -2,7 +2,7 @@
 temperature_factor and o2_factor columns and by season stage. 24 sites, corn, continuous chain. Usage: python3 corn_growth_given_states_2026_10_17.py"""
 import os,sys,json,csv,datetime,shutil,subprocess,numpy as np
 os.environ["N_LEVELS"]="0,150"; os.environ.setdefault("REGIONAL","0"); os.environ.setdefault("LEAD_YEARS","continuous"); os.environ.setdefault("YEAR_STEP","2"); sys.path.insert(0,'.')
-import run_validation_multisite as m, cycles_engine_validate as E, forcelib
+import run_validation_multisite as m, rhizo_engine as E, forcelib
 from multiprocessing import Pool
 CY=m.CY
 def one(a):

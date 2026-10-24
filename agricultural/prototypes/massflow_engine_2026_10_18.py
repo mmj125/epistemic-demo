@@ -4,7 +4,7 @@ species determines the species' access to mineral N. Here each layer's root wate
 N=0, 165 at N=150 over 14 sites). Usage: python3 massflow_engine_2026_10_18.py N_SITES (engine config from the environment, e.g. ENGINE_OVR)."""
 import os,sys,json
 os.environ.setdefault("REGIONAL","0"); os.environ["LEAD_YEARS"]="continuous"; os.environ["N_LEVELS"]="0,150"; sys.path.insert(0,'.')
-import numpy as np, run_validation_multisite as m, cycles_engine_validate as E
+import numpy as np, run_validation_multisite as m, rhizo_engine as E
 from multiprocessing import Pool
 S=json.load(open('sitesets/fresh94.json'))
 def one(a):

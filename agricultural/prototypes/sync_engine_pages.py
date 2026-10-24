@@ -1,5 +1,5 @@
 """Rebuilds the embedded Python engine inside engine-demo.html and model-validation.html from the canonical
-cycles_engine_validate.py (2026-10-08). Each page's ENGINE_SOURCE = the canonical file verbatim (backticks in
+rhizo_engine.py (2026-10-08). Each page's ENGINE_SOURCE = the canonical file verbatim (backticks in
 comments/docstrings swapped for apostrophes so the JS template literal stays valid) + that page's own tail
 (SOIL_LAYERS_RAW, make_layers, crop dicts, CROPS). The tail is preserved from the page; only the crop
 calibration factors are refreshed from the validation harnesses. Run: python3 sync_engine_pages.py
@@ -13,7 +13,7 @@ import run_validation as rv
 import run_validation_rotation2 as r2
 
 MARK = "const ENGINE_SOURCE = String.raw`"
-HEADER = ("# ===== Synced verbatim from cycles_engine_validate.py by sync_engine_pages.py (do not hand-edit this block;\n"
+HEADER = ("# ===== Synced verbatim from rhizo_engine.py by sync_engine_pages.py (do not hand-edit this block;\n"
           "# edit the canonical file and re-run the sync). Page-specific soil/crop definitions follow the engine. =====\n")
 TAIL_MARK = "SOIL_LAYERS_RAW = ["
 # page-specific crop calibration: harness value (validated against Cycles) times the page's historical ratio
@@ -24,7 +24,7 @@ PAGES = {
 }
 
 def canonical():
-    return open(os.path.join(HERE, "cycles_engine_validate.py")).read().replace("`", "'")
+    return open(os.path.join(HERE, "rhizo_engine.py")).read().replace("`", "'")
 
 def set_cal(tail, name, value):
     # replace calibration_factor=<number> inside the "NAME = dict(" block only

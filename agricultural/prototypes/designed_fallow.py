@@ -5,8 +5,8 @@ runs the engine's fallow nitrogen window on the same inputs, and reports engine/
 import sys,os,json,itertools,subprocess,csv,math
 import numpy as np
 sys.path.insert(0,'.')
-import cycles_engine_validate as cev
-from cycles_engine_validate import saxton_rawls
+import rhizo_engine as cev
+from rhizo_engine import saxton_rawls
 import run_validation_multisite as m
 CY=m.CY
 TH=[float(x) for x in os.environ.get("DF_TH","0.20,0.20,0.30,0.30,0.50,0.50").split(",")];YRS=6;SPIN=2   # realistic STATSGO-like layering (a thin 0.05/0.10/0.15 m top triggered the equal-step evaporation artifact, row 42)

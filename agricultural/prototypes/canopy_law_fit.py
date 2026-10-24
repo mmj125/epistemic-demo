@@ -1,6 +1,6 @@
 import sys,os,csv,numpy as np
 sys.path.insert(0,'.')
-import cycles_engine_validate as E, run_validation_multisite as m
+import rhizo_engine as E, run_validation_multisite as m
 sites=list(m.SITES)+list(m.HELDOUT_SITES)
 TTM=1800.0;shape=E.DEFAULT_CANOPY_SHAPE
 xs=np.linspace(0,0.6,6001);cc=np.array([E.canopy_cover(x,1.0,shape) for x in xs]);cc_inc=np.maximum.accumulate(cc)

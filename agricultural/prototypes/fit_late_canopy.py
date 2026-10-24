@@ -4,7 +4,7 @@ drive the clocks, so the fit is independent of engine errors. canopy = eix/(1+ex
 Usage: python3 fit_late_canopy.py"""
 import sys,os,csv,json,numpy as np
 sys.path.insert(0,'.')
-import cycles_engine_validate as E, run_validation_multisite as m
+import rhizo_engine as E, run_validation_multisite as m
 from scipy.optimize import least_squares
 TT_MAT=1800.0;A,B=6.0,-20.0;EIX=0.99
 NP,WP=E.CANOPY_N_POW,E.CANOPY_WATER_POW

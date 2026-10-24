@@ -1,7 +1,7 @@
 """Engine vs Cycles daily water stress multiplier by thermal-time bin (corn, 24 sites, free engine, N=150), to see whether the engine's water state is too severe/mild where the canopy clock uses it. Usage: ENGINE_OVR=... python3 corn_water_state_2026_10_17.py"""
 import os,sys,json,shutil,csv,datetime,subprocess,statistics as st
 os.environ["N_LEVELS"]="150"; os.environ.setdefault("REGIONAL","0"); sys.path.insert(0,'.')
-import run_validation_multisite as m, cycles_engine_validate as E
+import run_validation_multisite as m, rhizo_engine as E
 from multiprocessing import Pool
 CY=m.CY
 def one(a):

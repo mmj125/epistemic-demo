@@ -148,7 +148,7 @@ async function resolveFieldTile(kmlText, baseUrl) {
 // Per tile file: cells in the exact order manifest.tiles[key].cells lists
 // them; each cell's days in chronological order across manifest.years[0]
 // through manifest.years[1] inclusive (real Gregorian leap days included,
-// matching cycles_engine_validate.py's own 13,515-day validated record for
+// matching rhizo_engine.py's own 13,515-day validated record for
 // 1980-2016); each day's fields in manifest.fields order; all little-endian
 // int16, scaled per manifest.scale. This is the same field order the
 // embedded engine's own ALL_WX already uses (see engine-demo.html's

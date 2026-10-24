@@ -1,7 +1,7 @@
 """Engine corn + cereal rye cover crop against the Cycles reference (cover_ref.json from cover_ref_2026_10_21.py), 12 sites, N=0 and 150."""
 import os,sys,json,copy
 os.environ.setdefault("REGIONAL","0"); sys.path.insert(0,'/home/user/epistemic-demo/agricultural/prototypes')
-import numpy as np, run_validation_multisite as m, run_validation_rotation2 as r2, cycles_engine_validate as E
+import numpy as np, run_validation_multisite as m, run_validation_rotation2 as r2, rhizo_engine as E
 from multiprocessing import Pool
 S=json.load(open('/tmp/w/s24.json')); SITES=sorted(S)
 REF=json.load(open('/tmp/w/cover_ref.json'))

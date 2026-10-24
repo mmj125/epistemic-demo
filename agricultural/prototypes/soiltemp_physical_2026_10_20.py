@@ -4,7 +4,7 @@ HC(D) = implicit 1-D heat conduction, surface node = daily mean air temperature,
 Prints rms error (C) by layer and by season for each model."""
 import os,sys,json,csv,shutil,subprocess
 os.environ.setdefault("REGIONAL","0"); os.environ["N_LEVELS"]="0"; sys.path.insert(0,'.')
-import numpy as np, run_validation_multisite as m, cycles_engine_validate as E
+import numpy as np, run_validation_multisite as m, rhizo_engine as E
 from multiprocessing import Pool
 S=json.load(open('/tmp/w/s24.json'))
 def rd(p): return [r for r in csv.DictReader(open(p)) if r['date'][0]!='#']

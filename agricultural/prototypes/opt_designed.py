@@ -4,7 +4,7 @@ import sys,os,json,math,csv,itertools
 os.environ["REGIONAL"]="0";os.environ["LEAD_YEARS"]="continuous"
 import numpy as np
 sys.path.insert(0,'.')
-import run_validation_multisite as m,cycles_engine_validate as E,designed_crop as D
+import run_validation_multisite as m,rhizo_engine as E,designed_crop as D
 from multiprocessing import Pool
 CY=m.CY;YS=[y for y in D.YRS if y>=1983]
 def cyc(site,N):
