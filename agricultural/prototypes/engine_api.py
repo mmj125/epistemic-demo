@@ -118,6 +118,46 @@ _STATE = {"wx": None, "soil": None, "lat": None}
 # n_demand_scale 0.74 is measured on Cycles' soybean plant N (203 kg N/ha, 24 sites), class D in the ledger.
 _SOYBEAN_N = dict(_SOYBEAN, legume_n=True, n_demand_ref=True, n_uptake_rate=0.03, n_stress_ag_basis=True, n_demand_scale=0.74)
 
+# ---- what the page shows scientists about the model (single source: the page reads info(), it never hard-codes these) ----
+ENGINE_INFO = {
+    "name": "Crop simulator",
+    "version": "2026-10-24",
+    "summary": "A daily-step crop, soil water, carbon and nitrogen model written from scratch in Python and run in your browser. Its equations come from the published Cycles paper and its supplement (Kemanian et al. 2024) and from the literature cited below; where the sources give no equation the model uses a measured relationship and says so. It is tested against the Cycles model and against observations, and it is a teaching and exploration tool, not a calibrated forecasting model.",
+    "validation_note": "Agreement with Cycles v1.5.20 on identical weather and soil, held-out sites, 1980 to 2016 (94 sites for spring crops, 60 for winter wheat). r is the correlation across all site-years pooled; bias and error are the model minus Cycles in grain yield. Cycles itself disagrees with its own variants by about 0.17 to 1.4 Mg/ha depending on what changes.",
+    "validation_columns": ["Crop", "N rate (kg N/ha)", "r", "Bias (%)", "Mean abs error (Mg/ha)"],
+    "validation": [
+        ["Corn", "0 / 150 / 400", "0.96 / 0.92 / 0.97", "-9 / 0 / -6", "0.47 / 0.95 / 0.85"],
+        ["Silage corn", "0 / 150 / 400", "0.94 / 0.92 / 0.95", "-9 / -5 / -7", "0.88 / 1.70 / 1.61"],
+        ["Sorghum", "0 / 150 / 400", "0.95 / 0.89 / 0.93", "-14 / -5 / -11", "0.51 / 1.09 / 1.16"],
+        ["Soybean", "none", "0.96", "-1", "0.33"],
+        ["Winter wheat", "0 / 90 / 150", "0.93 / 0.87 / 0.87", "0 / +3 / -1", "0.36 / 0.65 / 0.74"],
+    ],
+    "observations": [
+        "County yields (USDA NASS, 94 counties, 1982 to 2016): year-to-year agreement within a county, median r 0.43 for corn (Cycles 0.38), 0.34 soybean, 0.31 silage, 0.15 wheat; mean level 0.93 of the county corn mean.",
+        "Mead, Nebraska flux towers and measured yields: corn and soybean yields as close to the measurements as Cycles' (for example irrigated corn 12.4 modelled, 11.7 measured Mg/ha).",
+        "Corn after soybean in a rotation: 0.96 to 0.99 of Cycles' yield with no nitrogen, 0.93 to 0.95 at 150 kg N/ha.",
+    ],
+    "limitations": [
+        "Yields run low against the reference at high yield and high nitrogen (bias -6 to -14 percent for the spring crops): the soil surface is slightly too dry in spring, so water stress is a little too strong.",
+        "The yield gain from 150 to 400 kg N/ha is only about 65 to 80 percent of the reference's; the gain from 0 to 150 matches.",
+        "Denitrification and nitrous oxide are about 0.5 to 0.8 of the reference at 150 kg N/ha or more; leaching is within a few kg N/ha of it, higher for silage corn.",
+        "Drought-year losses are overstated (roughly three times the observed loss in 2012); cold, wet years are missed.",
+        "Weather is a 0.5 degree gridded record, 1980 to 2016, which runs warm and dry in summer against flux towers; soil is the nearest STATSGO2 profile. A run is one point, not a field or county.",
+        "Runs start with no spin-up, so the first years reflect the starting soil. The rotation option always starts with corn.",
+        "Not modelled: pests, disease, hail, lodging, weeds, erosion, phosphorus and potassium. The rye cover crop has not been tested against the reference.",
+    ],
+    "sources": [
+        "Kemanian, A.R., Shi, Y., White, C.M., Montes, F., Stockle, C.O., Huggins, D.R., et al., 2024. The Cycles agroecosystem model: fundamentals, testing, and applications. Computers and Electronics in Agriculture 227, 109510, and its supplement (growth, partition, canopy, water, carbon and nitrogen equations).",
+        "Pravia, M.V., Kemanian, A.R., et al., 2019. Soil carbon saturation, productivity, and carbon and nitrogen cycling in crop-pasture rotations. Agricultural Systems 171, 13-22 (decomposition constants).",
+        "Kemanian, A.R. and Williams, J.R., 2011. APEX model upgrades, CEAP (denitrification and nitrous oxide); Stockle, C.O. and Campbell, G.S., 1989 (nitrification temperature, plant water uptake); Saxton, K.E. and Rawls, W.J., 2006 (soil hydraulic properties); Allen et al., FAO-56 (reference evapotranspiration).",
+    ],
+}
+
+
+def info():
+    return json.dumps(ENGINE_INFO)
+
+
 def schema():
     return json.dumps(SCHEMA)
 
