@@ -1,4 +1,4 @@
-"""Classifies every module-level constant of cycles_engine_validate.py by provenance (2026-10-20). Classes:
+"""Classifies every module-level constant of rhizo_engine.py by provenance (2026-10-20). Classes:
  DIAG  diagnostic hook, no model effect;   OFF  option switched off by default (dead unless enabled);
  DOC   documented in the paper, SI, crop file, guide, or a standard published reference;
  C     constant fitted or measured on Cycles' own output (form from the paper or literature);
@@ -7,7 +7,7 @@
  LEG   superseded legacy constant (a newer path overrides it; verify before deleting).
 Usage: python3 inventory_2026_10_20.py   prints counts and the members of each class."""
 import ast,re,collections
-src=open('cycles_engine_validate.py').read(); tree=ast.parse(src)
+src=open('rhizo_engine.py').read(); tree=ast.parse(src)
 rows={}
 for n in tree.body:
     if isinstance(n,ast.Assign) and isinstance(n.targets[0],ast.Name):

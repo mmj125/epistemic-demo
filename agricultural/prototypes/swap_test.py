@@ -2,7 +2,7 @@
 remains. A canopy interception, B water-stress multiplier, C N-stress multiplier, D = A+B+C. Usage: python3 swap_test.py"""
 import sys,os,csv,json,datetime,statistics,numpy as np
 sys.path.insert(0,'.');os.environ.setdefault("LEAD_YEARS","continuous")
-import cycles_engine_validate as E, run_validation_multisite as m
+import rhizo_engine as E, run_validation_multisite as m
 from multiprocessing import Pool
 E.ROOT_C_REALIZED_GROWTH=True
 ALL=dict(m.SITES);ALL.update(m.HELDOUT_SITES)

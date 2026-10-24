@@ -3,7 +3,7 @@ multiplier (nstress), and forces Cycles' own daily values of each into the engin
 K nclock (N factor on the canopy clock), L wclock (water factor on the clock), N nstress (growth multiplier), C canopy interception (overrides the clock result)."""
 import os,sys,json,shutil,statistics as st
 os.environ["N_LEVELS"]="0,150"; os.environ.setdefault("REGIONAL","0"); sys.path.insert(0,'.')
-import run_validation_multisite as m, cycles_engine_validate as E, forcelib
+import run_validation_multisite as m, rhizo_engine as E, forcelib
 from multiprocessing import Pool
 CY=m.CY
 KEYS={'K':'nclock','L':'wclock','N':'nstress','C':'canopy'}

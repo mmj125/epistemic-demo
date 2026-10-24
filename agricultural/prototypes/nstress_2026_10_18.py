@@ -2,7 +2,7 @@
 Usage (engine config comes from the environment, e.g. ENGINE_OVR="CROP.n_uptake_rate=None"): TAG=default python3 nstress_2026_10_18.py N_SITES"""
 import os,sys,json,csv,shutil,subprocess,datetime
 os.environ.setdefault("REGIONAL","0"); os.environ["LEAD_YEARS"]="continuous"; os.environ["N_LEVELS"]="0,150"; sys.path.insert(0,'.')
-import numpy as np, run_validation_multisite as m, cycles_engine_validate as E
+import numpy as np, run_validation_multisite as m, rhizo_engine as E
 from multiprocessing import Pool
 S=json.load(open('sitesets/fresh94.json'))
 def rd(path): return [r for r in csv.DictReader(open(path)) if r['date'][0]!='#']

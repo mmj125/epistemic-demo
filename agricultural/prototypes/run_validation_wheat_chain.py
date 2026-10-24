@@ -6,8 +6,8 @@ Env: PL=1 per-layer six-pool and per-layer nitrate, LEAD=prior seasons, CARRYC=1
 import sys,statistics as st,math,copy,os
 sys.path.insert(0,"/home/user/epistemic-demo/agricultural/prototypes")
 import run_validation_rotation2 as r
-import cycles_engine_validate as cev
-from cycles_engine_validate import *
+import rhizo_engine as cev
+from rhizo_engine import *
 PL=os.environ.get("PL","0")=="1"; LEAD=int(os.environ.get("LEAD","2")); CARRYC=os.environ.get("CARRYC","1")=="1"
 _,wf=r.load_weather(); fi={(y,d):i for i,(y,d,_) in enumerate(wf)}
 real=r.real_harvest("ContinuousWheat","WinterWheat")

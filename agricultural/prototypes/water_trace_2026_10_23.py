@@ -4,7 +4,7 @@ engine's formula is not the problem and its soil water STATE is; if not, the for
 root depth as the engine grows it or at full depth; Usage: python3 water_trace_2026_10_23.py"""
 import os,sys,json,csv,shutil,subprocess,datetime,copy
 os.environ.setdefault("REGIONAL","0"); os.environ["LEAD_YEARS"]="continuous"; os.environ["N_LEVELS"]="150"; sys.path.insert(0,'.')
-import numpy as np, run_validation_multisite as m, cycles_engine_validate as E, run_validation as rv
+import numpy as np, run_validation_multisite as m, rhizo_engine as E, run_validation as rv
 from multiprocessing import Pool
 S=json.load(open('/tmp/w/s24.json'))
 def rd(p): return [r for r in csv.DictReader(open(p)) if r['date'][0]!='#']

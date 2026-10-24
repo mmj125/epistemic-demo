@@ -2,7 +2,7 @@
 Compared with the corn law the engine uses for every crop: stress = Smax x ((R0 - r)/(R0 - R1))^q for r between R1 and R0."""
 import os,sys,json,csv,shutil,subprocess
 os.environ["N_LEVELS"]="0,90,150"; os.environ.setdefault("REGIONAL","0"); os.environ["FALLN"]="60"; sys.path.insert(0,'.')
-import numpy as np, run_validation_multisite_wheat as W, run_validation_multisite as m, cycles_engine_validate as E, run_validation_rotation2 as r2
+import numpy as np, run_validation_multisite_wheat as W, run_validation_multisite as m, rhizo_engine as E, run_validation_rotation2 as r2
 from multiprocessing import Pool
 CY=m.CY
 def one(a):

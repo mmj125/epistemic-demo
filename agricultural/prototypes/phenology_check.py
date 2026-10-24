@@ -2,7 +2,7 @@
 Phenology depends on weather only (no N or water coupling), so errors here are exogenous. Usage: python3 phenology_check.py"""
 import sys,os,csv,json,datetime,numpy as np
 sys.path.insert(0,'.');os.environ.setdefault("LEAD_YEARS","continuous");sys.argv=['x']
-import swap_test as S, cycles_engine_validate as E, run_validation_multisite as m
+import swap_test as S, rhizo_engine as E, run_validation_multisite as m
 from multiprocessing import Pool
 E.ROOT_C_REALIZED_GROWTH=True
 def one(site):

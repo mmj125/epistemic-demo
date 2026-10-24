@@ -1,7 +1,7 @@
 """Refit the layer-1 denitrification law on pooled base + irrigated Cycles daily states, odd/even site hold-out (2026-10-21)."""
 import sys,numpy as np
 sys.path.insert(0,'.')
-import cycles_engine_validate as E
+import rhizo_engine as E
 from scipy.optimize import least_squares
 import denit_mgmt_eval_2026_10_21 as V
 B=V.load("base"); I=V.load("irrig")

@@ -5,7 +5,7 @@ import sys,os,csv,json,random,numpy as np
 os.environ["REGIONAL"]="0";os.environ["LEAD_YEARS"]="continuous";os.environ["BIGSET"]="/tmp/w/big240.json"
 NS,OUT=int(sys.argv[1]),sys.argv[2];sys.argv=['x']
 sys.path.insert(0,'.')
-import cycles_engine_validate as E, run_validation_multisite as m, forcelib
+import rhizo_engine as E, run_validation_multisite as m, forcelib
 from multiprocessing import Pool
 ALL={}
 for f in ("/tmp/w/big240.json","/tmp/w/old28.json"):ALL.update({k:tuple(v) for k,v in json.load(open(f)).items()})

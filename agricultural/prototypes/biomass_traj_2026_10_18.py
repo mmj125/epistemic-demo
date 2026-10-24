@@ -2,7 +2,7 @@
 Cycles: dailyCornRM.90 aboveground_biomass and thermal_time. Engine: DIAG_AG and DIAG_WATER (year, doy, water stress, thermal time) appended once per in-season day."""
 import os,sys,json,csv,shutil,subprocess,datetime
 NL=os.environ.get("NLEV","150"); os.environ.setdefault("REGIONAL","0"); os.environ["LEAD_YEARS"]="continuous"; os.environ["N_LEVELS"]=NL; sys.path.insert(0,'.')
-import numpy as np, run_validation_multisite as m, cycles_engine_validate as E
+import numpy as np, run_validation_multisite as m, rhizo_engine as E
 from multiprocessing import Pool
 S=json.load(open('sitesets/fresh94.json')); MAT=1800.0
 def rd(p): return [r for r in csv.DictReader(open(p)) if r['date'][0]!='#']

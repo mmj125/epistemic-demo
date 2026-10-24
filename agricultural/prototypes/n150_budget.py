@@ -2,7 +2,7 @@
 fertilizer-driven difference (N150 minus N0). Usage: python3 n150_budget.py [site ...]; writes /tmp/w/n150_budget_'+os.environ.get('TAG','x')+'.json"""
 import sys,os,csv,json,numpy as np
 sys.path.insert(0,'.');os.environ.setdefault("LEAD_YEARS","continuous")
-import cycles_engine_validate as E, run_validation_multisite as m
+import rhizo_engine as E, run_validation_multisite as m
 from multiprocessing import Pool
 E.ROOT_C_REALIZED_GROWTH=True
 for _a in os.environ.get('OVR','').split(';'):

@@ -2,7 +2,7 @@
 (engine biomass and stress function unchanged); N forces the stress multiplier; C forces canopy. Usage: python3 force_uptake.py"""
 import sys,os,csv,json,datetime,numpy as np
 sys.path.insert(0,'.');os.environ.setdefault("LEAD_YEARS","continuous");sys.argv=['x']
-import swap_test as S, cycles_engine_validate as E, run_validation_multisite as m
+import swap_test as S, rhizo_engine as E, run_validation_multisite as m
 from multiprocessing import Pool
 E.ROOT_C_REALIZED_GROWTH=True
 SUBS=['','U','N','C','CU','CN']

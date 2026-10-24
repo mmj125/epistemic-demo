@@ -3,7 +3,7 @@ for law-structure tests. Output /tmp/w/ntable.npz. Usage: python3 nlaw_table.py"
 import os,sys,json,numpy as np,pandas as pd
 sys.path.insert(0,'.')
 import field_data as fd
-from cycles_engine_validate import saxton_rawls, OM_FROM_SOC
+from rhizo_engine import saxton_rawls, OM_FROM_SOC
 CY='/tmp/cycles-run15/output'
 COLS=['denit','nit','vol','no3','no3_1','no3_2','nh4','nh4_1','rel1','rel2','relmax','rel1_l1','rel1_l2','rel1_l3','rel1_max5','rel1_mean5','T1','Tair','som','res','hum','drain','drain_l1','pp','infil','et0','vpd','clay','sat1','soc1','Nrate','site','doy','yr','cs_c','leach']
 def rd(p): return pd.read_csv(p,skiprows=[1])

@@ -2,7 +2,7 @@
 Corn, silage and sorghum read 1.002 to 1.007 above-ground at N>=150 in the same test (ngf 1.0). Uses wheat_attrib.series() for the forced series."""
 import os,sys,json,statistics as st
 os.environ["N_LEVELS"]="0,150"; os.environ.setdefault("REGIONAL","0"); os.environ["FALLN"]="60"; sys.path.insert(0,'.')
-import wheat_attrib as A, run_validation_multisite_wheat as W, run_validation_multisite as m, cycles_engine_validate as E
+import wheat_attrib as A, run_validation_multisite_wheat as W, run_validation_multisite as m, rhizo_engine as E
 from multiprocessing import Pool
 CY=m.CY
 def one(a):

@@ -3,7 +3,7 @@ Treatments: till (Chisel_st_pt before the planter), late (planting window +25 d)
 Measures per site-year: grain, leaching (NO3+NH4), denitrification, N2O, volatilization."""
 import os,sys,json,shutil,subprocess
 os.environ.setdefault("REGIONAL","0"); os.environ["LEAD_YEARS"]="continuous"; sys.path.insert(0,'/home/user/epistemic-demo/agricultural/prototypes')
-import numpy as np, run_validation_multisite as m, cycles_engine_validate as E
+import numpy as np, run_validation_multisite as m, rhizo_engine as E
 from cover_chain_2026_10_21 import corn_crop
 from multiprocessing import Pool
 E.TILLAGE_IMPLEMENTS["Chisel+planter"]=(0.25,19+5,1-(1-0.265919)*(1-0.071554))

@@ -1,7 +1,7 @@
 """Step 5 scoping (2026-10-23): the engine's corn-soybean rotation (year_plan, soybean path passes mineral N and carbon through unchanged) against Cycles' own rotation (rotation_scope_2026_10_23.py output /tmp/w/rot_cycles.json), 24 sites, N=0 and 150 on corn, none on soybean."""
 import os,sys,json
 os.environ.setdefault("REGIONAL","0"); os.environ["LEAD_YEARS"]="continuous"; sys.path.insert(0,'.')
-import numpy as np, run_validation_multisite as m, cycles_engine_validate as E, engine_api as api
+import numpy as np, run_validation_multisite as m, rhizo_engine as E, engine_api as api
 from multiprocessing import Pool
 S=json.load(open(os.environ.get('SITES','/tmp/w/s24.json'))); TAG=os.environ.get('ROTTAG',''); orig=m.simulate_continuous
 def patched(wx,crop,**kw):

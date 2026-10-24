@@ -1,9 +1,11 @@
-# Prototype folder index (2026-10-23)
+# Prototype folder index (2026-10-24)
+
+The engine is named Rhizo; its file `rhizo_engine.py` was `cycles_engine_validate.py` until 2026-10-24 (plan, logs and the frozen pages still use the old name).
 
 About 220 scripts remain here. Most are dated one-shot diagnostics (name ends in a date) that the plan entries cite as evidence for a number; they are not part of the engine and need not be read. Run guards and tools by name from this folder. A script deleted on 2026-10-23 was never imported or cited anywhere (list in `../../CLAUDE_ARCHIVE_2026-10-23.md`); git history has it.
 
 ## The engine and what ships
-- `cycles_engine_validate.py`: the engine (every process, flag and switch).
+- `rhizo_engine.py`: the engine (every process, flag and switch).
 - `engine_api.py`: the browser-facing configuration (`schema`, `load_site`, `run`), crop dictionaries, rotation, cover crop.
 - `simulator.html`, `field_selector.js`: the user interface; `engine-demo.html`, `model-validation.html`, `head-to-head.html`: frozen older pages (do not resync).
 - `run_validation.py`, `run_validation_rotation2.py`: crop dictionaries and the Rock Springs crash guard.

@@ -1,6 +1,6 @@
 import sys,os,csv,numpy as np
 sys.path.insert(0,'.');os.environ.setdefault("LEAD_YEARS","continuous");sys.argv=['x']
-import swap_test as S, cycles_engine_validate as E, run_validation_multisite as m
+import swap_test as S, rhizo_engine as E, run_validation_multisite as m
 E.ROOT_C_REALIZED_GROWTH=True
 for site in ('indiana','maryland','mississippi','missouri','kentucky','iowa','kansas'):
     lat,lon=S.ALL[site];wx,_=m.fd.resolve_field_weather(lat,lon);soil,_,_=m.fd.resolve_field_soil(lat,lon);cl=m.lat_of(lat,lon)

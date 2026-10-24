@@ -3,7 +3,7 @@ and within-site correlation versus Cycles v1.5.20, to see which state owns the N
 all (canopy, water, nstress, wclock, nclock, netmin, minn). Usage: python3 corn_n0_attrib_2026_10_17.py"""
 import os,sys,json,shutil,statistics as st
 os.environ["N_LEVELS"]=os.environ.get("NS","0,150"); os.environ.setdefault("REGIONAL","0"); sys.path.insert(0,'.')
-import run_validation_multisite as m, cycles_engine_validate as E, forcelib
+import run_validation_multisite as m, rhizo_engine as E, forcelib
 from mask_attrib_2026_10_16 import harv
 from multiprocessing import Pool
 import subprocess

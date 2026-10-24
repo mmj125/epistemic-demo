@@ -2,7 +2,7 @@
 reports mean N stress multiplier (1 = none) and total plant N (kg/ha) for both, and the within-decile site-year correlation of the engine and Cycles N stress. Usage: python3 corn_nstate_2026_10_17.py"""
 import os,sys,json,csv,datetime,shutil,subprocess,statistics as st
 os.environ["N_LEVELS"]="0,150"; os.environ.setdefault("REGIONAL","0"); os.environ.setdefault("LEAD_YEARS","continuous"); os.environ.setdefault("YEAR_STEP","2"); sys.path.insert(0,'.')
-import run_validation_multisite as m, cycles_engine_validate as E, forcelib
+import run_validation_multisite as m, rhizo_engine as E, forcelib
 from multiprocessing import Pool
 CY=m.CY
 def one(a):

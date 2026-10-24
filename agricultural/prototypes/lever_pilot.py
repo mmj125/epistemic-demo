@@ -2,7 +2,7 @@
 and irrigation (five 25 mm fixed applications, N=150). Compares the EFFECT of the lever (lever minus baseline, per year), not the yield level. Usage: python3 lever_pilot.py"""
 import os,sys,json,copy,statistics,subprocess,numpy as np
 os.environ.update(REGIONAL="1",LEAD_YEARS="continuous",BIGSET="/tmp/w/fresh120.json");sys.argv=['x']
-import run_validation_multisite as m, cycles_engine_validate as E
+import run_validation_multisite as m, rhizo_engine as E
 CY=m.CY
 S={k:tuple(v) for k,v in json.load(open('/tmp/w/fresh120.json')).items()}
 # five sites spread over growing-season rainfall

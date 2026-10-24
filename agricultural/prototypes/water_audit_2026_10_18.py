@@ -3,7 +3,7 @@ under 0.2, 0.2 to 0.6, over 0.6). Compares ETo, soil evaporation, residue evapor
 Usage: python3 water_audit_2026_10_18.py   (ENGINE_OVR as usual)"""
 import os,sys,json,csv,shutil,subprocess,datetime
 os.environ.setdefault("REGIONAL","0"); os.environ["LEAD_YEARS"]="continuous"; os.environ["N_LEVELS"]="150"; sys.path.insert(0,'.')
-import numpy as np, run_validation_multisite as m, cycles_engine_validate as E
+import numpy as np, run_validation_multisite as m, rhizo_engine as E
 from multiprocessing import Pool
 S=json.load(open('/tmp/w/s24.json'))
 def rd(p): return [r for r in csv.DictReader(open(p)) if r['date'][0]!='#']

@@ -21,7 +21,7 @@ for name,(lat,lon) in SITES.items():
                 d=max(d,abs(g-a["grain"]),abs(h["total"]-a["total"]),abs(leach-a["n_leached"]))
             print(f"{name} {key} N={N}: max abs difference {d:.2e}  ({len(H)} years)"); worst=max(worst,d)
     # cover crop (2026-10-21): corn with cereal rye, API against the chain called directly
-    import cycles_engine_validate as E, run_validation_rotation2 as r2
+    import rhizo_engine as E, run_validation_rotation2 as r2
     for N in (0,150):
         crop=dict(m.rv.CORN) if hasattr(m,"rv") else dict(m.cev.CORN); crop["lat_deg"]=cl; crop["make_layers"]=api._make_layers(soil); kw=E.standard_kwargs(soil,N)
         m.CROPSEL="corn"; crop=dict(m.cev.CORN) if False else crop

@@ -1,6 +1,6 @@
 """Is Cycles' N stress a clean function of (aboveground N concentration / critical)? R2 of the ratio alone, then residual vs other variables (2026-10-15). Usage: python3 nstress_clean.py"""
 import csv,glob,os,numpy as np,sys
-sys.path.insert(0,'.');import cycles_engine_validate as E,run_validation_rotation2 as rv
+sys.path.insert(0,'.');import rhizo_engine as E,run_validation_rotation2 as rv
 crop=rv.CORN if hasattr(rv,'CORN') else None
 if crop is None:
     import run_validation as r1;crop=r1.CORN

@@ -1,7 +1,7 @@
 import os,sys,json
 os.environ.setdefault("REGIONAL","0"); os.environ["LEAD_YEARS"]="continuous"; os.environ["N_LEVELS"]="150"
 sys.path.insert(0,'/home/user/epistemic-demo/agricultural/prototypes')
-import numpy as np, run_validation_multisite as m, cycles_engine_validate as E
+import numpy as np, run_validation_multisite as m, rhizo_engine as E
 if len(sys.argv)>1: E.NH4_LAYERED=(sys.argv[1]=="1")
 S=json.load(open('/tmp/w/s24.json')); SITES=sorted(S)
 A=np.load('/tmp/w/ndata.npz')['A']

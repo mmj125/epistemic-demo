@@ -2,7 +2,7 @@
 24 fresh sites, N=0 and 150, free and with Cycles' daily canopy, water stress and N stress forced. Compares forage yield and total biomass."""
 import os,sys,json,csv,glob,re,shutil,subprocess,datetime,statistics as st
 os.environ["N_LEVELS"]="0,150"; os.environ.setdefault("REGIONAL","0"); sys.path.insert(0,'.')
-import run_validation_multisite as m, cycles_engine_validate as E
+import run_validation_multisite as m, rhizo_engine as E
 from multiprocessing import Pool
 CY=m.CY
 _sk=E.standard_kwargs

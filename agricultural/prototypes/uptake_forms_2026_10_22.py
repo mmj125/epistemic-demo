@@ -54,7 +54,7 @@ test("d. Eq.26: k*RL*(1-exp(-a(c-xmin)))*SWF^2",eq26,[0.05,0.2,0.2,0.3],[0.02,0.
 
 print("== uptake against the demand of Cycles' actual growth: U vs dB(total retained) x 10 x marginal pct x scale")
 import sys; sys.path.insert(0,'.')
-import cycles_engine_validate as E, run_validation as rv
+import rhizo_engine as E, run_validation as rv
 crop=dict(rv.CORN)
 B=ag+rt
 dB=np.zeros(len(B)); dB[1:]=B[1:]-B[:-1]

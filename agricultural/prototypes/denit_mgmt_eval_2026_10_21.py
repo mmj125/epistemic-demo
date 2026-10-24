@@ -1,6 +1,6 @@
 import sys,numpy as np
 sys.path.insert(0,'.')
-import cycles_engine_validate as E
+import rhizo_engine as E
 P=E.DENIT_SD
 def load(t):
     z=np.load(f"/tmp/w/dm_{t}.npz",allow_pickle=True); A=z["A"]; return {c:A[:,i] for i,c in enumerate(z["cols"])}

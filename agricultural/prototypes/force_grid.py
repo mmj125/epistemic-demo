@@ -2,7 +2,7 @@
 C canopy interception, W water stress (plus the stress clocks), N nitrogen stress, P planting-day mineral N pool. Usage: python3 force_grid.py"""
 import sys,os,csv,json,itertools,numpy as np
 sys.path.insert(0,'.');os.environ.setdefault("LEAD_YEARS","continuous");sys.argv=['x']
-import swap_test as S, cycles_engine_validate as E, run_validation_multisite as m
+import swap_test as S, rhizo_engine as E, run_validation_multisite as m
 from multiprocessing import Pool
 E.ROOT_C_REALIZED_GROWTH=True
 BLK={'C':('canopy',),'W':('water','wclock'),'N':('nstress',),'P':('minn',)}

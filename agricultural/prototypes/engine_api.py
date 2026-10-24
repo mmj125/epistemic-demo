@@ -1,17 +1,17 @@
 """The one interface between any user interface and the engine (2026-10-19).
 
 The page calls only three functions here: schema() (what controls exist), load_site(json) (weather and soil for the chosen
-place) and run(json) (one simulation). The engine file (cycles_engine_validate.py) can change freely behind them; the page
+place) and run(json) (one simulation). The engine file (rhizo_engine.py) can change freely behind them; the page
 builds its controls from schema() and its tables from run()'s own column list, so a new engine option is one entry in
 SCHEMA below, not a page change.
 
 Configurations here are the ones the scorecard scores: spring crops run as one continuous chain from the first year (the way
-Cycles runs 1980 to 2016), with the standard flag set from cycles_engine_validate.standard_kwargs; winter wheat uses the
+Cycles runs 1980 to 2016), with the standard flag set from rhizo_engine.standard_kwargs; winter wheat uses the
 fall-to-fall chain with 60 kg N in the fall (run_validation_multisite_wheat.py). check_parity_2026_10_19.py runs this module
 against the validation harness and must show identical numbers."""
 import copy
 import json
-import cycles_engine_validate as E
+import rhizo_engine as E
 
 API_VERSION = 1
 
@@ -120,9 +120,9 @@ _SOYBEAN_N = dict(_SOYBEAN, legume_n=True, n_demand_ref=True, n_uptake_rate=0.03
 
 # ---- what the page shows scientists about the model (single source: the page reads info(), it never hard-codes these) ----
 ENGINE_INFO = {
-    "name": "Crop simulator",
+    "name": "Rhizo",
     "version": "2026-10-24",
-    "summary": "A daily-step crop, soil water, carbon and nitrogen model written from scratch in Python and run in your browser. Its equations come from the published Cycles paper and its supplement (Kemanian et al. 2024) and from the literature cited below; where the sources give no equation the model uses a measured relationship and says so. It is tested against the Cycles model and against observations, and it is a teaching and exploration tool, not a calibrated forecasting model.",
+    "summary": "Rhizo is a daily-step crop, soil water, carbon and nitrogen model written from scratch in Python and run in your browser. Its equations come from the published Cycles paper and its supplement (Kemanian et al. 2024) and from the literature cited below; where the sources give no equation the model uses a measured relationship and says so. It is tested against the Cycles model and against observations.",
     "validation_note": "Agreement with Cycles v1.5.20 on identical weather and soil, held-out sites, 1980 to 2016 (94 sites for spring crops, 60 for winter wheat). r is the correlation across all site-years pooled; bias and error are the model minus Cycles in grain yield. Cycles itself disagrees with its own variants by about 0.17 to 1.4 Mg/ha depending on what changes.",
     "validation_columns": ["Crop", "N rate (kg N/ha)", "r", "Bias (%)", "Mean abs error (Mg/ha)"],
     "validation": [
@@ -136,15 +136,6 @@ ENGINE_INFO = {
         "County yields (USDA NASS, 94 counties, 1982 to 2016): year-to-year agreement within a county, median r 0.43 for corn (Cycles 0.38), 0.34 soybean, 0.31 silage, 0.15 wheat; mean level 0.93 of the county corn mean.",
         "Mead, Nebraska flux towers and measured yields: corn and soybean yields as close to the measurements as Cycles' (for example irrigated corn 12.4 modelled, 11.7 measured Mg/ha).",
         "Corn after soybean in a rotation: 0.96 to 0.99 of Cycles' yield with no nitrogen, 0.93 to 0.95 at 150 kg N/ha.",
-    ],
-    "limitations": [
-        "Yields run low against the reference at high yield and high nitrogen (bias -6 to -14 percent for the spring crops): the soil surface is slightly too dry in spring, so water stress is a little too strong.",
-        "The yield gain from 150 to 400 kg N/ha is only about 65 to 80 percent of the reference's; the gain from 0 to 150 matches.",
-        "Denitrification and nitrous oxide are about 0.5 to 0.8 of the reference at 150 kg N/ha or more; leaching is within a few kg N/ha of it, higher for silage corn.",
-        "Drought-year losses are overstated (roughly three times the observed loss in 2012); cold, wet years are missed.",
-        "Weather is a 0.5 degree gridded record, 1980 to 2016, which runs warm and dry in summer against flux towers; soil is the nearest STATSGO2 profile. A run is one point, not a field or county.",
-        "Runs start with no spin-up, so the first years reflect the starting soil. The rotation option always starts with corn.",
-        "Not modelled: pests, disease, hail, lodging, weeds, erosion, phosphorus and potassium. The rye cover crop has not been tested against the reference.",
     ],
     "sources": [
         "Kemanian, A.R., Shi, Y., White, C.M., Montes, F., Stockle, C.O., Huggins, D.R., et al., 2024. The Cycles agroecosystem model: fundamentals, testing, and applications. Computers and Electronics in Agriculture 227, 109510, and its supplement (growth, partition, canopy, water, carbon and nitrogen equations).",

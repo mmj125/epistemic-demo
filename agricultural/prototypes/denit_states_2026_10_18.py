@@ -3,7 +3,7 @@ inputs to its denitrification law (denitrification_flux_resp) by (year, doy), an
 Usage: python3 denit_states_2026_10_18.py N_SITES"""
 import os,sys,json,csv,shutil,subprocess,datetime
 os.environ.setdefault("REGIONAL","0"); os.environ["LEAD_YEARS"]="continuous"; os.environ["N_LEVELS"]="0,150"; sys.path.insert(0,'.')
-import numpy as np, run_validation_multisite as m, cycles_engine_validate as E
+import numpy as np, run_validation_multisite as m, rhizo_engine as E
 if os.environ.get("SUBDAY")=="0": E.SUBDAY_DENIT=False   # feed the law end-of-day layer-1 saturation, the basis it was fitted on
 from multiprocessing import Pool
 S=json.load(open('sitesets/fresh94.json'))

@@ -1,7 +1,7 @@
 """Carbon pool states per layer, engine (free) vs Cycles (2026-10-19): corn N=0, 24 sites, continuous chain. Mean over 1982 on of soil organic C, microbial C, root residue C per layer and the surface residue C; ratio engine/Cycles, and the change over the record (first year to last year)."""
 import os,sys,json,csv,shutil,subprocess,datetime
 os.environ.setdefault("REGIONAL","0"); os.environ["LEAD_YEARS"]="continuous"; os.environ["N_LEVELS"]="0"; sys.path.insert(0,'.')
-import numpy as np, run_validation_multisite as m, cycles_engine_validate as E
+import numpy as np, run_validation_multisite as m, rhizo_engine as E
 from multiprocessing import Pool
 S=json.load(open('/tmp/w/s24.json'))
 def rd(p): return [r for r in csv.DictReader(open(p)) if r['date'][0]!='#']

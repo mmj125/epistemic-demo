@@ -46,7 +46,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from cycles_engine_validate import (
+from rhizo_engine import (
     simulate_season, simulate_soil_temp, find_planting_doy,
     saxton_rawls, OM_FROM_SOC, INITIAL_MOISTURE_FRACTION, CORN_CANOPY_SHAPE,
 )
@@ -513,7 +513,7 @@ def main():
 # Not yet covered here -- real classroom claims worth adding next, not
 # encoded yet because they need machinery this file doesn't have (a bare-
 # fallow-vs-cover-crop comparison function, which currently only exists as
-# JS glue inside engine-demo.html, not in cycles_engine_validate.py itself):
+# JS glue inside engine-demo.html, not in rhizo_engine.py itself):
 #   - Cover crop leaches less nitrogen than bare fallow, at every tested rate.
 #   - The three-perspective frontier (farmer/water-advocate/policymaker
 #     positions) stays correctly ordered by nitrogen rate across a range of

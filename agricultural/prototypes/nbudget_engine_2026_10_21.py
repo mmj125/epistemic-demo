@@ -1,6 +1,6 @@
 import os,sys
 os.environ["REGIONAL"]="0"; sys.path.insert(0,'/home/user/epistemic-demo/agricultural/prototypes')
-import numpy as np, mgmt_response_2026_10_21 as G, run_validation_multisite as m, cycles_engine_validate as E
+import numpy as np, mgmt_response_2026_10_21 as G, run_validation_multisite as m, rhizo_engine as E
 from cover_chain_2026_10_21 import corn_crop
 from multiprocessing import Pool
 for _kv in filter(None,os.environ.get("NB_OVR","").split(";")):

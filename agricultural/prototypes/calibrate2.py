@@ -3,7 +3,7 @@ Coordinate descent in log space on the 16 TUNING sites, N = 0/150/400, continuou
 every 8 accepted moves, and at the end. Usage: python3 calibrate2.py [max_evals] [resume]  -> /tmp/w/cal2_*.json"""
 import sys,os,csv,json,time,random,math,numpy as np
 sys.path.insert(0,'.');os.environ.setdefault("LEAD_YEARS","continuous")
-import cycles_engine_validate as E, run_validation_multisite as m
+import rhizo_engine as E, run_validation_multisite as m
 from multiprocessing import Pool
 E.ROOT_C_REALIZED_GROWTH=True
 ALL=dict(m.SITES);ALL.update(m.HELDOUT_SITES)

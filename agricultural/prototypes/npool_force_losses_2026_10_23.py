@@ -2,7 +2,7 @@
 denitrification, N2O, leaching and volatilization with Cycles, for the published APEX law at amplitude 2.5 and 1.0 and for the old fitted law. 24 sites, corn, N=0 and 150, years 1983 on."""
 import os, sys, json, csv, shutil, subprocess
 os.environ.setdefault("REGIONAL", "0"); os.environ["LEAD_YEARS"] = "continuous"; sys.path.insert(0, '/home/user/epistemic-demo/agricultural/prototypes')
-import numpy as np, run_validation_multisite as m, cycles_engine_validate as E
+import numpy as np, run_validation_multisite as m, rhizo_engine as E
 from cover_chain_2026_10_21 import corn_crop
 from multiprocessing import Pool
 S = json.load(open('/tmp/w/s24.json')); SITES = sorted(S)

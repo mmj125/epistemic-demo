@@ -8,7 +8,7 @@ import denit_mgmt_eval_2026_10_21 as V
 from scipy.optimize import least_squares
 exec(open('denit_refit_2026_10_21.py').read().split("FB,FI=")[0].split("B=V.load")[0])
 B=V.load("base")
-import cycles_engine_validate as E
+import rhizo_engine as E
 def feats(D):
     prev=V.prev; sat=D["sat_1"]
     same=np.zeros(len(sat),bool); same[1:]=(D["site"][1:]==D["site"][:-1])&((D["yeardoy"][1:]-D["yeardoy"][:-1]==1)|((D["yeardoy"][1:]%1000==1)&(D["yeardoy"][:-1]%1000>=365)))

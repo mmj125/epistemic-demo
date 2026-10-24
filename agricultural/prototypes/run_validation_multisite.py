@@ -7,8 +7,8 @@ licensed). Writes multisite_results.json. Run: python3 run_validation_multisite.
 import os, sys, math, statistics, subprocess, shutil, json, csv, datetime
 P=os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0,P)
 import field_data as fd
-import cycles_engine_validate as cev
-from cycles_engine_validate import *
+import rhizo_engine as cev
+from rhizo_engine import *
 import run_validation as rv
 cev.N_DEMAND_SCALE = float(os.environ.get("N_DEMAND_SCALE", cev.N_DEMAND_SCALE))
 cev.ROOT_DENSITY_DECAY_M = float(os.environ["ROOT_DECAY"]) if os.environ.get("ROOT_DECAY") else cev.ROOT_DENSITY_DECAY_M

@@ -6,7 +6,7 @@ import os, sys, json, math, shutil, subprocess, csv, datetime as dt
 os.environ.setdefault("REGIONAL", "0")
 import numpy as np
 import run_validation_multisite as m
-import cycles_engine_validate as E
+import rhizo_engine as E
 CY = m.CY
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "..", "data", "ameriflux")

@@ -2,7 +2,7 @@
 factor = 1 - SMAX * clip((R0 - r)/(R0 - R1), 0, 1)^Q, r = above-ground N concentration / critical concentration at total biomass."""
 import sys,numpy as np
 sys.path.insert(0,'.')
-import cycles_engine_validate as E, run_validation as rv
+import rhizo_engine as E, run_validation as rv
 from scipy.optimize import least_squares
 crop=dict(rv.CORN)
 A=np.load('/tmp/w/ncurve.npz')["A"]; site,ag,rt,agn,rtn,conc,st,tt,gr,N=A[:,0],A[:,1],A[:,2],A[:,3],A[:,4],A[:,5],A[:,6],A[:,7],A[:,8],A[:,9]

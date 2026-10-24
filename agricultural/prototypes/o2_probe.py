@@ -1,7 +1,7 @@
 """Waterlogging probe (2026-10-15): relate Cycles' o2_factor to layer saturation. Usage: python3 o2_probe.py"""
 import sys,os,csv,json,numpy as np
 sys.path.insert(0,'.');os.environ.setdefault("LEAD_YEARS","continuous");sys.argv=['x']
-import swap_test as S, cycles_engine_validate as E
+import swap_test as S, rhizo_engine as E
 def soil(site):
     L=[]
     for ln in open(f'/tmp/cycles-run15/input/{site}.soil'):
