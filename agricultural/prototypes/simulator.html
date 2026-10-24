@@ -99,7 +99,9 @@
       <canvas id="chartCanvas" width="960" height="320"></canvas>
     </div>
     <div id="tab-daily" class="hidden">
-      <div class="row"><div class="f"><label>Year</label><select id="dailyYear"></select></div><div class="f"><label>Variable</label><select id="dailyVar"></select></div></div>
+      <div class="row"><div class="f"><label>Year</label><select id="dailyYear"></select></div></div>
+      <canvas id="seasonCanvas" width="960" height="620" style="height:560px"></canvas>
+      <div class="row" style="margin-top:12px"><div class="f"><label>Other daily variable</label><select id="dailyVar"></select></div></div>
       <canvas id="dailyCanvas" width="960" height="320"></canvas>
     </div>
   </div></div>
@@ -295,6 +297,28 @@ function renderResults() {
   $("dailyYear").innerHTML = years.map((y) => `<option>${y}</option>`).join("");
   drawChart(); drawDaily();
 }
+// day-of-year axis that keeps counting across New Year, so a fall-planted wheat season is one continuous line
+function unwrapDoy(rows) { let off = 0, prev = -1; return rows.map((r) => { if (r[0] < prev) off += 365; prev = r[0]; return r[0] + off; }); }
+function drawSeason() {
+  if (!lastResult) return; const rows = lastResult.daily[$("dailyYear").value] || [], c = $("seasonCanvas"), g = c.getContext("2d"), W = c.width, H = c.height;
+  const cs = getComputedStyle(document.body), ink = cs.getPropertyValue("--ink-soft"), line = cs.getPropertyValue("--data"), grid = cs.getPropertyValue("--border");
+  g.clearRect(0, 0, W, H); if (!rows.length) return; g.font = "12px DM Mono, monospace";
+  const xs = unwrapDoy(rows), x0 = Math.min(...xs), x1 = Math.max(...xs), L = 62, R = 14, T = 10, B = 34, gap = 22;
+  const panels = [["Aboveground biomass (Mg/ha)", 5, null], ["Light interception (0 to 1)", 2, [0, 1.05]], ["Water stress factor (1 = none)", 3, [0, 1.05]], ["N stress factor (1 = none)", 4, [0, 1]]];
+  const ph = (H - T - B - gap * (panels.length - 1)) / panels.length, sx = (x) => L + (x - x0) / Math.max(x1 - x0, 1e-9) * (W - L - R);
+  panels.forEach((p, k) => {
+    const top = T + k * (ph + gap), ys = rows.map((r) => r[p[1]]), ok = ys.filter((y) => y !== null && y !== undefined && isFinite(y));
+    let y0 = p[2] ? p[2][0] : 0, y1 = p[2] ? p[2][1] : Math.max(1e-6, ...ok) * 1.05; if (!ok.length) return;
+    const sy = (y) => top + ph - (y - y0) / (y1 - y0) * ph;
+    g.strokeStyle = grid; g.fillStyle = ink; g.lineWidth = 1; g.textAlign = "right";
+    for (let i = 0; i <= 2; i++) { const v = y0 + (y1 - y0) * i / 2, y = sy(v); g.beginPath(); g.moveTo(L, y); g.lineTo(W - R, y); g.stroke(); g.fillText(v.toFixed(v >= 10 ? 0 : p[2] ? 1 : 1), L - 6, y + 4); }
+    g.textAlign = "left"; g.fillText(p[0], L + 6, top + 13);
+    g.strokeStyle = line; g.lineWidth = 2; g.beginPath(); let started = false;
+    ys.forEach((y, i) => { if (y === null || y === undefined || !isFinite(y)) { started = false; return; } started ? g.lineTo(sx(xs[i]), sy(y)) : g.moveTo(sx(xs[i]), sy(y)); started = true; }); g.stroke();
+  });
+  g.fillStyle = ink; g.textAlign = "center"; for (let i = 0; i <= 6; i++) { const v = x0 + (x1 - x0) * i / 6; g.fillText(((Math.round(v) - 1) % 365) + 1, sx(v), H - B + 16); }
+  g.fillText("Day of year", (L + W - R) / 2, H - 6);
+}
 function drawLine(canvas, xs, ys, xlabel, ylabel, bars) {
   const c = canvas, g = c.getContext("2d"), W = c.width, H = c.height, L = 62, R = 14, T = 14, B = 38;
   const cs = getComputedStyle(document.body), ink = cs.getPropertyValue("--ink-soft"), line = cs.getPropertyValue("--data"), grid = cs.getPropertyValue("--border");
@@ -321,11 +345,11 @@ function drawDaily() {
   drawLine($("dailyCanvas"), rows.map((r) => r[0]), rows.map((r) => r[i]), "Day of year", `${col[1]} (${col[2]})`, false);
 }
 ["chartVar"].forEach((id) => $(id).addEventListener("change", drawChart));
-["dailyYear", "dailyVar"].forEach((id) => $(id).addEventListener("change", drawDaily));
+["dailyYear", "dailyVar"].forEach((id) => $(id).addEventListener("change", () => { drawDaily(); drawSeason(); }));
 document.querySelectorAll(".tabs [data-tab]").forEach((b) => b.addEventListener("click", () => {
   document.querySelectorAll(".tabs [data-tab]").forEach((x) => x.classList.toggle("on", x === b));
   ["annual", "chart", "daily"].forEach((t) => $("tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
-  if (b.dataset.tab === "chart") drawChart(); if (b.dataset.tab === "daily") drawDaily();
+  if (b.dataset.tab === "chart") drawChart(); if (b.dataset.tab === "daily") { drawDaily(); drawSeason(); }
 }));
 function download(name, text) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" })); a.download = name; a.click(); URL.revokeObjectURL(a.href); }
 $("dlAnnual").addEventListener("click", () => {
