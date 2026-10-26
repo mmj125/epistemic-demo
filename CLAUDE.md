@@ -25,11 +25,11 @@ Goal: a from-scratch Python reimplementation of Cycles (`agricultural/prototypes
 
 ### Where the engine stands (2026-10-26, residue water store and the measured evaporation law on (Matt's decision, plan 2026-10-26); corn, sorghum, soybean refreshed 2026-10-26, silage and wheat unchanged within 0.003 r; N-loss lines below are from 2026-10-23, corn leaching is now 1.02 / 1.07 / 1.02 of Cycles', denitrification 0.80 / 0.82 at N=150 / 400, 94 fresh sites, continuous chain, factors 1.0; wheat 60 sites FALLN=60)
 Pooled r | bias | grain MAE (Mg/ha) at N=0/150/400 (wheat 0/90/150), from `scorecard_now_2026_10_23.py` (runs `cur_*`):
-- corn 0.956 / 0.914 / 0.955 | +7% / +2% / -2% | 0.47 / 1.01 / 0.86
-- silage 0.938 / 0.908 / 0.947 | +13% / +4% / +1% | 0.89 / 1.64 / 1.44
-- sorghum 0.940 / 0.867 / 0.902 | 0% / 0% / -6% | 0.45 / 1.12 / 1.17
-- soybean (legume N path) 0.948 | +0.18 Mg/ha | 0.40
-- winter wheat (season clock, corn N model, measured plateau) 0.928 / 0.876 / 0.865 | +19% / +11% / +5% | 0.39 / 0.69 / 0.76
+- corn 0.956 / 0.915 / 0.955 | +7% / +1% / -2% | 0.45 / 1.00 / 0.86
+- silage 0.932 / 0.907 / 0.948 | +33% / +7% / +4% | 1.23 / 1.74 / 1.55
+- sorghum 0.932 / 0.857 / 0.883 | +8% / -3% / -4% | 0.52 / 1.18 / 1.30
+- soybean (legume N path) 0.94 | +0.29 Mg/ha | 0.48
+- winter wheat (season clock, corn N model, measured plateau) 0.926 / 0.875 / 0.854 | +12% / +2% / -3% | 0.35 / 0.63 / 0.83
 - N losses engine/Cycles, kg N/ha per year, corn N=0/150/400: leaching 4.9/4.6, 15.3/13.3, 93.1/84.8; denitrification 2.6/2.6, 13.8/18.3, 50.2/65.8; volatilization 3.0/2.7, 14.2/14.4, 38.1/39.6; N2O 0.3/0.5, 1.7/3.6, 7.0/15.7. Denitrification is 0.75x and N2O 0.5x of Cycles' at N>=150. Wheat N losses engine/Cycles at N=0 / 90 / 150: leaching 1.00 / 1.13 / 1.18, volatilization 1.04 / 0.90 / 0.88, denitrification 0.59 / 0.81 / 0.83, N2O 0.5 / 0.55 / 0.55. Soybean (94 sites): leaching 9.6 vs 7.0, denitrification 5.8 vs 6.2, volatilization 6.0 vs 4.5, N2O 0.7 vs 1.0.
 - Observations: NASS county yields (94 sites) engine within-site r 0.43 vs Cycles 0.38 for corn, level x0.93; Mead towers: yields as close to the BIF measurements as Cycles'; both models run 16 to 47% high on ET (gridded weather bias) and exaggerate drought losses.
 - Rotation (corn after soybean, engine/Cycles yield): 0.96 / 0.93 at N=0 / 150 (24 tuned sites), 0.99 / 0.95 (24 untouched).

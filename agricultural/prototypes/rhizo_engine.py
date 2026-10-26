@@ -1849,11 +1849,11 @@ RHIZO_N_UPTAKE = os.environ.get("RHIZO_N", "1") == "1"   # 2026-10-21: the N for
 N_DEMAND_SCALE = 0.70   # 2026-10-17 measured: Cycles unstressed marginal total-N concentration of new growth is 0.68 (corn, silage corn) to 0.75 (winter wheat) of the crop-file dilution curve marginal a(1-b)W^-b, growth-weighted over 16 sites x 3 N rates (n_demand_ratio_2026_10_17.py). Was 0.874562 (a leaching fit).
 GROWTH_CANOPY_LAG = 1.0   # days between the reported canopy and the canopy that drives radiation-limited growth (1 = previous day; 1.5 = mean of the previous two days); per-crop key growth_canopy_lag overrides
 GROWTH_PREV_CANOPY = True   # step 6: radiation-limited growth uses the canopy at the start of the day (previous day's)
-CANOPY_WATER_POW = 1.35   # step 6 (replaces the W0 line): canopy clock rate = water_stress_mult ** POW (Cycles: 0.9 at 2.5% stress, 0.6 at 27%, 0.37 at 60%, 0.06 at 90%)
+CANOPY_WATER_POW = 0.0   # step 6 (replaces the W0 line): canopy clock rate = water_stress_mult ** POW (Cycles: 0.9 at 2.5% stress, 0.6 at 27%, 0.37 at 60%, 0.06 at 90%)
 VPD_FLOOR_KPA = 0.2
 WUE_CO2_EXP = 0.197   # 2026-10-18: measured on Cycles' own response to fixed CO2 of 300/400/500 ppm (co2_response_2026_10_18.py, 12 sites, corn N=400: biomass exponent 0.12 to 0.25, mean 0.18, rising with water stress); the engine's response with this exponent matches (RMS 0.023 across sites vs 0.191 at the previous 0.424275, fitted on the yield trend, REFIT_PLAN row 50); a separate RUE exponent fits to 0.044, not distinguishable from 0, so RUE_CO2_EXP stays 0
 RUE_CO2_EXP = 0.0   # 2026-10-18: exponent on the CO2 ratio in the radiation-use-efficiency scale (paper Sec 2.5: eps_R and eps_W are both scaled with CO2); 0.0 = unscaled, the previous behaviour
-CANOPY_N_POW = 3.25   # 2026-10-14: canopy clock rate = water**CANOPY_WATER_POW * n_stress**CANOPY_N_POW (measured on 86k day-pairs of Cycles daily interception: 1.35 and 3.85, rms 0.20); None = use the linear CANOPY_N_COEF form
+CANOPY_N_POW = 1.0   # 2026-10-14: canopy clock rate = water**CANOPY_WATER_POW * n_stress**CANOPY_N_POW (measured on 86k day-pairs of Cycles daily interception: 1.35 and 3.85, rms 0.20); None = use the linear CANOPY_N_COEF form
 N_STRESS_FULL_RATIO = 0.06
 N_STRESS_FLOOR_RATIO = 0.2  # below N_STRESS_KNEE_RATIO the stress factor falls linearly to 0 at this ratio instead of at N_STRESS_FULL_RATIO (0 = off); Cycles corn never dilutes below ~0.2 of the critical curve
 N_UPTAKE_FLOOR_MGKG = 0.3   # 2026-10-13 (was 1.0, 28-site sweep 0..1.0): minimum root-zone nitrate concentration the crop can draw down to (mg N/kg soil)
@@ -1863,6 +1863,14 @@ N_STRESS_R0, N_STRESS_R1, N_STRESS_SMAX, N_STRESS_Q = 0.641, 0.281, 0.764, 0.90
 if os.environ.get("NSTRESS_REFIT", "0") == "1":   # 2026-10-21: refit on Cycles' own daily plant states (nstress_refit_2026_10_21.py), removes the +0.017 / +0.024 bias at N=150 / 0
     N_STRESS_R0, N_STRESS_R1, N_STRESS_SMAX, N_STRESS_Q = 0.621, 0.247, 0.794, 0.668
 N_STRESS_KNEE_RATIO = 0.26
+
+
+def n_stress_from_ratio(ratio, crop):
+    """N stress factor from the aboveground N concentration over the critical curve (the nitrogen nutrition index when the curve is Lemaire's). `n_stress_n0` set: growth proportional to the index above a structural floor (Ingestad 1979 as cited in Lemaire et al. 2008, relative growth rate linear in plant N concentration); unset: the law fitted to Cycles' daily states."""
+    n0 = crop.get("n_stress_n0")
+    if n0 is not None:
+        return max(0.0, min(1.0, (ratio - n0) / (1.0 - n0)))
+    return 1.0 - N_STRESS_SMAX * max(0.0, min(1.0, (N_STRESS_R0 - ratio) / (N_STRESS_R0 - N_STRESS_R1))) ** N_STRESS_Q
 N_STRESS_GROWTH_POW = 1.0   # 2026-10-15 fit: growth uses n_stress**pow; Cycles grows ~13% more under N stress than (1-stress) x unstressed growth
 N_STRESS_ZERO_RATIO = 0.86  # was 0.62; refit 2026-10-12 with SIXPOOL_ML_N_A 76 on 28 sites (fertilized corn bias -0.36 to +0.11)
 N_STRESS_CRIT_FLOOR_MGHA = None   # biomass floor of the critical curve used for the N stress ratio only (None = NCRIT_FLOOR_MGHA); Cycles' implied critical concentration keeps rising below 1 Mg/ha (6.2% at 0.6-1, 7.1% at 0.3-0.6 against the 5.5% cap)
@@ -2706,6 +2714,9 @@ def n_critical_pct(biomass_mgha, crop, floor=None):
     demand sizing, to avoid double-counting already-accumulated tissue's N."""
     biomass_mgha = max(biomass_mgha, 0.01)
     _fl = NCRIT_FLOOR_MGHA if floor is None else floor
+    if crop.get("n_crit_lemaire"):   # Lemaire et al. 2008, Table 1: critical N dilution curve %Nc = a W^-b (a in %, W in Mg/ha): maize 3.4 / 0.37, sorghum 3.9 / 0.39, wheat 5.3 / 0.44
+        _a, _b = crop["n_crit_lemaire"]
+        return _a * (_fl ** (-_b) if (biomass_mgha < _fl and floor is not None) else 1.0) if biomass_mgha < _fl else _a * biomass_mgha ** (-_b)
     if biomass_mgha < _fl:
         return crop["n_max_conc"] * 100 * (_fl ** (-crop["n_dilution_slope"]) if floor is not None else 1.0)
     return crop["n_max_conc"] * 100 * biomass_mgha ** (-crop["n_dilution_slope"])
@@ -2722,6 +2733,9 @@ def n_marginal_demand_pct(biomass_mgha, crop):
     level; this closed-form marginal rate integrates to the correct ~a/100*W_final^(1-b)
     total)."""
     biomass_mgha = max(biomass_mgha, 0.01)
+    if crop.get("n_crit_lemaire"):
+        _a, _b = crop["n_crit_lemaire"]
+        return _a if biomass_mgha < NCRIT_FLOOR_MGHA else _a * (1 - _b) * biomass_mgha ** (-_b)
     if biomass_mgha < NCRIT_FLOOR_MGHA:
         return crop["n_max_conc"] * 100  # below the floor the curve is flat, so marginal = average
     return crop["n_max_conc"] * 100 * (1 - crop["n_dilution_slope"]) * biomass_mgha ** (-crop["n_dilution_slope"])
@@ -4515,7 +4529,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 _ag_eff = ag_biomass
                 _ag_pct = (N_AG_FRACTION * canopy_n_kg_ha / (_ag_eff * 100)) if _ag_eff > 1e-6 else crop["n_max_conc"] * 100
                 _ratio = _ag_pct / n_crit_pct if n_crit_pct > 0 else 1.0
-                n_stress = 1.0 - N_STRESS_SMAX * max(0.0, min(1.0, (N_STRESS_R0 - _ratio) / (N_STRESS_R0 - N_STRESS_R1))) ** N_STRESS_Q
+                n_stress = n_stress_from_ratio(_ratio, crop)
             else:
                 _ratio = n_actual_pct / n_crit_pct if n_crit_pct > 0 else 1.0
                 n_stress = max(0.0, min(1.0, (_ratio - N_STRESS_FULL_RATIO) / (N_STRESS_ZERO_RATIO - N_STRESS_FULL_RATIO)))
@@ -4541,7 +4555,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     _U = min(_caps, _dem)
                     _agp = ag_biomass + dGB_water_limited * _sf_s
                     _ratio_s = (N_AG_FRACTION * (canopy_n_kg_ha + _U) / (_agp * 100)) / n_critical_pct((biomass + dGB_water_limited * _F * _bf) * 10, crop, crop.get("n_stress_crit_floor", N_STRESS_CRIT_FLOOR_MGHA)) if _agp > 1e-6 else 1.0
-                    _Fn = 1.0 - N_STRESS_SMAX * max(0.0, min(1.0, (N_STRESS_R0 - _ratio_s) / (N_STRESS_R0 - N_STRESS_R1))) ** N_STRESS_Q
+                    _Fn = n_stress_from_ratio(_ratio_s, crop)
                     _F = 0.5 * _F + 0.5 * _Fn
                 if N_SOLVE_DEBUG is not None: N_SOLVE_DEBUG.append((_DIAG_YEAR, w["doy"], _F, _ratio_s, _U, _dem, _caps, canopy_n_kg_ha, _agp, biomass, dGB_water_limited))
                 n_stress = _F
