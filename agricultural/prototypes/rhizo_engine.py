@@ -1714,6 +1714,10 @@ def canopy_cover(ttf_norm, eix=1.0, shape=DEFAULT_CANOPY_SHAPE):
 
 
 ROOT_TTF_FULL = 0.5   # thermal-time fraction at which roots reach maximum depth (engine assumption; Cycles has a ROOT_PROGRESSION nudge parameter)
+# Senescence timing (2026-10-26, under test against Mead LAI): the senescence clock of the two-clock canopy runs at dtt (1 + CANOPY_SENES_STRESS_K (1 - water factor x N factor)), so a stressed canopy senesces earlier
+# (N deficiency accelerates leaf senescence, Sinclair and de Wit 1975; Cycles' wheat output shows it), and the whole senescence term is moved later by CANOPY_SENES_DELAY in thermal-time fraction. Both 0 = the documented shape.
+CANOPY_SENES_STRESS_K = 0.0
+CANOPY_SENES_DELAY = 0.0
 CANOPY_TWO_CLOCK = True   # 2026-10-14: expansion term on the stress-slowed canopy clock, senescence term on real thermal time (Cycles' unstressed corn matches eix 0.95 and the paper's decline -16 + 16x on thermal-time fraction)
 CANOPY_SHAPE_FORCE = (6, -20, -16, 16)   # default since 2026-10-14 (simultaneous calibration): the paper's own senescence constants, applied to all crops
 CANOPY_EIX_FORCE = 0.99
@@ -3913,6 +3917,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
     biomass_ref = 0.0   # biomass of the same crop without N stress (paper Sec 2.5: new-growth N concentration is that of a crop growing without stress)
     tt_canopy, n_stress_prev = 0.0, 1.0
+    tt_sen_extra = 0.0
     _ei_state, _ttdev_prev, _xc_h = None, 0.0, 0.0   # integrated canopy state
     water_stress_prev = 1.0
     eie_prev_day = 0.0
@@ -4183,6 +4188,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             n_stress_prev = _FORCE_CUR["nclock"][w["doy"]]
         _nf = n_stress_prev ** CANOPY_N_POW
         tt_canopy += dtt * _nf * _wf
+        tt_sen_extra += dtt * crop.get("senes_k", CANOPY_SENES_STRESS_K) * (1.0 - water_stress_prev * n_stress_prev)
         _ttm_season = crop.get("season_tt_end")   # 2026-10-23: TTf as the paper defines it, plant age in thermal time over the thermal time at maturity, with the season's own maturity (winter wheat: pre-pass)
         ttf = (tt_cum / _ttm_season) if _ttm_season else tt_dev / crop["tt_maturity"]
         if ttf >= harvest_ttf:
@@ -4206,7 +4212,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             _ttdev_prev = tt_cum if _ttm_season else tt_dev
             _ei = _ei_state
         elif CANOPY_TWO_CLOCK:
-            _ei = canopy_cover_two(tt_canopy / crop["tt_maturity"], tt_dev / crop["tt_maturity"], _eix, _shape)
+            _ei = canopy_cover_two(tt_canopy / crop["tt_maturity"], (tt_dev + tt_sen_extra) / crop["tt_maturity"] - crop.get("senes_delay", CANOPY_SENES_DELAY), _eix, _shape)
         else:
             _ei = canopy_cover(tt_canopy / crop["tt_maturity"], _eix, _shape)
         eie = 0.0 if tt_cum < crop.get("tt_emergence", 0.0) else effective_canopy_cover(_ei, crop.get("plant_density_factor", 1.0))
