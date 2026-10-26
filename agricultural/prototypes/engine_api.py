@@ -16,7 +16,7 @@ import rhizo_engine as E
 API_VERSION = 1
 
 # ---- crops (the validated per-crop configurations; sorghum, silage and soybean exactly as the multi-site runner builds them) ----
-_CORN = {'root_retained_frac': 0.6, 'n_demand_ref': True, 'n_stress_ag_basis': True, 'n_uptake_rate': 0.03, 'c1_water': True, 'tt_maturity': 1800, 'flowering_tt': 1000, 'base_t': 6, 'opt_t': 28, 'max_t': 46,
+_CORN = {'senes_delay': 0.12, 'senes_k': 1.0, 'root_retained_frac': 0.6, 'n_demand_ref': True, 'n_stress_ag_basis': True, 'n_uptake_rate': 0.03, 'c1_water': True, 'tt_maturity': 1800, 'flowering_tt': 1000, 'base_t': 6, 'opt_t': 28, 'max_t': 46,
          'rue': 2.2, 'wue': 8.7, 'hi_x': 0.8, 'hi_o': 0.15, 'hi_slope': 1.3077, 'fsti': 0.45, 'fstf': 0.95, 'calibration_factor': 1.0, 'canopy_shape': (6, -20, -5.35, 4.1),
          'canopy_shape_faithful': (6.04, -20.51, -14.95, 14.57), 'eix_faithful': 0.951, 'ngf_faithful': 1.0, 'kc': 1.1, 'eix': 1.0, 'tr_min_t': 3.0, 'tr_threshold_t': 15.0, 'lat_deg': 40.6875,
          'n_max_conc': 0.055, 'n_dilution_slope': 0.4, 'legume': False, 'n_min_conc': 0.002, 'depletion_fraction': 0.55, 'tr_max_mm_day': 10, 'root_max_m': 2.0, 'tt_emergence': 65,
@@ -25,12 +25,12 @@ _SOYBEAN = {'canopy_shape_faithful': (6.19, -21.11, -15.95, 15.66), 'eix_faithfu
             'max_t': 43, 'rue': 1.3, 'wue': 4.5, 'hi_x': 0.4, 'hi_o': 0.15, 'hi_slope': 3.4, 'fsti': 0.45, 'fstf': 0.95, 'kc': 1.0, 'eix': 1.0, 'tr_min_t': 3.0, 'tr_threshold_t': 15.0,
             'lat_deg': 40.6875, 'calibration_factor': 1.0, 'n_max_conc': 0.07, 'n_dilution_slope': 0.4, 'legume': True, 'depletion_fraction': 0.5, 'tr_max_mm_day': 8, 'root_max_m': 1.5,
             'tt_emergence': 70, 'lwp_stress_onset': -1100, 'lwp_wilting_point': -1800, 'threshold_temp_cold_damage': 2}
-_SILAGE = {'tt_maturity': 1800, 'flowering_tt': 1000, 'base_t': 6, 'opt_t': 28, 'max_t': 46, 'rue': 2.2, 'wue': 8.7, 'hi_x': 0.8, 'hi_o': 0.15, 'hi_slope': 1.0, 'fsti': 0.45, 'fstf': 0.95, 'kc': 1.1,
+_SILAGE = {'senes_delay': 0.12, 'senes_k': 1.0, 'tt_maturity': 1800, 'flowering_tt': 1000, 'base_t': 6, 'opt_t': 28, 'max_t': 46, 'rue': 2.2, 'wue': 8.7, 'hi_x': 0.8, 'hi_o': 0.15, 'hi_slope': 1.0, 'fsti': 0.45, 'fstf': 0.95, 'kc': 1.1,
            'eix': 1.0, 'tr_min_t': 3.0, 'tr_threshold_t': 15.0, 'lat_deg': 40.6875, 'forage_fraction': 0.95, 'calibration_factor': 1.0, 'depletion_fraction': 0.55,
            'canopy_shape_faithful': (6.05, -20.56, -13.72, 13.33), 'eix_faithful': 0.946, 'ngf_faithful': 1.0, 'canopy_shape': (6, -20, -5.35, 4.1), 'tr_max_mm_day': 10, 'root_max_m': 1.55,
            'tt_emergence': 65, 'n_max_conc': 0.055, 'n_dilution_slope': 0.4, 'legume': False, 'n_min_conc': 0.002, 'lwp_stress_onset': -1100, 'lwp_wilting_point': -2000,
            'threshold_temp_cold_damage': 3, 'n_demand_ref': True, 'n_stress_ag_basis': True, 'n_uptake_rate': 0.03, 'root_retained_frac': 0.6}
-_SORGHUM_OVER = dict(tt_maturity=2050, flowering_tt=1300, rue=2.0, wue=9.6, tr_min_t=6, tr_threshold_t=18, kc=1.0, lwp_stress_onset=-1400, lwp_wilting_point=-2300, tr_max_mm_day=9, root_max_m=2.0,
+_SORGHUM_OVER = dict(senes_delay=0.0, senes_k=0.0, tt_maturity=2050, flowering_tt=1300, rue=2.0, wue=9.6, tr_min_t=6, tr_threshold_t=18, kc=1.0, lwp_stress_onset=-1400, lwp_wilting_point=-2300, tr_max_mm_day=9, root_max_m=2.0,
                      tt_emergence=65, threshold_temp_cold_damage=6, canopy_shape_faithful=(6.04, -20.47, -15.52, 15.08), eix_faithful=0.949, ngf_faithful=1.0)
 _WHEAT = {'rhizo_rr': 0.6, 'rhizo_root_n_share': 0.082, 'canopy_form': 'H', 'tt_maturity': 1800, 'flowering_tt': 1250, 'base_t': 0, 'opt_t': 20, 'max_t': 35, 'rue': 1.6, 'wue': 6.0, 'hi_x': 0.52, 'hi_o': 0.2, 'hi_slope': 2.5, 'fsti': 0.45,
           'fstf': 0.95, 'kc': 1.0, 'eix': 1.0, 'tr_min_t': 0.0, 'tr_threshold_t': 12.0, 'lat_deg': 40.6875, 'n_simultaneous': True,'n_demand_ref': True, 'n_stress_ag_basis': True, 'n_uptake_rate': 0.03, 'eix_cap': 0.853, 'standing_at_harvest': 0.4, 'res_k_flat': 0.50, 'net_growth_fraction': 0.95, 'ttf50': 0.32,
@@ -126,8 +126,8 @@ ENGINE_INFO = {
     "validation_note": "Agreement with Cycles v1.5.20 on identical weather and soil, held-out sites, 1980 to 2016 (94 sites for spring crops, 60 for winter wheat). r is the correlation across all site-years pooled; bias and error are the model minus Cycles in grain yield. Cycles itself disagrees with its own variants by about 0.17 to 1.4 Mg/ha depending on what changes.",
     "validation_columns": ["Crop", "N rate (kg N/ha)", "r", "Bias (%)", "Mean abs error (Mg/ha)"],
     "validation": [
-        ["Corn", "0 / 150 / 400", "0.96 / 0.91 / 0.96", "+6 / +5 / -1", "0.42 / 1.03 / 0.92"],
-        ["Silage corn", "0 / 150 / 400", "0.94 / 0.91 / 0.95", "+15 / +5 / +2", "0.90 / 1.67 / 1.50"],
+        ["Corn", "0 / 150 / 400", "0.96 / 0.91 / 0.96", "-4 / +1 / -2", "0.44 / 1.02 / 0.86"],
+        ["Silage corn", "0 / 150 / 400", "0.94 / 0.91 / 0.95", "+13 / +4 / +1", "0.89 / 1.64 / 1.44"],
         ["Sorghum", "0 / 150 / 400", "0.94 / 0.87 / 0.90", "0 / 0 / -6", "0.45 / 1.12 / 1.17"],
         ["Soybean", "none", "0.95", "+6", "0.40"],
         ["Winter wheat", "0 / 90 / 150", "0.93 / 0.88 / 0.87", "+19 / +11 / +5", "0.39 / 0.69 / 0.76"],

@@ -25,8 +25,8 @@ Goal: a from-scratch Python reimplementation of Cycles (`agricultural/prototypes
 
 ### Where the engine stands (2026-10-26, residue water store and the measured evaporation law on (Matt's decision, plan 2026-10-26); corn, sorghum, soybean refreshed 2026-10-26, silage and wheat unchanged within 0.003 r; N-loss lines below are from 2026-10-23, corn leaching is now 1.02 / 1.07 / 1.02 of Cycles', denitrification 0.80 / 0.82 at N=150 / 400, 94 fresh sites, continuous chain, factors 1.0; wheat 60 sites FALLN=60)
 Pooled r | bias | grain MAE (Mg/ha) at N=0/150/400 (wheat 0/90/150), from `scorecard_now_2026_10_23.py` (runs `cur_*`):
-- corn 0.959 / 0.910 / 0.955 | +6% / +5% / -1% | 0.42 / 1.03 / 0.92
-- silage 0.937 / 0.906 / 0.946 | +15% / +5% / +2% | 0.90 / 1.67 / 1.50
+- corn 0.961 / 0.914 / 0.956 | -4% / +1% / -2% | 0.44 / 1.02 / 0.86
+- silage 0.938 / 0.908 / 0.947 | +13% / +4% / +1% | 0.89 / 1.64 / 1.44
 - sorghum 0.940 / 0.867 / 0.902 | 0% / 0% / -6% | 0.45 / 1.12 / 1.17
 - soybean (legume N path) 0.948 | +0.18 Mg/ha | 0.40
 - winter wheat (season clock, corn N model, measured plateau) 0.928 / 0.876 / 0.865 | +19% / +11% / +5% | 0.39 / 0.69 / 0.76
@@ -41,6 +41,7 @@ Pooled r | bias | grain MAE (Mg/ha) at N=0/150/400 (wheat 0/90/150), from `score
 - Practical floor: Cycles disagrees with itself by MAE 0.17 (random 10% soil change), 0.74 at N=150 under a neighbouring weather cell, 1.4 under a neighbouring soil map unit, and by 0.80 within-site yearly correlation between its own water schemes.
 
 ### Open work, in order
+00. Maize senescence law (class O, fitted to Mead LAI, adopted 2026-10-26 for corn and silage, not sorghum): see plan 2026-10-26. Next in the list: shoot partition TTf50 (class C, 0.42 fitted on Cycles; Mead has aboveground biomass only, so it needs published root to shoot data).
 0. Wheat bias (+19 / +11 / +5% after the evaporation law): the canopy is the lever (forcing Cycles' canopy takes the held-out bias from +8.6% to +3.5%, correlation 0.91 to 0.98); in Cycles late canopy loss follows mid-season N stress (corr +0.60) and the engine has no such link, see plan 2026-10-26. Check corn for the same link before building a senescence law (class D, no source).
 1. Wheat's last compensating constant: `net_growth_fraction` 0.95 (1.0 is worse, CIs exclude zero) offsets a plateau growth efficiency 14% high on unstressed days (1.20 vs Cycles' 1.05 g/MJ intercepted; the temperature response is right, the oxygen factor is too small to explain it, cause not found). `eix_cap` was replaced by the measured 0.853; `ttf50` 0.32 vs 0.340 is neutral.
 2. Wheat N: denitrification and N2O are still 0.5x to 0.84x of Cycles'; the rye cover crop shares the wheat dict and is untested against Cycles.

@@ -254,7 +254,7 @@ WHEAT = dict(canopy_form="H",  # 2026-10-17: integrated-derivative canopy, expan
              # reached that late at this site -- added for completeness/documentation, not
              # because it does anything here.
 
-CORN_SILAGE = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
+CORN_SILAGE = dict(senes_delay=0.12, senes_k=1.0, tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
                     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
                     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=LAT,
                     make_layers=make_layers, forage_fraction=0.95, calibration_factor=1.0,  # 2026-10-16 row 50 re-centering (was 0.7625);

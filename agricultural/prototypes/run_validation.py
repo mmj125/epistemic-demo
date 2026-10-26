@@ -18,6 +18,7 @@ from rhizo_engine import (
 )
 
 CORN = dict(
+    senes_delay=0.12, senes_k=1.0,   # 2026-10-26 senescence law fitted to Mead LAI (class O, plan 2026-10-26)
     # 2026-10-17 corn N model built only from measured Cycles pieces (ENGINE_REBUILD_PLAN.md, uptake-limit entry): root retention from the exact 5/3 root input, marginal N concentration 0.75 of the
     # engine's critical-curve slope (x0.88 of the old scale), Cycles' aboveground N stress law (REFIT_PLAN row 14b), uptake about 3% of the mineral pool per day.
     root_retained_frac=0.6, n_demand_ref=True, n_stress_ag_basis=True, n_uptake_rate=0.03,
