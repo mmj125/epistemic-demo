@@ -25,7 +25,7 @@ Goal: a from-scratch Python reimplementation of Cycles (`agricultural/prototypes
 
 ### Where the engine stands (2026-10-26, residue water store and the measured evaporation law on (Matt's decision, plan 2026-10-26); corn, sorghum, soybean refreshed 2026-10-26, silage and wheat unchanged within 0.003 r; N-loss lines below are from 2026-10-23, corn leaching is now 1.02 / 1.07 / 1.02 of Cycles', denitrification 0.80 / 0.82 at N=150 / 400, 94 fresh sites, continuous chain, factors 1.0; wheat 60 sites FALLN=60)
 Pooled r | bias | grain MAE (Mg/ha) at N=0/150/400 (wheat 0/90/150), from `scorecard_now_2026_10_23.py` (runs `cur_*`):
-- corn 0.961 / 0.914 / 0.956 | -4% / +1% / -2% | 0.44 / 1.02 / 0.86
+- corn 0.956 / 0.914 / 0.955 | +7% / +2% / -2% | 0.47 / 1.01 / 0.86
 - silage 0.938 / 0.908 / 0.947 | +13% / +4% / +1% | 0.89 / 1.64 / 1.44
 - sorghum 0.940 / 0.867 / 0.902 | 0% / 0% / -6% | 0.45 / 1.12 / 1.17
 - soybean (legume N path) 0.948 | +0.18 Mg/ha | 0.40

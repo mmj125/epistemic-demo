@@ -4185,12 +4185,12 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 tt_dev = crop["flowering_tt"] + (crop["tt_maturity"] - crop["flowering_tt"]) * min(1.0, post_acc / _V["gf_tt"])
             else:
                 tt_dev = min(tt_cum, crop["flowering_tt"] - 1e-6)
-        _wf = water_stress_prev ** CANOPY_WATER_POW
+        _wf = water_stress_prev ** crop.get("canopy_water_pow", CANOPY_WATER_POW)
         if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("wclock", ()):
-            _wf = _FORCE_CUR["wclock"][w["doy"]] ** CANOPY_WATER_POW
+            _wf = _FORCE_CUR["wclock"][w["doy"]] ** crop.get("canopy_water_pow", CANOPY_WATER_POW)
         if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("nclock", ()):
             n_stress_prev = _FORCE_CUR["nclock"][w["doy"]]
-        _nf = n_stress_prev ** CANOPY_N_POW
+        _nf = n_stress_prev ** crop.get("canopy_n_pow", CANOPY_N_POW)
         tt_canopy += dtt * _nf * _wf
         tt_sen_extra += dtt * crop.get("senes_k", CANOPY_SENES_STRESS_K) * (1.0 - water_stress_prev * n_stress_prev)
         _ttm_season = crop.get("season_tt_end")   # 2026-10-23: TTf as the paper defines it, plant age in thermal time over the thermal time at maturity, with the season's own maturity (winter wheat: pre-pass)
