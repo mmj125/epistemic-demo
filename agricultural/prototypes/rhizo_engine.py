@@ -1717,6 +1717,10 @@ ROOT_TTF_FULL = 0.5   # thermal-time fraction at which roots reach maximum depth
 # Senescence timing (2026-10-26, under test against Mead LAI): the senescence clock of the two-clock canopy runs at dtt (1 + CANOPY_SENES_STRESS_K (1 - water factor x N factor)), so a stressed canopy senesces earlier
 # (N deficiency accelerates leaf senescence, Sinclair and de Wit 1975; Cycles' wheat output shows it), and the whole senescence term is moved later by CANOPY_SENES_DELAY in thermal-time fraction. Both 0 = the documented shape.
 CANOPY_SENES_STRESS_K = 0.0
+# Late-season growth efficiency (2026-10-26, under test against Mead biomass): growth after thermal-time fraction LATE_RUE_X0 is scaled down linearly to LATE_RUE_F at maturity (radiation use efficiency falls during grain filling as leaf N is
+# remobilized to the grain, Sinclair and Horie 1989). F = 1 is no effect.
+LATE_RUE_X0 = 0.7
+LATE_RUE_F = 1.0
 CANOPY_SENES_DELAY = 0.0
 CANOPY_TWO_CLOCK = True   # 2026-10-14: expansion term on the stress-slowed canopy clock, senescence term on real thermal time (Cycles' unstressed corn matches eix 0.95 and the paper's decline -16 + 16x on thermal-time fraction)
 CANOPY_SHAPE_FORCE = (6, -20, -16, 16)   # default since 2026-10-14 (simultaneous calibration): the paper's own senescence constants, applied to all crops
@@ -4394,6 +4398,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
 
         GT = crop["wue"] * wue_co2_scale / math.sqrt(Da) * TR_actual
         dGB_water_limited = max(0.0, min(GR, GT)) * crop_ngf(crop) / 1000 * (crop["growth_stage_c"] * (1.0 - crop["growth_stage_a"] * math.exp(-ttf / crop["growth_stage_tau"])) if "growth_stage_a" in crop else 1.0)
+        _lx0 = crop.get("late_rue_x0", LATE_RUE_X0); dGB_water_limited *= 1.0 - (1.0 - crop.get("late_rue_f", LATE_RUE_F)) * min(1.0, max(0.0, (ttf - _lx0) / max(1e-6, 1.0 - _lx0)))
         if _V is not None and flowered:
             # post-flowering temperature factor: Cycles' daily temperature_factor column is 0.99 below ~19 C mean and falls to 0.94 / 0.83 / 0.65 / 0.38 at 20.5 / 23.5 / 26.5 / 29.5 C
             # (5,376 post-flowering days, 3 sites); the disclosed TEMPERATURE_POST_FLOWERING optimum (20) and maximum (35) with 1.0 below the optimum reproduce it (0.93 / 0.77 / 0.57 / 0.37)
