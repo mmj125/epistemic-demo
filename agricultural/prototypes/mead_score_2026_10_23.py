@@ -271,6 +271,11 @@ def report(site, keep_cycles=False):
     obs = {l["LAI_DATE"]: float(l["LAI_TOT"]) for l in b["lai"]}
     pairs = [(v, lai_of(ED[f"{d[:4]}-{d[4:6]}-{d[6:]}"]["fi"]), lai_of(CH[f"{d[:4]}-{d[4:6]}-{d[6:]}"]["fi"])) for d, v in obs.items() if f"{d[:4]}-{d[4:6]}-{d[6:]}" in ED and f"{d[:4]}-{d[4:6]}-{d[6:]}" in CH]
     P = np.array(pairs)
+    _mo = np.array([int(d[4:6]) for d, v in obs.items() if f"{d[:4]}-{d[4:6]}-{d[6:]}" in ED and f"{d[:4]}-{d[4:6]}-{d[6:]}" in CH])
+    if len(P) > 3:
+        for _m in (6, 7, 8, 9):
+            _k = _mo == _m
+            if _k.sum() >= 3: print(f"  LAI month {_m} (n={_k.sum()}): observed {P[_k,0].mean():.2f} engine {P[_k,1].mean():.2f} Cycles {P[_k,2].mean():.2f}")
     if len(P) > 3:
         print(f"  LAI (n={len(P)} dates 2001-2007; models via fi, k={K_EXT}): r obs~engine {corr(P[:,0],P[:,1]):.2f} obs~Cycles {corr(P[:,0],P[:,2]):.2f}; mean obs {P[:,0].mean():.2f} engine {P[:,1].mean():.2f} Cycles {P[:,2].mean():.2f}; max obs {P[:,0].max():.2f} engine {P[:,1].max():.2f} Cycles {P[:,2].max():.2f}")
     return dict(site=site)
