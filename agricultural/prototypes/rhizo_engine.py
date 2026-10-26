@@ -606,7 +606,7 @@ def compute_tew(theta_fc, theta_wp, ze_m=0.15):
 CROPSYST_AIRDRY_FRAC = 1.0 / 3.0
 
 
-EVAP_LAW_PARAMS = (0.5, 0.7, 2.0)   # air-dry as a fraction of wilting point, critical water content as a fraction of field capacity, exponent
+EVAP_LAW_PARAMS = (0.25, 0.85, 3.5)   # air-dry as a fraction of wilting point, critical water content as a fraction of field capacity, exponent; measured on Cycles designed experiments (class D), adopted 2026-10-26 after the water budget and county-yield tests (plan 2026-10-26); was (0.5, 0.7, 2.0)
 SOIL_EVAP_SCALE = 1.0  # multiplier on the potential soil-evaporation demand (tested 2026-10-13)
 
 
@@ -809,7 +809,7 @@ RES_STORE = True
 RES_SAT_WATER = 3.29    # kg water per kg dry residue at saturation, read from Cycles' output (class D with a published range as a check)
 
 
-def residue_water_today(sixpool_state, pp_mm, cover, eto_mm, eie):
+def residue_water_today(sixpool_state, pp_mm, cover, eto_mm, eie, snow_day=False):   # snow_day: tested 2026-10-26 (rev 0 on snow days, as Cycles), no gain, so it is accepted but not used
     """Returns (rain taken by the residue store, residue evaporation) for the day; with RES_STORE False both are the rain-day interception."""
     if not RES_STORE:
         r = residue_rain_evap_mm(pp_mm, cover)
@@ -2870,7 +2870,7 @@ def denitrification_layers(no3_start, theta_start, layers, sixpool_state, no3_no
 
 
 DENIT_APEX = True   # ADOPTED 2026-10-23: per-layer denitrification as published for EPIC/APEX (Kemanian and Williams, CEAP 2011 APEX upgrades, Eqs 1 to 4); False restores the law fitted to Cycles (DENIT_SD)
-DENIT_APEX_PARAMS = dict(rmax=32e-6, half=60.0, cresp=50.0, expo=60.0, amp=2.5)   # amp 2.5 is NOT sourced (class C suspect; the Cycles docs name POT_DENITRIF_RATE as a calibration multiplier without a default); the other four constants are as published; kg N/kg soil/d, mg N/kg, mg C/kg/d, steepness; amp scales the whole law (1.0 = as published)
+DENIT_APEX_PARAMS = dict(rmax=32e-6, half=60.0, cresp=50.0, expo=60.0, amp=2.5, half_n2o=60.0)   # amp 2.5 is NOT sourced (class C suspect; the Cycles docs name POT_DENITRIF_RATE as a calibration multiplier without a default); the other four constants are as published; kg N/kg soil/d, mg N/kg, mg C/kg/d, steepness; amp scales the whole law (1.0 = as published)
 
 
 def denitrification_apex(no3_start_kg_ha, layer, theta_start, resp_mg_ha, no3_now_kg_ha, fclay):
@@ -3035,7 +3035,7 @@ def n2o_from_denitrification(denitrified_kg_ha, no3_mgkg_start, sat_start, layer
         av = max(layer["sat"] * (1.0 - sat_start), 0.0)
         fw = 1.0 / (1.0 + ((1.0 - av) / (0.90 + 0.1 * fclay)) ** (-P["expo"]))
         fr = min(1.0, co2 / P["cresp"])
-        return denitrified_kg_ha * (no3_mgkg_start / (no3_mgkg_start + P["half"])) * (1.0 - fw ** 0.5) * (1.0 - fr ** 0.33)
+        return denitrified_kg_ha * (no3_mgkg_start / (no3_mgkg_start + P["half_n2o"])) * (1.0 - fw ** 0.5) * (1.0 - fr ** 0.33)
     P = N2O_DEN
     return denitrified_kg_ha * min(1.0, P["A"] * max(no3_mgkg_start, 1e-3) ** P["p"] * math.exp(-P["q"] * min(max(sat_start, 0.0), 1.2)))
 
@@ -3105,7 +3105,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             w = snow_adjust(layers, w, lat_deg)
         _rc = residue_cover_frac(sixpool_state)
         _eto0 = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], lat_deg)
-        _re, _rev = residue_water_today(sixpool_state, w["pp"], _rc, _eto0, 0.0)
+        _re, _rev = residue_water_today(sixpool_state, w["pp"], _rc, _eto0, 0.0, w.get("snow_day", False))
         _th1_0 = zone_mean_theta(layers)
         drainage_mm, _roff, n_out = infiltrate(layers, w["pp"] - _re, curve_number, slope_pct, n_by_layer=no3_layers)
         if no3_layers is not None:
@@ -3845,7 +3845,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 w = snow_adjust(layers, w, crop["lat_deg"])
             _rc = residue_cover_frac(sixpool_state)
             _eto0 = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
-            _re, _rev = residue_water_today(sixpool_state, w["pp"], _rc, _eto0, 0.0)
+            _re, _rev = residue_water_today(sixpool_state, w["pp"], _rc, _eto0, 0.0, w.get("snow_day", False))
             _th1_0 = zone_mean_theta(layers)
             _, spin_runoff, _ = infiltrate(layers, w["pp"] - _re, curve_number, slope_pct)
             runoff_total += spin_runoff
@@ -4252,7 +4252,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             irrigation_total_mm += irrigation_events[w["doy"]]
 
         res_cover_today = residue_cover_frac(sixpool_state)
-        _re_take, res_evap_today = residue_water_today(sixpool_state, w["pp"], res_cover_today, eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"]), eie)
+        _re_take, res_evap_today = residue_water_today(sixpool_state, w["pp"], res_cover_today, eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"]), eie, w.get("snow_day", False))
         _th1_0 = zone_mean_theta(layers)
         drainage_mm, runoff, n_leached_today = infiltrate(layers, w["pp"] + irrigation_mm - _re_take, curve_number,
                                                             slope_pct,

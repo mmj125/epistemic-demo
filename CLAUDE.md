@@ -23,13 +23,13 @@ Goal: a from-scratch Python reimplementation of Cycles (`agricultural/prototypes
 1. Five crops reach POOLED correlation above 0.8 against Cycles over held-out site-years (all sites and years pooled, per N rate, and across rates), at several N rates where N matters. Met at every N rate (below). Pooled correlation is blind to bias and to the response to inputs; the panel in `metrics_panel_2026_10_23.py` (concordance, Nash-Sutcliffe, within-site anomaly r and spread, bias by yield tercile, N response) is reported with it.
 2. Leaching is much better. Corn is inside the 1 to 3 kg N/ha target at N<=150 (+0.3 and +2.0); silage N=150 is +5.0; wheat is at 1.00x to 1.18x of Cycles' (N=90 and 150 +1.4 and +2.6 kg).
 
-### Where the engine stands (2026-10-26, residue water store on; corn, sorghum, soybean refreshed 2026-10-26, silage and wheat unchanged within 0.003 r; N-loss lines below are from 2026-10-23, corn leaching is now 1.02 / 1.07 / 1.02 of Cycles', denitrification 0.80 / 0.82 at N=150 / 400, 94 fresh sites, continuous chain, factors 1.0; wheat 60 sites FALLN=60)
+### Where the engine stands (2026-10-26, residue water store and the measured evaporation law on (Matt's decision, plan 2026-10-26); corn, sorghum, soybean refreshed 2026-10-26, silage and wheat unchanged within 0.003 r; N-loss lines below are from 2026-10-23, corn leaching is now 1.02 / 1.07 / 1.02 of Cycles', denitrification 0.80 / 0.82 at N=150 / 400, 94 fresh sites, continuous chain, factors 1.0; wheat 60 sites FALLN=60)
 Pooled r | bias | grain MAE (Mg/ha) at N=0/150/400 (wheat 0/90/150), from `scorecard_now_2026_10_23.py` (runs `cur_*`):
-- corn 0.959 / 0.919 / 0.964 | -10% / -1% / -6% | 0.48 / 0.97 / 0.86
-- silage 0.937 / 0.920 / 0.954 | -9% / -5% / -7% | 0.88 / 1.70 / 1.61
-- sorghum 0.943 / 0.884 / 0.924 | -15% / -6% / -11% | 0.52 / 1.11 / 1.18
-- soybean (legume N path) 0.959 | -0.05 Mg/ha | 0.33
-- winter wheat (season clock, corn N model, measured plateau) 0.927 / 0.874 / 0.871 | +0% / +3% / -1% | 0.35 / 0.65 / 0.74
+- corn 0.959 / 0.910 / 0.955 | +6% / +5% / -1% | 0.42 / 1.03 / 0.92
+- silage 0.937 / 0.906 / 0.946 | +15% / +5% / +2% | 0.90 / 1.67 / 1.50
+- sorghum 0.940 / 0.867 / 0.902 | 0% / 0% / -6% | 0.45 / 1.12 / 1.17
+- soybean (legume N path) 0.948 | +0.18 Mg/ha | 0.40
+- winter wheat (season clock, corn N model, measured plateau) 0.929 / 0.876 / 0.866 | +18% / +10% / +5% | 0.38 / 0.69 / 0.75
 - N losses engine/Cycles, kg N/ha per year, corn N=0/150/400: leaching 4.9/4.6, 15.3/13.3, 93.1/84.8; denitrification 2.6/2.6, 13.8/18.3, 50.2/65.8; volatilization 3.0/2.7, 14.2/14.4, 38.1/39.6; N2O 0.3/0.5, 1.7/3.6, 7.0/15.7. Denitrification is 0.75x and N2O 0.5x of Cycles' at N>=150. Wheat N losses engine/Cycles at N=0 / 90 / 150: leaching 1.00 / 1.13 / 1.18, volatilization 1.04 / 0.90 / 0.88, denitrification 0.59 / 0.81 / 0.83, N2O 0.5 / 0.55 / 0.55. Soybean (94 sites): leaching 9.6 vs 7.0, denitrification 5.8 vs 6.2, volatilization 6.0 vs 4.5, N2O 0.7 vs 1.0.
 - Observations: NASS county yields (94 sites) engine within-site r 0.43 vs Cycles 0.38 for corn, level x0.93; Mead towers: yields as close to the BIF measurements as Cycles'; both models run 16 to 47% high on ET (gridded weather bias) and exaggerate drought losses.
 - Rotation (corn after soybean, engine/Cycles yield): 0.96 / 0.93 at N=0 / 150 (24 tuned sites), 0.99 / 0.95 (24 untouched).
@@ -43,7 +43,7 @@ Pooled r | bias | grain MAE (Mg/ha) at N=0/150/400 (wheat 0/90/150), from `score
 ### Open work, in order
 1. Wheat's last compensating constant: `net_growth_fraction` 0.95 (1.0 is worse, CIs exclude zero) offsets a plateau growth efficiency 14% high on unstressed days (1.20 vs Cycles' 1.05 g/MJ intercepted; the temperature response is right, the oxygen factor is too small to explain it, cause not found). `eix_cap` was replaced by the measured 0.853; `ttf50` 0.32 vs 0.340 is neutral.
 2. Wheat N: denitrification and N2O are still 0.5x to 0.84x of Cycles'; the rye cover crop shares the wheat dict and is untested against Cycles.
-3. Soil evaporation: the residue water store is in (2026-10-26). The measured law (`EVAP_LAW_PARAMS=(0.25,0.85,3.5)`) fixes the water budget and N=0 but fails at N=150 and 400 for the third time (engine 5% high at N=150, level at 400); do not swap it again until the N loss side (open work 4) moves. Standing and flat residue split (2 to 3% of ETo) not built.
+3. Soil evaporation: the residue water store and the measured law (`EVAP_LAW_PARAMS=(0.25,0.85,3.5)`) are in (2026-10-26); the water budget matches Cycles' and the county yields prefer it, and the cost is the exposed N side: corn is 5% high at N=150 (apparent fertilizer recovery 84% against Cycles' 77%), silage +15% at N=0, wheat +18% at N=0, soybean +6%. Tested without adoption: uptake cap 0.022 (fixes level, raises leaching 1.2 to 1.4x), denitrification half-saturation 200 (neutral on yield). Snow guard on the residue store, standing and flat residue split: no payoff.
 4. The weak 150 to 400 response and denitrification/N2O at N>=150 (APEX amplitude 2.5 is an unsourced suspect).
 5. Wheat in rotation, soybean and wheat harness N-loss alignment, the Rock Springs silage rotation (+44%), irrigation response of denitrification (wrong sign).
 6. Final report on the locked holdout (`sitesets/holdout.json`, 100 sites, single use) only when Matt says ready.
