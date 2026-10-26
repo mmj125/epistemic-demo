@@ -788,10 +788,23 @@ RESIDUE_COVER_REF = 0.77
 RESIDUE_COVER_BIOMASS_FRAC = 1.0  # 2026-10-18 was 0.7: that factor corrected a pool mass mismatch of 2026-10-02 (engine surface residue about 1.4x Cycles'), but after the residue refits the pool is within about 6% of Cycles' above-ground residue biomass, so 0.7 left cover 21 to 30% too low, soil evaporation 8 to 15% too high and layers 1 and 2 0.011 to 0.017 m3/m3 too dry (water_audit_2026_10_18.py). Cycles' own law (K 0.272, rms 0.017 on 324,000 days) needs no factor.
 
 
+# Standing and flat residue (2026-10-26). RES_SPLIT True: the surface residue pool is split into standing and flat by a standing fraction `cra_fs` that changes only by the documented rules (Cycles input guide:
+# STANDING_RESIDUE_AT_HARVEST sets the share left standing at harvest; a tillage pass flattens the square root of its mixing efficiency of the standing residue); both positions decay at the same rate, which is
+# what Cycles does (standing / flat decay per unit composite factor 1.13, 10 sites, 2026-10-26; WEPS, Handbook 727 ch. 10, differs: standing decays only on wet days). Ground cover is Gregory's flat form
+# 1 - exp(-K M_flat) with a published corn coefficient; standing residue gives little ground cover (WEPS ch. 10: "soil cover from standing residue is typically small", geometric in stem number and diameter).
+RES_SPLIT = True
+RES_STANDING_AT_HARVEST = 0.5   # share of aboveground residue left standing at harvest (Cycles operation file STANDING_RESIDUE_AT_HARVEST: 50 corn, soybean, silage; 40 wheat)
+RES_K_FLAT = 0.40               # Gregory 1982 maize, per Mg/ha of flat residue (crop key `res_k_flat` overrides; wheat 0.50, the middle of Gregory's 0.45 to 0.54); WEPS (van Donk et al. 2008) gives 0.30 for corn, sorghum, millet and 0.65 for small grains
+RES_K_STAND = 0.0               # standing residue ground cover, taken as negligible (WEPS ch. 10)
+
+
 def residue_cover_frac(sixpool_state):
     if sixpool_state is None or "ml" not in sixpool_state:
         return 0.0
     biomass = RESIDUE_COVER_BIOMASS_FRAC * max(0.0, sixpool_state.get("cra", 0.0)) / CARBON_FRACTION_DM
+    if RES_SPLIT:
+        fs = sixpool_state.get("cra_fs", RES_STANDING_AT_HARVEST)
+        return 1.0 - math.exp(-(sixpool_state.get("cra_kf", RES_K_FLAT) * (1.0 - fs) + RES_K_STAND * fs) * biomass)
     return 1.0 - math.exp(-RESIDUE_COVER_K * biomass)
 
 
@@ -3934,6 +3947,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         _c_old = sixpool_state.get("cra", 0.0); _n_old = _c_old * 1000.0 / sixpool_state.get("cra_cn", SIXPOOL_CN_CRA)
         sixpool_state["cra_cn"] = (_c_old + _c_org) * 1000.0 / max(_n_old + _n_org, 1e-9)
         sixpool_state["cra"] = _c_old + _c_org
+    if RES_SPLIT and sixpool_state is not None and "cra_fs" in sixpool_state:
+        sixpool_state["cra_fs"] *= 1.0 - math.sqrt(TILLAGE_IMPLEMENTS["Planter_double_disk_opnr"][2])   # the planter pass of the Cycles operation file (mixing efficiency 0.0716) flattens its square root of the standing residue
     wx_by_doy = {w["doy"]: w for w in weather_rows} if soil_ph is not None else None
 
     def mineral_retention_for_doy(doy):
@@ -4206,6 +4221,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         if tillage_doy is not None and w["doy"] == tillage_doy:
             mix_tilled_layers(layers, tillage_depth_m, tillage_mixing_efficiency, sixpool_profile_raw if tillage_mix_texture else None)
             tillage_dr += tillage_disturb_rating
+            if sixpool_state is not None and tillage_mixing_efficiency and "cra_fs" in sixpool_state:
+                sixpool_state["cra_fs"] *= 1.0 - math.sqrt(tillage_mixing_efficiency)   # the pass flattens sqrt(mixing efficiency) of the standing residue (Cycles input guide)
             if sixpool_state is not None and "ml" in sixpool_state and tillage_mix_texture and tillage_mixing_efficiency > 0:
                 # the per-layer carbon pools (extensive, Mg C/ha per layer) mix by the same coefficient, conserving the tilled-zone total
                 _zone = []; _d = 0.0
@@ -4740,6 +4757,11 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         _c_old = sixpool_state.get("cra", 0.0); _n_old = _c_old * 1000.0 / sixpool_state.get("cra_cn", SIXPOOL_CN_CRA)
         if (crop.get("residue_n_from_plant") or crop.get("legume_n") or "cra_cn" in sixpool_state) and _c_old + _c_new > 1e-9:
             sixpool_state["cra_cn"] = (_c_old + _c_new) * 1000.0 / max(_n_old + _n_new, 1e-9)
+        _fs_new = crop.get("standing_at_harvest", RES_STANDING_AT_HARVEST)
+        _c_add = ag_residue_mg_ha * CARBON_FRACTION_DM
+        if _c_old + _c_add > 1e-9:
+            sixpool_state["cra_fs"] = (sixpool_state.get("cra_fs", _fs_new) * _c_old + _fs_new * _c_add) / (_c_old + _c_add)
+            sixpool_state["cra_kf"] = (sixpool_state.get("cra_kf", RES_K_FLAT) * _c_old + crop.get("res_k_flat", RES_K_FLAT) * _c_add) / (_c_old + _c_add)
         sixpool_state["cra"] = sixpool_state.get("cra", 0.0) + ag_residue_mg_ha * CARBON_FRACTION_DM
         # Reset cra_age to 0 whenever fresh stover lands -- see CRA_MATURATION_TAU_DAYS's own
         # docstring (2026-10-02). A disclosed simplification when cra already held some
