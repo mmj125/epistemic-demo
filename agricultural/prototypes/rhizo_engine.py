@@ -1197,6 +1197,39 @@ ROOT_TRI_POW = 1.0  # exponent on the triangular root density (1 = linear taper 
 ROOT_DENSITY_DECAY_M = 0.3  # None = triangular density (validated default); a length in m = exponential density exp(-z/L), under test 2026-10-06 (L=0.35 best on 10-site relative-wetness fit, not yet adopted)
 
 
+
+GJ_N_UPTAKE = os.environ.get("RHIZO_GJ", "0") == "1"   # 2026-10-26 step 4: Godwin and Jones 1991 (Eqs 23 to 28) supply limit on N uptake
+GJ_SEED_ROOT_KG_HA = 10.0   # root mass at emergence from seed reserves (CERES starts the root from seed weight); class E, small
+GJ_KNO3, GJ_KNH4, GJ_UPT_PER_CM = 0.0275, 0.025, 0.006
+GJ_SRL_M_PER_G = 80.0   # specific root length, m/g (literature range about 50 to 150), tested by sweep
+GJ_ROOT_TOTAL = False   # True: root length from all root growth including the share that leaves the plant (1 / root_retained_frac)
+
+
+def gj_n_uptake_cap(layers, root_depth_m, no3_layers, n_nh4, root_mass_kg_ha, srl=None):
+    """Potential daily N uptake (kg N/ha) after Godwin and Jones 1991 Eqs 23 to 28: root length density x water factor squared x ion
+    availability (1 - exp(-k C)) x 0.006 kg N/ha per cm of root. Root length density is the engine's triangular profile times total root
+    length (root mass x specific root length). Ammonium is treated as sitting in the top layer."""
+    srl = GJ_SRL_M_PER_G if srl is None else srl
+    fl = root_length_fraction_by_layer(layers, root_depth_m)
+    total_cm_per_cm2 = root_mass_kg_ha * 0.1 * srl * 100.0 / 1e4   # kg/ha -> g/m2 (x0.1); m/g -> cm/g; per m2 -> per cm2
+    cap = 0.0
+    for i, l in enumerate(layers):
+        if fl[i] <= 0:
+            continue
+        thick_cm = l["thick"] * 100.0
+        rlv = total_cm_per_cm2 * fl[i] / thick_cm
+        den = l["fc"] - l["pwp"]
+        sm = max(0.0, min(1.0, (l["theta"] - l["pwp"]) / den)) if den > 0 else 1.0
+        if l["theta"] > l["fc"] and l["sat"] > l["fc"]:
+            sm = max(0.0, 1.0 - (l["theta"] - l["fc"]) / (l["sat"] - l["fc"]))
+        mass_kg_ha_per_mgkg = sixpool_bulk_density(l["sat"]) * l["thick"] * 10.0
+        rfac = rlv * sm * sm * thick_cm * 100.0
+        cap += rfac * (1.0 - math.exp(-GJ_KNO3 * no3_layers[i] / mass_kg_ha_per_mgkg)) * GJ_UPT_PER_CM
+        if i == 0 and n_nh4:
+            cap += rfac * (1.0 - math.exp(-GJ_KNH4 * n_nh4 / mass_kg_ha_per_mgkg)) * GJ_UPT_PER_CM
+    return cap
+
+
 def root_length_fraction_by_layer(layers, root_depth_m):
     """Real CropSyst root-length-density weighting (2026-09-30, replacing the earlier FAO-56
     depth-quartile substitute, 0.4/0.3/0.2/0.1): the CropSyst manual itself (Simulation crop:
@@ -4546,6 +4579,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 _reach = n_nh4 + sum(max(0.0, no3_layers[_i] - N_UPTAKE_FLOOR_MGKG * sixpool_bulk_density(layers[_i]["sat"]) * layers[_i]["thick"] * 10.0) * _acc[_i] for _i in range(len(layers)))
                 _urs = crop.get("n_uptake_rate", N_UPTAKE_RATE_PER_DAY)
                 _caps = _reach if _urs is None else _reach * _urs
+                if crop.get("n_uptake_gj", GJ_N_UPTAKE):
+                    _caps = min(_reach, gj_n_uptake_cap(layers, root_depth, no3_layers, n_nh4, max(GJ_SEED_ROOT_KG_HA, (biomass - ag_biomass) * 1e4 / (crop.get("root_retained_frac", 1.0) if GJ_ROOT_TOTAL else 1.0)), crop.get("gj_srl")))
                 _sf_s = shoot_fraction(ttf, crop["fsti"], crop["fstf"], crop.get("ttf50")); _rr_s = crop.get("root_retained_frac", 1.0)
                 _bf = (1.0 if _rr_s >= 1.0 else (_sf_s + (1.0 - _sf_s) * _rr_s))
                 _mdp = n_marginal_demand_pct((biomass_ref if crop.get("n_demand_ref", N_DEMAND_REF) else biomass) * 10, crop) * crop.get("n_demand_scale", N_DEMAND_SCALE)
@@ -4603,6 +4638,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     reachable = NH4_UPTAKE_W * n_nh4 + reach_no3
                     _ur = crop.get("n_uptake_rate", N_UPTAKE_RATE_PER_DAY)
                     _cap = reachable if _ur is None else reachable * _ur
+                    if crop.get("n_uptake_gj", GJ_N_UPTAKE):
+                        _cap = min(reachable, gj_n_uptake_cap(layers, root_depth, no3_layers, n_nh4, max(GJ_SEED_ROOT_KG_HA, (biomass - ag_biomass) * 1e4 / (crop.get("root_retained_frac", 1.0) if GJ_ROOT_TOTAL else 1.0)), crop.get("gj_srl")))
                     n_uptake_kg_ha = min(_cap, demand_today_kg_ha)
                     if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("uptake", ()):
                         n_uptake_kg_ha = min(reachable, _FORCE_CUR["uptake"][w["doy"]])   # diagnostic: Cycles' own daily plant N uptake
