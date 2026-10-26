@@ -802,6 +802,30 @@ def residue_rain_evap_mm(precip_mm, cover):
     return min(RESIDUE_RAIN_EVAP_FRAC * scale * precip_mm, RESIDUE_RAIN_EVAP_CAP_MM * scale, precip_mm)
 
 
+# Residue as a water store (2026-10-26). RES_STORE False: the older rain-day interception above. True: the paper (Sec 2.2) allocates evaporative demand to canopy, residue, snow and soil by radiation interception and
+# says precipitation wets residues first (Sec 2.4); Cycles' dailyResidue.csv reports the residue water state (moisture = m_w/(m_w+m_r)), which tops out at 0.767 kg/kg (3.29 kg water per kg residue, within the
+# published 2 to 4 for crop residues). The store fills from rain up to that capacity and empties by the residue's share of demand, ETo x residue cover x (1 - canopy).
+RES_STORE = True
+RES_SAT_WATER = 3.29    # kg water per kg dry residue at saturation, read from Cycles' output (class D with a published range as a check)
+
+
+def residue_water_today(sixpool_state, pp_mm, cover, eto_mm, eie):
+    """Returns (rain taken by the residue store, residue evaporation) for the day; with RES_STORE False both are the rain-day interception."""
+    if not RES_STORE:
+        r = residue_rain_evap_mm(pp_mm, cover)
+        return r, r
+    if sixpool_state is None or "ml" not in sixpool_state:
+        return 0.0, 0.0
+    mass = RESIDUE_COVER_BIOMASS_FRAC * max(0.0, sixpool_state.get("cra", 0.0)) / CARBON_FRACTION_DM
+    cap = RES_SAT_WATER * mass * 0.1
+    store = min(sixpool_state.get("res_w_mm", 0.0), cap)
+    take = min(max(pp_mm, 0.0), cap - store)
+    store += take
+    rev = min(store, eto_mm * cover * (1.0 - eie))
+    sixpool_state["res_w_mm"] = store - rev
+    return take, rev
+
+
 def summer_time_from_doy(doy):
     """A real day-of-year is either inside or outside a Northern-Hemisphere summer window --
     a simple, disclosed proxy (DOY 152-243, roughly June 1 - Aug 31) for CropSyst's own
@@ -3080,7 +3104,8 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
         if SNOW_MODEL:
             w = snow_adjust(layers, w, lat_deg)
         _rc = residue_cover_frac(sixpool_state)
-        _re = residue_rain_evap_mm(w["pp"], _rc)
+        _eto0 = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], lat_deg)
+        _re, _rev = residue_water_today(sixpool_state, w["pp"], _rc, _eto0, 0.0)
         _th1_0 = zone_mean_theta(layers)
         drainage_mm, _roff, n_out = infiltrate(layers, w["pp"] - _re, curve_number, slope_pct, n_by_layer=no3_layers)
         if no3_layers is not None:
@@ -3090,7 +3115,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
         _ev_taken = soil_evaporation(layers, eto * (1.0 - _rc), 0.0, precip_mm=w["pp"] - _re, de_state=de_state, fallow=True, theta_start=_th1_0, snow_day=w.get('snow_day', False),
                          summer_time=summer_time_from_doy(w["doy"]))
         if DIAG_FALLOW_WATER is not None:   # (year, doy, precip after snow handling, residue rain evaporation, runoff, drainage, soil evaporation, ETo, profile water mm)
-            DIAG_FALLOW_WATER.append((_DIAG_YEAR, w["doy"], w["pp"], _re, _roff, drainage_mm, _ev_taken, eto, sum(l["theta"] * l["thick"] for l in layers) * 1000.0, _rc))
+            DIAG_FALLOW_WATER.append((_DIAG_YEAR, w["doy"], w["pp"], _rev, _roff, drainage_mm, _ev_taken, eto, sum(l["theta"] * l["thick"] for l in layers) * 1000.0, _rc))
         _water_hook(layers, w["doy"], no3_layers)
         tmean = (w["tx"] + w["tn"]) / 2.0
         nstate["tsoil_lag"] += SOIL_TEMP_LAG_K * (tmean - nstate["tsoil_lag"])
@@ -3819,7 +3844,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             if SNOW_MODEL:
                 w = snow_adjust(layers, w, crop["lat_deg"])
             _rc = residue_cover_frac(sixpool_state)
-            _re = residue_rain_evap_mm(w["pp"], _rc)
+            _eto0 = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
+            _re, _rev = residue_water_today(sixpool_state, w["pp"], _rc, _eto0, 0.0)
             _th1_0 = zone_mean_theta(layers)
             _, spin_runoff, _ = infiltrate(layers, w["pp"] - _re, curve_number, slope_pct)
             runoff_total += spin_runoff
@@ -4226,9 +4252,9 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             irrigation_total_mm += irrigation_events[w["doy"]]
 
         res_cover_today = residue_cover_frac(sixpool_state)
-        res_evap_today = residue_rain_evap_mm(w["pp"], res_cover_today)
+        _re_take, res_evap_today = residue_water_today(sixpool_state, w["pp"], res_cover_today, eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"]), eie)
         _th1_0 = zone_mean_theta(layers)
-        drainage_mm, runoff, n_leached_today = infiltrate(layers, w["pp"] + irrigation_mm - res_evap_today, curve_number,
+        drainage_mm, runoff, n_leached_today = infiltrate(layers, w["pp"] + irrigation_mm - _re_take, curve_number,
                                                             slope_pct,
                                                             n_by_layer=(no3_layers if no3_layers is not None
                                                                         else n_pool_by_layer))
@@ -4303,7 +4329,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     n_no3 += -_delta
         eto = eto_fao56(w["doy"], w["tx"], w["tn"], w["solar"], w["rhx"], w["rhn"], w["wind"], crop["lat_deg"])
         _w0 = sum(l["theta"] * l["thick"] for l in layers) if (DIAG_EVAP is not None or record_history) else 0.0
-        soil_evaporation(layers, eto * (1.0 - res_cover_today), eie, precip_mm=w["pp"] + irrigation_mm - res_evap_today, de_state=de_state, theta_start=_th1_0, snow_day=w.get('snow_day', False),
+        soil_evaporation(layers, eto * (1.0 - res_cover_today), eie, precip_mm=w["pp"] + irrigation_mm - _re_take, de_state=de_state, theta_start=_th1_0, snow_day=w.get('snow_day', False),
                           use_cropsyst_formula=(soil_evap_model == "cropsyst"), fallow=False)
         _sev_mm = (_w0 - sum(l["theta"] * l["thick"] for l in layers)) * 1000.0 if record_history else 0.0   # soil water lost to evaporation today (history only)
         if DIAG_EVAP is not None: DIAG_EVAP.append((_DIAG_YEAR, w["doy"], (_w0 - sum(l["theta"] * l["thick"] for l in layers)) * 1000.0, res_evap_today, eto, res_cover_today))

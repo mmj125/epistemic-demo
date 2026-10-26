@@ -126,10 +126,10 @@ ENGINE_INFO = {
     "validation_note": "Agreement with Cycles v1.5.20 on identical weather and soil, held-out sites, 1980 to 2016 (94 sites for spring crops, 60 for winter wheat). r is the correlation across all site-years pooled; bias and error are the model minus Cycles in grain yield. Cycles itself disagrees with its own variants by about 0.17 to 1.4 Mg/ha depending on what changes.",
     "validation_columns": ["Crop", "N rate (kg N/ha)", "r", "Bias (%)", "Mean abs error (Mg/ha)"],
     "validation": [
-        ["Corn", "0 / 150 / 400", "0.96 / 0.92 / 0.97", "-9 / 0 / -6", "0.47 / 0.95 / 0.85"],
+        ["Corn", "0 / 150 / 400", "0.96 / 0.92 / 0.96", "-10 / -1 / -6", "0.48 / 0.97 / 0.86"],
         ["Silage corn", "0 / 150 / 400", "0.94 / 0.92 / 0.95", "-9 / -5 / -7", "0.88 / 1.70 / 1.61"],
-        ["Sorghum", "0 / 150 / 400", "0.95 / 0.89 / 0.93", "-14 / -5 / -11", "0.51 / 1.09 / 1.16"],
-        ["Soybean", "none", "0.96", "-1", "0.33"],
+        ["Sorghum", "0 / 150 / 400", "0.94 / 0.88 / 0.92", "-15 / -6 / -11", "0.52 / 1.11 / 1.18"],
+        ["Soybean", "none", "0.96", "-2", "0.33"],
         ["Winter wheat", "0 / 90 / 150", "0.93 / 0.87 / 0.87", "0 / +3 / -1", "0.36 / 0.65 / 0.74"],
     ],
     "observations": [
