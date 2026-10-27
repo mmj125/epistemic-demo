@@ -3107,7 +3107,7 @@ SOIL_TEMP_LAG_K = 0.15  # reuses simulate_soil_temp()'s own already-validated la
 # not air, temperature, and this engine's main day loop otherwise only ever tracks air tmean.
 
 
-NITRIF_RATIO_PARAMS = dict(k=0.2059, r0=8.2177, q=6.1948, f0=0.7952, s=0.0779)   # 2026-10-20: measured on Cycles' daily layer-1 states with the start-of-day NH4 and NO3 (previous day's end state) and the day's soil temperature and saturation (nitrif_timing_2026_10_20.py, R2 0.990; the earlier fit used end-of-day states, R2 0.83, and its constants were biased)
+NITRIF_RATIO_PARAMS = dict(k=0.2, r0=8.0, q=6.1948, f0=0.7952, s=0.0779)   # 2026-10-20: measured on Cycles' daily layer-1 states with the start-of-day NH4 and NO3 (previous day's end state) and the day's soil temperature and saturation (nitrif_timing_2026_10_20.py, R2 0.990; the earlier fit used end-of-day states, R2 0.83, and its constants were biased)
 
 
 def nitrification_temp_factor(t):
@@ -3124,6 +3124,8 @@ def nitrification_temp_factor(t):
 NITRIF_FW_DOC = False   # True: the nitrification moisture factor is Stockle and Campbell 1989 Eq. 8 instead of the fitted logistic cutoff
 
 
+NITRIF_CAP_FIRST_ORDER = False   # the fitted first-order law with the CERES capacity index instead of the NO3:NH4 ratio term
+NITRIF_CERES_CAPACITY = True   # with NITRIF_CERES: the CERES nitrification capacity (lag) index
 NITRIF_CERES = False   # 2026-10-27 step 9: CERES nitrification (Godwin and Jones 1991 Eqs 13 and 14): fraction per day = min(0.8, A x 40 c / (c + 90)), A = min(moisture, temperature index)
 
 
@@ -3137,9 +3139,36 @@ def nitrification_flux_ratio(nh4_kg_ha, no3_surface_kg_ha, tsoil_c, sat_frac, la
     if NITRIF_CERES and layer0 is not None:
         c = nh4_kg_ha / (sixpool_bulk_density(layer0["sat"]) * layer0["thick"] * 10.0)   # ug N per g soil
         wfd = 1.111 * sat_frac if sat_frac < 0.9 else max(0.0, 10.0 - 10.0 * sat_frac)   # Stockle and Campbell 1989 Eq. 8 as the moisture index
-        a = min(1.0, wfd, nitrification_temp_factor(tsoil_c))
+        tf = min(1.0, nitrification_temp_factor(tsoil_c))
+        if NITRIF_CERES_CAPACITY:
+            # nitrification capacity index (Godwin and Jones 1991 listing): the nitrifier population grows by up to a factor 10 a day when ammonium, moisture and temperature allow
+            # (RP2 = CNI exp(2.302 min(TF, WFD, SANC)), SANC = 1 - exp(-0.01313 NH4), clipped to 0.05 to 1) and falls when ammonium is depleted
+            cni = layer0.get("_cni", 1.0)
+            sanc = 1.0 - math.exp(-0.01313 * nh4_kg_ha)
+            rp2 = min(1.0, max(0.05, cni * math.exp(2.302 * min(tf, wfd, sanc))))
+        else:
+            rp2 = 1.0
+        a = min(rp2, wfd, tf)
         frac = min(0.8, a * 40.0 * c / (c + 90.0))
-        return nh4_kg_ha * min(frac, max(0.0, (c - 0.5) / c))
+        rn = nh4_kg_ha * min(frac, max(0.0, (c - 0.5) / c))
+        if NITRIF_CERES_CAPACITY:
+            sanc2 = 1.0 - math.exp(-0.1363 * max(0.0, nh4_kg_ha - rn))
+            xw = min(wfd, layer0.get("_wfy", wfd)); xt = max(tf, layer0.get("_tfy", tf))
+            layer0["_cni"] = max(0.05, rp2 * min(xw, xt, sanc2)); layer0["_wfy"] = wfd; layer0["_tfy"] = tf
+        return rn
+    if NITRIF_CAP_FIRST_ORDER and layer0 is not None:
+        # first-order nitrification with the CERES nitrification capacity index (Godwin and Jones 1991) in place of the NO3:NH4 ratio term fitted on Cycles
+        P = NITRIF_RATIO_PARAMS
+        fw = (1.111 * sat_frac if sat_frac < 0.9 else max(0.0, 10.0 - 10.0 * sat_frac)) if NITRIF_FW_DOC else 1.0 / (1.0 + math.exp(max(-50.0, min(50.0, (sat_frac - P["f0"]) / P["s"]))))
+        tf = min(1.0, nitrification_temp_factor(tsoil_c))
+        cni = layer0.get("_cni", 1.0)
+        sanc = 1.0 - math.exp(-0.01313 * nh4_kg_ha)
+        rp2 = min(1.0, max(0.05, cni * math.exp(2.302 * min(tf, fw, sanc))))
+        rn = nh4_kg_ha * P["k"] * tf * fw * rp2
+        sanc2 = 1.0 - math.exp(-0.1363 * max(0.0, nh4_kg_ha - rn))
+        xw = min(fw, layer0.get("_wfy", fw)); xt = max(tf, layer0.get("_tfy", tf))
+        layer0["_cni"] = max(0.05, rp2 * min(xw, xt, sanc2)); layer0["_wfy"] = fw; layer0["_tfy"] = tf
+        return rn
     P = NITRIF_RATIO_PARAMS
     r = max(no3_surface_kg_ha, 0.0) / nh4_kg_ha
     x = (r / P["r0"]) ** P["q"] if r < 1e3 else 1e30
