@@ -1158,3 +1158,6 @@ Split of respiration by Cycles' own definitions (residue_respired_carbon = decom
 
 ## 2026-10-27 microbial turnover test (SIXPOOL_KM 0.0413 to 0.015), not adopted
 94-site corn, against the root factor 1.0 baseline: Cm held at 2.0 to 2.2 Mg C like Cycles, but grain is neutral to mixed (r 0.907/0.844/0.892 to 0.920/0.838/0.892; bias 0/0/+5% to -4/-1/+5%; MAE 0.61/1.38/1.39 to 0.59/1.41/1.39) and N losses barely move (denitrification 1.54/1.27/1.14 to 1.49/1.24/1.13). No payoff, KM stays a class D suspect; the fA ceiling remains a placeholder.
+
+## 2026-10-27 flux budget audit, N side
+Net N mineralization per year, 9 sites, corn N=150: Cycles 91.3, engine 77.8 (engine 10 to 30% lower at 8 of 9 sites, equal at one). No structural error on the N side of the soil budget; gross min and imm from the engine's per-call state are not comparable (probe pass) and were not used. Method that found the root double count: split a flux by Cycles' own column definitions and compare annual totals before touching any constant.
