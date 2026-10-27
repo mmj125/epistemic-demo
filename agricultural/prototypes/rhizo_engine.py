@@ -3201,8 +3201,8 @@ VOLAT_WIND_LN_A = -11.2896
 VOLAT_WIND_B = 0.8588
 VOLAT_WIND_C = -1.4581
 VOLAT_WIND_E = 0.1456
-VOLAT_AERO_PH = 5.5   # 2026-10-27: soil pH (assumed) that switches the daily NH3 loss to the Montes 2009 thermodynamics with an aerodynamic resistance; None keeps the fitted wind law
-VOLAT_KD_L_KG = 0.0   # ammonium sorption coefficient of the soil, L water per kg soil equivalent (0 = none)
+VOLAT_AERO_PH = 7.2   # 2026-10-27: soil pH (assumed) that switches the daily NH3 loss to the Montes 2009 thermodynamics with an aerodynamic resistance; None keeps the fitted wind law
+VOLAT_KD_L_KG = 5.6   # ammonium sorption coefficient of the soil, L water per kg soil equivalent (0 = none)
 VOLAT_PH_SLOPE = 0.0   # ln-units of flux per pH unit above 7 (0 = off, as in Cycles); chemistry gives about ln(10) = 2.3 below pKa 9.25
 
 
