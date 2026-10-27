@@ -2481,7 +2481,39 @@ def n_conc_layers(layers, nh4_kg_ha, no3_layers, no3_total):
     return out
 
 
-def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=None):
+WEPS_DECAY = False      # 2026-10-27 step 5: residue decay as in WEPS (Steiner et al. 1999; WEPS Technical Documentation ch. 10): mass loss k x DD per day, DD = min(TF, MF)
+WEPS_SURF, WEPS_ROOT = True, True   # which residue pools follow the WEPS law (surface residue, buried root residue)
+WEPS_TO, WEPS_TB = 32.0, 0.0   # optimum and base temperature of the decomposition-day temperature function (WEPS Eq. 7)
+N_LIMIT_STOICH = True  # 2026-10-27 step 5: residue decomposition limited so that net immobilization cannot exceed the mineral N of the layer (Kemanian et al. 2024: "if there is insufficient inorganic N ... decomposition is limited")
+
+
+def weps_tf(t):
+    """WEPS Eq. 7 (Taylor and Sexton 1972 form): temperature factor of a decomposition day, 0 at Tb and 1 at To."""
+    d = t - WEPS_TB
+    if d <= 0.0 or t >= 2 * WEPS_TO - WEPS_TB:
+        return 0.0
+    d0 = WEPS_TO - WEPS_TB
+    return max(0.0, (2 * d ** 2 * d0 ** 2 - d ** 4) / d0 ** 4)
+
+
+def weps_day(state, tx, tn, pp, layers, t_layers):
+    """Decomposition days of the day for the surface residue (standing and flat share) and for each buried layer (WEPS Eqs 3 to 7). Standing moisture function MFs = P/4 + 0.4 MFs(t-1),
+    zero after more than 4 dry days; flat residue takes the larger of MFs and theta/theta_fc of the surface layer; buried residue theta/theta_fc of its own layer."""
+    dry = 0 if pp > 0.0 else state.get("weps_dry", 0) + 1
+    mfs = min(1.0, pp / 4.0 + 0.4 * state.get("weps_mfs", 0.0))
+    if dry > 4:
+        mfs = 0.0
+    state["weps_dry"], state["weps_mfs"] = dry, mfs
+    tf_air = 0.5 * (weps_tf(tx) + weps_tf(tn))
+    l0 = layers[0]
+    mff = min(1.0, l0["theta"] / l0["fc"]) if l0["fc"] > 0 else 1.0
+    fs = state.get("cra_fs", RES_STANDING_AT_HARVEST)
+    dd_surf = fs * min(tf_air, mfs) + (1.0 - fs) * min(tf_air, max(mfs, mff))
+    dd_bur = [min(weps_tf(t_layers[i]), min(1.0, l["theta"] / l["fc"]) if l["fc"] > 0 else 1.0) for i, l in enumerate(layers)]
+    return dd_surf, dd_bur
+
+
+def _sixpool_core(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=None):
     """Advances the six-pool state by one day (mutating it in place) and returns the day's net
     nitrogen mineralized (kg N/ha) -- the quantity simulate_season() adds directly into
     n_pool_by_layer[0] in place of the RothC-based background_today term when
@@ -2518,7 +2550,7 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
     cm0 = cm
     ml_sub = state.get("ml_sub", False)
     fe = sixpool_fe(tmean, relwet, ml_sub)
-    if SIXPOOL_N_LIMIT_MM and state.get("n_conc1") is not None:
+    if SIXPOOL_N_LIMIT_MM and not N_LIMIT_STOICH and state.get("n_conc1") is not None:
         _c = state["n_conc1"]
         _khalf = SIXPOOL_N_HALF_MGKG   # 2026-10-15 opt-in clay dependence of the N gate: heavy clay saturates at lower concentration, so fertilizer raises net N less
         _gate = SIXPOOL_N_POT_MULT * (SIXPOOL_N_FMIN + (1.0 - SIXPOOL_N_FMIN) * _c / (_c + _khalf))
@@ -2544,9 +2576,18 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
     # same moment the fresh pulse lands, so the two always stay in sync.
 
     _fer = fe
-    decomp_ra = _fer * SIXPOOL_KRA * cra_maturity * cra
-    decomp_rtz = _fer * SIXPOOL_K_RTZ * crtz
+    if WEPS_DECAY and WEPS_SURF and state.get("weps_dd_surf") is not None and state.get("cra_k") is not None:
+        decomp_ra = state["cra_k"] * state["weps_dd_surf"] * cra
+    else:
+        decomp_ra = _fer * SIXPOOL_KRA * cra_maturity * cra
+    if WEPS_DECAY and WEPS_ROOT and state.get("weps_dd_bur") is not None and state.get("rtz_k") is not None:
+        decomp_rtz = state["rtz_k"] * state["weps_dd_bur"] * crtz
+    else:
+        decomp_rtz = _fer * SIXPOOL_K_RTZ * crtz
     decomp_rm = _fer * SIXPOOL_KRM * crm
+    _fs = state.get("res_fe_scale", 1.0)
+    if _fs != 1.0:
+        decomp_ra *= _fs; decomp_rtz *= _fs; decomp_rm *= _fs
     cra = max(0.0, cra - decomp_ra)
     _n_ra = decomp_ra * 1000 / state.get("cra_cn", SIXPOOL_CN_CRA)
     crtz = max(0.0, crtz - decomp_rtz)
@@ -2598,6 +2639,10 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
         state["nm"] = max(0.0, nm + n_in - n_loss_m)
         n_released = _n_ra + decomp_rtz * 1000 / SIXPOOL_CN_CRTZ + decomp_rm * 1000 / SIXPOOL_CN_CRM + n_loss_m + cs_loss * 1000 / SIXPOOL_CN_CS
         n_immobilized = n_in + cs_gain * 1000 / SIXPOOL_CN_CS
+    if ml_sub and SIXPOOL_CN_VARIABLE:
+        state["res_net_n"] = (_n_ra + decomp_rtz * 1000 / SIXPOOL_CN_CRTZ + decomp_rm * 1000 / SIXPOOL_CN_CRM) - n_in
+    else:
+        state["res_net_n"] = (_n_ra + decomp_rtz * 1000 / SIXPOOL_CN_CRTZ + decomp_rm * 1000 / SIXPOOL_CN_CRM) - cm_gain_from_residue * 1000 / SIXPOOL_CN_CM
     state["gmin"], state["gimm"] = n_released, n_immobilized   # gross flows (kg N/ha), exposed for the ammonium and nitrate bookkeeping
     if ml_sub:
         if SIXPOOL_DIAG is not None:
@@ -2690,6 +2735,24 @@ def sixpool_ml_init(layers, profile_raw):
                 cra=0.0, crtz=0.0, crm=0.0, csx=sum(x["csx"] for x in subs), cra_age=9999.0, clay=subs[0].get("clay", 0.25))
 
 
+def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=None):
+    """One day of one pool set. With N_LIMIT_STOICH a probe pass on a copy finds the net immobilization the residue decomposition would cause; if it exceeds the mineral N of the layer
+    (state['n_avail_kg_ha']) the residue decomposition rates are scaled so that it equals it, then the real pass runs."""
+    na = state.get("n_avail_kg_ha")
+    if N_LIMIT_STOICH and na is not None and "ml" not in state:
+        _nd = len(SIXPOOL_DIAG) if SIXPOOL_DIAG is not None else 0
+        probe = dict(state); probe["res_fe_scale"] = 1.0
+        net = _sixpool_core(probe, tmean, relwet, root_c_input_mg_ha, ft_eff, layers)
+        if SIXPOOL_DIAG is not None: del SIXPOOL_DIAG[_nd:]
+        rn = probe.get("res_net_n", 0.0)
+        if net < -na and rn < 0.0:
+            other = net - rn
+            state["res_fe_scale"] = max(0.0, min(1.0, (-na - other) / rn))
+        else:
+            state["res_fe_scale"] = 1.0
+    return _sixpool_core(state, tmean, relwet, root_c_input_mg_ha, ft_eff, layers)
+
+
 def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
     """Advance every layer's two-pool one day; returns total net N mineralized (kg N/ha). Layer 0
     carries the surface residue pools. Root carbon input is distributed over layers by an
@@ -2714,8 +2777,17 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
     if _hc is None:
         _hc = state["hc"] = hc_make([2.0 * (x["zmid"] - x["z0"]) for x in subs], SIXPOOL_ML_TMEAN_INIT)
     _t_hc = hc_step(_hc, tmean)
+    _dd_surf, _dd_bur = (None, None)
+    if WEPS_DECAY and state.get("wx_day") is not None:
+        _dd_surf, _dd_bur = weps_day(state, state["wx_day"][0], state["wx_day"][1], state["wx_day"][2], layers, _t_hc)
     for i, (sub, l) in enumerate(zip(subs, layers)):
         t_layer = _t_hc[i]
+        if _dd_bur is not None:
+            sub["weps_dd_bur"], sub["rtz_k"] = _dd_bur[i], state.get("rtz_k")
+            if i == 0:
+                sub["weps_dd_surf"], sub["cra_k"] = _dd_surf, state.get("cra_k")
+        if N_LIMIT_STOICH and state.get("n_conc_layers") is not None:
+            sub["n_avail_kg_ha"] = state["n_conc_layers"][i] * sixpool_bulk_density(l["sat"]) * l["thick"] * 10.0
         _th_fe = state["theta_start"][i] if (SIXPOOL_START_MOISTURE and state.get("theta_start") is not None) else l["theta"]
         relwet = ((_th_fe - l["pwp"]) / (l["fc"] - l["pwp"]) if l["fc"] > l["pwp"] else 1.0)
         sub["n_min"] = state.get("n_min")
@@ -3201,6 +3273,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             sixpool_state["n_conc_layers"] = n_conc_layers(layers, nstate["n_nh4"], no3_layers, nstate["n_no3"])
             _dn0 = len(SIXPOOL_DIAG) if SIXPOOL_DIAG is not None else 0
             _DIAG_CTX["doy"] = w["doy"]
+            sixpool_state["wx_day"] = (w["tx"], w["tn"], w["pp"])
             _smin = sixpool_step(sixpool_state, tmean, relwet, 0.0, 1.0, layers)
             if SIXPOOL_DIAG is not None and DIAG_NFLUX is not None:
                 _new = SIXPOOL_DIAG[_dn0:]
@@ -3942,6 +4015,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 tmean_spin = (w["tx"] + w["tn"]) / 2
                 relwet_spin = ((layers[0]["theta"] - layers[0]["pwp"]) / (layers[0]["fc"] - layers[0]["pwp"])
                                 if layers[0]["fc"] > layers[0]["pwp"] else 1.0)
+                sixpool_state["wx_day"] = (w["tx"], w["tn"], w["pp"]); sixpool_state["rtz_k"] = crop.get("weps_k")
                 sixpool_step(sixpool_state, tmean_spin, relwet_spin, 0.0, 1.0, layers)
     tillage_depth_m, tillage_mixing_efficiency = None, None
     if tillage_doy == "planting":   # row 55: tillage on the first season day (the planting day), whatever that year's date is
@@ -4509,6 +4583,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 sixpool_state["n_conc1"] = n_conc_layer1(layers, n_nh4 if n_nh4 is not None else 0.0, no3_layers, (n_no3 or 0.0) if n_nh4 is not None else n_pool)
                 sixpool_state["n_conc_layers"] = n_conc_layers(layers, n_nh4 if n_nh4 is not None else 0.0, no3_layers, (n_no3 or 0.0) if n_nh4 is not None else n_pool)
                 _DIAG_CTX["doy"] = w["doy"]
+                sixpool_state["wx_day"] = (w["tx"], w["tn"], w["pp"]); sixpool_state["rtz_k"] = crop.get("weps_k")
                 background_today = sixpool_step(sixpool_state, tmean, relwet_topsoil, root_c_input_today, ft_eff, layers)
                 if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("netmin", ()):
                     background_today = _FORCE_CUR["netmin"][w["doy"]]
@@ -4828,18 +4903,24 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         _c_new = ag_residue_mg_ha * CARBON_FRACTION_DM
         if crop.get("legume_n") and _c_new > 1e-9:
             _n_new = max(canopy_n_kg_ha * (1.0 - crop.get("grain_n_share", 0.54) - crop.get("root_n_share", 0.065)), 1e-3)   # Cycles' soybean harvest N partition (24 sites, 857 crop-years): grain 0.54, roots 0.065, above-ground residue 0.39 of plant N
+        elif crop.get("residue_grain_n") is not None and _c_new > 1e-9:
+            _n_new = max(N_AG_FRACTION * canopy_n_kg_ha * (1.0 - crop["residue_grain_n"]), 1e-3)   # grain N share of above-ground N leaves with the grain; the rest returns with the residue
         elif crop.get("residue_n_from_plant") and _c_new > 1e-9:
             _n_new = max(N_AG_FRACTION * canopy_n_kg_ha, 1e-3)
         else:
             _n_new = _c_new * 1000.0 / SIXPOOL_CN_CRA
         _c_old = sixpool_state.get("cra", 0.0); _n_old = _c_old * 1000.0 / sixpool_state.get("cra_cn", SIXPOOL_CN_CRA)
-        if (crop.get("residue_n_from_plant") or crop.get("legume_n") or "cra_cn" in sixpool_state) and _c_old + _c_new > 1e-9:
+        if (crop.get("residue_n_from_plant") or crop.get("residue_grain_n") is not None or crop.get("legume_n") or "cra_cn" in sixpool_state) and _c_old + _c_new > 1e-9:
             sixpool_state["cra_cn"] = (_c_old + _c_new) * 1000.0 / max(_n_old + _n_new, 1e-9)
         _fs_new = crop.get("standing_at_harvest", RES_STANDING_AT_HARVEST)
         _c_add = ag_residue_mg_ha * CARBON_FRACTION_DM
         if _c_old + _c_add > 1e-9:
             sixpool_state["cra_fs"] = (sixpool_state.get("cra_fs", _fs_new) * _c_old + _fs_new * _c_add) / (_c_old + _c_add)
             sixpool_state["cra_kf"] = (sixpool_state.get("cra_kf", RES_K_FLAT) * _c_old + crop.get("res_k_flat", RES_K_FLAT) * _c_add) / (_c_old + _c_add)
+        if crop.get("weps_k") is not None and (_c_old < 1e-9 or sixpool_state.get("cra_k") is not None):
+            sixpool_state["cra_k"] = (sixpool_state.get("cra_k", crop["weps_k"]) * _c_old + crop["weps_k"] * _c_add) / max(_c_old + _c_add, 1e-12)
+        else:
+            sixpool_state["cra_k"] = None
         sixpool_state["cra"] = sixpool_state.get("cra", 0.0) + ag_residue_mg_ha * CARBON_FRACTION_DM
         # Reset cra_age to 0 whenever fresh stover lands -- see CRA_MATURATION_TAU_DAYS's own
         # docstring (2026-10-02). A disclosed simplification when cra already held some
