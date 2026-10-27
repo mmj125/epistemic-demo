@@ -23,15 +23,15 @@ Goal: a from-scratch Python reimplementation of Cycles (`agricultural/prototypes
 1. Five crops reach POOLED correlation above 0.8 against Cycles over held-out site-years (all sites and years pooled, per N rate, and across rates), at several N rates where N matters. Met at every N rate (below). Pooled correlation is blind to bias and to the response to inputs; the panel in `metrics_panel_2026_10_23.py` (concordance, Nash-Sutcliffe, within-site anomaly r and spread, bias by yield tercile, N response) is reported with it.
 2. Leaching is much better. Corn is inside the 1 to 3 kg N/ha target at N<=150 (+0.3 and +2.0); silage N=150 is +5.0; wheat is at 1.00x to 1.18x of Cycles' (N=90 and 150 +1.4 and +2.6 kg).
 
-### Where the engine stands (2026-10-27, after queue steps 1 to 9, residue scale 1.0; 94 fresh sites, continuous chain, factors 1.0; wheat 60 sites FALLN=60; runs `sc_*` in `/tmp/w`)
+### Where the engine stands (2026-10-27, after queue steps 1 to 9, residue scale 1.0, root input factor 1.0 (the 5/3 double count removed); 94 fresh sites, continuous chain, factors 1.0; wheat 60 sites FALLN=60; runs `sc_*` in `/tmp/w`)
 Pooled r | bias | grain MAE (Mg/ha) at N=0/150/400 (wheat 0/90/150), against Cycles v1.5.20:
-- corn 0.910 / 0.839 / 0.890 | +5% / +1% / +5% | 0.64 / 1.43 / 1.41
-- silage 0.885 / 0.890 / 0.926 | +22% / +4% / +2% | 1.41 / 1.77 / 1.66
-- sorghum 0.902 / 0.801 / 0.825 | +3% / -10% / -3% | 0.59 / 1.52 / 1.62 (N=150 is 0.001 above the 0.8 line)
+- corn 0.907 / 0.844 / 0.892 | 0% / 0% / +5% | 0.61 / 1.38 / 1.39
+- silage 0.886 / 0.892 / 0.927 | +16% / +3% / +2% | 1.27 / 1.73 / 1.65
+- sorghum 0.896 / 0.798 / 0.827 | -2% / -11% / -3% | 0.59 / 1.57 / 1.60 (N=150 is 0.002 BELOW the 0.8 line, was 0.001 above)
 - soybean (legume N path) 0.945 | +0.29 Mg/ha (+9%) | 0.47
-- winter wheat 0.915 / 0.860 / 0.849 | +5% / 0% / -3% | 0.37 / 0.62 / 0.78
+- winter wheat 0.914 / 0.857 / 0.848 | +3% / -3% / -5% | 0.36 / 0.63 / 0.80 (old root factor: 0.37 / 0.62 / 0.78)
 - Metrics panel (corn / silage / sorghum): within-site r median 0.71 to 0.93, anomaly sd ratio 0.9 to 1.5, N response 0 to 150 matches Cycles (corn 100%, silage 96%, sorghum 85%), 150 to 400 corn 121%, silage 92%, sorghum 129%.
-- N losses engine/Cycles at N=0/150/400: corn leaching 1.32/1.24/1.02, volatilization 1.09/0.88/0.91, denitrification 1.99/1.60/1.41, N2O 0.96/0.87/0.80; silage leaching 1.18/1.35/1.21, denitrification 1.26/1.22/1.09; sorghum leaching 1.07/1.10/0.88, denitrification 1.65/1.34/1.28; wheat leaching 1.20/1.20/1.26, volatilization 1.02/0.98/1.05, denitrification 0.62/0.84/0.90, N2O 0.55/0.64/0.62; soybean leaching 9.4 vs 7.0 kg, volatilization 7.1 vs 4.5, denitrification 5.9 vs 6.2, N2O 0.7 vs 1.0. Corn denitrification at 1.4 to 2.0 times Cycles' comes from the WEPS residue stock (0.88x with the fitted residue law); next to examine.
+- N losses engine/Cycles at N=0/150/400: corn leaching 1.26/1.17/1.04, volatilization 1.18/0.92/0.95, denitrification 1.54/1.27/1.14, N2O 0.80/0.74/0.70; silage leaching 1.15/1.31/1.25, denitrification 0.99/0.86/0.77; sorghum leaching 1.01/1.03/0.88, denitrification 1.28/1.08/1.06; wheat leaching 1.11/1.11/1.18, volatilization 1.20/1.05/1.11, denitrification 0.52/0.69/0.74, N2O 0.48/0.56/0.54; soybean leaching x1.25, volatilization x1.55, denitrification x0.76, N2O x0.60. Corn denitrification excess (was 1.4 to 2.0x) fell to 1.1 to 1.5x when the root carbon double count was removed; the rest is the larger WEPS residue stock, an observation-supported departure.
 - Observations (NASS county, 94 sites, 2007 to 2016 levels): within-site r corn 0.41 (Cycles 0.38), soybean 0.36 (0.33), silage 0.40 (0.34), wheat 0.20 (0.23); level corn x0.92 (east x0.93, west x0.79; Cycles x0.89), soybean x1.44, wheat x1.44, silage x1.17; engine minus Cycles within-site r corn +0.027 [-0.021, +0.072], soybean +0.034 [+0.011, +0.058], silage +0.063 [+0.001, +0.135], wheat +0.018 [-0.035, +0.067]. Mead towers: yields as close to the BIF measurements as Cycles'; both models run 16 to 47% high on ET (gridded weather bias) and exaggerate drought losses.
 - Rotation (corn after soybean) and the cover-crop options were last checked 2026-10-23.
 

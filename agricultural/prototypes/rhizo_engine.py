@@ -2191,7 +2191,7 @@ def tillage_dr_decay(layers, max_rate_per_day=0.02):
 # at both Iowa and Rock Springs; soybean 1.68, winter wheat 1.64, silage corn 1.85 in CornSilageSoyWheat),
 # i.e. roots return more carbon than their final standing biomass (in-season turnover/rhizodeposition).
 # The engine's root carbon input only credited the final root biomass, ~0.6x of Cycles' (found 2026-10-07).
-ROOT_C_INPUT_FACTOR = 5.0 / 3.0
+ROOT_C_INPUT_FACTOR = 1.0   # 2026-10-27: was 5/3. Cycles' root input (5/3 of its root biomass at harvest) equals the TOTAL root growth, because the plant keeps only root_retained_frac 0.6 = 3/5 of it; the engine's daily root growth (1 - shoot share) x growth is already that total, so 5/3 counted the leaving share twice (root C decomposed 3.91 vs Cycles' 2.33 Mg C/ha/yr at one site; 1.0 gives 2.33)
 # Root carbon input is sized from water-limited growth (False, shipped) or from growth after N stress (True, the
 # physically correct version). Found 2026-10-12: with N stress ignored, the engine fed 2.3 Mg C/ha of root carbon to
 # the six-pool state for a 0.74 Mg/ha N-starved crop (Indiana N=0), so low-nitrogen sites immobilized too much N.
