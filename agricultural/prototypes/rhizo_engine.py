@@ -3124,6 +3124,8 @@ def nitrification_temp_factor(t):
 NITRIF_FW_DOC = False   # True: the nitrification moisture factor is Stockle and Campbell 1989 Eq. 8 instead of the fitted logistic cutoff
 
 
+NITRIF_SOILN_MOIST = True   # the moisture response of SOILN (Johnsson et al. 1987 Eqs 11 and 12) in place of the logistic fitted on Cycles
+NITRIF_SOILN_RATIO = True   # the ratio term as published in SOILN (Johnsson et al. 1987 Eq. 9), linear in NO3/NH4 to zero at n_q = 8
 NITRIF_CAP_FIRST_ORDER = False   # the fitted first-order law with the CERES capacity index instead of the NO3:NH4 ratio term
 NITRIF_CERES_CAPACITY = True   # with NITRIF_CERES: the CERES nitrification capacity (lag) index
 NITRIF_CERES = False   # 2026-10-27 step 9: CERES nitrification (Godwin and Jones 1991 Eqs 13 and 14): fraction per day = min(0.8, A x 40 c / (c + 90)), A = min(moisture, temperature index)
@@ -3171,6 +3173,17 @@ def nitrification_flux_ratio(nh4_kg_ha, no3_surface_kg_ha, tsoil_c, sat_frac, la
         return rn
     P = NITRIF_RATIO_PARAMS
     r = max(no3_surface_kg_ha, 0.0) / nh4_kg_ha
+    if NITRIF_SOILN_RATIO:
+        # Johnsson et al. 1987 Eq. 9: transfer = k_n e_t e_m (NH4 - NO3 / n_q), nothing when NO3 / NH4 exceeds n_q
+        ratio_f = max(0.0, 1.0 - r / P["r0"])
+        if NITRIF_SOILN_MOIST and layer0 is not None:
+            # Johnsson et al. 1987 Eq. 11 and 12: activity rises from the wilting point over 10 percent (volumetric), is 1 in the optimal range and falls to 0.6 at saturation over the last 8 percent (m = 1)
+            ts, tw, th = layer0["sat"], layer0["pwp"], layer0["theta"]
+            tlo, tho = tw + 0.10, ts - 0.08
+            fw = 1.0 if tlo >= tho else (0.0 if th <= tw else ((th - tw) / (tlo - tw) if th < tlo else (1.0 if th <= tho else 0.6 + 0.4 * (ts - th) / (ts - tho))))
+        else:
+            fw = (1.111 * sat_frac if sat_frac < 0.9 else max(0.0, 10.0 - 10.0 * sat_frac)) if NITRIF_FW_DOC else 1.0 / (1.0 + math.exp(max(-50.0, min(50.0, (sat_frac - P["f0"]) / P["s"]))))
+        return nh4_kg_ha * P["k"] * nitrification_temp_factor(tsoil_c) * fw * ratio_f
     x = (r / P["r0"]) ** P["q"] if r < 1e3 else 1e30
     if NITRIF_FW_DOC:
         fw = 1.111 * sat_frac if sat_frac < 0.9 else max(0.0, 10.0 - 10.0 * sat_frac)   # Stockle and Campbell 1989 Eq. 8
@@ -3188,7 +3201,7 @@ VOLAT_WIND_LN_A = -11.2896
 VOLAT_WIND_B = 0.8588
 VOLAT_WIND_C = -1.4581
 VOLAT_WIND_E = 0.1456
-VOLAT_AERO_PH = 5.75   # 2026-10-27: soil pH (assumed) that switches the daily NH3 loss to the Montes 2009 thermodynamics with an aerodynamic resistance; None keeps the fitted wind law
+VOLAT_AERO_PH = 5.5   # 2026-10-27: soil pH (assumed) that switches the daily NH3 loss to the Montes 2009 thermodynamics with an aerodynamic resistance; None keeps the fitted wind law
 VOLAT_KD_L_KG = 0.0   # ammonium sorption coefficient of the soil, L water per kg soil equivalent (0 = none)
 VOLAT_PH_SLOPE = 0.0   # ln-units of flux per pH unit above 7 (0 = off, as in Cycles); chemistry gives about ln(10) = 2.3 below pKa 9.25
 
