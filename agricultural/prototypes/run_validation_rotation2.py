@@ -94,7 +94,7 @@ WHEAT = dict(canopy_form="H",  # 2026-10-17: integrated-derivative canopy, expan
              # (Kemanian et al. 2007) regressed wheat's correlation (0.337->0.163) even
              # though it helped corn/soybean, plausibly tied to wheat's own already-
              # documented winter-dormancy anomaly.
-             n_crit_lemaire=(5.3, 0.44), n_stress_n0=0.2, residue_grain_n=0.75, n_uptake_gj=True, n_demand_scale=1.0,  # 2026-10-26 Lemaire et al. 2008 wheat critical curve and linear NNI growth response (was the fitted 0.75 scale)  # old note: SUSPECT, pinned 2026-10-17: measured wheat unstressed ratio is 0.75, but at 0.75 (with or without the corn N stress law) wheat over- or under-yields because its canopy plateau 0.86 and growth conversion 1.057 were tuned under this demand; revisit with the consistent-core package
+             n_crit_lemaire=(5.3, 0.44), n_stress_n0=0.2, weps_k=0.028, residue_grain_n=0.75, n_uptake_gj=True, n_demand_scale=1.0,  # 2026-10-26 Lemaire et al. 2008 wheat critical curve and linear NNI growth response (was the fitted 0.75 scale)  # old note: SUSPECT, pinned 2026-10-17: measured wheat unstressed ratio is 0.75, but at 0.75 (with or without the corn N stress law) wheat over- or under-yields because its canopy plateau 0.86 and growth conversion 1.057 were tuned under this demand; revisit with the consistent-core package
              make_layers=make_layers, calibration_factor=1.0,  # 2026-10-17 harvest index law (wheat_hi_test.py): no mask. 1.1523 was 2026-10-16 row 50 re-centering (was 1.2052);
              #  # 2026-10-15 re-derived for the N-loss fit (row 46); 1.1099 before  # 2026-10-15 re-derived again (row 46; 1.1099 before the N-loss refit; was 1.1807 originally) after the stoichiometry-path N constants (row 44);  # re-derived 2026-10-02 for
              # sixpool_step()'s own per-pool real C:N fix (CN_RATIO_SOM's single flat ratio
@@ -254,7 +254,7 @@ WHEAT = dict(canopy_form="H",  # 2026-10-17: integrated-derivative canopy, expan
              # reached that late at this site -- added for completeness/documentation, not
              # because it does anything here.
 
-CORN_SILAGE = dict(n_crit_lemaire=(3.4, 0.37), n_demand_scale=1.0, n_stress_n0=0.2, n_uptake_gj=True, senes_delay=0.12, senes_k=1.0, tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
+CORN_SILAGE = dict(n_crit_lemaire=(3.4, 0.37), n_demand_scale=1.0, n_stress_n0=0.2, weps_k=0.01, n_uptake_gj=True, senes_delay=0.12, senes_k=1.0, tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
                     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
                     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=LAT,
                     make_layers=make_layers, forage_fraction=0.95, calibration_factor=1.0,  # 2026-10-16 row 50 re-centering (was 0.7625);

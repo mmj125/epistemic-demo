@@ -2331,6 +2331,9 @@ SIXPOOL_ML_EPS_H = 0.53
 # the C-Farm Eq. 4a clay shape (Kemanian & Stockle 2010) fitted to Cycles' humified/(humified+residue respired) over 16 sites:
 # 0.370 + 0.152 g, rms 0.034 vs 0.047 for one constant. None keeps the flat SIXPOOL_ML_EPS_H.
 SIXPOOL_ML_HUM_CLAY = (0.34145, 0.152)  # default since 2026-10-07: 16-site table with N_A 140 improved fertilized corn error 1.59 -> 1.55 and leaching, denitrification, N2O slightly; None restores the flat EPS_H
+SIXPOOL_ML_RES_SCALE_SURF = 0.54     # 2026-10-27: share of the surface-residue carbon that becomes microbial biomass, relative to the shared efficiency; tuned to Schomberg et al. 1994 N immobilized per biomass lost when set
+SIXPOOL_ML_RES_SCALE_BURIED = 0.54   # the same for buried root residue
+DIAG_RESN = None   # (decomp_ra, N immobilized by surface residue decomposition, N released by it, decomp_rtz, N immobilized by buried, N released by it)
 SIXPOOL_ML_FH_P = 12.0
 SIXPOOL_ML_FH_FLOOR = 0.2  # Cycles still humifies ~0.12-0.17 of decomposed residue C at Cs/Csx >= 1 (Iowa 1980-83)
 # Per-layer Cs decomposition (2026-10-02, supersedes the fD-form fit above, which fit the same data at
@@ -2481,7 +2484,7 @@ def n_conc_layers(layers, nh4_kg_ha, no3_layers, no3_total):
     return out
 
 
-WEPS_DECAY = False      # 2026-10-27 step 5: residue decay as in WEPS (Steiner et al. 1999; WEPS Technical Documentation ch. 10): mass loss k x DD per day, DD = min(TF, MF)
+WEPS_DECAY = True      # 2026-10-27 step 5: residue decay as in WEPS (Steiner et al. 1999; WEPS Technical Documentation ch. 10): mass loss k x DD per day, DD = min(TF, MF)
 WEPS_SURF, WEPS_ROOT = True, True   # which residue pools follow the WEPS law (surface residue, buried root residue)
 WEPS_TO, WEPS_TB = 32.0, 0.0   # optimum and base temperature of the decomposition-day temperature function (WEPS Eq. 7)
 N_LIMIT_STOICH = True  # 2026-10-27 step 5: residue decomposition limited so that net immobilization cannot exceed the mineral N of the layer (Kemanian et al. 2024: "if there is insufficient inorganic N ... decomposition is limited")
@@ -2598,7 +2601,8 @@ def _sixpool_core(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=N
         _r = max(0.0, cs / csx) if csx > 0 else 0.0
         _eps_h = SIXPOOL_ML_EPS_H if SIXPOOL_ML_HUM_CLAY is None else (
             SIXPOOL_ML_HUM_CLAY[0] + SIXPOOL_ML_HUM_CLAY[1] * (1.0 - math.exp(-5.5 * state.get("clay", 0.2))))
-        cm_gain_from_residue = _eps_h * max(SIXPOOL_ML_FH_FLOOR, 1.0 - _r ** SIXPOOL_ML_FH_P) * gross_residue_decomp
+        _gross_eff = decomp_ra * SIXPOOL_ML_RES_SCALE_SURF + decomp_rtz * SIXPOOL_ML_RES_SCALE_BURIED + decomp_rm
+        cm_gain_from_residue = _eps_h * max(SIXPOOL_ML_FH_FLOOR, 1.0 - _r ** SIXPOOL_ML_FH_P) * _gross_eff
     else:
         cm_gain_from_residue = SIXPOOL_EPS_C * fh * gross_residue_decomp
     co2_residue = gross_residue_decomp - cm_gain_from_residue
@@ -2635,6 +2639,8 @@ def _sixpool_core(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=N
         _xr = (cnd / 110.0) ** 3
         cn_new = 8.5 + 5.5 * (_xr / (1.0 + _xr)) * (0.5 / (1.0 + ((state.get("n_conc1") or 0.0) / 8.0) ** 3))
         n_in = cm_gain_from_residue * 1000 / cn_new
+        if DIAG_RESN is not None and _gross_eff > 1e-15:
+            DIAG_RESN.append((decomp_ra, n_in * decomp_ra * SIXPOOL_ML_RES_SCALE_SURF / _gross_eff, _n_ra, decomp_rtz, n_in * decomp_rtz * SIXPOOL_ML_RES_SCALE_BURIED / _gross_eff, decomp_rtz * 1000 / SIXPOOL_CN_CRTZ))
         n_loss_m = nm * cm_loss / cm0 if cm0 > 1e-12 else 0.0
         state["nm"] = max(0.0, nm + n_in - n_loss_m)
         n_released = _n_ra + decomp_rtz * 1000 / SIXPOOL_CN_CRTZ + decomp_rm * 1000 / SIXPOOL_CN_CRM + n_loss_m + cs_loss * 1000 / SIXPOOL_CN_CS
