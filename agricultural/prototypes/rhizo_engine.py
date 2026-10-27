@@ -387,6 +387,7 @@ REDISTRIBUTE_MAX_STEPS = 200  # safety cap against a floating-point edge case ev
 # handful of steps (rarely more than the layer count), this is headroom, not a target.
 
 
+SOLUTE_GJ_EQ1 = True   # 2026-10-27 step 9: nitrate leaching as in CERES (Godwin and Jones 1991 Eq. 1), instead of drainage over the saturated water volume
 SOLUTE_VOL_SAT = True   # 2026-10-18 measured on Cycles' own daily output (6 sites, 37 years, N=150, leach_transport_2026_10_18.py): nitrate leached out of the profile = drainage x previous-day bottom-layer nitrate / the layer's SATURATED water volume (ratio to Cycles 0.96 to 1.03, daily corr 0.99 to 1.00), not / its current water content; applied to the gravity-drainage stage of every layer. False restores division by current water.
 def redistribute(layers, water_in_mm, n_substeps=REDISTRIBUTE_SUBSTEPS, n_by_layer=None):
     """First, infiltration fills each layer to saturation, cascading any overflow to the
@@ -507,7 +508,10 @@ def redistribute(layers, water_in_mm, n_substeps=REDISTRIBUTE_SUBSTEPS, n_by_lay
             for i, l in enumerate(layers):
                 l["theta"] -= fluxes[i] / thicks_mm[i]
                 if n_by_layer is not None and water_before_mm[i] > 1e-9:
-                    n_out[i] = fluxes[i] * (n_by_layer[i] / (l["sat"] * thicks_mm[i] if SOLUTE_VOL_SAT else water_before_mm[i]))
+                    if SOLUTE_GJ_EQ1:
+                        n_out[i] = n_by_layer[i] * fluxes[i] / (water_before_mm[i] + fluxes[i])   # Godwin and Jones 1991 Eq. 1: the fraction of the layer's nitrate that moves is drainage over retained water plus drainage
+                    else:
+                        n_out[i] = fluxes[i] * (n_by_layer[i] / (l["sat"] * thicks_mm[i] if SOLUTE_VOL_SAT else water_before_mm[i]))
                     n_by_layer[i] -= n_out[i]
             carry = 0.0
             n_carry = 0.0
