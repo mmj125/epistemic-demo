@@ -88,7 +88,7 @@ def engine_chain(wx,soil,cl,N,calib):
         E._FORCE_CUR=(E.FORCE_SERIES.get(y) if E.FORCE_SERIES else None)
         _fl=E.run_fallow_n_window(layers,fallow,nstate,sp,lat_deg=cl,de_state=de,model_denitrification=True,model_volatilization=True)
         _fn2o=nstate.pop("n2o",0.0)
-        kw=dict(base); kw.update(initial_n_state=dict(nstate),initial_layers=layers,spinup_rows=None,wue_co2_scale=E.CO2_PPM_BY_YEAR.get(y,E.CO2_REF_PPM)/E.CO2_REF_PPM,record_history=True)
+        kw=dict(base); kw.update(initial_n_state=dict(nstate),initial_layers=layers,spinup_rows=None,wue_co2_scale=(E.CO2_PPM_BY_YEAR.get(y,E.CO2_REF_PPM)/E.CO2_REF_PPM)**crop.get('wue_co2_exp',E.WUE_CO2_EXP),rue_co2_scale=(E.CO2_PPM_BY_YEAR.get(y,E.CO2_REF_PPM)/E.CO2_REF_PPM)**crop.get('rue_co2_exp',E.RUE_CO2_EXP),record_history=True)
         if N>0: kw["n_applications"]=([(289,FALLN),(75,N-FALLN)] if (FALLN>0 and N>FALLN) else [(75,N)]); kw["fertilizer_source"]="uan"
         else: kw["n_rate_kg_ha"]=0
         if sp is not None: kw["sixpool_initial_state"]=sp

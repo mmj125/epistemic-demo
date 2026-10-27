@@ -3386,9 +3386,9 @@ def _season_chain(weather_by_year, year_range, crop, plant_window, plant_min_soi
         kw = dict(_yp["kw_replace"]) if "kw_replace" in _yp else dict(season_kwargs)   # kw_replace: a crop path with its own kwargs (soybean has no N model)
         kw.update(_yp.get("kw", {}))
         if "wue_co2_scale" not in kw:
-            kw["wue_co2_scale"] = (CO2_PPM_BY_YEAR.get(y, CO2_REF_PPM) / CO2_REF_PPM) ** WUE_CO2_EXP
+            kw["wue_co2_scale"] = (CO2_PPM_BY_YEAR.get(y, CO2_REF_PPM) / CO2_REF_PPM) ** ycrop.get("wue_co2_exp", WUE_CO2_EXP)
         if "rue_co2_scale" not in kw:
-            kw["rue_co2_scale"] = (CO2_PPM_BY_YEAR.get(y, CO2_REF_PPM) / CO2_REF_PPM) ** RUE_CO2_EXP
+            kw["rue_co2_scale"] = (CO2_PPM_BY_YEAR.get(y, CO2_REF_PPM) / CO2_REF_PPM) ** ycrop.get("rue_co2_exp", RUE_CO2_EXP)
         if layers is None:
             layers = crop["make_layers"]()
         fallow_tot = [0.0, 0.0, 0.0]
