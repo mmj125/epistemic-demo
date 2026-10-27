@@ -2945,6 +2945,10 @@ MINERAL_SOURCES = {
 }
 
 
+MINERAL_UREA_SHARE = {"urea": 1.0, "uan": 0.5}   # share of the applied N that is urea: UAN 32-0-0 is half urea N, a quarter ammonium N and a quarter nitrate N (the Cycles catalog lists urea as ammonium)
+VOLAT_MACNACK_PH = None   # 2026-10-27: soil pH (assumed, the engine has no pH source) that switches volatilization to Macnack, Chim and Raun 2013 at fertilizer application, in place of the continuous wind law
+
+
 def macnack_ammonia_loss_pct(soil_ph, air_temp_c, wind_speed_ms):
     """Macnack, Chim & Raun (2013), "Applied Model for Estimating Potential Ammonia Loss from
     Surface Applied Urea" (Communications in Soil Science and Plant Analysis 44:2055-2063) --
@@ -3294,7 +3298,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             nstate["n_nh4"], nstate["n_no3"] = apply_net_min(nstate["n_nh4"], nstate["n_no3"], no3_layers, _smin, sixpool_state)
         nit = nitrification_flux_ratio(nstate["n_nh4"], (no3_layers[0] if no3_layers is not None else nstate["n_no3"]), nstate["tsoil_lag"], layers[0]["theta"] / layers[0]["sat"])
         vol = (volatilization_flux(nstate["tsoil_lag"], nstate["n_nh4"], layers[0], w["wind"], layers[0].get("ph"))
-               if model_volatilization else 0.0)
+               if model_volatilization and VOLAT_MACNACK_PH is None else 0.0)
         nstate["n_nh4"] = max(0.0, nstate["n_nh4"] - nit - vol)
         nstate["n_no3"] += nit
         if no3_layers is not None:
@@ -4078,6 +4082,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         mineral_nh4_frac, mineral_no3_frac = 1.0, 0.0  # unchanged default: every mineral dose
         # lands 100% in NH4 when no real source is specified, exactly as before this parameter
         # existed -- see fertilizer_source's own docstring for why this isn't universally true.
+    if VOLAT_MACNACK_PH is not None and soil_ph is None:
+        soil_ph = VOLAT_MACNACK_PH
     volatilization_active = fert_placement_implement is not None or soil_ph is not None
     fert_mixing_efficiency = 0.0
     if fert_placement_implement is not None:
@@ -4106,6 +4112,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             # weather window (e.g. spinup-only doy) -- real weather just isn't available there.
             base_frac = NH3_FRAC_SYNTHETIC if w is None else macnack_ammonia_loss_pct(
                 soil_ph, (w["tx"] + w["tn"]) / 2.0, w["wind"])
+        if VOLAT_MACNACK_PH is not None and fertilizer_source is not None:
+            base_frac *= MINERAL_UREA_SHARE.get(fertilizer_source, 0.0)   # Macnack's data are surface urea: only the urea share of the product
         return 1.0 - base_frac * (1.0 - fert_mixing_efficiency)
 
     manure_retention = 1.0 - NH3_FRAC_MANURE * (1.0 - fert_mixing_efficiency) if volatilization_active else 1.0
@@ -4442,7 +4450,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             # rate in this engine.
             nitrif_amt_today = nitrification_flux_ratio(n_nh4, (no3_layers[0] if no3_layers is not None else n_no3), tsoil_lag, layers[0]["theta"] / layers[0]["sat"])
             volat_amt_today = (volatilization_flux(tsoil_lag, n_nh4, layers[0], w["wind"], layers[0].get("ph"))
-                               if model_volatilization else 0.0)
+                               if model_volatilization and VOLAT_MACNACK_PH is None else 0.0)
             n_nh4 = max(0.0, n_nh4 - nitrif_amt_today - volat_amt_today)
             n_no3 += nitrif_amt_today
             n2o_total += n2o_from_nitrification(nitrif_amt_today, layers[0]["theta"] / layers[0]["sat"])
