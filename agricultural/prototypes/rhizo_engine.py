@@ -3146,6 +3146,8 @@ VOLAT_WIND_LN_A = -11.2896
 VOLAT_WIND_B = 0.8588
 VOLAT_WIND_C = -1.4581
 VOLAT_WIND_E = 0.1456
+VOLAT_AERO_PH = None   # 2026-10-27: soil pH (assumed) that switches the daily NH3 loss to the Montes 2009 thermodynamics with an aerodynamic resistance; None keeps the fitted wind law
+VOLAT_KD_L_KG = 0.0   # ammonium sorption coefficient of the soil, L water per kg soil equivalent (0 = none)
 VOLAT_PH_SLOPE = 0.0   # ln-units of flux per pH unit above 7 (0 = off, as in Cycles); chemistry gives about ln(10) = 2.3 below pKa 9.25
 
 
@@ -3153,6 +3155,18 @@ def volatilization_flux(tsoil, nh4_kg_ha, layer0, wind_ms, ph=None):
     """Daily NH3 loss (kg N/ha) from the layer-1 ammonium pool; never more than the pool."""
     if nh4_kg_ha <= 0.0 or wind_ms <= 0.0:
         return 0.0
+    if VOLAT_AERO_PH is not None:
+        # Montes, Rotz and Chaoui 2009 Eqs 4, 10, 11 (dissociation and Henry constants) with an aerodynamic transfer, flux = gas-phase NH3 at the surface / r_a, r_a = 208 / u2 (FAO-56 Eq. 4)
+        # as the paper recommends for field surfaces. TAN concentration is the ammonium of layer 1 in the soil water (no sorption unless VOLAT_KD_L_KG > 0).
+        T = tsoil + 273.15
+        ka = 10.0 ** (0.05 - 2788.0 / T)
+        frac = 1.0 / (1.0 + 10.0 ** (-VOLAT_AERO_PH) / ka)
+        kh = (0.2138 / T) * 10.0 ** (6.123 - 1825.0 / T)
+        th_a = max(0.03, layer0["theta"])
+        sol = th_a + VOLAT_KD_L_KG * sixpool_bulk_density(layer0["sat"])   # m3 of water-equivalent per m3 of soil
+        c_tan = nh4_kg_ha * 0.1 / (sol * layer0["thick"])               # g N m-3 of soil water
+        flux_g_m2_s = kh * frac * c_tan / (208.0 / wind_ms)
+        return min(nh4_kg_ha, flux_g_m2_s * 86400.0 * 10.0)
     c = nh4_kg_ha / (sixpool_bulk_density(layer0["sat"]) * layer0["thick"] * 10.0)
     th = max(0.03, layer0["theta"])
     ln_f = (VOLAT_WIND_LN_A + VOLAT_WIND_B * math.log(max(c, 1e-6)) + VOLAT_WIND_C * math.log(th)
