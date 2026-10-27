@@ -2335,8 +2335,8 @@ SIXPOOL_ML_EPS_H = 0.53
 # the C-Farm Eq. 4a clay shape (Kemanian & Stockle 2010) fitted to Cycles' humified/(humified+residue respired) over 16 sites:
 # 0.370 + 0.152 g, rms 0.034 vs 0.047 for one constant. None keeps the flat SIXPOOL_ML_EPS_H.
 SIXPOOL_ML_HUM_CLAY = (0.34145, 0.152)  # default since 2026-10-07: 16-site table with N_A 140 improved fertilized corn error 1.59 -> 1.55 and leaching, denitrification, N2O slightly; None restores the flat EPS_H
-SIXPOOL_ML_RES_SCALE_SURF = 0.54     # 2026-10-27: share of the surface-residue carbon that becomes microbial biomass, relative to the shared efficiency; tuned to Schomberg et al. 1994 N immobilized per biomass lost when set
-SIXPOOL_ML_RES_SCALE_BURIED = 0.54   # the same for buried root residue
+SIXPOOL_ML_RES_SCALE_SURF = 1.0     # 2026-10-27: share of the surface-residue carbon that becomes microbial biomass, relative to the shared efficiency; tuned to Schomberg et al. 1994 N immobilized per biomass lost when set
+SIXPOOL_ML_RES_SCALE_BURIED = 1.0   # the same for buried root residue
 DIAG_RESN = None   # (decomp_ra, N immobilized by surface residue decomposition, N released by it, decomp_rtz, N immobilized by buried, N released by it)
 SIXPOOL_ML_FH_P = 12.0
 SIXPOOL_ML_FH_FLOOR = 0.2  # Cycles still humifies ~0.12-0.17 of decomposed residue C at Cs/Csx >= 1 (Iowa 1980-83)
