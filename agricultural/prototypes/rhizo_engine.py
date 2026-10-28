@@ -2223,8 +2223,8 @@ CN_RATIO_SOM = 11.0  # SUPERSEDED 2026-10-02, kept only as the pre-fix historica
 SIXPOOL_CN_CRA = 86.0  # real STAND/FLAT RESID C:N, soilLayersCN.txt, Rock Springs ContinuousCorn.
 SIXPOOL_CN_CRTZ = 52.0  # real root-tissue C:N, computed from CornRM.90.txt's ROOT BIOMASS/ROOT N.
 SIXPOOL_CN_CRM = 30.0  # real MANURE RESID C:N, soilLayersCN.txt, CornSilageSoyWheat.
-SIXPOOL_CN_CM = 9.7  # real MIC C:N, soilLayersCN.txt layer 1, Rock Springs ContinuousCorn.
-SIXPOOL_CN_CS = 9.4  # real SOIL ORG C:N, soilLayersCN.txt layer 1, Rock Springs ContinuousCorn.
+SIXPOOL_CN_CM = 10.0  # 2026-10-27: was 9.7 read from Cycles. Cycles guide (input.md): soil organic C:N 10:1 and microbial biomass initialised from it; SOILN (Johnsson et al. 1987): 10 for biomass and humus
+SIXPOOL_CN_CS = 10.0  # 2026-10-27: was 9.4 read from Cycles; same sources
 SIXPOOL_TOPSOIL_DEPTH_M = 0.05  # fixed at Cycles' own REAL layer-1 thickness for Rock Springs
 # (GenericHagerstown.soil, confirmed directly: /tmp/cycles-run/input/GenericHagerstown.soil
 # layer 1 = 0.05m) -- the exact real control volume SIXPOOL_KS/SIXPOOL_KRA/SIXPOOL_K_RTZ were
