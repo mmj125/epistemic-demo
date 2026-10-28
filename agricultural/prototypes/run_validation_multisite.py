@@ -144,6 +144,8 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
             if _o: _k,_v=_o.split('=',1); crop[_k]=eval(_v)
     if (CROPSEL=='soy' and not SOYL) or os.environ.get('CONFIG')=='shipped': kw=dict(n_rate_kg_ha=N) if CROPSEL!='soy' else {}
     if SOYL: kw['n_rate_kg_ha']=0
+    if os.environ.get('SPLITN') and N>0 and CROPSEL!='soy':   # 2026-10-28: split application, SPLITN='doy:share,doy:share' (e.g. 110:0.5,160:0.5); engine only, Cycles keeps its single application
+        kw['n_applications']=[(int(_p.split(':')[0]),N*float(_p.split(':')[1])) for _p in os.environ['SPLITN'].split(',')]
     res={}
     carry=os.environ.get("CARRY_N","1")=="1" and (CROPSEL!='soy' or SOYL)
     lead_env=os.environ.get("LEAD_YEARS","continuous")

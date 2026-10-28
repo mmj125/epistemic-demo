@@ -387,7 +387,7 @@ REDISTRIBUTE_MAX_STEPS = 200  # safety cap against a floating-point edge case ev
 # handful of steps (rarely more than the layer count), this is headroom, not a target.
 
 
-N_DEPOSITION_KG_HA_YR = 0.0   # 2026-10-28: atmospheric N deposition (wet plus dry), half ammonium and half nitrate, added daily to the top layer pools; neither Cycles nor the engine had it. Iowa field measurement 7.7 kg N/ha/yr (a lower bound), wet upper Midwest 3 to 7. 0.0 = off
+N_DEPOSITION_KG_HA_YR = 8.0   # 2026-10-28: atmospheric N deposition (wet plus dry), half ammonium and half nitrate, added daily to the top layer pools; neither Cycles nor the engine had it. Iowa field measurement 7.7 kg N/ha/yr (a lower bound), wet upper Midwest 3 to 7. 0.0 = off
 SOLUTE_GJ_EQ1 = True   # 2026-10-27 step 9: nitrate leaching as in CERES (Godwin and Jones 1991 Eq. 1), instead of drainage over the saturated water volume
 SOLUTE_VOL_SAT = True   # 2026-10-18 measured on Cycles' own daily output (6 sites, 37 years, N=150, leach_transport_2026_10_18.py): nitrate leached out of the profile = drainage x previous-day bottom-layer nitrate / the layer's SATURATED water volume (ratio to Cycles 0.96 to 1.03, daily corr 0.99 to 1.00), not / its current water content; applied to the gravity-drainage stage of every layer. False restores division by current water.
 def redistribute(layers, water_in_mm, n_substeps=REDISTRIBUTE_SUBSTEPS, n_by_layer=None):
