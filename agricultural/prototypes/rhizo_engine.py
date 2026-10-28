@@ -1198,7 +1198,7 @@ EVAPORATIVE_LAYER_DEPTH_M = 0.0  # real, sourced (2026-09-30): Stockle, Martin &
 
 
 ROOT_TRI_POW = 1.0  # exponent on the triangular root density (1 = linear taper to zero at root depth; <1 flatter, 0 uniform); under test 2026-10-08
-ROOT_DENSITY_DECAY_M = 0.3  # None = triangular density (validated default); a length in m = exponential density exp(-z/L), under test 2026-10-06 (L=0.35 best on 10-site relative-wetness fit, not yet adopted)
+ROOT_DENSITY_DECAY_M = 0.3  # the live default (corrected comment 2026-10-28): exponential root density exp(-z/L), L in m. None = CropSyst's linear taper to zero at root depth (tested 2026-10-28: worse against Cycles, corn r 0.859 to 0.837 and MAE 1.30 to 1.47 at N=150, and worse against county yields, within-site r 0.44 to 0.33, so not adopted)
 
 
 
