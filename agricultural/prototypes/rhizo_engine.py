@@ -4946,7 +4946,10 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     biomass_mg_ha = biomass * 10
     ag_biomass_mg_ha = ag_biomass * 10
     grain_mg_ha = ag_biomass * HI * 10 * crop.get("calibration_factor", 1.0)
-    forage_mg_ha = ag_biomass_mg_ha * crop.get("forage_fraction", 0.95) * crop.get("calibration_factor", 1.0)
+    if "forage_removed_frac" in crop:   # 2026-10-28: Cycles guide, RESIDUE_REMOVED: the percent of the harvestable above-ground biomass removed, harvestable meaning the biomass above CLIPPING_BIOMASS_THRESHOLD_LOWER (operation file: 90 percent, 0.5 Mg/ha)
+        forage_mg_ha = crop["forage_removed_frac"] * max(0.0, ag_biomass_mg_ha - crop.get("clip_threshold_mg_ha", 0.5)) * crop.get("calibration_factor", 1.0)
+    else:
+        forage_mg_ha = ag_biomass_mg_ha * crop.get("forage_fraction", 0.95) * crop.get("calibration_factor", 1.0)
     if winter_killed:
         grain_mg_ha = 0.0
         forage_mg_ha = 0.0
