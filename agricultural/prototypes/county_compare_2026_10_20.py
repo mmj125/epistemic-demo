@@ -46,11 +46,13 @@ def report(crop,rows,label):
         out[who]=dict(within=np.nanmedian(wc),within_mean=np.nanmean(wc),pooled=np.corrcoef(np.concatenate(z_o),np.concatenate(z_m))[0,1],spatial=np.corrcoef(mo[ok],mm[ok])[0,1],level=np.nanmedian(mm[ok]/mo[ok]),mo=np.nanmean(mo[ok]),mm=np.nanmean(mm[ok]),n=len(rows))
     print(f"{crop:8s} {label:10s} sites {len(rows):3d} | "+" | ".join(f"{('engine' if w=='e' else 'Cycles'):6s} within-site r {v['within']:+.2f} (mean {v['within_mean']:+.2f}) pooled r {v['pooled']:+.2f} spatial r {v['spatial']:+.2f} level x{v['level']:.2f} (obs {v['mo']:.2f} model {v['mm']:.2f} Mg/ha)" for w,v in out.items()))
 for crop,cfg in CROPS.items():
+    if os.environ.get('ONLYCROP') and crop!=os.environ['ONLYCROP']: continue
     rows=stats(crop,cfg)
     report(crop,rows,"all"); report(crop,[r for r in rows if r["lon"]>-97.5],"east -97.5"); report(crop,[r for r in rows if r["lon"]<=-97.5],"west")
 print("\nPaired difference in within-site detrended correlation, engine minus Cycles (bootstrap over sites), and extreme years (corn, east of -97.5, % deviation from each series' own trend)")
 rng=np.random.default_rng(0)
 for crop,cfg in CROPS.items():
+    if os.environ.get('ONLYCROP') and crop!=os.environ['ONLYCROP']: continue
     rows=[r for r in stats(crop,cfg)]
     d=[]
     for r in rows:
