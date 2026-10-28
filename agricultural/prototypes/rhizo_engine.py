@@ -387,6 +387,7 @@ REDISTRIBUTE_MAX_STEPS = 200  # safety cap against a floating-point edge case ev
 # handful of steps (rarely more than the layer count), this is headroom, not a target.
 
 
+N_DEPOSITION_KG_HA_YR = 0.0   # 2026-10-28: atmospheric N deposition (wet plus dry), half ammonium and half nitrate, added daily to the top layer pools; neither Cycles nor the engine had it. Iowa field measurement 7.7 kg N/ha/yr (a lower bound), wet upper Midwest 3 to 7. 0.0 = off
 SOLUTE_GJ_EQ1 = True   # 2026-10-27 step 9: nitrate leaching as in CERES (Godwin and Jones 1991 Eq. 1), instead of drainage over the saturated water volume
 SOLUTE_VOL_SAT = True   # 2026-10-18 measured on Cycles' own daily output (6 sites, 37 years, N=150, leach_transport_2026_10_18.py): nitrate leached out of the profile = drainage x previous-day bottom-layer nitrate / the layer's SATURATED water volume (ratio to Cycles 0.96 to 1.03, daily corr 0.99 to 1.00), not / its current water content; applied to the gravity-drainage stage of every layer. False restores division by current water.
 def redistribute(layers, water_in_mm, n_substeps=REDISTRIBUTE_SUBSTEPS, n_by_layer=None):
@@ -3365,6 +3366,10 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("netmin", ()):
                 _smin = _FORCE_CUR["netmin"][w["doy"]]   # diagnostic: Cycles' own net mineralization flux in the fallow windows too
             nstate["n_nh4"], nstate["n_no3"] = apply_net_min(nstate["n_nh4"], nstate["n_no3"], no3_layers, _smin, sixpool_state)
+        if N_DEPOSITION_KG_HA_YR:
+            _dep = N_DEPOSITION_KG_HA_YR / 365.0 * 0.5
+            nstate["n_nh4"] += _dep; nstate["n_no3"] += _dep
+            if no3_layers is not None: no3_layers[0] += _dep
         nit = nitrification_flux_ratio(nstate["n_nh4"], (no3_layers[0] if no3_layers is not None else nstate["n_no3"]), nstate["tsoil_lag"], layers[0]["theta"] / layers[0]["sat"], layers[0])
         vol = (volatilization_flux(nstate["tsoil_lag"], nstate["n_nh4"], layers[0], w["wind"], layers[0].get("ph"))
                if model_volatilization and VOLAT_MACNACK_PH is None else 0.0)
@@ -4517,6 +4522,10 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             # up to ~0.145/day, volatilization up to ~0.044/day observed) that this is a safe
             # explicit-Euler approximation, the same one already used for every other daily
             # rate in this engine.
+            if N_DEPOSITION_KG_HA_YR:
+                _dep = N_DEPOSITION_KG_HA_YR / 365.0 * 0.5
+                n_nh4 += _dep; n_no3 += _dep
+                if no3_layers is not None: no3_layers[0] += _dep
             nitrif_amt_today = nitrification_flux_ratio(n_nh4, (no3_layers[0] if no3_layers is not None else n_no3), tsoil_lag, layers[0]["theta"] / layers[0]["sat"], layers[0])
             volat_amt_today = (volatilization_flux(tsoil_lag, n_nh4, layers[0], w["wind"], layers[0].get("ph"))
                                if model_volatilization and VOLAT_MACNACK_PH is None else 0.0)
