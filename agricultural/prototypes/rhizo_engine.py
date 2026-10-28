@@ -3239,7 +3239,7 @@ def volatilization_flux(tsoil, nh4_kg_ha, layer0, wind_ms, ph=None):
 # until layer-1 saturation passes about 0.8 and then rises to 8 percent (logistic centre 0.84, R2 0.77 against 0.15 for a constant); the N2O share of
 # denitrification rises with the start-of-day layer-1 nitrate concentration (0.02 at 0 to 2 mg/kg, 0.4 above 80) and falls with saturation
 # (A c^0.385 exp(-1.53 s), R2 0.77 against 0.65 for a constant). The earlier constants (0.01, 0.10) were set on end-of-day totals.
-N2O_NIT = dict(a=0.0026, b=0.0696, s0=0.8394, w=0.0129)
+N2O_NIT = dict(a=0.004, b=0.0, s0=0.8394, w=0.0129)   # 2026-10-28: a constant 0.4 percent of nitrified N (nitrification N2O yield 0.1 to 0.5 percent, Bateman and Baggs 2005, value recalled not checked); the saturation logistic fitted to Cycles (a 0.0026, b 0.0696) is off (b 0)
 N2O_DEN = dict(A=0.1155, p=0.3849, q=1.5325)
 
 
