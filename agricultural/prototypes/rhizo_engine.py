@@ -4206,7 +4206,10 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             mineral_applied = sum(amount for _, amount in n_applications)
             total_n_input_kg_ha = 0.0
             n_pool = 0.0  # events fund the pool on their own scheduled days below, not all at once
+            _first_doy = weather_rows[0]["doy"] if weather_rows else None
             for doy, amount in n_applications:
+                if _first_doy is not None and _first_doy < 250 and 0 < _first_doy - doy <= 60:
+                    doy = _first_doy   # 2026-10-28: a dose dated before a spring crop's planting day is a preplant dose and lands on planting day (it was silently never applied)
                 r = mineral_retention_for_doy(doy)
                 retained = amount * r
                 applications_by_doy[doy] = applications_by_doy.get(doy, 0.0) + retained
