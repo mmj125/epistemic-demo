@@ -617,8 +617,8 @@ SOIL_EVAP_SCALE = 1.0  # multiplier on the potential soil-evaporation demand (te
 
 SNOW_MODEL = True   # 2026-10-13: snowpack measured from designed experiments on Cycles v1.5.20 (see snow_adjust); off by default
 SNOW_RAIN_TEMP_C = 1.0    # precipitation is rain at a daily mean temperature >= this, snow below it
-SNOW_MELT_BASE_C = -1.0   # melt base temperature
-SNOW_MELT_DDF = 2.5       # mm per degree C
+SNOW_MELT_BASE_C = 0.5   # melt base temperature: SWAT default SMTMP 0.5 (2026-10-28; was -1.0 matched to Cycles)
+SNOW_MELT_DDF = 4.5       # mm per degree C: SWAT default melt factor 4.5 (2026-10-28; was 2.5 matched to Cycles)
 
 
 def snow_adjust(layers, w, lat_deg):
@@ -824,7 +824,7 @@ def residue_rain_evap_mm(precip_mm, cover):
 # says precipitation wets residues first (Sec 2.4); Cycles' dailyResidue.csv reports the residue water state (moisture = m_w/(m_w+m_r)), which tops out at 0.767 kg/kg (3.29 kg water per kg residue, within the
 # published 2 to 4 for crop residues). The store fills from rain up to that capacity and empties by the residue's share of demand, ETo x residue cover x (1 - canopy).
 RES_STORE = True
-RES_SAT_WATER = 3.29    # kg water per kg dry residue at saturation, read from Cycles' output (class D with a published range as a check)
+RES_SAT_WATER = 3.10    # kg water per kg dry residue at saturation: Iqbal et al. 2013 (Plant Soil 367:285), maximal water content of maize residue 3.10 +/- 1.12 (wheat 2.33, soybean 2.16); was 3.29 read from Cycles
 
 
 def residue_water_today(sixpool_state, pp_mm, cover, eto_mm, eie, snow_day=False):   # snow_day: tested 2026-10-26 (rev 0 on snow days, as Cycles), no gain, so it is accepted but not used
@@ -2331,11 +2331,11 @@ def sixpool_fh(cs, csx):
 # fD form 1-1/(1+(a*r)^b) fits best at a=9.95, b=1.145, ks=0.000348 (rms log error 0.347; the old
 # a=4.5, b=3, ks=0.00032 gives 0.563; no fD at all gives 0.393). Used only by the per-layer pool.
 SIXPOOL_DIAG = None  # optional list; when set, sixpool_step appends (cs_loss, residue_decomp, residue_co2) per call
-SIXPOOL_ML_EPS_H = 0.53
+SIXPOOL_ML_EPS_H = 0.44   # 2026-10-28: the SI's microbial C use efficiency, 0.33 to 0.44 depending on the saturation ratio (maximum 0.44, scaled by fH = 1 - (Cs/Cx)^6, SI Eq. SI.12); was 0.53 with the clay term below
 # Clay-dependent humified fraction of decomposed residue (opt-in, 2026-10-07): (a, b) in a + b*(1-exp(-5.5*clay_frac)),
 # the C-Farm Eq. 4a clay shape (Kemanian & Stockle 2010) fitted to Cycles' humified/(humified+residue respired) over 16 sites:
 # 0.370 + 0.152 g, rms 0.034 vs 0.047 for one constant. None keeps the flat SIXPOOL_ML_EPS_H.
-SIXPOOL_ML_HUM_CLAY = (0.34145, 0.152)  # default since 2026-10-07: 16-site table with N_A 140 improved fertilized corn error 1.59 -> 1.55 and leaching, denitrification, N2O slightly; None restores the flat EPS_H
+SIXPOOL_ML_HUM_CLAY = None  # 2026-10-28: off. The clay-dependent fit (0.34145, 0.152), fitted to Cycles, gave 0.44 at clay 0.2; the SI's constant 0.44 is neutral on 24 corn sites (MAE 0.51/1.22/1.43 vs 0.51/1.20/1.43). Was (0.34145, 0.152)  # default since 2026-10-07: 16-site table with N_A 140 improved fertilized corn error 1.59 -> 1.55 and leaching, denitrification, N2O slightly; None restores the flat EPS_H
 SIXPOOL_ML_RES_SCALE_SURF = 1.0     # 2026-10-27: share of the surface-residue carbon that becomes microbial biomass, relative to the shared efficiency; tuned to Schomberg et al. 1994 N immobilized per biomass lost when set
 SIXPOOL_ML_RES_SCALE_BURIED = 1.0   # the same for buried root residue
 DIAG_RESN = None   # (decomp_ra, N immobilized by surface residue decomposition, N released by it, decomp_rtz, N immobilized by buried, N released by it)
