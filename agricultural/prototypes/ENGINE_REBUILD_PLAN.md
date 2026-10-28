@@ -1226,3 +1226,6 @@ Observations (Sawyer, Iowa State; Iowa trials): zero-N corn following corn yield
 
 ## 2026-10-28 (late) Silage forage fraction: a Cycles constant, found by designed runs
 - The silage test of 0.9 x (biomass - 0.5) (RESIDUE_REMOVED) cost +0.18 / +0.33 Mg/ha at N=150 / 400 and flipped the bias. Instead of tuning, Cycles was run with RESIDUE_REMOVED 90 or 70 and STANDING_RESIDUE_AT_HARVEST 0, 50 or 100: forage_yield / (total - root) is 0.9500 every year in all six runs and in the shipped runs. So 0.95 is hard-coded in Cycles' forage harvest, independent of those inputs; the engine's 0.95 equals it exactly. Ledger row corrected, `forage_removed_frac` option removed. N=0 silage bias +30% is mostly the new N deposition (before it, +12%).
+
+## 2026-10-28 (late) Package adopted: SI microbial efficiency 0.44, Iqbal residue water 3.10, SWAT snow defaults, N2O nitrification 0.4 percent
+- Each tested alone first (corn 24 or 94 sites): efficiency 0.44 neutral, residue 3.10 neutral (+0.01), snow neutral for corn; winter wheat snow cost +0.013 / +0.006 / +0.014 MAE (inside 0.05, CIs exclude zero at N=0 and 150). Adopted as a package under rule 10. Ledger rows: microbial efficiency A, snowpack B, residue water store B, N2O nitrification B. Parity WORST 0.0, ledger coverage clean. Final scorecard runs `g_*` follow.
