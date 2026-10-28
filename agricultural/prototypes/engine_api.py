@@ -192,7 +192,7 @@ def _row_out(y, r, carry):
                 n_uptake=r.get("n_uptake_kg_ha"), n_leached=leach, n_denitrified=den, n_volatilized=vol, n2o=n2o, runoff=r.get("runoff_mm"),
                 n_mineral_end=r.get("n_remaining_kg_ha"), winter_killed=bool(r.get("winter_killed")),
                 cover_ag=(r.get("cover") or {}).get("ag"), cover_n_uptake=(r.get("cover") or {}).get("n_uptake"),
-                crop=r.get("_crop_label"), n_fixed=r.get("n_fixed_kg_ha"))
+                crop=r.get("_crop_label"), n_fixed=r.get("n_fixed_kg_ha"), n_unapplied=r.get("n_dated_unapplied_kg_ha"))
 
 
 def _daily_out(r):
@@ -345,4 +345,7 @@ def run(config_json):
     if crop_key == "wheat":
         notes.append("Wheat N losses cover the growing season only (fall planting to harvest).")
     covered = any(r.get("cover_ag") is not None for r in annual)
+    _lost = [r["year"] for r in annual if (r.get("n_unapplied") or 0) > 0.5]
+    if _lost:
+        notes.append("Part of the fertilizer was not applied in %d of %d years: a dated application fell outside the crop's season (after harvest, or more than 60 days before planting). Move it to a day inside the season." % (len(_lost), len(annual)))
     return json.dumps(dict(annual=annual, annual_columns=ANNUAL_COLUMNS + (ROTATION_COLUMNS if crop_key == "rotation" else []) + (COVER_COLUMNS if covered else []), daily=daily, daily_columns=DAILY_COLUMNS, notes=notes, api_version=API_VERSION))

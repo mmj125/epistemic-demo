@@ -4193,6 +4193,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     manure_retention = 1.0 - NH3_FRAC_MANURE * (1.0 - fert_mixing_efficiency) if volatilization_active else 1.0
     n_volatilized_total = 0.0 if volatilization_active else None
     applications_by_doy = {}
+    dated_landed_kg_ha = 0.0   # 2026-10-28: dated doses that actually met a weather day, so a dose that never lands is reported, not silently lost
     mineral_day0_kg_ha = 0.0  # the single-lump mineral dose landing at day 0 (net of
     # volatilization retention) -- stays 0.0 when n_applications is used instead, since mineral
     # then lands on its own scheduled days via applications_by_doy in the main loop below, not
@@ -4645,6 +4646,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             n_pool = n_nh4 + n_no3
         if n_pool is not None:
             if w["doy"] in applications_by_doy:
+                dated_landed_kg_ha += applications_by_doy[w["doy"]]
                 if n_pool_by_layer is not None:
                     n_pool_by_layer[0] += applications_by_doy[w["doy"]]
                 elif n_nh4 is not None:
@@ -4971,6 +4973,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         result["n_volatilized_kg_ha"] = n_volatilized_total
     if n_volatilized_pool_total is not None:
         result["n_volatilized_pool_kg_ha"] = n_volatilized_pool_total
+        result["n_dated_unapplied_kg_ha"] = round(sum(applications_by_doy.values()) - dated_landed_kg_ha, 6)   # dated n_applications that never met a weather day (after harvest or too long before planting)
     if n_denitrified_total is not None:
         result["n_denitrified_kg_ha"] = n_denitrified_total
     if n_nh4 is not None:
