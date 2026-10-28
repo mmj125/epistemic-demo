@@ -140,6 +140,8 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     if SOYL:
         import engine_api as _api
         crop=dict(_api._SOYBEAN_N); crop['lat_deg']=cell_lat; crop['make_layers']=ml
+        for _o in os.environ.get('CROPOVR','').split(';'):   # 2026-10-28: per-run crop overrides also apply to the legume soybean configuration
+            if _o: _k,_v=_o.split('=',1); crop[_k]=eval(_v)
     if (CROPSEL=='soy' and not SOYL) or os.environ.get('CONFIG')=='shipped': kw=dict(n_rate_kg_ha=N) if CROPSEL!='soy' else {}
     if SOYL: kw['n_rate_kg_ha']=0
     res={}
