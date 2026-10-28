@@ -1,4 +1,4 @@
-DRAFT, 2026-10-24. For review by Matt before it goes to anyone. Numbers are from the repository at commit 00cfcee and from `PROVENANCE_LEDGER.md`; each is traceable to a script listed in `prototypes/INDEX.md`.
+DRAFT, updated 2026-10-28. For review by Matt before it goes to anyone. Sections 2, 5, 6 and 9 were rewritten on 2026-10-28 for the current engine; sections 7 and 8 carry the scorecard of the same date. Each number is traceable to a script listed in `prototypes/INDEX.md` and to `PROVENANCE_LEDGER.md`.
 
 # How Rhizo was built
 
@@ -17,6 +17,9 @@ Its equations come from the Cycles paper and supplement (Kemanian et al. 2024), 
 - C: a documented or published form whose parameters we fitted to Cycles output.
 - D: form and parameters both fitted to Cycles output, because no source gave them.
 - E: our own assumption, convention or placeholder.
+- O: a published form with one or two constants fitted to real observations, not to Cycles output.
+
+On 2026-10-28 no live item is class D and six rows are class C (listed in section 6). Most of the earlier class D and C items turned out, on a second look, to have a source: the Cycles guide, the SI, Pravia 2019, WEPS, Godwin and Jones 1991, SWAT or a measurement paper.
 
 **Circularity.** Fitting a law to Cycles output and then reporting agreement with Cycles proves nothing. So the rule was: build each process from the sources first, compare with Cycles second, and fit to Cycles only where the sources are silent. A fitted element is labelled a suspect, with the source that would replace it.
 
@@ -55,7 +58,7 @@ Fitted to Cycles, and why:
 - **Canopy plateau per crop (class D).** The paper says the maximum interception is a crop parameter but the crop file does not list it. We measured the maximum on Cycles' unstressed days for each crop (winter wheat 0.853).
 - **Canopy response to water and N stress (class D).** The paper says N stress reduces the rate of canopy change; the form of the water and N effects is not given. The exponents (1.35 for water, 3.25 for N) were measured on 86,000 day pairs of Cycles' interception.
 - **CO2 effect (class D exponent).** The paper says efficiencies scale with CO2; the exponent (0.197 on water use efficiency, 0 on radiation use efficiency) was measured on Cycles runs at fixed CO2.
-- **Root growth leaving the plant (class D).** Cycles removes about 40 percent of root growth from biomass before it reaches the soil (we keep 0.6 and send 5/3 of root mass to soil carbon); read from Cycles output for all crops.
+- **Root growth leaving the plant (class C).** Cycles removes about 40 percent of root growth from biomass (we keep 0.6; tests of 0.5 and 0.7 changed pooled r by less than 0.006). Root carbon reaches the soil once, as the retained root mass plus the lost fraction; an earlier 5/3 factor counted the lost roots twice and was removed on 2026-10-27.
 - **Winter wheat clock.** The paper and SI define the thermal-time fraction as thermal time since planting over thermal time at maturity. For winter wheat that maturity changes with the season (1183 to 3226 degree days), so the engine runs the season twice, once to find the season's own maturity and once to use it. This is documented and is the largest single gain for wheat.
 - **Growth efficiency of wheat (open).** The engine's unstressed wheat growth makes about 14 percent more biomass per unit of intercepted radiation than Cycles does. We keep a growth scalar of 0.95 for wheat as a labelled suspect. Removing it makes yield worse. The cause is not found.
 
@@ -67,7 +70,7 @@ Fitted to Cycles, and why:
 
 - **N demand scale (class D).** Cycles' realised demand is 0.69 to 0.77 of the crop-file dilution curve at every biomass class. The paper does not mention this, so we carry a scale (0.70 for corn, 0.74 for soybean, 0.75 for wheat).
 - **N stress function (class D).** The sources say stress follows the ratio of aboveground N concentration to the critical curve but give no curve; we measured it on 167,000 daily Cycles records (R2 0.894).
-- **Supply limit on uptake (class D).** The paper says water flux determines access to mineral N and gives no equation. We built the literal per-layer mass-flow reading, the CropSyst form, and the Stockle and Campbell equations. Each starved the crop or failed to match Cycles. We use a cap of 3 percent of the reachable pool per day, kept as a suspect. This was the process we could least explain from sources.
+- **Supply limit on uptake (class B form, class C exponent).** The paper says water flux determines access to mineral N and gives no equation. We built the literal per-layer mass-flow reading, the CropSyst form, and the Stockle and Campbell equations. Each starved the crop or failed to match Cycles. Since 2026-10-27 the supply cap is the Godwin and Jones (1991) availability function (1 - exp(-kC), root length density times a soil water factor times 0.006 kg N/ha per cm of root), with the water factor exponent at 1 rather than their 2, because the engine's spring soil is 0.01 to 0.02 m3/m3 too dry and 2 starves the crop.
 - **Soybean N constants (class D).** Plant N (203 kg N/ha), grain share (0.54), root share (0.065) and the residue split were read from Cycles' harvest file over 857 soybean crop-years. The mechanism is the paper's; the three constants are not given.
 - **Uptake and growth solved together (class B).** CropSyst 1994 Eqs. 29 and 30.
 
@@ -79,12 +82,12 @@ Fitted to Cycles, and why:
 
 - **Residue and microbial rate constants and carbon to nitrogen ratios (class D).** The paper's parameter table lists reference rates without values and we found no public value. Back-calculated from Cycles output files. Pravia 2019 gives the soil organic matter rate but not the residue or microbial rates.
 - **Humification fraction and microbial efficiency (class C/E).** The SI's humification formula cannot represent Cycles' behaviour at saturation, where Cycles still humifies 12 to 17 percent of decomposed carbon. We carry a clay-dependent fraction fitted to Cycles, and a placeholder microbial efficiency.
-- **Variable microbial C:N (SI.14).** Not implemented; a constant 9.7 measured from Cycles' pools is used. Effect about 10 percent on immobilisation per unit carbon.
+- **Variable microbial C:N (SI.14).** Not implemented; a constant 10.0 (the Cycles guide's 10:1 and SOILN) is used for the microbial and stabilised pools. Effect about 10 percent on immobilisation per unit carbon.
 - **Nitrification (class B form, class D terms).** The temperature factor is Stockle and Campbell Eq. 11. The moisture and NO3:NH4 ratio terms have no source; the DAYCENT and Stockle and Campbell forms were tested and reproduced Cycles' daily layer states with R2 0.74, 0.78 and 0.57, against 0.99 for the fitted logistic. We use the fitted one and label it.
 
 ### 4.5 Nitrogen losses
 
-- **Denitrification (class A form, class C amplitude).** The EPIC and APEX law as published (Kemanian and Williams, APEX upgrades Eqs. 1 to 4) is used with no fitted terms except one amplitude of 2.5 on the whole law, which has no source and is a suspect. The Cycles documentation names a potential denitrification rate as a calibration multiplier with no default.
+- **Denitrification (class A).** The EPIC and APEX law as published (Kemanian and Williams, APEX upgrades Eqs. 1 to 4) is used with an amplitude of 1.0, as published. An earlier amplitude of 2.5 had been fitted to Cycles' denitrification; at 1.0 the engine's N2O is 1.0 percent of applied N at 150 kg N/ha (IPCC EF1 1.0) and its nitrate leaching sits in the published range for tile-drained Corn Belt corn, and denitrification is 0.6 to 0.7 times Cycles'. The Cycles documentation names a potential denitrification rate as a calibration multiplier with no default.
 - **Nitrous oxide from denitrification (class A).** APEX Eq. 5, with no fitted constant. Tested on Cycles' own daily states over 149,000 denitrification days: Cycles' N2O to denitrification ratio averages 0.081, Eq. 5 gives 0.079.
 - **Nitrous oxide from nitrification (class D).** Fitted logistic in saturation; no source found.
 - **Volatilization (class D).** The temperature slope (0.1456 per degree C) is close to the thermodynamic expectation (about 0.12), but the wind and moisture terms have no source.
@@ -105,18 +108,20 @@ Errors found in the printed sources (the engine uses the corrected form in each 
 4. SI.14 reproduces the SI's own worked example, but its maximum (11.25) disagrees with the stated maximum (14).
 5. SI.10 prints one residue carbon term with the wrong subscript.
 
-Quantities the sources do not give and we measured (everything classed D or C above): soil evaporation, snow, the canopy plateau and stress exponents, the CO2 exponents, TTf50, the harvest index slope, the N demand scale, the N stress curve, the supply cap on uptake, the residue and microbial decomposition rates and C:N ratios, the nitrification moisture and ratio terms, the N2O share from nitrification, volatilization, nitrate transport, and the denitrification amplitude. These are the 18 class D and 7 class C items in the ledger.
+Quantities that were measured on Cycles earlier and now have a source (2026-10-27 and 2026-10-28): soil evaporation (county yields), the canopy stress response (paper Sec 2.5), N demand (Lemaire et al. 2008), the N stress curve, the supply cap on uptake (Godwin and Jones 1991), residue decay (WEPS, Steiner et al. 1999), nitrification (Johnsson et al. 1987), volatilization (Genermont and Cellier 1997, Montes et al. 2009), nitrate transport, the CO2 exponents (FACE meta-analysis, Ainsworth and Long 2021), denitrification amplitude (APEX, 1.0) and N2O (IPCC, APEX), the N2O share from nitrification (constant 0.4 percent), snow (SWAT defaults), residue water capacity (Iqbal et al. 2013), the microbial C use efficiency (SI, 0.44) and the harvest index slope. The last one deserves a note for the developers: the engine's slope constants (1.3077, 3.4, 2.5) were first found by fitting and were later seen to equal Hk = m (1 - Hmin) / (Hmax - Hmin) with the crop file values.
 
-## 6. What the measured constants are, honestly
+## 6. What is still measured on Cycles, and what we would ask
 
-When Cycles output was used we measured a relationship in designed runs or in daily states and fitted a parameter. That is a statement about Cycles, not about the world. The consequence is that agreement with Cycles on these processes is partly built in, and the real test of each is whether it works on observations or on sites and years the fit never saw. We therefore report the processes whose form comes from sources separately from those that were fitted, and list for each fitted item the source that would replace it:
+Six items are still fitted to Cycles output (class C), and a few have a source that conflicts with Cycles:
 
-- crop-file maximum canopy cover and the plateau (developers)
-- TTf50 and the harvest index constants (developers)
-- the potential denitrification rate multiplier and the supply cap on N uptake (developers, or Godwin and Jones availability functions)
-- the residue and microbial decomposition rates and C:N ratios (Pravia 2019 tables or the parameter file)
-- the residue as a water-holding layer (a published source; the paper is silent)
-- the nitrification ratio term and volatilization wind terms (published models)
+- the crop canopy plateau. The paper's Eq. 6 with epsilon_ix = 1 peaks near 0.99, but Cycles' realised interception on unstressed days is about 0.95 for corn and silage (0.924 soybean, 0.949 sorghum, 0.853 winter wheat). Is there a factor between Eq. 6 and the interception, such as Eq. 7 with a plant density other than 1? Measured maxima at a Nebraska site (Kukal and Irmak 2020) are 0.92 to 0.97 for maize, 0.99 soybean, 1.00 sorghum and 0.97 wheat.
+- the six-pool base rates for microbial turnover and manure decomposition, and the temperature optimum (37.5 C) of the decomposition factor.
+- the share of root nitrogen carried by the roots that leave the plant (0.12 for corn, 0.082 for wheat) and the retained fraction of root growth (0.6).
+- soil hydraulic option for the air-entry potential, and the exponent on soil water in the nitrogen uptake supply term.
+- soybean nitrogen demand (a scale of 0.74 on the Lemaire curve).
+- winter wheat: a growth scalar of 0.95 hides a plateau growth efficiency about 14 percent high.
+
+Two exact constants of Cycles that we found by designed runs and that may be of use: forage yield is 0.9500 times above-ground biomass in every row of harvest.csv whatever RESIDUE_REMOVED and STANDING_RESIDUE_AT_HARVEST are, and the snow constants (rain below 1.0 C, melt base -1.0 C, 2.5 mm per C) reproduce Cycles' snow water to 0.1 mm. The engine uses the first and has moved to the SWAT defaults for the second.
 
 ## 7. How well it agrees
 
@@ -146,10 +151,11 @@ How much disagreement is normal: Cycles disagrees with itself by a mean absolute
 
 ## 9. What would help most
 
-1. The crop-file maximum canopy cover and the TTf50, harvest index and N demand constants Cycles uses. These would replace seven fitted values with documented ones.
-2. The potential denitrification rate multiplier and the access-to-mineral-N rule in Sec 2.7, the two fitted items we could least reproduce from sources.
-3. The rate constants and C:N ratios for the residue and microbial pools.
-4. Confirmation of the three sign and exponent corrections in section 5.
+1. The relation between Eq. 6 and the realised canopy interception (plateau per crop, any density term), which would settle the canopy plateau of all five crops.
+2. The base rates for microbial turnover and manure decomposition, and the temperature optimum, in the six-pool carbon model (the Pravia 2019 tables give kx only).
+3. The root nitrogen carried out of the plant with lost roots, and how much of root growth is retained.
+4. Soybean nitrogen demand and fixation rules, and whether wheat canopy loss is tied to nitrogen stress.
+5. Confirmation of the three sign and exponent corrections in section 5.
 
 ## 10. Reproducing it
 
