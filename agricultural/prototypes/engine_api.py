@@ -133,9 +133,9 @@ ENGINE_INFO = {
         ["Winter wheat", "0 / 90 / 150", "0.90 / 0.85 / 0.83", "+14 / +4 / -1", "0.43 / 0.66 / 0.79"],
     ],
     "observations": [
-        "County yields (USDA NASS, 94 counties, 1982 to 2016): year-to-year agreement within a county, median r 0.41 for corn (Cycles 0.38), 0.36 soybean, 0.40 silage, 0.20 wheat; mean level 0.92 of the county corn mean.",
-        "Mead, Nebraska flux towers and measured yields: corn and soybean yields as close to the measurements as Cycles' (for example irrigated corn 12.4 modelled, 11.7 measured Mg/ha).",
-        "Corn after soybean in a rotation: 0.96 to 0.99 of Cycles' yield with no nitrogen, 0.93 to 0.95 at 150 kg N/ha.",
+        "County yields (USDA NASS, 94 counties, 1982 to 2016): year-to-year agreement within a county, median r 0.43 for corn (Cycles 0.38), 0.36 soybean (0.33), 0.38 silage (0.34), 0.21 wheat (0.23); mean level 1.01 of the county corn mean, soybean 1.45, wheat 1.53 and silage 1.17.",
+        "Mead, Nebraska flux towers and measured yields (10 site-years of grain): mean absolute error 1.1 Mg/ha for Rhizo against 0.9 for Cycles; Rhizo's above-ground biomass is 3.3 Mg/ha off against 2.3 for Cycles. Both models overestimate evapotranspiration (tower 3.3 to 3.9 mm/day, Rhizo 3.8 to 4.9, Cycles 3.8 to 5.3) because the gridded weather is warmer, drier and windier than the towers.",
+        "Corn after soybean in a rotation: 0.96 to 0.99 of Cycles' yield with no nitrogen, 0.93 to 0.95 at 150 kg N/ha (checked 2026-10-23, not re-run).",
     ],
     "sources": [
         "Kemanian, A.R., Shi, Y., White, C.M., Montes, F., Stockle, C.O., Huggins, D.R., et al., 2024. The Cycles agroecosystem model: fundamentals, testing, and applications. Computers and Electronics in Agriculture 227, 109510, and its supplement (growth, partition, canopy, water, carbon and nitrogen equations).",
