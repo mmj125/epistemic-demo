@@ -121,16 +121,16 @@ _SOYBEAN_N = dict(_SOYBEAN, legume_n=True, n_demand_ref=True, n_uptake_rate=0.03
 # ---- what the page shows scientists about the model (single source: the page reads info(), it never hard-codes these) ----
 ENGINE_INFO = {
     "name": "Rhizo",
-    "version": "2026-10-24",
+    "version": "2026-10-28",
     "summary": "Rhizo is a daily-step crop, soil water, carbon and nitrogen model written from scratch in Python and run in your browser. Its equations come from the published Cycles paper and its supplement (Kemanian et al. 2024) and from the literature cited below; where the sources give no equation the model uses a measured relationship and says so. It is tested against the Cycles model and against observations.",
-    "validation_note": "Agreement with Cycles v1.5.20 on identical weather and soil, held-out sites, 1980 to 2016 (94 sites for spring crops, 60 for winter wheat). r is the correlation across all site-years pooled; bias and error are the model minus Cycles in grain yield. Cycles itself disagrees with its own variants by about 0.17 to 1.4 Mg/ha depending on what changes.",
+    "validation_note": "Agreement with Cycles v1.5.20 on identical weather and soil, held-out sites, 1980 to 2016 (94 sites for spring crops, 60 for winter wheat). r is the correlation across all site-years pooled; bias and error are the model minus Cycles in grain yield. Cycles itself disagrees with its own variants by about 0.17 to 1.4 Mg/ha depending on what changes. The positive bias at zero nitrogen is mostly the 8 kg N/ha/yr of atmospheric nitrogen deposition that Rhizo includes (measured in Iowa) and Cycles does not.",
     "validation_columns": ["Crop", "N rate (kg N/ha)", "r", "Bias (%)", "Mean abs error (Mg/ha)"],
     "validation": [
-        ["Corn", "0 / 150 / 400", "0.91 / 0.84 / 0.89", "+5 / +1 / +5", "0.64 / 1.43 / 1.41"],
-        ["Silage corn", "0 / 150 / 400", "0.89 / 0.89 / 0.93", "+22 / +4 / +2", "1.41 / 1.77 / 1.66"],
-        ["Sorghum", "0 / 150 / 400", "0.90 / 0.80 / 0.83", "+3 / -10 / -3", "0.59 / 1.52 / 1.62"],
-        ["Soybean", "none", "0.94", "+9", "0.47"],
-        ["Winter wheat", "0 / 90 / 150", "0.92 / 0.86 / 0.85", "+5 / 0 / -3", "0.37 / 0.62 / 0.78"],
+        ["Corn", "0 / 150 / 400", "0.91 / 0.86 / 0.90", "+12 / +7 / +6", "0.66 / 1.34 / 1.36"],
+        ["Silage corn", "0 / 150 / 400", "0.88 / 0.89 / 0.93", "+30 / +5 / +3", "1.55 / 1.75 / 1.65"],
+        ["Sorghum", "0 / 150 / 400", "0.89 / 0.81 / 0.84", "+9 / -5 / 0", "0.66 / 1.37 / 1.53"],
+        ["Soybean", "none", "0.95", "+9", "0.47"],
+        ["Winter wheat", "0 / 90 / 150", "0.90 / 0.85 / 0.83", "+14 / +4 / -1", "0.43 / 0.66 / 0.79"],
     ],
     "observations": [
         "County yields (USDA NASS, 94 counties, 1982 to 2016): year-to-year agreement within a county, median r 0.41 for corn (Cycles 0.38), 0.36 soybean, 0.40 silage, 0.20 wheat; mean level 0.92 of the county corn mean.",

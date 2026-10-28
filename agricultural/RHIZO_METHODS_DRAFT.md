@@ -129,15 +129,17 @@ On 94 sites not used to fit anything, 38 years each, with continuous crop chains
 
 | Crop | Pooled r | Bias | Grain MAE (Mg/ha) |
 |---|---|---|---|
-| Corn | 0.959 / 0.921 / 0.965 | -9% / 0% / -6% | 0.47 / 0.95 / 0.85 |
-| Silage corn | 0.937 / 0.920 / 0.954 | -9% / -5% / -7% | 0.88 / 1.70 / 1.61 |
-| Sorghum | 0.945 / 0.887 / 0.925 | -14% / -5% / -11% | 0.51 / 1.09 / 1.16 |
-| Soybean | 0.959 | -0.04 Mg/ha | 0.33 |
-| Winter wheat (60 sites) | 0.927 / 0.874 / 0.871 | 0% / +3% / -1% | 0.35 / 0.65 / 0.74 |
+| Corn | 0.907 / 0.859 / 0.902 | +12% / +7% / +6% | 0.66 / 1.34 / 1.36 |
+| Silage corn | 0.876 / 0.894 / 0.927 | +30% / +5% / +3% | 1.55 / 1.75 / 1.65 |
+| Sorghum | 0.891 / 0.813 / 0.838 | +9% / -5% / 0% | 0.66 / 1.37 / 1.53 |
+| Soybean | 0.945 | +9% (+0.29 Mg/ha) | 0.47 |
+| Winter wheat (60 sites) | 0.902 / 0.851 / 0.833 | +14% / +4% / -1% | 0.43 / 0.66 / 0.79 |
 
-Nitrogen losses relative to Cycles (corn, kg N/ha per year at N = 0 / 150 / 400): leaching 4.9 vs 4.6, 15.3 vs 13.3, 93.1 vs 84.8; denitrification 2.6 vs 2.6, 13.8 vs 18.3, 50.2 vs 65.8; volatilization 3.0 vs 2.7, 14.2 vs 14.4, 38.1 vs 39.6; nitrous oxide 0.3 vs 0.5, 1.7 vs 3.6, 7.0 vs 15.7.
+The positive bias at zero nitrogen is mostly the 8 kg N/ha/yr of atmospheric deposition that Rhizo includes (measured in Iowa, 7.7 kg) and Cycles does not. Silage at N=0 is +12% without it.
 
-Against observations: on NASS county yields (94 sites) the engine's within-site correlation is 0.43 against 0.38 for Cycles, and the engine's level is 0.93 of the observed; against the Mead flux towers the engine's yields are as close to the tower measurements as Cycles'. Both models run 16 to 47 percent high on evapotranspiration there, because the gridded weather is warmer, drier and windier than the towers.
+Nitrogen losses relative to Cycles (corn, kg N/ha per year at N = 0 / 150 / 400): leaching 6.7 vs 4.6, 19.0 vs 13.3, 115.8 vs 84.8; denitrification 0.84, 0.72 and 0.60 of Cycles'; volatilization 1.26, 0.98 and 0.99; nitrous oxide 0.63, 0.48 and 0.39. Rhizo's leaching sits inside the published range for tile-drained Corn Belt corn (8 to 29 kg at low to high N in Minnesota, 29 to 48 in Iowa) and its nitrous oxide emission factor at 150 kg N is about 0.9 percent of applied N (IPCC 1.0). Denitrification was lowered from an amplitude fitted to Cycles to the published one, which is why it is below Cycles'.
+
+Against observations: on NASS county yields (94 sites) the engine's within-site correlation was 0.44 against 0.38 for Cycles, and its level was 0.92 to 0.99 of the observed (last run before the 2026-10-28 evening changes, not re-run); against the Mead flux towers the engine's yields are as close to the tower measurements as Cycles'. Both models run 16 to 47 percent high on evapotranspiration there, because the gridded weather is warmer, drier and windier than the towers.
 
 How much disagreement is normal: Cycles disagrees with itself by a mean absolute grain error of 0.17 Mg/ha when the soil is perturbed by 10 percent at random, 0.74 under a neighbouring weather cell and 1.4 under a neighbouring soil map unit. The engine's errors of 0.5 to 1.7 are in that range.
 
