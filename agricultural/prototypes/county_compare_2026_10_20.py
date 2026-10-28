@@ -19,7 +19,10 @@ def detrend(y,x):
     p=np.polyfit(x,y,1); return y-np.polyval(p,x)
 def stats(crop,cfg):
     d=obs[cfg["sel"](obs)]; rows=[]
+    HALF=os.environ.get('HALF')   # 'dev' = even positions of the sorted site list, 'test' = odd (EVALUATION_PROTOCOL_2026_10_28.md)
+    order={k:i for i,k in enumerate(sorted(sc))}
     for site,c in sc.items():
+        if HALF and (order[site]%2==0)!=(HALF=='dev'): continue
         if not c["fips"] or site not in eng or crop not in eng[site] or "error" in eng[site][crop]: continue
         o=d[d.fips==c["fips"]].groupby("YEAR")["VALUE"].mean()*cfg["conv"]
         e={int(k):v for k,v in eng[site][crop].items()}; cy=cyc(cfg["cy"](site))
