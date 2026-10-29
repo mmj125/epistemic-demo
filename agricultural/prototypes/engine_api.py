@@ -121,10 +121,12 @@ _SOYBEAN_N = dict(_SOYBEAN, legume_n=True, n_demand_ref=True, n_uptake_rate=0.03
 
 # ---- what the page shows scientists about the model (single source: the page reads info(), it never hard-codes these) ----
 ENGINE_INFO = {
-    "name": "Rhizo",
-    "version": "2026-10-28",
-    "summary": "Rhizo is a daily-step crop, soil water, carbon and nitrogen model written from scratch in Python and run in your browser. Its equations come from the published Cycles paper and its supplement (Kemanian et al. 2024) and from the literature cited below; where the sources give no equation the model uses a measured relationship and says so. It is tested against the Cycles model and against observations.",
-    "validation_note": "Agreement with Cycles v1.5.20 on identical weather and soil, held-out sites, 1980 to 2016 (94 sites for spring crops, 60 for winter wheat). r is the correlation across all site-years pooled; bias and error are the model minus Cycles in grain yield. Cycles itself disagrees with its own variants by about 0.17 to 1.4 Mg/ha depending on what changes. The positive bias at zero nitrogen is mostly the 8 kg N/ha/yr of atmospheric nitrogen deposition that Rhizo includes (measured in Iowa) and Cycles does not.",
+    "name": "SPROUT",
+    "tagline": "A browser-based crop and soil simulator for teaching",
+    "acronym": "SPROUT stands for Simulated Processes for Reasoning about Outcomes Under Treatments.",
+    "version": "2026-10-29",
+    "summary": "SPROUT is a daily-step crop, soil water, carbon and nitrogen model written from scratch in Python and run in your browser. Its equations come from the published Cycles paper and its supplement (Kemanian et al. 2024) and from the literature cited below; where the sources give no equation the model uses a measured relationship and says so. It is tested against the Cycles model and against observations.",
+    "validation_note": "Agreement with Cycles v1.5.20 on identical weather and soil, held-out sites, 1980 to 2016 (94 sites for spring crops, 60 for winter wheat). r is the correlation across all site-years pooled; bias and error are the model minus Cycles in grain yield. Cycles itself disagrees with its own variants by about 0.17 to 1.4 Mg/ha depending on what changes. The positive bias at zero nitrogen is mostly the 8 kg N/ha/yr of atmospheric nitrogen deposition that SPROUT includes (measured in Iowa) and Cycles does not.",
     "validation_columns": ["Crop", "N rate (kg N/ha)", "r", "Bias (%)", "Mean abs error (Mg/ha)"],
     "validation": [
         ["Corn", "0 / 150 / 400", "0.91 / 0.86 / 0.90", "+12 / +7 / +6", "0.66 / 1.34 / 1.36"],
@@ -135,7 +137,7 @@ ENGINE_INFO = {
     ],
     "observations": [
         "County yields (USDA NASS, 94 counties, 1982 to 2016): year-to-year agreement within a county, median r 0.43 for corn (Cycles 0.38), 0.36 soybean (0.33), 0.38 silage (0.34), 0.21 wheat (0.23); mean level 1.01 of the county corn mean, soybean 1.45, wheat 1.53 and silage 1.17.",
-        "Mead, Nebraska flux towers and measured yields (10 site-years of grain): mean absolute error 1.1 Mg/ha for Rhizo against 0.9 for Cycles; Rhizo's above-ground biomass is 3.3 Mg/ha off against 2.3 for Cycles. Both models overestimate evapotranspiration (tower 3.3 to 3.9 mm/day, Rhizo 3.8 to 4.9, Cycles 3.8 to 5.3) because the gridded weather is warmer, drier and windier than the towers.",
+        "Mead, Nebraska flux towers and measured yields (10 site-years of grain): mean absolute error 1.1 Mg/ha for SPROUT against 0.9 for Cycles; SPROUT's above-ground biomass is 3.3 Mg/ha off against 2.3 for Cycles. Both models overestimate evapotranspiration (tower 3.3 to 3.9 mm/day, SPROUT 3.8 to 4.9, Cycles 3.8 to 5.3) because the gridded weather is warmer, drier and windier than the towers.",
         "Corn after soybean in a rotation: 0.96 to 0.99 of Cycles' yield with no nitrogen, 0.93 to 0.95 at 150 kg N/ha (checked 2026-10-23, not re-run).",
     ],
     "sources": [

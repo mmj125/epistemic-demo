@@ -1,10 +1,10 @@
 DRAFT, updated 2026-10-28. For review by Matt before it goes to anyone. Sections 2, 5, 6 and 9 were rewritten on 2026-10-28 for the current engine; sections 7 and 8 carry the scorecard of the same date. Each number is traceable to a script listed in `prototypes/INDEX.md` and to `PROVENANCE_LEDGER.md`.
 
-# How Rhizo was built
+# How SPROUT was built
 
 ## 1. What this is
 
-Rhizo is a daily-step crop, soil water, carbon and nitrogen model written from scratch in Python (one engine file, `rhizo_engine.py`, plus a thin interface layer, `engine_api.py`). It runs in a web browser through Pyodide, so a student or scientist can run 38 years of a crop at a chosen site with no installation. It simulates corn, silage corn, sorghum, soybean and winter wheat, with corn and soybean rotations, a cereal rye cover crop, tillage, irrigation, split nitrogen and manure.
+SPROUT (Simulated Processes for Reasoning about Outcomes Under Treatments; in public, "a browser-based crop and soil simulator for teaching") is a daily-step crop, soil water, carbon and nitrogen model written from scratch in Python (one engine file, `rhizo_engine.py`, plus a thin interface layer, `engine_api.py`). It runs in a web browser through Pyodide, so a student or scientist can run 38 years of a crop at a chosen site with no installation. It simulates corn, silage corn, sorghum, soybean and winter wheat, with corn and soybean rotations, a cereal rye cover crop, tillage, irrigation, split nitrogen and manure.
 
 Its equations come from the Cycles paper and supplement (Kemanian et al. 2024), the Cycles input and output documentation, and published science (Campbell 1985, CropSyst, FAO-56, Saxton and Rawls 2006, Pravia et al. 2019, EPIC and APEX, Godwin and Jones 1991, Stockle and Campbell 1989, Macnack et al. 2013, IPCC). Cycles v1.5.20 was used as a test of the result and, where the published sources are silent, as a source of measurements. This document says which is which for every process.
 
@@ -129,9 +129,9 @@ On 94 sites not used to fit anything, 38 years each, with continuous crop chains
 | Soybean | 0.945 | +9% (+0.29 Mg/ha) | 0.47 |
 | Winter wheat (60 sites) | 0.902 / 0.851 / 0.833 | +14% / +4% / -1% | 0.43 / 0.66 / 0.79 |
 
-The positive bias at zero nitrogen is mostly the 8 kg N/ha/yr of atmospheric deposition that Rhizo includes (measured in Iowa, 7.7 kg) and Cycles does not. Silage at N=0 is +12% without it.
+The positive bias at zero nitrogen is mostly the 8 kg N/ha/yr of atmospheric deposition that SPROUT includes (measured in Iowa, 7.7 kg) and Cycles does not. Silage at N=0 is +12% without it.
 
-Nitrogen losses relative to Cycles (corn, kg N/ha per year at N = 0 / 150 / 400): leaching 6.7 vs 4.6, 19.0 vs 13.3, 115.8 vs 84.8; denitrification 0.84, 0.72 and 0.60 of Cycles'; volatilization 1.26, 0.98 and 0.99; nitrous oxide 0.63, 0.48 and 0.39. Rhizo's leaching sits inside the published range for tile-drained Corn Belt corn (8 to 29 kg at low to high N in Minnesota, 29 to 48 in Iowa) and its nitrous oxide emission factor at 150 kg N is about 0.9 percent of applied N (IPCC 1.0). Denitrification was lowered from an amplitude fitted to Cycles to the published one, which is why it is below Cycles'.
+Nitrogen losses relative to Cycles (corn, kg N/ha per year at N = 0 / 150 / 400): leaching 6.7 vs 4.6, 19.0 vs 13.3, 115.8 vs 84.8; denitrification 0.84, 0.72 and 0.60 of Cycles'; volatilization 1.26, 0.98 and 0.99; nitrous oxide 0.63, 0.48 and 0.39. SPROUT's leaching sits inside the published range for tile-drained Corn Belt corn (8 to 29 kg at low to high N in Minnesota, 29 to 48 in Iowa) and its nitrous oxide emission factor at 150 kg N is about 0.9 percent of applied N (IPCC 1.0). Denitrification was lowered from an amplitude fitted to Cycles to the published one, which is why it is below Cycles'.
 
 Against observations (re-run on the final engine, 2026-10-28): on NASS county yields (94 sites, 1982 to 2016) the engine's within-site correlation of detrended yield is 0.43 for corn against 0.38 for Cycles (difference +0.041, 95 percent interval -0.006 to +0.085), 0.36 against 0.33 for soybean (+0.034 [+0.010, +0.057]), 0.38 against 0.34 for silage (+0.062 [+0.003, +0.130]) and 0.21 against 0.23 for wheat (+0.012 [-0.041, +0.063]). The engine's level is 1.01 of the observed county corn mean (east 1.03, west 0.83), and 1.45 for soybean, 1.53 for wheat and 1.17 for silage, so soybean and wheat are too high in both models. Against the Mead flux towers (US-Ne1, Ne2, Ne3, gridded weather), the engine is no longer as close as Cycles: grain mean absolute error is 1.10 against 0.86 Mg/ha over 10 site-years (it was 0.91 against 0.86 on 2026-10-23), and above-ground biomass 3.28 against 2.34 Mg/ha over 15. The engine's mean evapotranspiration is nearer the towers than Cycles' at Ne1 (4.94 against 5.34 mm/day, tower 3.81) and equal at Ne2 and Ne3, but both models are 16 to 47 percent high because the gridded weather is warmer, drier and windier than the towers. The new gap is not yet attributed; the changes since 2026-10-23 that raise yield are atmospheric N deposition, the evaporation law and the residue store.
 
@@ -151,7 +151,7 @@ How much disagreement is normal: Cycles disagrees with itself by a mean absolute
 2. The base rates for microbial turnover and manure decomposition, and the temperature optimum, in the six-pool carbon model (the Pravia 2019 tables give kx only).
 3. The root nitrogen carried out of the plant with lost roots, and how much of root growth is retained.
 4. Soybean nitrogen demand and fixation rules, and whether wheat canopy loss is tied to nitrogen stress.
-5. The hard-coded defaults behind the calibration multipliers POT_DENITRIF_RATE and DENITRIF_HALF_RATE, and the carbon term of denitrification. With the published APEX law (Rmax 32e-6, half-saturation 60 mg/kg, respiration threshold 50) Rhizo loses the same total nitrogen as Cycles (corn at 150 kg N: 46.2 against 46.0 kg N/ha/yr) but leaches 1.4 times as much and denitrifies 0.65 times as much; no single amplitude fixes the shape of the response to the N rate or the gap for silage and wheat.
+5. The hard-coded defaults behind the calibration multipliers POT_DENITRIF_RATE and DENITRIF_HALF_RATE, and the carbon term of denitrification. With the published APEX law (Rmax 32e-6, half-saturation 60 mg/kg, respiration threshold 50) SPROUT loses the same total nitrogen as Cycles (corn at 150 kg N: 46.2 against 46.0 kg N/ha/yr) but leaches 1.4 times as much and denitrifies 0.65 times as much; no single amplitude fixes the shape of the response to the N rate or the gap for silage and wheat.
 6. Confirmation of the three sign and exponent corrections in section 5.
 
 ## 10. Reproducing it
