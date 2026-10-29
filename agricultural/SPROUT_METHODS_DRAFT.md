@@ -70,7 +70,7 @@ Three things in the implementation go beyond the printed equations, and we list 
 - **Stress (class B form, class E constant).** Growth is proportional to the nitrogen nutrition index above a floor of 0.2 of the critical curve (the linear relation of relative growth rate to plant N concentration, Ingestad 1979 as cited by Lemaire et al. 2008). The floor is an assumption; we chose 0.2 because Cycles corn never dilutes below about that ratio, so it is not independent of Cycles.
 - **Supply limit on uptake (class B form, class C exponent).** The paper says water flux determines access to mineral N and gives no equation. The engine uses the Godwin and Jones 1991 availability function (1 - exp(-kC), root length density times a soil water factor times 0.006 kg N/ha per cm of root). The water factor exponent is 1 where their text gives 2; we set it to 1 because 2 reduced yield too much when tested against Cycles. Doubling the 0.006 constant changes yield by under 1 percent.
 - **Uptake and growth solved together (class B).** CropSyst 1994 Eqs. 29 and 30.
-- **Legume path for soybean (class A mechanism, class D constants).** Soil N is taken first, fixation fills the unmet demand, and residue N comes from plant N (paper Sec 2.5). The N demand scale (0.74), plant N (203 kg/ha), grain share (0.54) and root share (0.065) were read from Cycles' harvest file over 857 soybean crop-years and are class D.
+- **Legume path for soybean (class A mechanism, class B constants, one class D).** Soil N is taken first, fixation fills the unmet demand, and residue N comes from plant N (paper Sec 2.5). The demand curve is the same Lemaire curve as for the other crops (scale 1.0). Grain carries 0.75 of whole-plant N, which is about 0.80 of above-ground N and consistent with published soybean N harvest indices (average about 0.8 in Salvagiotti and Dobermann 2006, range 0.44 to 0.91 in Tamagno et al. 2017); we have read only the abstracts of these. The root share of plant N (0.065) was read from Cycles' harvest file over 857 soybean crop-years and is class D. Earlier versions used values read from Cycles for the demand scale (0.74) and grain share (0.54); replacing them changed soybean grain error by 0.01 Mg/ha and moved leaching from 1.34 to 0.77 of Cycles' at N = 150.
 - **Other nitrogen constants read from Cycles (class C or D).** The share of plant N in the above-ground part (0.88) and the root N carried out with lost roots (0.12 of plant N for corn, 0.082 for wheat) were measured on Cycles. The grain share of above-ground N (0.70 for corn and sorghum, 0.75 for wheat) is a literature harvest index that we have not re-verified. The grain and straw N concentration fields of the crop file are not used.
 
 ### 4.4 Soil carbon, nitrogen and decomposition
@@ -116,7 +116,7 @@ This is the complete list. Class C items use a documented or published form with
 - Canopy plateau per crop (C), the shoot partition mid-point TTf50 of 0.42 (O, original value from Cycles) and the retained fraction of root growth 0.6 (C).
 - The six-pool microbial turnover rate, manure decomposition rate, temperature optimum of the decomposition factor, and the fH exponent and floor (C).
 - C:N of roots, manure and above-ground residue (D).
-- Soybean N demand scale, plant N, grain share and root share (D); shares of plant N in above-ground tissue (0.88) and in lost roots (C).
+- Soybean root N share (D); shares of plant N in above-ground tissue (0.88) and in lost roots (C).
 - The N stress floor of 0.2 (E, chosen with Cycles in view).
 - The exponent on soil water in the uptake supply term (C), and the air-entry potential anchor of the soil hydraulic option (C).
 - The pH used in volatilization (C).
@@ -134,7 +134,7 @@ On 94 sites, 38 years each, with continuous crop chains (the final engine of 202
 | Corn | 0.900 / 0.891 / 0.943 | -5% / 0% / -2% | 0.68 / 1.12 / 0.94 |
 | Silage corn | 0.885 / 0.894 / 0.929 | +11% / +2% / +1% | 1.20 / 1.70 / 1.62 |
 | Sorghum | 0.880 / 0.846 / 0.887 | -6% / -8% / -6% | 0.67 / 1.24 / 1.26 |
-| Soybean | 0.944 | +10% (+0.31 Mg/ha) | 0.48 |
+| Soybean | 0.942 | +10% | 0.49 |
 | Winter wheat | 0.909 / 0.854 / 0.847 | -1% / 0% / -4% | 0.38 / 0.65 / 0.80 |
 
 Pooled correlation does not measure the response to nitrogen. On the last panel of response checks (run before the residue changes of 2026-10-29), the 0 to 150 kg response matched Cycles and the 150 to 400 kg response was 63 to 79 percent of Cycles' for corn, silage and sorghum.
@@ -149,7 +149,7 @@ For scale, Cycles disagrees with itself by a mean absolute grain error of 0.17 M
 
 ## 8. Where SPROUT and Cycles still differ
 
-- Denitrification and nitrous oxide are about 0.3 to 0.4 times Cycles' for corn at 150 and 400 kg N (wheat 0.2 to 0.3, soybean 0.36), leaching is 1.0 to 1.3 times and volatilization 1.2 to 1.3 times. Total N lost is 6 to 16 percent lower in SPROUT (Section 4.5).
+- Denitrification and nitrous oxide are about 0.3 to 0.4 times Cycles' for corn at 150 and 400 kg N (wheat 0.2 to 0.3, soybean 0.21), leaching is 1.0 to 1.3 times and volatilization 1.2 to 1.3 times. Total N lost is 6 to 16 percent lower in SPROUT (Section 4.5).
 - Soil water was measured on 2026-10-29 before the CERES residue law: SPROUT was wetter than Cycles in every layer and month (by 0.01 to 0.05 m3/m3), with a surface residue carbon stock 3 to 8 times Cycles', a decomposition factor 1.2 to 1.5 times and winter respiration 2.3 times. The CERES law was adopted to address the stock; water and respiration after it are not re-measured.
 - Sorghum runs 6 to 8 percent below Cycles at every N rate.
 - Winter wheat: the growth scalar of 0.95 hides a plateau growth efficiency about 14 percent high, and wheat denitrification is 0.2 to 0.3 times Cycles'.
