@@ -2768,6 +2768,7 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
     """Advance every layer's two-pool one day; returns total net N mineralized (kg N/ha). Layer 0
     carries the surface residue pools. Root carbon input is distributed over layers by an
     exponential depth weight."""
+    state["tsoil_c"] = tmean   # read by the published denitrification forms (DENIT_FORM)
     subs = state["ml"]
     wts = [math.exp(-x["zmid"] / SIXPOOL_ML_ROOT_DECAY_M) * (x["z0"] >= 0) for x in subs]
     if CFORCE is not None:   # 2026-10-19 diagnostic: start-of-day carbon pools per layer set to Cycles' (surface residue, layer microbial, soil organic, root residue)
@@ -3016,11 +3017,54 @@ DENIT_SD = dict(K=0.367, kh=31.52, a=0.79, s0=0.736, sc=0.074)   # 2026-10-20: m
 DENIT_NLAYERS = 2   # layers that denitrify (Cycles' denitrification arrays are per layer; on Cycles' daily output layer 2 lifts R2 from 0.876 to 0.916, layers 3 and 4 add nothing)
 
 
+DENIT_FORM = "apex"   # 2026-10-29: "apex" (Kemanian and Williams 2011, the default), "ceres" (Godwin and Jones 1991 Eqs 15 to 18) or "soiln" (Johnsson et al. 1987 Eqs 15 and 16); published constants, nothing fitted
+
+
+def denitrification_ceres(no3_start_kg_ha, layer, theta_start, cs_mg_ha, no3_now_kg_ha, tsoil_c):
+    """CERES denitrification (Godwin and Jones 1991, Eqs 15 to 18): DNRATE = 6.0e-5 CW NO3 FW FT DLAYR kg N/ha/d, NO3 in ug N/g soil, DLAYR in cm,
+    CW = 24.5 + 0.0031 SOILC (ug water-extractable C/g soil, SOILC the stable soil carbon in ug/g), FW = 1 - (SAT - SW)/(SAT - DUL) when SW > DUL
+    (the drained upper limit is the layer's field capacity), FT = 0.1 exp(0.046 T). The carbohydrate fraction of the fresh residue that CERES adds to
+    SOILC is not included. First order in nitrate."""
+    if no3_start_kg_ha <= 0.0 or theta_start <= layer["fc"]:
+        return 0.0
+    mass = sixpool_bulk_density(layer["sat"]) * layer["thick"] * 1e7       # kg soil/ha
+    no3_ug_g = no3_start_kg_ha * 1e6 / mass
+    soilc = cs_mg_ha * 1000.0 * 1e6 / mass                                  # ug C/g soil
+    fw = min(1.0, 1.0 - (layer["sat"] - theta_start) / (layer["sat"] - layer["fc"]))
+    ft = 0.1 * math.exp(0.046 * tsoil_c)
+    flux = 6.0e-5 * (24.5 + 0.0031 * soilc) * no3_ug_g * max(fw, 0.0) * ft * (layer["thick"] * 100.0)
+    return min(max(no3_now_kg_ha, 0.0), flux)
+
+
+def denitrification_soiln(no3_start_kg_ha, layer, theta_start, no3_now_kg_ha, tsoil_c):
+    """SOILN denitrification (Johnsson et al. 1987, Eqs 15 and 16, parameter table): potential rate 0.1 g N/m2/d (1 kg N/ha/d) per layer, half-saturation
+    10 mg N/l of soil solution, soil-water effect ((theta - theta_t)/(theta_s - theta_t))^2 above a threshold 10 percent of volume below saturation
+    (air-filled pore space), times the temperature factor used for nitrification in this engine (Stockle and Campbell 1989 Eq. 11)."""
+    if no3_start_kg_ha <= 0.0 or theta_start <= 0.0:
+        return 0.0
+    th_t = layer["sat"] - 0.10
+    if theta_start <= th_t:
+        return 0.0
+    fwd = min(1.0, ((theta_start - th_t) / (layer["sat"] - th_t)) ** 2)
+    conc = no3_start_kg_ha * 0.1 / (theta_start * layer["thick"])           # mg N/l
+    flux = 1.0 * fwd * min(1.0, nitrification_temp_factor(tsoil_c)) * conc / (conc + 10.0)
+    return min(max(no3_now_kg_ha, 0.0), flux)
+
+
 def denitrification_layers(no3_start, theta_start, layers, sixpool_state, no3_now):
     """Per-layer denitrification (kg N/ha): the layer-1 law applied to each of the first DENIT_NLAYERS layers with that layer's own start-of-day
     nitrate and saturation and its own respired carbon (the six-pool profile carries respiration per layer)."""
     ml = sixpool_state.get("ml") if sixpool_state is not None else None
     out = []
+    if DENIT_FORM in ("ceres", "soiln") and sixpool_state is not None:
+        _t = sixpool_state.get("tsoil_c", 15.0)
+        for i in range(len(layers)):
+            if DENIT_FORM == "ceres":
+                _cs = ml[i]["cs"] if (ml is not None and len(ml) > i) else 0.0
+                out.append(denitrification_ceres(no3_start[i], layers[i], theta_start[i], _cs, no3_now[i], _t))
+            else:
+                out.append(denitrification_soiln(no3_start[i], layers[i], theta_start[i], no3_now[i], _t))
+        return out
     for i in range(min(DENIT_NLAYERS, len(layers))):
         r = ml[i].get("resp_mg_ha", 0.0) if (ml is not None and len(ml) > i) else (sixpool_state.get("resp_mg_ha", 0.0) if i == 0 else 0.0)
         if DENIT_APEX:
