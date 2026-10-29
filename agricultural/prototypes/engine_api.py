@@ -65,6 +65,7 @@ SCHEMA = {
             {"id": "n_doy1", "label": "First application, day of year", "type": "number", "default": 110, "min": 1, "max": 365, "step": 1, "show_if": {"n_timing": "split"}},
             {"id": "n_frac1", "label": "Share applied first (%)", "type": "number", "default": 50, "min": 0, "max": 100, "step": 5, "show_if": {"n_timing": "split"}},
             {"id": "n_doy2", "label": "Second application, day of year", "type": "number", "default": 160, "min": 1, "max": 365, "step": 1, "show_if": {"n_timing": "split"}},
+            {"id": "n_deposition", "label": "Atmospheric N deposition (kg N/ha per year)", "type": "number", "default": 0, "min": 0, "max": 20, "step": 1, "help": "Cycles has none. Measured wet and dry deposition in Iowa fields is about 8."},
             {"id": "manure_n", "label": "Manure N (kg N/ha per year)", "type": "number", "default": 0, "min": 0, "max": 400, "step": 10, "applies_to": ["corn", "silage", "sorghum", "rotation"]},
             {"id": "manure_source", "label": "Manure type", "type": "select", "default": "dairy", "options": [[k, k.capitalize()] for k in E.MANURE_SOURCES], "show_if": {"manure_n": "!0"}, "applies_to": ["corn", "silage", "sorghum", "rotation"]},
         ]},
@@ -327,6 +328,7 @@ def _wheat_chain(cfg, wx, soil, lat):
 
 def run(config_json):
     cfg = json.loads(config_json)
+    E.N_DEPOSITION_KG_HA_YR = float(cfg.get("n_deposition", 0) or 0)   # per-run option, default 0 as in Cycles
     wx, soil, lat = _STATE["wx"], _STATE["soil"], _STATE["lat"]
     if wx is None:
         raise ValueError("No site loaded.")

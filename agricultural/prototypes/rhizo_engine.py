@@ -387,7 +387,7 @@ REDISTRIBUTE_MAX_STEPS = 200  # safety cap against a floating-point edge case ev
 # handful of steps (rarely more than the layer count), this is headroom, not a target.
 
 
-N_DEPOSITION_KG_HA_YR = 8.0   # 2026-10-28: atmospheric N deposition (wet plus dry), half ammonium and half nitrate, added daily to the top layer pools; neither Cycles nor the engine had it. Iowa field measurement 7.7 kg N/ha/yr (a lower bound), wet upper Midwest 3 to 7. 0.0 = off
+N_DEPOSITION_KG_HA_YR = 0.0   # 2026-10-28: atmospheric N deposition (wet plus dry), half ammonium and half nitrate, added daily to the top layer pools; neither Cycles nor the engine had it. Iowa field measurement 7.7 kg N/ha/yr (a lower bound), wet upper Midwest 3 to 7. 0.0 = off   # default 0 since 2026-10-29 to behave like Cycles (Matt); 8.0 is the measured Iowa value (7.7 kg) and is a run option in the simulator ('n_deposition')
 SOLUTE_GJ_EQ1 = True   # 2026-10-27 step 9: nitrate leaching as in CERES (Godwin and Jones 1991 Eq. 1), instead of drainage over the saturated water volume
 SOLUTE_VOL_SAT = True   # 2026-10-18 measured on Cycles' own daily output (6 sites, 37 years, N=150, leach_transport_2026_10_18.py): nitrate leached out of the profile = drainage x previous-day bottom-layer nitrate / the layer's SATURATED water volume (ratio to Cycles 0.96 to 1.03, daily corr 0.99 to 1.00), not / its current water content; applied to the gravity-drainage stage of every layer. False restores division by current water.
 def redistribute(layers, water_in_mm, n_substeps=REDISTRIBUTE_SUBSTEPS, n_by_layer=None):
@@ -617,8 +617,8 @@ SOIL_EVAP_SCALE = 1.0  # multiplier on the potential soil-evaporation demand (te
 
 SNOW_MODEL = True   # 2026-10-13: snowpack measured from designed experiments on Cycles v1.5.20 (see snow_adjust); off by default
 SNOW_RAIN_TEMP_C = 1.0    # precipitation is rain at a daily mean temperature >= this, snow below it
-SNOW_MELT_BASE_C = 0.5   # melt base temperature: SWAT default SMTMP 0.5 (2026-10-28; was -1.0 matched to Cycles)
-SNOW_MELT_DDF = 4.5       # mm per degree C: SWAT default melt factor 4.5 (2026-10-28; was 2.5 matched to Cycles)
+SNOW_MELT_BASE_C = -1.0   # melt base temperature: Cycles' own value, identified by designed runs (reproduces Cycles' snow water to 0.1 mm); restored 2026-10-29 after a trial of the SWAT default 0.5
+SNOW_MELT_DDF = 2.5       # mm per degree C: Cycles' own value (SWAT default 4.5 was trialled 2026-10-28 and cost winter wheat 0.006 to 0.014 Mg/ha)
 
 
 def snow_adjust(layers, w, lat_deg):
