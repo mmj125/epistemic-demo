@@ -116,8 +116,8 @@ _STATE = {"wx": None, "soil": None, "lat": None}
 
 
 # Soybean with the legume N path (2026-10-23, rotation support): soil N is drawn first, fixation fills the unmet new-growth demand (Kemanian 2024 Sec 2.5), N stress off. Used by the rotation option;
-# n_demand_scale 0.74 is measured on Cycles' soybean plant N (203 kg N/ha, 24 sites), class D in the ledger.
-_SOYBEAN_N = dict(_SOYBEAN, legume_n=True, n_demand_ref=True, n_uptake_rate=0.03, n_stress_ag_basis=True, n_demand_scale=0.74)
+# 2026-10-29: n_demand_scale 1.0 (the published Lemaire curve) and grain_n_share 0.75 (published N harvest index, about 0.80 of above-ground N with the 0.065 root share; Salvagiotti and Dobermann 2006 abstract, Tamagno et al. 2017 range 0.44 to 0.91). Both were measured on Cycles output (0.74 and 0.54, class D) until then; yield cost 0.01 Mg/ha MAE on 94 sites. Root N share 0.065 stays class D.
+_SOYBEAN_N = dict(_SOYBEAN, legume_n=True, n_demand_ref=True, n_uptake_rate=0.03, n_stress_ag_basis=True, n_demand_scale=1.0, grain_n_share=0.75)
 
 # ---- what the page shows scientists about the model (single source: the page reads info(), it never hard-codes these) ----
 ENGINE_INFO = {
@@ -132,7 +132,7 @@ ENGINE_INFO = {
         ["Corn", "0 / 150 / 400", "0.90 / 0.89 / 0.94", "-5 / 0 / -2", "0.68 / 1.12 / 0.94"],
         ["Silage corn", "0 / 150 / 400", "0.89 / 0.89 / 0.93", "+11 / +2 / +1", "1.20 / 1.70 / 1.62"],
         ["Sorghum", "0 / 150 / 400", "0.88 / 0.85 / 0.89", "-6 / -8 / -6", "0.67 / 1.24 / 1.26"],
-        ["Soybean", "none", "0.94", "+10", "0.48"],
+        ["Soybean", "none", "0.94", "+10", "0.49"],
         ["Winter wheat", "0 / 90 / 150", "0.91 / 0.85 / 0.85", "-1 / 0 / -4", "0.38 / 0.65 / 0.80"],
     ],
     "observations": [
