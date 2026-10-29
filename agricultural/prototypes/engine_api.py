@@ -116,8 +116,8 @@ _STATE = {"wx": None, "soil": None, "lat": None}
 
 
 # Soybean with the legume N path (2026-10-23, rotation support): soil N is drawn first, fixation fills the unmet new-growth demand (Kemanian 2024 Sec 2.5), N stress off. Used by the rotation option;
-# 2026-10-29: soybean N demand is Lemaire et al. 2008's critical curve for non-legume C3 crops (wheat, 5.3 and 0.44), used by analogy (Divito et al. 2016 report that soybean's dilution curve resembles it; snippet only, not read); the crop file's N_MAX_CONCENTRATION curve (0.07, slope 0.4) overshoots Cycles by about 35 percent (Cycles takes 0.76 of it for soybean, 0.69 for corn). grain_n_share 0.54 was read from Cycles (class C): it lies inside the published N harvest index range 0.44 to 0.91 (Tamagno et al. 2017), and 0.75 halves corn after soybean at zero N. Root N share 0.065 stays class D.
-_SOYBEAN_N = dict(_SOYBEAN, legume_n=True, n_demand_ref=True, n_uptake_rate=0.03, n_stress_ag_basis=True, n_crit_lemaire=(5.3, 0.44), n_demand_scale=1.0, grain_n_share=0.54)
+# 2026-10-29: soybean N demand is the measured soybean shoot N dilution curve of Divito et al. 2016 (Field Crops Research 198:140-147, S-sufficient treatments, %N = 35.3 W^-0.08 in g/kg, W from 1 Mg/ha to R5, R2 0.15; a = 3.53 percent, b = 0.08; used beyond R5 by extension) and grain_n_share 0.75 is the published N harvest index (about 0.80 of above-ground N; range 0.44 to 0.91, Tamagno et al. 2017). Both are published values, class B; they replace the Cycles-read 0.74 scale and 0.54 share (class D and C). Root N share 0.065 is read from Cycles (class C: published whole-root shares range from 2 to 48 percent).
+_SOYBEAN_N = dict(_SOYBEAN, legume_n=True, n_demand_ref=True, n_uptake_rate=0.03, n_stress_ag_basis=True, n_crit_lemaire=(3.53, 0.08), n_demand_scale=1.0, grain_n_share=0.75)
 
 # ---- what the page shows scientists about the model (single source: the page reads info(), it never hard-codes these) ----
 ENGINE_INFO = {
@@ -132,7 +132,7 @@ ENGINE_INFO = {
         ["Corn", "0 / 150 / 400", "0.90 / 0.89 / 0.94", "-5 / 0 / -2", "0.68 / 1.12 / 0.94"],
         ["Silage corn", "0 / 150 / 400", "0.89 / 0.89 / 0.93", "+11 / +2 / +1", "1.20 / 1.70 / 1.62"],
         ["Sorghum", "0 / 150 / 400", "0.88 / 0.85 / 0.89", "-6 / -8 / -6", "0.67 / 1.24 / 1.26"],
-        ["Soybean", "none", "0.94", "+10", "0.48"],
+        ["Soybean", "none", "0.96", "+11", "0.46"],
         ["Winter wheat", "0 / 90 / 150", "0.91 / 0.85 / 0.85", "-1 / 0 / -4", "0.38 / 0.65 / 0.80"],
     ],
     "observations": [
