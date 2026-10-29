@@ -2340,8 +2340,8 @@ SIXPOOL_ML_HUM_CLAY = None  # 2026-10-28: off. The clay-dependent fit (0.34145, 
 SIXPOOL_ML_RES_SCALE_SURF = 1.0     # 2026-10-27: share of the surface-residue carbon that becomes microbial biomass, relative to the shared efficiency; tuned to Schomberg et al. 1994 N immobilized per biomass lost when set
 SIXPOOL_ML_RES_SCALE_BURIED = 1.0   # the same for buried root residue
 DIAG_RESN = None   # (decomp_ra, N immobilized by surface residue decomposition, N released by it, decomp_rtz, N immobilized by buried, N released by it)
-SIXPOOL_ML_FH_P = 12.0
-SIXPOOL_ML_FH_FLOOR = 0.2  # Cycles still humifies ~0.12-0.17 of decomposed residue C at Cs/Csx >= 1 (Iowa 1980-83)
+SIXPOOL_ML_FH_P = 6.0   # 2026-10-29: SI Eq. SI.12 as printed (exponent 6, no floor). Was 12 with a floor of 0.2 (fitted to Cycles' humification near saturation, Iowa 1980-83); the SI form is neutral: 24 corn and silage sites unchanged, 60 wheat sites MAE 0.377 / 0.654 / 0.799 to 0.379 / 0.655 / 0.797 at N=0 / 90 / 150
+SIXPOOL_ML_FH_FLOOR = 0.0
 # Per-layer Cs decomposition (2026-10-02, supersedes the fD-form fit above, which fit the same data at
 # rms 0.347): Cycles' annual SOM respiration regressed on its own per-layer FACTOR COMP. x SOIL ORG C,
 # 528 site-years, with a free fD shape collapsed to a constant (b -> 0), so the best form is
