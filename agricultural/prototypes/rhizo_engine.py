@@ -2490,6 +2490,20 @@ def n_conc_layers(layers, nh4_kg_ha, no3_layers, no3_total):
 
 
 WEPS_DECAY = True      # 2026-10-27 step 5: residue decay as in WEPS (Steiner et al. 1999; WEPS Technical Documentation ch. 10): mass loss k x DD per day, DD = min(TF, MF)
+RES_DECAY_FORM = "weps"   # 2026-10-29: "weps" (Steiner et al. 1999, WEPS) or "ceres" (Godwin and Jones 1991: surface residue as carbohydrate 20, cellulose 70 and lignin 10 percent, decaying at 0.8, 0.05 and 0.0095 per day times the environmental factor, constants of Seligman and van Keulen 1981)
+FOM_FRAC = (0.2, 0.7, 0.1)
+FOM_K = (0.8, 0.05, 0.0095)
+
+
+def fom_add(state, c_add):
+    """Add c_add (Mg C/ha) of fresh residue to the three-fraction surface pool; the pool is first rescaled to the current total so that tillage moves and other edits of cra keep it consistent."""
+    c_old = state.get("cra", 0.0)
+    fr = state.get("cra_fr")
+    if fr is None or sum(fr) <= 1e-12:
+        fr = [x * c_old for x in FOM_FRAC]
+    else:
+        sc = c_old / sum(fr); fr = [x * sc for x in fr]
+    state["cra_fr"] = [f + x * c_add for f, x in zip(fr, FOM_FRAC)]
 WEPS_SURF, WEPS_ROOT = True, True   # which residue pools follow the WEPS law (surface residue, buried root residue)
 WEPS_TO, WEPS_TB = 32.0, 0.0   # optimum and base temperature of the decomposition-day temperature function (WEPS Eq. 7)
 N_LIMIT_STOICH = True  # 2026-10-27 step 5: residue decomposition limited so that net immobilization cannot exceed the mineral N of the layer (Kemanian et al. 2024: "if there is insufficient inorganic N ... decomposition is limited")
@@ -2584,7 +2598,14 @@ def _sixpool_core(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=N
     # same moment the fresh pulse lands, so the two always stay in sync.
 
     _fer = fe
-    if WEPS_DECAY and WEPS_SURF and state.get("weps_dd_surf") is not None and state.get("cra_k") is not None:
+    if RES_DECAY_FORM == "ceres" and cra > 0.0:
+        _fr = state.get("cra_fr")
+        _fr = [x * cra for x in FOM_FRAC] if (_fr is None or sum(_fr) <= 1e-12) else [x * cra / sum(_fr) for x in _fr]
+        decomp_ra = 0.0; _new = []
+        for _q, _k in zip(_fr, FOM_K):
+            _d = _q * min(1.0, _k * _fer); decomp_ra += _d; _new.append(_q - _d)
+        state["cra_fr"] = _new
+    elif WEPS_DECAY and WEPS_SURF and state.get("weps_dd_surf") is not None and state.get("cra_k") is not None:
         decomp_ra = state["cra_k"] * state["weps_dd_surf"] * cra
     else:
         decomp_ra = _fer * SIXPOOL_KRA * cra_maturity * cra
@@ -2807,6 +2828,7 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
         if i == 0:
             sub["cra"], sub["crm"], sub["cra_age"] = state["cra"], state["crm"], state["cra_age"]
             sub["cra_cn"] = state.get("cra_cn", SIXPOOL_CN_CRA)
+            sub["cra_fr"] = state.get("cra_fr")
         ft = ft_eff if sub["z0"] < SIXPOOL_ML_TILL_DEPTH_M else 1.0
         if DIAG_FE is not None: DIAG_FE.append((_DIAG_YEAR, _DIAG_CTX.get("doy"), i, t_layer, relwet, sixpool_fe(t_layer, relwet, True)))
         _v = sixpool_step(sub, t_layer, relwet, root_c_input_mg_ha * wts[i] / wsum, ft)
@@ -2814,6 +2836,7 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
         resp_tot += sub.get("resp_mg_ha", 0.0)
         if i == 0:
             state["cra"], state["crm"], state["cra_age"] = sub["cra"], sub["crm"], sub["cra_age"]
+            state["cra_fr"] = sub.get("cra_fr")
     state["gmin"] = sum(x.get("gmin", 0.0) for x in subs); state["gimm"] = sum(x.get("gimm", 0.0) for x in subs)
     state["cs"] = sum(x["cs"] for x in subs)
     state["cm"] = sum(x["cm"] for x in subs)
@@ -4214,6 +4237,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         _n_org = manure_n_kg_ha * _ms["norg_frac"]; _c_org = _n_org * _ms["c_per_norg"] / 1000.0
         _c_old = sixpool_state.get("cra", 0.0); _n_old = _c_old * 1000.0 / sixpool_state.get("cra_cn", SIXPOOL_CN_CRA)
         sixpool_state["cra_cn"] = (_c_old + _c_org) * 1000.0 / max(_n_old + _n_org, 1e-9)
+        if RES_DECAY_FORM == "ceres": fom_add(sixpool_state, _c_org)
         sixpool_state["cra"] = _c_old + _c_org
     if RES_SPLIT and sixpool_state is not None and "cra_fs" in sixpool_state:
         sixpool_state["cra_fs"] *= 1.0 - math.sqrt(TILLAGE_IMPLEMENTS["Planter_double_disk_opnr"][2])   # the planter pass of the Cycles operation file (mixing efficiency 0.0716) flattens its square root of the standing residue
@@ -5063,6 +5087,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             sixpool_state["cra_k"] = (sixpool_state.get("cra_k", crop["weps_k"]) * _c_old + crop["weps_k"] * _c_add) / max(_c_old + _c_add, 1e-12)
         else:
             sixpool_state["cra_k"] = None
+        if RES_DECAY_FORM == "ceres": fom_add(sixpool_state, ag_residue_mg_ha * CARBON_FRACTION_DM)
         sixpool_state["cra"] = sixpool_state.get("cra", 0.0) + ag_residue_mg_ha * CARBON_FRACTION_DM
         # Reset cra_age to 0 whenever fresh stover lands -- see CRA_MATURATION_TAU_DAYS's own
         # docstring (2026-10-02). A disclosed simplification when cra already held some
