@@ -1,4 +1,4 @@
-DRAFT, updated 2026-10-29. For review by Matt before it goes to anyone. Sections 2, 5, 6 and 9 were rewritten on 2026-10-28 for the current engine; sections 7 and 8 carry the scorecard of the same date. Each number is traceable to a script listed in `prototypes/INDEX.md` and to `PROVENANCE_LEDGER.md`.
+DRAFT, updated 2026-10-29. For review by Matt before it goes to anyone. Sections 2 and 4 to 9 describe the engine as of 2026-10-29 and carry that day's scorecard; the Mead comparison in section 7 was last run on 2026-10-28. Each number is traceable to a script listed in `prototypes/INDEX.md` and to `PROVENANCE_LEDGER.md`.
 
 # How SPROUT was built
 
@@ -19,7 +19,7 @@ Its equations come from the Cycles paper and supplement (Kemanian et al. 2024), 
 - E: our own assumption, convention or placeholder.
 - O: a published form with one or two constants fitted to real observations, not to Cycles output.
 
-On 2026-10-28 no live item is class D and six rows are class C (listed in section 6). Most of the earlier class D and C items turned out, on a second look, to have a source: the Cycles guide, the SI, Pravia 2019, WEPS, Godwin and Jones 1991, SWAT or a measurement paper.
+On 2026-10-29 no live item is class D and six rows are class C (listed in section 6). Most of the earlier class D and C items turned out, on a second look, to have a source: the Cycles guide, the SI, Pravia 2019, WEPS, Godwin and Jones 1991 or a measurement paper, and the snow constants are exact values of Cycles itself.
 
 **Circularity.** Fitting a law to Cycles output and then reporting agreement with Cycles proves nothing. So the rule was: build each process from the sources first, compare with Cycles second, and fit to Cycles only where the sources are silent. A fitted element is labelled a suspect, with the source that would replace it.
 
@@ -102,7 +102,7 @@ Errors found in the printed sources (the engine uses the corrected form in each 
 4. SI.14 reproduces the SI's own worked example, but its maximum (11.25) disagrees with the stated maximum (14).
 5. SI.10 prints one residue carbon term with the wrong subscript.
 
-Quantities that were measured on Cycles earlier and now have a source (2026-10-27 and 2026-10-28): soil evaporation (county yields), the canopy stress response (paper Sec 2.5), N demand (Lemaire et al. 2008), the N stress curve, the supply cap on uptake (Godwin and Jones 1991), residue decay (WEPS, Steiner et al. 1999), nitrification (Johnsson et al. 1987), volatilization (Genermont and Cellier 1997, Montes et al. 2009), nitrate transport, the CO2 exponents (FACE meta-analysis, Ainsworth and Long 2021), denitrification amplitude (APEX, 1.0) and N2O (IPCC, APEX), the N2O share from nitrification (constant 0.4 percent), snow (SWAT defaults), residue water capacity (Iqbal et al. 2013), the microbial C use efficiency (SI, 0.44) and the harvest index slope. The last one deserves a note for the developers: the engine's slope constants (1.3077, 3.4, 2.5) were first found by fitting and were later seen to equal Hk = m (1 - Hmin) / (Hmax - Hmin) with the crop file values.
+Quantities that were measured on Cycles earlier and now have a source (2026-10-27 and 2026-10-28): soil evaporation (county yields), the canopy stress response (paper Sec 2.5), N demand (Lemaire et al. 2008), the N stress curve, the supply cap on uptake (Godwin and Jones 1991), residue decay (CERES, Godwin and Jones 1991; WEPS stays as an option), nitrification (Johnsson et al. 1987), volatilization (Genermont and Cellier 1997, Montes et al. 2009), nitrate transport, the CO2 exponents (FACE meta-analysis, Ainsworth and Long 2021), denitrification amplitude (APEX, 1.0) and N2O (IPCC, APEX), the N2O share from nitrification (constant 0.4 percent), residue water capacity (Iqbal et al. 2013), the microbial C use efficiency (SI, 0.44) and the harvest index slope. The last one deserves a note for the developers: the engine's slope constants (1.3077, 3.4, 2.5) were first found by fitting and were later seen to equal Hk = m (1 - Hmin) / (Hmax - Hmin) with the crop file values.
 
 ## 6. What is still measured on Cycles, and what we would ask
 
@@ -115,7 +115,7 @@ Six items are still fitted to Cycles output (class C), and a few have a source t
 - soybean nitrogen demand (a scale of 0.74 on the Lemaire curve).
 - winter wheat: a growth scalar of 0.95 hides a plateau growth efficiency about 14 percent high.
 
-Two exact constants of Cycles that we found by designed runs and that may be of use: forage yield is 0.9500 times above-ground biomass in every row of harvest.csv whatever RESIDUE_REMOVED and STANDING_RESIDUE_AT_HARVEST are, and the snow constants (rain below 1.0 C, melt base -1.0 C, 2.5 mm per C) reproduce Cycles' snow water to 0.1 mm. The engine uses the first and has moved to the SWAT defaults for the second.
+Two exact constants of Cycles that we found by designed runs and that may be of use: forage yield is 0.9500 times above-ground biomass in every row of harvest.csv whatever RESIDUE_REMOVED and STANDING_RESIDUE_AT_HARVEST are, and the snow constants (rain below 1.0 C, melt base -1.0 C, 2.5 mm per C) reproduce Cycles' snow water to 0.1 mm. The engine uses both.
 
 ## 7. How well it agrees
 
