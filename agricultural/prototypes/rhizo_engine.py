@@ -1671,6 +1671,7 @@ CORN_CANOPY_SHAPE = (6, -20, -5.35, 4.10)  # re-refit 2026-09-30 (was (6,-20,-12
 # disclosed problem, not a cosmetic change to a number nobody was checking.
 NET_GROWTH_FRACTION = 0.955  # 2026-10-16 rebuild: with the exact Cycles VPD (no fitted VPD exponent or heat terms) one global level constant reproduces the old fitted package (24 fresh sites: N=150 grain MAE 1.02 vs 1.04, bias ~0); was 1.04454 with C1_VPD_POW 0.67 and HEAT_A
 CANOPY_FAITHFUL = True   # 2026-10-18 (Matt): per-crop canopy as measured on Cycles' own unstressed days (Eq. 6 shape, plateau) with the growth scalar at 1.0, replacing the shared plateau 0.99 x NET_GROWTH_FRACTION 0.955 pair, which stood in for Cycles' 0.951 plateau. A crop dict opts in with canopy_shape_faithful, eix_faithful, ngf_faithful; False restores the previous behaviour exactly.
+CANOPY_PLATEAU = 0.95   # 2026-10-29 default (None restores the per-crop plateaus measured on unstressed days): the canopy plateau of every crop. Designed Cycles runs (canopy_designed_2026_10_29.py) show peak interception is 0.95 times MAXIMUM_SOIL_COVERAGE for corn, silage, sorghum, soybean and wheat (0.949 to 0.954 in every case), so one constant replaces the per-crop plateaus measured on unstressed days
 def crop_ngf(crop):
     if CANOPY_FAITHFUL and "ngf_faithful" in crop:
         return crop["ngf_faithful"]
@@ -4489,7 +4490,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         if ttf >= harvest_ttf:
             break
         _shape = crop["canopy_shape_faithful"] if (CANOPY_FAITHFUL and "canopy_shape_faithful" in crop) else (CANOPY_SHAPE_FORCE if CANOPY_SHAPE_FORCE is not None else crop.get("canopy_shape", DEFAULT_CANOPY_SHAPE))
-        _eix = crop["eix_faithful"] if (CANOPY_FAITHFUL and "eix_faithful" in crop) else crop["eix_cap"] if "eix_cap" in crop else (CANOPY_EIX_FORCE if CANOPY_EIX_FORCE is not None else crop.get("eix", 1.0))   # per-crop plateau (2026-10-17: wheat 0.86, Cycles' measured unstressed plateau)
+        _eix = CANOPY_PLATEAU if CANOPY_PLATEAU is not None else crop["eix_faithful"] if (CANOPY_FAITHFUL and "eix_faithful" in crop) else crop["eix_cap"] if "eix_cap" in crop else (CANOPY_EIX_FORCE if CANOPY_EIX_FORCE is not None else crop.get("eix", 1.0))   # per-crop plateau (2026-10-17: wheat 0.86, Cycles' measured unstressed plateau)
         _form = crop.get("canopy_form", "closed")
         if _form in ("D", "H"):
             # Integrated-derivative forms (paper Eq. 6 text: 'the first derivative of Eq. (6) is used to estimate the rate of change ... the rate is reduced by N stress'). The expansion part of the

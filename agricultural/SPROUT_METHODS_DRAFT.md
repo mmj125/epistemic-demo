@@ -70,7 +70,7 @@ Three things in the implementation go beyond the printed equations, and we list 
 
 - **Harvest index (class A).** The guide gives HI = Hmax - (Hmax - Hmin) exp(-Hk fG) with Hk = m (1 - Hmin) / (Hmax - Hmin). With the crop-file values this gives 1.3077 for corn, silage and sorghum, 3.4 for soybean and 2.5 for winter wheat.
 - **Shoot partition mid-point TTf50 (class O).** SI Eq. 8 needs TTf50. We found no printed value for it. 0.42 was fitted to Cycles' realised shoot share (a shared value for corn, silage and sorghum). We then tested it on measured above-ground biomass at the Mead towers (120 points, June to September): the squared relative error is 0.0264 at 0.30, 0.0103 at 0.42, 0.0115 at 0.50 and 0.0162 at 0.56, so the observations bracket 0.42 to 0.50. Because the original value came from Cycles, it is also listed in Section 6.
-- **Canopy plateau per crop (class C).** With epsilon_ix = 1 and the paper's constants, Eq. 6 peaks near 0.99. Cycles' realised interception on unstressed days is lower for some crops, and we used plateau parameters of 0.95 for corn and silage, 0.924 for soybean, 0.949 for sorghum and 0.853 for winter wheat, fitted to Cycles output, with a senescence constant of -16. Using epsilon_ix = 1 with a senescence constant of -15 on 94 corn sites raised bias by 2 to 5 points and grain error by 0.02, 0.11 and 0.25 Mg/ha at N = 0, 150 and 400, so we kept the fitted plateaus. For reference, maximum interception measured at a Nebraska site (Kukal and Irmak 2020, Table 2) is 0.92 and 0.97 for short and long season maize, 0.99 for soybean, 1.00 for sorghum and 0.97 for winter wheat. Our corn and silage plateaus are inside that range; our soybean, sorghum and wheat plateaus are 5 to 12 percent below the measured maxima. County yield levels for soybean and wheat are already above the observations in both models, so we did not raise them. This is question 1 in Section 9.
+- **Canopy plateau (class A by behaviour, one constant for all crops).** With epsilon_ix = 1 and the paper's constants, Eq. 6 peaks near 0.99, but designed runs of Cycles show that the peak radiation interception of corn, silage, sorghum, soybean and winter wheat is 0.95 times MAXIMUM_SOIL_COVERAGE (0.949 to 0.954 in every case; with the setting at 90 percent the peak is 0.86 to 0.857). SPROUT uses 0.95 for every crop. Earlier versions used a separate plateau per crop (0.951, 0.924, 0.946, 0.949 and 0.853) measured on Cycles' unstressed days, which differ because the realised annual peak varies; replacing them with 0.95 changed corn, silage and sorghum by 0.01 Mg/ha or less, soybean grain error by +0.03 and winter wheat by +0.006, +0.011 and -0.018 Mg/ha at N = 0, 90 and 150. For reference, maximum interception measured at a Nebraska site (Kukal and Irmak 2020, Table 2) is 0.92 and 0.97 for short and long season maize, 0.99 for soybean, 1.00 for sorghum and 0.97 for winter wheat. The shape constants of Eq. 6 are still fitted per crop (class C).
 - **Senescence timing of maize (class O).** The senescence term of Eq. 6 is moved later by 0.12 in thermal-time fraction, with the senescence clock accelerated by water and nitrogen stress, fitted to measured leaf area at the three Mead towers (maize 2001 to 2007, 80 points) and checked leaving one year and one site out. The stress term rests on a single stressed site.
 - **CO2 effect (class A form, class O exponents).** The paper says efficiencies respond to CO2. The exponents are from free-air enrichment syntheses (Ainsworth and Long 2021): C3 crops 0.38 on both efficiencies (about +14 percent at 550 ppm), C4 crops 0.45 on water use efficiency and none on radiation use efficiency.
 - **Root growth leaving the plant (class C).** Cycles output implies that about 40 percent of root growth does not stay in root biomass; this is an inference from the output, not a documented constant. The engine retains 0.6. Tests of 0.5 and 0.7 changed pooled correlation by less than 0.006.
@@ -129,14 +129,14 @@ The following are differences between the printed form and what we implemented, 
 
 This is the complete list. Class C items use a documented or published form with parameters set from Cycles; class D items use a form and parameters set from Cycles; class E items are assumptions that were chosen with Cycles in view.
 
-- Canopy plateau per crop (C), the shoot partition mid-point TTf50 of 0.42 (O, original value from Cycles) and the retained fraction of root growth 0.6 (C).
+- The per-crop shape constants of the Eq. 6 canopy (C), the shoot partition mid-point TTf50 of 0.42 (O, original value from Cycles) and the retained fraction of root growth 0.6 (C).
 - The microbial turnover rate (C) and the temperature optimum of the decomposition factor (C). A manure decomposition rate is carried in the code but unused, and three older residue and root rates are superseded by the CERES and WEPS residue laws.
 - C:N of root residue, 52 (C, published peak-biomass values are 30 for maize and 20 for soybean), and the fallback C:N of silage residue, 86 (D). The soybean root share of plant N, 0.065 (C, published 0.115).
 - Soybean root N share (C); shares of plant N in above-ground tissue (0.88) and in lost roots (C).
 - The N stress floor of 0.2 (E, chosen with Cycles in view).
 - The exponent on soil water in the uptake supply term (C), and the air-entry potential anchor of the soil hydraulic option (C).
 - The pH used in volatilization (C).
-- Winter wheat: a growth scalar of 0.95 that hides a plateau growth efficiency about 14 percent high (labelled suspect).
+- Winter wheat: a growth scalar of 0.95 (labelled suspect). With the plateau now 0.95, removing the scalar raises grain error by 0.01, 0.04 and 0.08 Mg/ha at N = 0, 90 and 150 (the last two intervals exclude zero), so it still compensates for something we have not found.
 - Soil evaporation form and constants (O, first measured on Cycles, then tested on county yields).
 
 How much the Cycles-read constants matter. We varied each one on 24 corn sites (grain yield change at N = 0 / 150 / 400 kg N/ha, with the change in nitrogen losses at 150): a canopy plateau of 0.90 or 1.00 instead of 0.95 changes yield by 1 to 4 percent; TTf50 of 0.32 or 0.52 instead of 0.42 by up to 8 percent, in opposite directions at low and high nitrogen; a corn nitrogen-stress floor of 0.1 or 0.3 instead of 0.2 changes zero-nitrogen yield by +14 and -12 percent and yield at 150 or 400 by 2 percent or less; a 25 percent change in the microbial turnover rate changes yield by 2 percent or less; and the volatilization pH of 6.5 or 7.9 instead of 7.2 changes yield by at most 15 percent at zero nitrogen but changes volatilization by -73 and +165 percent. The soil organic matter turnover base rate (0.00015 per day, from Pravia et al. 2019) is the most influential constant for zero-nitrogen yield (a 25 percent change gives -20 and +18 percent), but it is a published value. The volatilization pH, the nitrogen-stress floor and TTf50 are therefore the Cycles-read constants whose replacement would matter most.
@@ -149,11 +149,11 @@ On 94 sites, 38 years each, with continuous crop chains (the final engine of 202
 
 | Crop | Pooled r | Bias | Grain MAE (Mg/ha) |
 |---|---|---|---|
-| Corn | 0.906 / 0.892 / 0.943 | -4% / 0% / -2% | 0.66 / 1.13 / 0.94 |
-| Silage corn | 0.885 / 0.894 / 0.929 | +11% / +2% / +1% | 1.21 / 1.70 / 1.62 |
-| Sorghum | 0.888 / 0.848 / 0.887 | -5% / -8% / -6% | 0.65 / 1.22 / 1.26 |
-| Soybean | 0.943 | +10% | 0.49 |
-| Winter wheat | 0.908 / 0.853 / 0.847 | -1% / 0% / -4% | 0.38 / 0.66 / 0.80 |
+| Corn | 0.905 / 0.892 / 0.943 | -4% / 0% / -2% | 0.66 / 1.13 / 0.94 |
+| Silage corn | 0.885 / 0.894 / 0.929 | +12% / +2% / +2% | 1.21 / 1.71 / 1.61 |
+| Sorghum | 0.888 / 0.850 / 0.887 | -5% / -8% / -6% | 0.65 / 1.21 / 1.26 |
+| Soybean | 0.944 | +13% | 0.52 |
+| Winter wheat | 0.910 / 0.853 / 0.844 | +3% / +6% / +3% | 0.38 / 0.67 / 0.78 |
 
 Pooled correlation does not measure the response to nitrogen. On the last panel of response checks (run before the residue changes of 2026-10-29), the 0 to 150 kg response matched Cycles and the 150 to 400 kg response was 63 to 79 percent of Cycles' for corn, silage and sorghum.
 
@@ -178,7 +178,7 @@ For scale, Cycles disagrees with itself by a mean absolute grain error of 0.17 M
 
 ## 9. Questions that would help most
 
-1. The relation between Eq. 6 and the realised canopy interception (plateau per crop, any density term), which would settle the canopy plateaus of all five crops.
+1. Why peak interception is 0.95 of MAXIMUM_SOIL_COVERAGE (an Eq. 6 peak near 0.99 would be expected), and the shape constants of the canopy curve per crop.
 2. The microbial turnover rate and the temperature optimum of the decomposition factor in the six-pool carbon model (Pravia et al. 2019 gives kx only).
 3. The root nitrogen carried out of the plant with lost roots, how much of root growth is retained, the C:N ratios used for root and silage residue, and whether the soybean root share of plant N is meant to be near 0.065.
 4. The intended direction of the mineral-N factor in SI.14 and the intended maximum.

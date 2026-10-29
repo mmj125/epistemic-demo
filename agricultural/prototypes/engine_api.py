@@ -130,10 +130,10 @@ ENGINE_INFO = {
     "validation_columns": ["Crop", "N rate (kg N/ha)", "r", "Bias (%)", "Mean abs error (Mg/ha)"],
     "validation": [
         ["Corn", "0 / 150 / 400", "0.91 / 0.89 / 0.94", "-4 / 0 / -2", "0.66 / 1.13 / 0.94"],
-        ["Silage corn", "0 / 150 / 400", "0.89 / 0.89 / 0.93", "+11 / +2 / +1", "1.21 / 1.70 / 1.62"],
+        ["Silage corn", "0 / 150 / 400", "0.89 / 0.89 / 0.93", "+12 / +2 / +2", "1.21 / 1.71 / 1.61"],
         ["Sorghum", "0 / 150 / 400", "0.89 / 0.85 / 0.89", "-5 / -8 / -6", "0.65 / 1.22 / 1.26"],
-        ["Soybean", "none", "0.94", "+10", "0.49"],
-        ["Winter wheat", "0 / 90 / 150", "0.91 / 0.85 / 0.85", "-1 / 0 / -4", "0.38 / 0.66 / 0.80"],
+        ["Soybean", "none", "0.94", "+13", "0.52"],
+        ["Winter wheat", "0 / 90 / 150", "0.91 / 0.85 / 0.84", "+3 / +6 / +3", "0.38 / 0.67 / 0.78"],
     ],
     "observations": [
         "County yields (USDA NASS, 94 counties, 1982 to 2016): year-to-year agreement within a county, median r 0.43 for corn (Cycles 0.38), 0.36 soybean (0.33), 0.39 silage (0.34), 0.23 wheat (0.23); on a held-out half of the sites the differences from Cycles are within chance except for silage. Mean level 0.98 of the county corn mean (Cycles 0.89); soybean 1.45, wheat 1.48 and silage 1.15, and Cycles is high for soybean and wheat too (1.31 and 1.45).",
