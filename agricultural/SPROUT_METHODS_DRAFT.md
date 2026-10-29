@@ -135,7 +135,7 @@ On 94 sites, 38 years each, with continuous crop chains (the final engine of 202
 | Corn | 0.900 / 0.891 / 0.943 | -5% / 0% / -2% | 0.68 / 1.12 / 0.94 |
 | Silage corn | 0.885 / 0.894 / 0.929 | +11% / +2% / +1% | 1.20 / 1.70 / 1.62 |
 | Sorghum | 0.880 / 0.846 / 0.887 | -6% / -8% / -6% | 0.67 / 1.24 / 1.26 |
-| Soybean | 0.961 | +11% | 0.46 |
+| Soybean | 0.943 | +10% | 0.49 |
 | Winter wheat | 0.909 / 0.854 / 0.847 | -1% / 0% / -4% | 0.38 / 0.65 / 0.80 |
 
 Pooled correlation does not measure the response to nitrogen. On the last panel of response checks (run before the residue changes of 2026-10-29), the 0 to 150 kg response matched Cycles and the 150 to 400 kg response was 63 to 79 percent of Cycles' for corn, silage and sorghum.
@@ -150,7 +150,7 @@ For scale, Cycles disagrees with itself by a mean absolute grain error of 0.17 M
 
 ## 8. Where SPROUT and Cycles still differ
 
-- Denitrification and nitrous oxide are about 0.3 to 0.4 times Cycles' for corn at 150 and 400 kg N (wheat 0.2 to 0.3, soybean 0.17), leaching is 1.0 to 1.3 times and volatilization 1.2 to 1.3 times. Total N lost is 6 to 16 percent lower in SPROUT (Section 4.5).
+- Denitrification and nitrous oxide are about 0.3 to 0.4 times Cycles' for corn at 150 and 400 kg N (wheat 0.2 to 0.3, soybean 0.24), leaching is 1.0 to 1.3 times and volatilization 1.2 to 1.3 times. Total N lost is 6 to 16 percent lower in SPROUT (Section 4.5).
 - Soil water was measured on 2026-10-29 before the CERES residue law: SPROUT was wetter than Cycles in every layer and month (by 0.01 to 0.05 m3/m3), with a surface residue carbon stock 3 to 8 times Cycles', a decomposition factor 1.2 to 1.5 times and winter respiration 2.3 times. The CERES law was adopted to address the stock; water and respiration after it are not re-measured.
 - Sorghum runs 6 to 8 percent below Cycles at every N rate.
 - Winter wheat: the growth scalar of 0.95 hides a plateau growth efficiency about 14 percent high, and wheat denitrification is 0.2 to 0.3 times Cycles'.
