@@ -2220,6 +2220,7 @@ SIXPOOL_EPS_C_KM_PRODUCT = 0.0165  # back-calculated combined eps_c*fA*k_m rate 
 # dividing by SIXPOOL_EPS_C below to recover k_m alone needs no further fA correction.
 SIXPOOL_KM = SIXPOOL_EPS_C_KM_PRODUCT / SIXPOOL_EPS_C
 SIXPOOL_CN_VARIABLE = True   # SI Eq. SI.14 variable microbial C:N (see sixpool_step)
+SIXPOOL_CN_SI14_PRINTED = False   # 2026-10-29: False reads the mineral N factor of SI Eq. SI.14 as 0.5 / (1 + (N/8)^3) (microbial C:N falls as mineral N rises), True uses it as printed, 0.5 - 0.5 / (1 + (N/8)^3) (rises with N); both give 8.65 in the SI worked example (N = 8 ppm)
 CN_RATIO_SOM = 11.0  # SUPERSEDED 2026-10-02, kept only as the pre-fix historical constant (see
 SIXPOOL_CN_CRA = 86.0  # real STAND/FLAT RESID C:N, soilLayersCN.txt, Rock Springs ContinuousCorn.
 SIXPOOL_CN_CRTZ = 52.0  # real root-tissue C:N, computed from CornRM.90.txt's ROOT BIOMASS/ROOT N.
@@ -2663,7 +2664,8 @@ def _sixpool_core(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=N
         _n_dec = decomp_ra / state.get("cra_cn", SIXPOOL_CN_CRA) + decomp_rtz / SIXPOOL_CN_CRTZ + decomp_rm / SIXPOOL_CN_CRM
         cnd = gross_residue_decomp / _n_dec if _n_dec > 1e-15 else SIXPOOL_CN_CRTZ
         _xr = (cnd / 110.0) ** 3
-        cn_new = 8.5 + 5.5 * (_xr / (1.0 + _xr)) * (0.5 / (1.0 + ((state.get("n_conc1") or 0.0) / 8.0) ** 3))
+        _xn = ((state.get("n_conc1") or 0.0) / 8.0) ** 3
+        cn_new = 8.5 + 5.5 * (_xr / (1.0 + _xr)) * ((0.5 - 0.5 / (1.0 + _xn)) if SIXPOOL_CN_SI14_PRINTED else (0.5 / (1.0 + _xn)))
         n_in = cm_gain_from_residue * 1000 / cn_new
         if DIAG_RESN is not None and _gross_eff > 1e-15:
             DIAG_RESN.append((decomp_ra, n_in * decomp_ra * SIXPOOL_ML_RES_SCALE_SURF / _gross_eff, _n_ra, decomp_rtz, n_in * decomp_rtz * SIXPOOL_ML_RES_SCALE_BURIED / _gross_eff, decomp_rtz * 1000 / SIXPOOL_CN_CRTZ))
