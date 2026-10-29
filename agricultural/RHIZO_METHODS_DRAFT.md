@@ -1,4 +1,4 @@
-DRAFT, updated 2026-10-28. For review by Matt before it goes to anyone. Sections 2, 5, 6 and 9 were rewritten on 2026-10-28 for the current engine; sections 7 and 8 carry the scorecard of the same date. Each number is traceable to a script listed in `prototypes/INDEX.md` and to `PROVENANCE_LEDGER.md`.
+DRAFT, updated 2026-10-29. For review by Matt before it goes to anyone. Sections 2, 5, 6 and 9 were rewritten on 2026-10-28 for the current engine; sections 7 and 8 carry the scorecard of the same date. Each number is traceable to a script listed in `prototypes/INDEX.md` and to `PROVENANCE_LEDGER.md`.
 
 # How SPROUT was built
 
