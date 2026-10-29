@@ -13,7 +13,7 @@ def one(site):
         H[int(r['date'][:4])]=dict(bio=float(r['total_biomass'])-float(r['root_biomass']),N=float(r['total_nitrogen'])-float(r['root_nitrogen']),gN=float(r['grain_nitrogen']),fix=float(r['nitrogen_fixation']),grain=float(r['grain_yield']))
     shutil.rmtree(d,ignore_errors=True)
     res=m.engine(site,wx,soil,cl,0,'leadin')
-    return site,H,{y:dict(grain=v.get('grain'),bio=v.get('total_biomass'),plantn=v.get('n_plant_kg_ha'),fix=v.get('n_fixed_kg_ha'),upt=v.get('n_uptake_kg_ha')) for y,v in res.items()}
+    return site,H,{y:dict(grain=v.get('grain'),bio=v.get('ag'),plantn=v.get('n_plant_kg_ha'),fix=v.get('n_fixed_kg_ha'),upt=v.get('n_uptake_kg_ha')) for y,v in res.items()}
 if __name__=="__main__":
     R=Pool(4).map(one,sorted(S)); rows=[]
     for s,H,E in R:
