@@ -167,14 +167,21 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     return res
 if __name__=="__main__":
     out={}
+    _OUT=os.environ.get("OUT_JSON") or os.path.join(P,"multisite_results.json")
+    RESUME=os.environ.get("RESUME")=="1"   # 2026-10-29: resume after a container restart: load the partial OUT_JSON, skip finished sites and N levels, write after every result (atomic rename)
+    if RESUME and os.path.exists(_OUT):
+        try: out=json.load(open(_OUT))
+        except Exception: out={}
     _only=[x for x in os.environ.get("SITES","").split(",") if x]
     for site,(lat,lon) in SITES.items():
         if _only and site not in _only: continue
+        if RESUME and all(f"{site}|N{_n}|leadin" in out for _n in N_LEVELS): continue
         wx,wd=fd.resolve_field_weather(lat,lon); soil,sd,name=fd.resolve_field_soil(lat,lon); cl=lat_of(lat,lon)
         REG_LON=lon
         fsite=site+('soy' if CROPSEL=='soy' else 'sil' if CROPSEL=='silage' else 'sor' if CROPSEL=='sorghum' else '')
         write_inputs(fsite,lat,lon,wx,soil,cl)
         for N in N_LEVELS:
+            if RESUME and f"{site}|N{N}|leadin" in out: continue
             H,A=run_cycles(fsite,N)
             for mode in ["leadin"]:
                 if os.environ.get("FORCE_UPTAKE")=="2":   # diagnostic (N=0 only, no fertilizer): uptake from Cycles' own mineral N budget, netmin - losses - change in pool
@@ -222,4 +229,6 @@ if __name__=="__main__":
                         row[k]=dict(real=statistics.mean(a),model=statistics.mean(b),mae=statistics.mean(abs(x-z) for x,z in zip(a,b)),corr=corr(a,b),n=len(yy))
                 out[f"{site}|N{N}|{mode}"]=dict(soil=name,soil_dist=sd,wx_dist=wd,res=row)
                 print(site,N,mode,name,{k:(round(v['real'],2),round(v['model'],2),round(v['corr'],2)) for k,v in row.items()},flush=True)
-    json.dump(out,open(os.environ.get("OUT_JSON") or os.path.join(P,"multisite_results.json"),"w"),indent=1)
+                if RESUME:
+                    json.dump(out,open(_OUT+".tmp","w"),indent=1); os.replace(_OUT+".tmp",_OUT)
+    json.dump(out,open(_OUT,"w"),indent=1)
