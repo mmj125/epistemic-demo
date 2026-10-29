@@ -151,7 +151,8 @@ How much disagreement is normal: Cycles disagrees with itself by a mean absolute
 2. The base rates for microbial turnover and manure decomposition, and the temperature optimum, in the six-pool carbon model (the Pravia 2019 tables give kx only).
 3. The root nitrogen carried out of the plant with lost roots, and how much of root growth is retained.
 4. Soybean nitrogen demand and fixation rules, and whether wheat canopy loss is tied to nitrogen stress.
-5. Confirmation of the three sign and exponent corrections in section 5.
+5. The hard-coded defaults behind the calibration multipliers POT_DENITRIF_RATE and DENITRIF_HALF_RATE, and the carbon term of denitrification. With the published APEX law (Rmax 32e-6, half-saturation 60 mg/kg, respiration threshold 50) Rhizo loses the same total nitrogen as Cycles (corn at 150 kg N: 46.2 against 46.0 kg N/ha/yr) but leaches 1.4 times as much and denitrifies 0.65 times as much; no single amplitude fixes the shape of the response to the N rate or the gap for silage and wheat.
+6. Confirmation of the three sign and exponent corrections in section 5.
 
 ## 10. Reproducing it
 

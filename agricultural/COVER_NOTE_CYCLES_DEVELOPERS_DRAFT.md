@@ -10,7 +10,7 @@ How close it is. Over 94 sites and 38 years, pooled correlation of annual grain 
 
 Where it falls short. Its response between 150 and 400 kg N is weaker than Cycles', its denitrification and nitrous oxide are lower (it uses the published APEX amplitude), and winter wheat carries a plateau growth efficiency that is too high.
 
-Six things I could not get from the documents, in the attached list: the relation between Eq. 6 and the realised canopy interception (about 0.95 for corn where Eq. 6 peaks near 0.99), the base rates for microbial turnover and manure decomposition and the decomposition temperature optimum, the root nitrogen carried out with lost roots, soybean nitrogen demand, the link between wheat canopy loss and nitrogen stress, and confirmation of three sign and exponent corrections I made in the SI.
+Seven things I could not get from the documents, in the attached list: the relation between Eq. 6 and the realised canopy interception (about 0.95 for corn where Eq. 6 peaks near 0.99), the base rates for microbial turnover and manure decomposition and the decomposition temperature optimum, the root nitrogen carried out with lost roots, soybean nitrogen demand, the link between wheat canopy loss and nitrogen stress, the defaults behind POT_DENITRIF_RATE and DENITRIF_HALF_RATE (with the published APEX law Rhizo loses the same total nitrogen as Cycles but leaches more and denitrifies less), and confirmation of three sign and exponent corrections I made in the SI.
 
 Two things I found that may be useful: forage yield is exactly 0.95 of above-ground biomass in harvest.csv whatever RESIDUE_REMOVED and STANDING_RESIDUE_AT_HARVEST are, and the harvest index slope constants I first fitted are exactly the guide's Hk.
 
