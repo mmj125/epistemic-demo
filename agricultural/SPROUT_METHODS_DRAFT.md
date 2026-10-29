@@ -130,7 +130,7 @@ The following are differences between the printed form and what we implemented, 
 This is the complete list. Class C items use a documented or published form with parameters set from Cycles; class D items use a form and parameters set from Cycles; class E items are assumptions that were chosen with Cycles in view.
 
 - Canopy plateau per crop (C), the shoot partition mid-point TTf50 of 0.42 (O, original value from Cycles) and the retained fraction of root growth 0.6 (C).
-- The six-pool microbial turnover rate, manure decomposition rate, and temperature optimum of the decomposition factor (C).
+- The microbial turnover rate (C) and the temperature optimum of the decomposition factor (C). A manure decomposition rate is carried in the code but unused, and three older residue and root rates are superseded by the CERES and WEPS residue laws.
 - C:N of root residue, 52 (C, published peak-biomass values are 30 for maize and 20 for soybean), and the fallback C:N of silage residue, 86 (D). The soybean root share of plant N, 0.065 (C, published 0.115).
 - Soybean root N share (C); shares of plant N in above-ground tissue (0.88) and in lost roots (C).
 - The N stress floor of 0.2 (E, chosen with Cycles in view).
@@ -138,6 +138,8 @@ This is the complete list. Class C items use a documented or published form with
 - The pH used in volatilization (C).
 - Winter wheat: a growth scalar of 0.95 that hides a plateau growth efficiency about 14 percent high (labelled suspect).
 - Soil evaporation form and constants (O, first measured on Cycles, then tested on county yields).
+
+How much the Cycles-read constants matter. We varied each one on 24 corn sites (grain yield change at N = 0 / 150 / 400 kg N/ha, with the change in nitrogen losses at 150): a canopy plateau of 0.90 or 1.00 instead of 0.95 changes yield by 1 to 4 percent; TTf50 of 0.32 or 0.52 instead of 0.42 by up to 8 percent, in opposite directions at low and high nitrogen; a corn nitrogen-stress floor of 0.1 or 0.3 instead of 0.2 changes zero-nitrogen yield by +14 and -12 percent and yield at 150 or 400 by 2 percent or less; a 25 percent change in the microbial turnover rate changes yield by 2 percent or less; and the volatilization pH of 6.5 or 7.9 instead of 7.2 changes yield by at most 15 percent at zero nitrogen but changes volatilization by -73 and +165 percent. The soil organic matter turnover base rate (0.00015 per day, from Pravia et al. 2019) is the most influential constant for zero-nitrogen yield (a 25 percent change gives -20 and +18 percent), but it is a published value. The volatilization pH, the nitrogen-stress floor and TTf50 are therefore the Cycles-read constants whose replacement would matter most.
 
 Two exact constants of Cycles that we found with designed runs and may be of use: forage yield is 0.95 times above-ground biomass minus root in every row of harvest.csv, and the snow constants (rain below 1.0 C, melt base -1.0 C, 2.5 mm per C) reproduce Cycles' snow water to 0.1 mm. The engine uses both.
 
@@ -177,7 +179,7 @@ For scale, Cycles disagrees with itself by a mean absolute grain error of 0.17 M
 ## 9. Questions that would help most
 
 1. The relation between Eq. 6 and the realised canopy interception (plateau per crop, any density term), which would settle the canopy plateaus of all five crops.
-2. The base rates for microbial turnover and manure decomposition, and the temperature optimum, in the six-pool carbon model (Pravia et al. 2019 gives kx only).
+2. The microbial turnover rate and the temperature optimum of the decomposition factor in the six-pool carbon model (Pravia et al. 2019 gives kx only).
 3. The root nitrogen carried out of the plant with lost roots, how much of root growth is retained, the C:N ratios used for root and silage residue, and whether the soybean root share of plant N is meant to be near 0.065.
 4. The intended direction of the mineral-N factor in SI.14 and the intended maximum.
 5. Whether N_MAX_CONCENTRATION is meant as a maximum curve with realised N near 0.7 to 0.76 of it (Section 4.3), why Cycles' soybean seed N is 3.9 percent, how the grain and straw N concentration fields of the crop file enter the model, and the soybean fixation rules.
