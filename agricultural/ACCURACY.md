@@ -1,5 +1,7 @@
 # Engine accuracy statement (re-baselined to Cycles v1.5.20, 2026-10-12)
 
+> Historical. The numbers below are from 2026-10-12 and are superseded; the current scorecard is in `CLAUDE.md` ("Where the engine stands", 2026-10-29) and `SPROUT_METHODS_DRAFT.md` section 7.
+
 The from-scratch engine (`prototypes/cycles_engine_validate.py`) was compared with native Cycles v1.5.20 (the current release) run on identical inputs: the same tile weather and STATSGO2 soil at 16 CONUS sites, continuous corn, 1980-2016. Differences are model error, not input error. Reproduce with `prototypes/run_validation_multisite.py` (about 80 s, needs a local Cycles v1.5.20 release in `/tmp/cycles-run15`).
 
 ## Corn grain, 16 sites, mean over sites

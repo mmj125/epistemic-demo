@@ -1,4 +1,4 @@
-DRAFT, 2026-10-29, for Matt to edit before sending. Attach `SPROUT_METHODS_DRAFT.md`.
+DRAFT, 2026-10-29, for Matt to edit before sending. Attach `SPROUT_METHODS_DRAFT.pdf`.
 
 Subject: An independent reimplementation of Cycles from the paper and SI, and seven questions
 
@@ -10,7 +10,7 @@ How close it is. Over 94 sites and 38 years, pooled correlation of annual grain 
 
 Where it falls short. Denitrification and nitrous oxide are 0.3 to 0.4 times Cycles' (I use the published APEX law), total nitrogen lost is 6 to 16 percent below yours for corn and leaching is 1.0 to 1.3 times, both models exaggerate drought years in the county comparison, and winter wheat carries a plateau growth efficiency that is about 14 percent high.
 
-Seven things I could not get from the documents, in the attached list: the relation between Eq. 6 and the realised canopy interception (about 0.95 for corn where Eq. 6 peaks near 0.99), the base rates for microbial turnover and manure decomposition and the decomposition temperature optimum, the root nitrogen carried out with lost roots, soybean nitrogen demand, the link between wheat canopy loss and nitrogen stress, the defaults behind POT_DENITRIF_RATE and DENITRIF_HALF_RATE (with the published APEX law SPROUT loses a little less total nitrogen than Cycles, leaches more and denitrifies less), and confirmation of how I read five printed forms in the paper and SI, which I may well have misread.
+Seven things I could not get from the documents, in the attached list: the relation between Eq. 6 and the realised canopy interception (about 0.95 for corn where Eq. 6 peaks near 0.99), the base rates for microbial turnover and manure decomposition and the decomposition temperature optimum, the root nitrogen carried out with lost roots, whether N_MAX_CONCENTRATION is meant as a maximum curve (Cycles' realised above-ground N is about 0.7 to 0.76 of it for corn and soybean), the link between wheat canopy loss and nitrogen stress, the defaults behind POT_DENITRIF_RATE and DENITRIF_HALF_RATE (with the published APEX law SPROUT loses a little less total nitrogen than Cycles, leaches more and denitrifies less), and confirmation of how I read five printed forms in the paper and SI, which I may well have misread.
 
 Two things I found that may be useful: forage yield is exactly 0.95 of above-ground biomass in harvest.csv whatever RESIDUE_REMOVED and STANDING_RESIDUE_AT_HARVEST are, and the harvest index slope constants I first fitted are exactly the guide's Hk.
 

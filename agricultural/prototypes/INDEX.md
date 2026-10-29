@@ -1,6 +1,6 @@
 # Prototype folder index (2026-10-24)
 
-The engine is named Rhizo; its file `rhizo_engine.py` was `cycles_engine_validate.py` until 2026-10-24 (plan, logs and the frozen pages still use the old name).
+The engine is named SPROUT (called Rhizo until 2026-10-29); its file `rhizo_engine.py` was `cycles_engine_validate.py` until 2026-10-24 (plan, logs and the frozen pages still use the old names).
 
 About 220 scripts remain here. Most are dated one-shot diagnostics (name ends in a date) that the plan entries cite as evidence for a number; they are not part of the engine and need not be read. Run guards and tools by name from this folder. A script deleted on 2026-10-23 was never imported or cited anywhere (list in `../../CLAUDE_ARCHIVE_2026-10-23.md`); git history has it.
 
@@ -24,3 +24,8 @@ About 220 scripts remain here. Most are dated one-shot diagnostics (name ends in
 
 ## Records
 - `ENGINE_REBUILD_PLAN.md` (dated entries, newest last; the place to look first), `MECHANISM_LOG.md`, `REFIT_PLAN.md`, `FOR_CYCLES_DEVS.md`, `scorecards/`, `../PROVENANCE_LEDGER.md`, `../AUDIT_PAPER_SI_2026-10-18.md`.
+
+## Added 2026-10-29
+- `soy_split_2026_10_29.py`: Cycles against the engine for continuous soybean, per site-year (plant N, fixation, soil uptake, biomass). Live evidence.
+- `soy_designed_2026_10_29.py`: designed Cycles runs varying N_MAX_CONCENTRATION, N_DILUTION_SLOPE and DENSITY for soybean. Cycles only. Evidence.
+- `rotation_engine_2026_10_23.py` with `LEGUME_N=1` and `SOYKV` (JSON crop overrides): corn-soybean rotation against Cycles, re-run 2026-10-29.
