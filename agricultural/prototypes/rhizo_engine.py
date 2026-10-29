@@ -387,6 +387,8 @@ REDISTRIBUTE_MAX_STEPS = 200  # safety cap against a floating-point edge case ev
 # handful of steps (rarely more than the layer count), this is headroom, not a target.
 
 
+N_DEPOSITION_KG_HA_YR = 0.0   # 2026-10-28: atmospheric N deposition (wet plus dry), half ammonium and half nitrate, added daily to the top layer pools; neither Cycles nor the engine had it. Iowa field measurement 7.7 kg N/ha/yr (a lower bound), wet upper Midwest 3 to 7. 0.0 = off   # default 0 since 2026-10-29 to behave like Cycles (Matt); 8.0 is the measured Iowa value (7.7 kg) and is a run option in the simulator ('n_deposition')
+SOLUTE_GJ_EQ1 = True   # 2026-10-27 step 9: nitrate leaching as in CERES (Godwin and Jones 1991 Eq. 1), instead of drainage over the saturated water volume
 SOLUTE_VOL_SAT = True   # 2026-10-18 measured on Cycles' own daily output (6 sites, 37 years, N=150, leach_transport_2026_10_18.py): nitrate leached out of the profile = drainage x previous-day bottom-layer nitrate / the layer's SATURATED water volume (ratio to Cycles 0.96 to 1.03, daily corr 0.99 to 1.00), not / its current water content; applied to the gravity-drainage stage of every layer. False restores division by current water.
 def redistribute(layers, water_in_mm, n_substeps=REDISTRIBUTE_SUBSTEPS, n_by_layer=None):
     """First, infiltration fills each layer to saturation, cascading any overflow to the
@@ -507,7 +509,10 @@ def redistribute(layers, water_in_mm, n_substeps=REDISTRIBUTE_SUBSTEPS, n_by_lay
             for i, l in enumerate(layers):
                 l["theta"] -= fluxes[i] / thicks_mm[i]
                 if n_by_layer is not None and water_before_mm[i] > 1e-9:
-                    n_out[i] = fluxes[i] * (n_by_layer[i] / (l["sat"] * thicks_mm[i] if SOLUTE_VOL_SAT else water_before_mm[i]))
+                    if SOLUTE_GJ_EQ1:
+                        n_out[i] = n_by_layer[i] * fluxes[i] / (water_before_mm[i] + fluxes[i])   # Godwin and Jones 1991 Eq. 1: the fraction of the layer's nitrate that moves is drainage over retained water plus drainage
+                    else:
+                        n_out[i] = fluxes[i] * (n_by_layer[i] / (l["sat"] * thicks_mm[i] if SOLUTE_VOL_SAT else water_before_mm[i]))
                     n_by_layer[i] -= n_out[i]
             carry = 0.0
             n_carry = 0.0
@@ -612,8 +617,8 @@ SOIL_EVAP_SCALE = 1.0  # multiplier on the potential soil-evaporation demand (te
 
 SNOW_MODEL = True   # 2026-10-13: snowpack measured from designed experiments on Cycles v1.5.20 (see snow_adjust); off by default
 SNOW_RAIN_TEMP_C = 1.0    # precipitation is rain at a daily mean temperature >= this, snow below it
-SNOW_MELT_BASE_C = -1.0   # melt base temperature
-SNOW_MELT_DDF = 2.5       # mm per degree C
+SNOW_MELT_BASE_C = -1.0   # melt base temperature: Cycles' own value, identified by designed runs (reproduces Cycles' snow water to 0.1 mm); restored 2026-10-29 after a trial of the SWAT default 0.5
+SNOW_MELT_DDF = 2.5       # mm per degree C: Cycles' own value (SWAT default 4.5 was trialled 2026-10-28 and cost winter wheat 0.006 to 0.014 Mg/ha)
 
 
 def snow_adjust(layers, w, lat_deg):
@@ -788,10 +793,23 @@ RESIDUE_COVER_REF = 0.77
 RESIDUE_COVER_BIOMASS_FRAC = 1.0  # 2026-10-18 was 0.7: that factor corrected a pool mass mismatch of 2026-10-02 (engine surface residue about 1.4x Cycles'), but after the residue refits the pool is within about 6% of Cycles' above-ground residue biomass, so 0.7 left cover 21 to 30% too low, soil evaporation 8 to 15% too high and layers 1 and 2 0.011 to 0.017 m3/m3 too dry (water_audit_2026_10_18.py). Cycles' own law (K 0.272, rms 0.017 on 324,000 days) needs no factor.
 
 
+# Standing and flat residue (2026-10-26). RES_SPLIT True: the surface residue pool is split into standing and flat by a standing fraction `cra_fs` that changes only by the documented rules (Cycles input guide:
+# STANDING_RESIDUE_AT_HARVEST sets the share left standing at harvest; a tillage pass flattens the square root of its mixing efficiency of the standing residue); both positions decay at the same rate, which is
+# what Cycles does (standing / flat decay per unit composite factor 1.13, 10 sites, 2026-10-26; WEPS, Handbook 727 ch. 10, differs: standing decays only on wet days). Ground cover is Gregory's flat form
+# 1 - exp(-K M_flat) with a published corn coefficient; standing residue gives little ground cover (WEPS ch. 10: "soil cover from standing residue is typically small", geometric in stem number and diameter).
+RES_SPLIT = True
+RES_STANDING_AT_HARVEST = 0.5   # share of aboveground residue left standing at harvest (Cycles operation file STANDING_RESIDUE_AT_HARVEST: 50 corn, soybean, silage; 40 wheat)
+RES_K_FLAT = 0.40               # Gregory 1982 maize, per Mg/ha of flat residue (crop key `res_k_flat` overrides; wheat 0.50, the middle of Gregory's 0.45 to 0.54); WEPS (van Donk et al. 2008) gives 0.30 for corn, sorghum, millet and 0.65 for small grains
+RES_K_STAND = 0.0               # standing residue ground cover, taken as negligible (WEPS ch. 10)
+
+
 def residue_cover_frac(sixpool_state):
     if sixpool_state is None or "ml" not in sixpool_state:
         return 0.0
     biomass = RESIDUE_COVER_BIOMASS_FRAC * max(0.0, sixpool_state.get("cra", 0.0)) / CARBON_FRACTION_DM
+    if RES_SPLIT:
+        fs = sixpool_state.get("cra_fs", RES_STANDING_AT_HARVEST)
+        return 1.0 - math.exp(-(sixpool_state.get("cra_kf", RES_K_FLAT) * (1.0 - fs) + RES_K_STAND * fs) * biomass)
     return 1.0 - math.exp(-RESIDUE_COVER_K * biomass)
 
 
@@ -806,7 +824,7 @@ def residue_rain_evap_mm(precip_mm, cover):
 # says precipitation wets residues first (Sec 2.4); Cycles' dailyResidue.csv reports the residue water state (moisture = m_w/(m_w+m_r)), which tops out at 0.767 kg/kg (3.29 kg water per kg residue, within the
 # published 2 to 4 for crop residues). The store fills from rain up to that capacity and empties by the residue's share of demand, ETo x residue cover x (1 - canopy).
 RES_STORE = True
-RES_SAT_WATER = 3.29    # kg water per kg dry residue at saturation, read from Cycles' output (class D with a published range as a check)
+RES_SAT_WATER = 3.10    # kg water per kg dry residue at saturation: Iqbal et al. 2013 (Plant Soil 367:285), maximal water content of maize residue 3.10 +/- 1.12 (wheat 2.33, soybean 2.16); was 3.29 read from Cycles
 
 
 def residue_water_today(sixpool_state, pp_mm, cover, eto_mm, eie, snow_day=False):   # snow_day: tested 2026-10-26 (rev 0 on snow days, as Cycles), no gain, so it is accepted but not used
@@ -1181,7 +1199,46 @@ EVAPORATIVE_LAYER_DEPTH_M = 0.0  # real, sourced (2026-09-30): Stockle, Martin &
 
 
 ROOT_TRI_POW = 1.0  # exponent on the triangular root density (1 = linear taper to zero at root depth; <1 flatter, 0 uniform); under test 2026-10-08
-ROOT_DENSITY_DECAY_M = 0.3  # None = triangular density (validated default); a length in m = exponential density exp(-z/L), under test 2026-10-06 (L=0.35 best on 10-site relative-wetness fit, not yet adopted)
+ROOT_DENSITY_DECAY_M = 0.3  # the live default (corrected comment 2026-10-28): exponential root density exp(-z/L), L in m. None = CropSyst's linear taper to zero at root depth (tested 2026-10-28: worse against Cycles, corn r 0.859 to 0.837 and MAE 1.30 to 1.47 at N=150, and worse against county yields, within-site r 0.44 to 0.33, so not adopted)
+
+
+
+GJ_N_UPTAKE = os.environ.get("RHIZO_GJ", "0") == "1"   # 2026-10-26 step 4: Godwin and Jones 1991 (Eqs 23 to 28) supply limit on N uptake
+GJ_SEED_ROOT_KG_HA = 10.0   # root mass at emergence from seed reserves (CERES starts the root from seed weight); class E, small
+GJ_KNO3, GJ_KNH4, GJ_UPT_PER_CM = 0.0275, 0.025, 0.006
+GJ_SRL_M_PER_G = 100.0   # specific root length, m/g (literature range about 50 to 150), tested by sweep
+GJ_SM_POW = 1.0   # G&J Eq. 26 uses the soil water factor squared
+GJ_RLV_STATE = True   # True: root length kept per layer and grown from daily root growth (new roots follow the depth profile of the day), not re-spread from total root mass
+GJ_ROOT_TOTAL = False   # True: root length from all root growth including the share that leaves the plant (1 / root_retained_frac)
+
+
+def gj_n_uptake_cap(layers, root_depth_m, no3_layers, n_nh4, root_mass_kg_ha, srl=None, rl_layers=None):
+    """Potential daily N uptake (kg N/ha) after Godwin and Jones 1991 Eqs 23 to 28: root length density x water factor squared x ion
+    availability (1 - exp(-k C)) x 0.006 kg N/ha per cm of root. Root length density is the engine's triangular profile times total root
+    length (root mass x specific root length). Ammonium is treated as sitting in the top layer."""
+    srl = GJ_SRL_M_PER_G if srl is None else srl
+    fl = root_length_fraction_by_layer(layers, root_depth_m)
+    if rl_layers is not None:
+        fl = [r / sum(rl_layers) if sum(rl_layers) > 0 else 0.0 for r in rl_layers]
+        total_cm_per_cm2 = sum(rl_layers)
+    else:
+        total_cm_per_cm2 = root_mass_kg_ha * 0.1 * srl * 100.0 / 1e4   # kg/ha -> g/m2 (x0.1); m/g -> cm/g; per m2 -> per cm2
+    cap = 0.0
+    for i, l in enumerate(layers):
+        if fl[i] <= 0:
+            continue
+        thick_cm = l["thick"] * 100.0
+        rlv = total_cm_per_cm2 * fl[i] / thick_cm
+        den = l["fc"] - l["pwp"]
+        sm = max(0.0, min(1.0, (l["theta"] - l["pwp"]) / den)) if den > 0 else 1.0
+        if l["theta"] > l["fc"] and l["sat"] > l["fc"]:
+            sm = max(0.0, 1.0 - (l["theta"] - l["fc"]) / (l["sat"] - l["fc"]))
+        mass_kg_ha_per_mgkg = sixpool_bulk_density(l["sat"]) * l["thick"] * 10.0
+        rfac = rlv * (sm ** GJ_SM_POW) * thick_cm * 100.0
+        cap += rfac * (1.0 - math.exp(-GJ_KNO3 * no3_layers[i] / mass_kg_ha_per_mgkg)) * GJ_UPT_PER_CM
+        if i == 0 and n_nh4:
+            cap += rfac * (1.0 - math.exp(-GJ_KNH4 * n_nh4 / mass_kg_ha_per_mgkg)) * GJ_UPT_PER_CM
+    return cap
 
 
 def root_length_fraction_by_layer(layers, root_depth_m):
@@ -1701,6 +1758,14 @@ def canopy_cover(ttf_norm, eix=1.0, shape=DEFAULT_CANOPY_SHAPE):
 
 
 ROOT_TTF_FULL = 0.5   # thermal-time fraction at which roots reach maximum depth (engine assumption; Cycles has a ROOT_PROGRESSION nudge parameter)
+# Senescence timing (2026-10-26, under test against Mead LAI): the senescence clock of the two-clock canopy runs at dtt (1 + CANOPY_SENES_STRESS_K (1 - water factor x N factor)), so a stressed canopy senesces earlier
+# (N deficiency accelerates leaf senescence, Sinclair and de Wit 1975; Cycles' wheat output shows it), and the whole senescence term is moved later by CANOPY_SENES_DELAY in thermal-time fraction. Both 0 = the documented shape.
+CANOPY_SENES_STRESS_K = 0.0
+# Late-season growth efficiency (2026-10-26, under test against Mead biomass): growth after thermal-time fraction LATE_RUE_X0 is scaled down linearly to LATE_RUE_F at maturity (radiation use efficiency falls during grain filling as leaf N is
+# remobilized to the grain, Sinclair and Horie 1989). F = 1 is no effect.
+LATE_RUE_X0 = 0.7
+LATE_RUE_F = 1.0
+CANOPY_SENES_DELAY = 0.0
 CANOPY_TWO_CLOCK = True   # 2026-10-14: expansion term on the stress-slowed canopy clock, senescence term on real thermal time (Cycles' unstressed corn matches eix 0.95 and the paper's decline -16 + 16x on thermal-time fraction)
 CANOPY_SHAPE_FORCE = (6, -20, -16, 16)   # default since 2026-10-14 (simultaneous calibration): the paper's own senescence constants, applied to all crops
 CANOPY_EIX_FORCE = 0.99
@@ -1828,11 +1893,11 @@ RHIZO_N_UPTAKE = os.environ.get("RHIZO_N", "1") == "1"   # 2026-10-21: the N for
 N_DEMAND_SCALE = 0.70   # 2026-10-17 measured: Cycles unstressed marginal total-N concentration of new growth is 0.68 (corn, silage corn) to 0.75 (winter wheat) of the crop-file dilution curve marginal a(1-b)W^-b, growth-weighted over 16 sites x 3 N rates (n_demand_ratio_2026_10_17.py). Was 0.874562 (a leaching fit).
 GROWTH_CANOPY_LAG = 1.0   # days between the reported canopy and the canopy that drives radiation-limited growth (1 = previous day; 1.5 = mean of the previous two days); per-crop key growth_canopy_lag overrides
 GROWTH_PREV_CANOPY = True   # step 6: radiation-limited growth uses the canopy at the start of the day (previous day's)
-CANOPY_WATER_POW = 1.35   # step 6 (replaces the W0 line): canopy clock rate = water_stress_mult ** POW (Cycles: 0.9 at 2.5% stress, 0.6 at 27%, 0.37 at 60%, 0.06 at 90%)
+CANOPY_WATER_POW = 0.0   # step 6 (replaces the W0 line): canopy clock rate = water_stress_mult ** POW (Cycles: 0.9 at 2.5% stress, 0.6 at 27%, 0.37 at 60%, 0.06 at 90%)
 VPD_FLOOR_KPA = 0.2
 WUE_CO2_EXP = 0.197   # 2026-10-18: measured on Cycles' own response to fixed CO2 of 300/400/500 ppm (co2_response_2026_10_18.py, 12 sites, corn N=400: biomass exponent 0.12 to 0.25, mean 0.18, rising with water stress); the engine's response with this exponent matches (RMS 0.023 across sites vs 0.191 at the previous 0.424275, fitted on the yield trend, REFIT_PLAN row 50); a separate RUE exponent fits to 0.044, not distinguishable from 0, so RUE_CO2_EXP stays 0
 RUE_CO2_EXP = 0.0   # 2026-10-18: exponent on the CO2 ratio in the radiation-use-efficiency scale (paper Sec 2.5: eps_R and eps_W are both scaled with CO2); 0.0 = unscaled, the previous behaviour
-CANOPY_N_POW = 3.25   # 2026-10-14: canopy clock rate = water**CANOPY_WATER_POW * n_stress**CANOPY_N_POW (measured on 86k day-pairs of Cycles daily interception: 1.35 and 3.85, rms 0.20); None = use the linear CANOPY_N_COEF form
+CANOPY_N_POW = 1.0   # 2026-10-14: canopy clock rate = water**CANOPY_WATER_POW * n_stress**CANOPY_N_POW (measured on 86k day-pairs of Cycles daily interception: 1.35 and 3.85, rms 0.20); None = use the linear CANOPY_N_COEF form
 N_STRESS_FULL_RATIO = 0.06
 N_STRESS_FLOOR_RATIO = 0.2  # below N_STRESS_KNEE_RATIO the stress factor falls linearly to 0 at this ratio instead of at N_STRESS_FULL_RATIO (0 = off); Cycles corn never dilutes below ~0.2 of the critical curve
 N_UPTAKE_FLOOR_MGKG = 0.3   # 2026-10-13 (was 1.0, 28-site sweep 0..1.0): minimum root-zone nitrate concentration the crop can draw down to (mg N/kg soil)
@@ -1842,6 +1907,14 @@ N_STRESS_R0, N_STRESS_R1, N_STRESS_SMAX, N_STRESS_Q = 0.641, 0.281, 0.764, 0.90
 if os.environ.get("NSTRESS_REFIT", "0") == "1":   # 2026-10-21: refit on Cycles' own daily plant states (nstress_refit_2026_10_21.py), removes the +0.017 / +0.024 bias at N=150 / 0
     N_STRESS_R0, N_STRESS_R1, N_STRESS_SMAX, N_STRESS_Q = 0.621, 0.247, 0.794, 0.668
 N_STRESS_KNEE_RATIO = 0.26
+
+
+def n_stress_from_ratio(ratio, crop):
+    """N stress factor from the aboveground N concentration over the critical curve (the nitrogen nutrition index when the curve is Lemaire's). `n_stress_n0` set: growth proportional to the index above a structural floor (Ingestad 1979 as cited in Lemaire et al. 2008, relative growth rate linear in plant N concentration); unset: the law fitted to Cycles' daily states."""
+    n0 = crop.get("n_stress_n0")
+    if n0 is not None:
+        return max(0.0, min(1.0, (ratio - n0) / (1.0 - n0)))
+    return 1.0 - N_STRESS_SMAX * max(0.0, min(1.0, (N_STRESS_R0 - ratio) / (N_STRESS_R0 - N_STRESS_R1))) ** N_STRESS_Q
 N_STRESS_GROWTH_POW = 1.0   # 2026-10-15 fit: growth uses n_stress**pow; Cycles grows ~13% more under N stress than (1-stress) x unstressed growth
 N_STRESS_ZERO_RATIO = 0.86  # was 0.62; refit 2026-10-12 with SIXPOOL_ML_N_A 76 on 28 sites (fertilized corn bias -0.36 to +0.11)
 N_STRESS_CRIT_FLOOR_MGHA = None   # biomass floor of the critical curve used for the N stress ratio only (None = NCRIT_FLOOR_MGHA); Cycles' implied critical concentration keeps rising below 1 Mg/ha (6.2% at 0.6-1, 7.1% at 0.3-0.6 against the 5.5% cap)
@@ -2119,7 +2192,7 @@ def tillage_dr_decay(layers, max_rate_per_day=0.02):
 # at both Iowa and Rock Springs; soybean 1.68, winter wheat 1.64, silage corn 1.85 in CornSilageSoyWheat),
 # i.e. roots return more carbon than their final standing biomass (in-season turnover/rhizodeposition).
 # The engine's root carbon input only credited the final root biomass, ~0.6x of Cycles' (found 2026-10-07).
-ROOT_C_INPUT_FACTOR = 5.0 / 3.0
+ROOT_C_INPUT_FACTOR = 1.0   # 2026-10-27: was 5/3. Cycles' root input (5/3 of its root biomass at harvest) equals the TOTAL root growth, because the plant keeps only root_retained_frac 0.6 = 3/5 of it; the engine's daily root growth (1 - shoot share) x growth is already that total, so 5/3 counted the leaving share twice (root C decomposed 3.91 vs Cycles' 2.33 Mg C/ha/yr at one site; 1.0 gives 2.33)
 # Root carbon input is sized from water-limited growth (False, shipped) or from growth after N stress (True, the
 # physically correct version). Found 2026-10-12: with N stress ignored, the engine fed 2.3 Mg C/ha of root carbon to
 # the six-pool state for a 0.74 Mg/ha N-starved crop (Indiana N=0), so low-nitrogen sites immobilized too much N.
@@ -2147,12 +2220,13 @@ SIXPOOL_EPS_C_KM_PRODUCT = 0.0165  # back-calculated combined eps_c*fA*k_m rate 
 # dividing by SIXPOOL_EPS_C below to recover k_m alone needs no further fA correction.
 SIXPOOL_KM = SIXPOOL_EPS_C_KM_PRODUCT / SIXPOOL_EPS_C
 SIXPOOL_CN_VARIABLE = True   # SI Eq. SI.14 variable microbial C:N (see sixpool_step)
+SIXPOOL_CN_SI14_PRINTED = False   # 2026-10-29: False reads the mineral N factor of SI Eq. SI.14 as 0.5 / (1 + (N/8)^3) (microbial C:N falls as mineral N rises), True uses it as printed, 0.5 - 0.5 / (1 + (N/8)^3) (rises with N); both give 8.65 in the SI worked example (N = 8 ppm)
 CN_RATIO_SOM = 11.0  # SUPERSEDED 2026-10-02, kept only as the pre-fix historical constant (see
 SIXPOOL_CN_CRA = 86.0  # real STAND/FLAT RESID C:N, soilLayersCN.txt, Rock Springs ContinuousCorn.
 SIXPOOL_CN_CRTZ = 52.0  # real root-tissue C:N, computed from CornRM.90.txt's ROOT BIOMASS/ROOT N.
 SIXPOOL_CN_CRM = 30.0  # real MANURE RESID C:N, soilLayersCN.txt, CornSilageSoyWheat.
-SIXPOOL_CN_CM = 9.7  # real MIC C:N, soilLayersCN.txt layer 1, Rock Springs ContinuousCorn.
-SIXPOOL_CN_CS = 9.4  # real SOIL ORG C:N, soilLayersCN.txt layer 1, Rock Springs ContinuousCorn.
+SIXPOOL_CN_CM = 10.0  # 2026-10-27: was 9.7 read from Cycles. Cycles guide (input.md): soil organic C:N 10:1 and microbial biomass initialised from it; SOILN (Johnsson et al. 1987): 10 for biomass and humus
+SIXPOOL_CN_CS = 10.0  # 2026-10-27: was 9.4 read from Cycles; same sources
 SIXPOOL_TOPSOIL_DEPTH_M = 0.05  # fixed at Cycles' own REAL layer-1 thickness for Rock Springs
 # (GenericHagerstown.soil, confirmed directly: /tmp/cycles-run/input/GenericHagerstown.soil
 # layer 1 = 0.05m) -- the exact real control volume SIXPOOL_KS/SIXPOOL_KRA/SIXPOOL_K_RTZ were
@@ -2258,11 +2332,14 @@ def sixpool_fh(cs, csx):
 # fD form 1-1/(1+(a*r)^b) fits best at a=9.95, b=1.145, ks=0.000348 (rms log error 0.347; the old
 # a=4.5, b=3, ks=0.00032 gives 0.563; no fD at all gives 0.393). Used only by the per-layer pool.
 SIXPOOL_DIAG = None  # optional list; when set, sixpool_step appends (cs_loss, residue_decomp, residue_co2) per call
-SIXPOOL_ML_EPS_H = 0.53
+SIXPOOL_ML_EPS_H = 0.44   # 2026-10-28: the SI's microbial C use efficiency, 0.33 to 0.44 depending on the saturation ratio (maximum 0.44, scaled by fH = 1 - (Cs/Cx)^6, SI Eq. SI.12); was 0.53 with the clay term below
 # Clay-dependent humified fraction of decomposed residue (opt-in, 2026-10-07): (a, b) in a + b*(1-exp(-5.5*clay_frac)),
 # the C-Farm Eq. 4a clay shape (Kemanian & Stockle 2010) fitted to Cycles' humified/(humified+residue respired) over 16 sites:
 # 0.370 + 0.152 g, rms 0.034 vs 0.047 for one constant. None keeps the flat SIXPOOL_ML_EPS_H.
-SIXPOOL_ML_HUM_CLAY = (0.34145, 0.152)  # default since 2026-10-07: 16-site table with N_A 140 improved fertilized corn error 1.59 -> 1.55 and leaching, denitrification, N2O slightly; None restores the flat EPS_H
+SIXPOOL_ML_HUM_CLAY = None  # 2026-10-28: off. The clay-dependent fit (0.34145, 0.152), fitted to Cycles, gave 0.44 at clay 0.2; the SI's constant 0.44 is neutral on 24 corn sites (MAE 0.51/1.22/1.43 vs 0.51/1.20/1.43). Was (0.34145, 0.152)  # default since 2026-10-07: 16-site table with N_A 140 improved fertilized corn error 1.59 -> 1.55 and leaching, denitrification, N2O slightly; None restores the flat EPS_H
+SIXPOOL_ML_RES_SCALE_SURF = 1.0     # 2026-10-27: share of the surface-residue carbon that becomes microbial biomass, relative to the shared efficiency; tuned to Schomberg et al. 1994 N immobilized per biomass lost when set
+SIXPOOL_ML_RES_SCALE_BURIED = 1.0   # the same for buried root residue
+DIAG_RESN = None   # (decomp_ra, N immobilized by surface residue decomposition, N released by it, decomp_rtz, N immobilized by buried, N released by it)
 SIXPOOL_ML_FH_P = 12.0
 SIXPOOL_ML_FH_FLOOR = 0.2  # Cycles still humifies ~0.12-0.17 of decomposed residue C at Cs/Csx >= 1 (Iowa 1980-83)
 # Per-layer Cs decomposition (2026-10-02, supersedes the fD-form fit above, which fit the same data at
@@ -2413,7 +2490,53 @@ def n_conc_layers(layers, nh4_kg_ha, no3_layers, no3_total):
     return out
 
 
-def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=None):
+WEPS_DECAY = True      # 2026-10-27 step 5: residue decay as in WEPS (Steiner et al. 1999; WEPS Technical Documentation ch. 10): mass loss k x DD per day, DD = min(TF, MF)
+RES_DECAY_FORM = "ceres"   # ADOPTED 2026-10-29 (corn 94 sites: MAE gain +0.20 / +0.42 at N=150 / 400, intervals exclude zero, cost 0.06 at N=0; silage and wheat neutral to slightly better); "weps" (Steiner et al. 1999, WEPS) or "ceres" (Godwin and Jones 1991: surface residue as carbohydrate 20, cellulose 70 and lignin 10 percent, decaying at 0.8, 0.05 and 0.0095 per day times the environmental factor, constants of Seligman and van Keulen 1981)
+FOM_FRAC = (0.2, 0.7, 0.1)
+FOM_K = (0.8, 0.05, 0.0095)
+
+
+def fom_add(state, c_add):
+    """Add c_add (Mg C/ha) of fresh residue to the three-fraction surface pool; the pool is first rescaled to the current total so that tillage moves and other edits of cra keep it consistent."""
+    c_old = state.get("cra", 0.0)
+    fr = state.get("cra_fr")
+    if fr is None or sum(fr) <= 1e-12:
+        fr = [x * c_old for x in FOM_FRAC]
+    else:
+        sc = c_old / sum(fr); fr = [x * sc for x in fr]
+    state["cra_fr"] = [f + x * c_add for f, x in zip(fr, FOM_FRAC)]
+WEPS_SURF, WEPS_ROOT = True, True   # which residue pools follow the WEPS law (surface residue, buried root residue)
+WEPS_TO, WEPS_TB = 32.0, 0.0   # optimum and base temperature of the decomposition-day temperature function (WEPS Eq. 7)
+N_LIMIT_STOICH = True  # 2026-10-27 step 5: residue decomposition limited so that net immobilization cannot exceed the mineral N of the layer (Kemanian et al. 2024: "if there is insufficient inorganic N ... decomposition is limited")
+
+
+def weps_tf(t):
+    """WEPS Eq. 7 (Taylor and Sexton 1972 form): temperature factor of a decomposition day, 0 at Tb and 1 at To."""
+    d = t - WEPS_TB
+    if d <= 0.0 or t >= 2 * WEPS_TO - WEPS_TB:
+        return 0.0
+    d0 = WEPS_TO - WEPS_TB
+    return max(0.0, (2 * d ** 2 * d0 ** 2 - d ** 4) / d0 ** 4)
+
+
+def weps_day(state, tx, tn, pp, layers, t_layers):
+    """Decomposition days of the day for the surface residue (standing and flat share) and for each buried layer (WEPS Eqs 3 to 7). Standing moisture function MFs = P/4 + 0.4 MFs(t-1),
+    zero after more than 4 dry days; flat residue takes the larger of MFs and theta/theta_fc of the surface layer; buried residue theta/theta_fc of its own layer."""
+    dry = 0 if pp > 0.0 else state.get("weps_dry", 0) + 1
+    mfs = min(1.0, pp / 4.0 + 0.4 * state.get("weps_mfs", 0.0))
+    if dry > 4:
+        mfs = 0.0
+    state["weps_dry"], state["weps_mfs"] = dry, mfs
+    tf_air = 0.5 * (weps_tf(tx) + weps_tf(tn))
+    l0 = layers[0]
+    mff = min(1.0, l0["theta"] / l0["fc"]) if l0["fc"] > 0 else 1.0
+    fs = state.get("cra_fs", RES_STANDING_AT_HARVEST)
+    dd_surf = fs * min(tf_air, mfs) + (1.0 - fs) * min(tf_air, max(mfs, mff))
+    dd_bur = [min(weps_tf(t_layers[i]), min(1.0, l["theta"] / l["fc"]) if l["fc"] > 0 else 1.0) for i, l in enumerate(layers)]
+    return dd_surf, dd_bur
+
+
+def _sixpool_core(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=None):
     """Advances the six-pool state by one day (mutating it in place) and returns the day's net
     nitrogen mineralized (kg N/ha) -- the quantity simulate_season() adds directly into
     n_pool_by_layer[0] in place of the RothC-based background_today term when
@@ -2450,7 +2573,7 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
     cm0 = cm
     ml_sub = state.get("ml_sub", False)
     fe = sixpool_fe(tmean, relwet, ml_sub)
-    if SIXPOOL_N_LIMIT_MM and state.get("n_conc1") is not None:
+    if SIXPOOL_N_LIMIT_MM and not N_LIMIT_STOICH and state.get("n_conc1") is not None:
         _c = state["n_conc1"]
         _khalf = SIXPOOL_N_HALF_MGKG   # 2026-10-15 opt-in clay dependence of the N gate: heavy clay saturates at lower concentration, so fertilizer raises net N less
         _gate = SIXPOOL_N_POT_MULT * (SIXPOOL_N_FMIN + (1.0 - SIXPOOL_N_FMIN) * _c / (_c + _khalf))
@@ -2476,9 +2599,25 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
     # same moment the fresh pulse lands, so the two always stay in sync.
 
     _fer = fe
-    decomp_ra = _fer * SIXPOOL_KRA * cra_maturity * cra
-    decomp_rtz = _fer * SIXPOOL_K_RTZ * crtz
+    if RES_DECAY_FORM == "ceres" and cra > 0.0:
+        _fr = state.get("cra_fr")
+        _fr = [x * cra for x in FOM_FRAC] if (_fr is None or sum(_fr) <= 1e-12) else [x * cra / sum(_fr) for x in _fr]
+        decomp_ra = 0.0; _new = []
+        for _q, _k in zip(_fr, FOM_K):
+            _d = _q * min(1.0, _k * _fer); decomp_ra += _d; _new.append(_q - _d)
+        state["cra_fr"] = _new
+    elif WEPS_DECAY and WEPS_SURF and state.get("weps_dd_surf") is not None and state.get("cra_k") is not None:
+        decomp_ra = state["cra_k"] * state["weps_dd_surf"] * cra
+    else:
+        decomp_ra = _fer * SIXPOOL_KRA * cra_maturity * cra
+    if WEPS_DECAY and WEPS_ROOT and state.get("weps_dd_bur") is not None and state.get("rtz_k") is not None:
+        decomp_rtz = state["rtz_k"] * state["weps_dd_bur"] * crtz
+    else:
+        decomp_rtz = _fer * SIXPOOL_K_RTZ * crtz
     decomp_rm = _fer * SIXPOOL_KRM * crm
+    _fs = state.get("res_fe_scale", 1.0)
+    if _fs != 1.0:
+        decomp_ra *= _fs; decomp_rtz *= _fs; decomp_rm *= _fs
     cra = max(0.0, cra - decomp_ra)
     _n_ra = decomp_ra * 1000 / state.get("cra_cn", SIXPOOL_CN_CRA)
     crtz = max(0.0, crtz - decomp_rtz)
@@ -2489,7 +2628,8 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
         _r = max(0.0, cs / csx) if csx > 0 else 0.0
         _eps_h = SIXPOOL_ML_EPS_H if SIXPOOL_ML_HUM_CLAY is None else (
             SIXPOOL_ML_HUM_CLAY[0] + SIXPOOL_ML_HUM_CLAY[1] * (1.0 - math.exp(-5.5 * state.get("clay", 0.2))))
-        cm_gain_from_residue = _eps_h * max(SIXPOOL_ML_FH_FLOOR, 1.0 - _r ** SIXPOOL_ML_FH_P) * gross_residue_decomp
+        _gross_eff = decomp_ra * SIXPOOL_ML_RES_SCALE_SURF + decomp_rtz * SIXPOOL_ML_RES_SCALE_BURIED + decomp_rm
+        cm_gain_from_residue = _eps_h * max(SIXPOOL_ML_FH_FLOOR, 1.0 - _r ** SIXPOOL_ML_FH_P) * _gross_eff
     else:
         cm_gain_from_residue = SIXPOOL_EPS_C * fh * gross_residue_decomp
     co2_residue = gross_residue_decomp - cm_gain_from_residue
@@ -2524,12 +2664,19 @@ def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=No
         _n_dec = decomp_ra / state.get("cra_cn", SIXPOOL_CN_CRA) + decomp_rtz / SIXPOOL_CN_CRTZ + decomp_rm / SIXPOOL_CN_CRM
         cnd = gross_residue_decomp / _n_dec if _n_dec > 1e-15 else SIXPOOL_CN_CRTZ
         _xr = (cnd / 110.0) ** 3
-        cn_new = 8.5 + 5.5 * (_xr / (1.0 + _xr)) * (0.5 / (1.0 + ((state.get("n_conc1") or 0.0) / 8.0) ** 3))
+        _xn = ((state.get("n_conc1") or 0.0) / 8.0) ** 3
+        cn_new = 8.5 + 5.5 * (_xr / (1.0 + _xr)) * ((0.5 - 0.5 / (1.0 + _xn)) if SIXPOOL_CN_SI14_PRINTED else (0.5 / (1.0 + _xn)))
         n_in = cm_gain_from_residue * 1000 / cn_new
+        if DIAG_RESN is not None and _gross_eff > 1e-15:
+            DIAG_RESN.append((decomp_ra, n_in * decomp_ra * SIXPOOL_ML_RES_SCALE_SURF / _gross_eff, _n_ra, decomp_rtz, n_in * decomp_rtz * SIXPOOL_ML_RES_SCALE_BURIED / _gross_eff, decomp_rtz * 1000 / SIXPOOL_CN_CRTZ))
         n_loss_m = nm * cm_loss / cm0 if cm0 > 1e-12 else 0.0
         state["nm"] = max(0.0, nm + n_in - n_loss_m)
         n_released = _n_ra + decomp_rtz * 1000 / SIXPOOL_CN_CRTZ + decomp_rm * 1000 / SIXPOOL_CN_CRM + n_loss_m + cs_loss * 1000 / SIXPOOL_CN_CS
         n_immobilized = n_in + cs_gain * 1000 / SIXPOOL_CN_CS
+    if ml_sub and SIXPOOL_CN_VARIABLE:
+        state["res_net_n"] = (_n_ra + decomp_rtz * 1000 / SIXPOOL_CN_CRTZ + decomp_rm * 1000 / SIXPOOL_CN_CRM) - n_in
+    else:
+        state["res_net_n"] = (_n_ra + decomp_rtz * 1000 / SIXPOOL_CN_CRTZ + decomp_rm * 1000 / SIXPOOL_CN_CRM) - cm_gain_from_residue * 1000 / SIXPOOL_CN_CM
     state["gmin"], state["gimm"] = n_released, n_immobilized   # gross flows (kg N/ha), exposed for the ammonium and nitrate bookkeeping
     if ml_sub:
         if SIXPOOL_DIAG is not None:
@@ -2622,10 +2769,29 @@ def sixpool_ml_init(layers, profile_raw):
                 cra=0.0, crtz=0.0, crm=0.0, csx=sum(x["csx"] for x in subs), cra_age=9999.0, clay=subs[0].get("clay", 0.25))
 
 
+def sixpool_step(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=None):
+    """One day of one pool set. With N_LIMIT_STOICH a probe pass on a copy finds the net immobilization the residue decomposition would cause; if it exceeds the mineral N of the layer
+    (state['n_avail_kg_ha']) the residue decomposition rates are scaled so that it equals it, then the real pass runs."""
+    na = state.get("n_avail_kg_ha")
+    if N_LIMIT_STOICH and na is not None and "ml" not in state:
+        _nd = len(SIXPOOL_DIAG) if SIXPOOL_DIAG is not None else 0
+        probe = dict(state); probe["res_fe_scale"] = 1.0
+        net = _sixpool_core(probe, tmean, relwet, root_c_input_mg_ha, ft_eff, layers)
+        if SIXPOOL_DIAG is not None: del SIXPOOL_DIAG[_nd:]
+        rn = probe.get("res_net_n", 0.0)
+        if net < -na and rn < 0.0:
+            other = net - rn
+            state["res_fe_scale"] = max(0.0, min(1.0, (-na - other) / rn))
+        else:
+            state["res_fe_scale"] = 1.0
+    return _sixpool_core(state, tmean, relwet, root_c_input_mg_ha, ft_eff, layers)
+
+
 def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
     """Advance every layer's two-pool one day; returns total net N mineralized (kg N/ha). Layer 0
     carries the surface residue pools. Root carbon input is distributed over layers by an
     exponential depth weight."""
+    state["tsoil_c"] = tmean   # read by the published denitrification forms (DENIT_FORM)
     subs = state["ml"]
     wts = [math.exp(-x["zmid"] / SIXPOOL_ML_ROOT_DECAY_M) * (x["z0"] >= 0) for x in subs]
     if CFORCE is not None:   # 2026-10-19 diagnostic: start-of-day carbon pools per layer set to Cycles' (surface residue, layer microbial, soil organic, root residue)
@@ -2646,8 +2812,17 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
     if _hc is None:
         _hc = state["hc"] = hc_make([2.0 * (x["zmid"] - x["z0"]) for x in subs], SIXPOOL_ML_TMEAN_INIT)
     _t_hc = hc_step(_hc, tmean)
+    _dd_surf, _dd_bur = (None, None)
+    if WEPS_DECAY and state.get("wx_day") is not None:
+        _dd_surf, _dd_bur = weps_day(state, state["wx_day"][0], state["wx_day"][1], state["wx_day"][2], layers, _t_hc)
     for i, (sub, l) in enumerate(zip(subs, layers)):
         t_layer = _t_hc[i]
+        if _dd_bur is not None:
+            sub["weps_dd_bur"], sub["rtz_k"] = _dd_bur[i], state.get("rtz_k")
+            if i == 0:
+                sub["weps_dd_surf"], sub["cra_k"] = _dd_surf, state.get("cra_k")
+        if N_LIMIT_STOICH and state.get("n_conc_layers") is not None:
+            sub["n_avail_kg_ha"] = state["n_conc_layers"][i] * sixpool_bulk_density(l["sat"]) * l["thick"] * 10.0
         _th_fe = state["theta_start"][i] if (SIXPOOL_START_MOISTURE and state.get("theta_start") is not None) else l["theta"]
         relwet = ((_th_fe - l["pwp"]) / (l["fc"] - l["pwp"]) if l["fc"] > l["pwp"] else 1.0)
         sub["n_min"] = state.get("n_min")
@@ -2655,6 +2830,7 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
         if i == 0:
             sub["cra"], sub["crm"], sub["cra_age"] = state["cra"], state["crm"], state["cra_age"]
             sub["cra_cn"] = state.get("cra_cn", SIXPOOL_CN_CRA)
+            sub["cra_fr"] = state.get("cra_fr")
         ft = ft_eff if sub["z0"] < SIXPOOL_ML_TILL_DEPTH_M else 1.0
         if DIAG_FE is not None: DIAG_FE.append((_DIAG_YEAR, _DIAG_CTX.get("doy"), i, t_layer, relwet, sixpool_fe(t_layer, relwet, True)))
         _v = sixpool_step(sub, t_layer, relwet, root_c_input_mg_ha * wts[i] / wsum, ft)
@@ -2662,6 +2838,7 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
         resp_tot += sub.get("resp_mg_ha", 0.0)
         if i == 0:
             state["cra"], state["crm"], state["cra_age"] = sub["cra"], sub["crm"], sub["cra_age"]
+            state["cra_fr"] = sub.get("cra_fr")
     state["gmin"] = sum(x.get("gmin", 0.0) for x in subs); state["gimm"] = sum(x.get("gimm", 0.0) for x in subs)
     state["cs"] = sum(x["cs"] for x in subs)
     state["cm"] = sum(x["cm"] for x in subs)
@@ -2685,6 +2862,9 @@ def n_critical_pct(biomass_mgha, crop, floor=None):
     demand sizing, to avoid double-counting already-accumulated tissue's N."""
     biomass_mgha = max(biomass_mgha, 0.01)
     _fl = NCRIT_FLOOR_MGHA if floor is None else floor
+    if crop.get("n_crit_lemaire"):   # Lemaire et al. 2008, Table 1: critical N dilution curve %Nc = a W^-b (a in %, W in Mg/ha): maize 3.4 / 0.37, sorghum 3.9 / 0.39, wheat 5.3 / 0.44
+        _a, _b = crop["n_crit_lemaire"]
+        return _a * (_fl ** (-_b) if (biomass_mgha < _fl and floor is not None) else 1.0) if biomass_mgha < _fl else _a * biomass_mgha ** (-_b)
     if biomass_mgha < _fl:
         return crop["n_max_conc"] * 100 * (_fl ** (-crop["n_dilution_slope"]) if floor is not None else 1.0)
     return crop["n_max_conc"] * 100 * biomass_mgha ** (-crop["n_dilution_slope"])
@@ -2701,6 +2881,9 @@ def n_marginal_demand_pct(biomass_mgha, crop):
     level; this closed-form marginal rate integrates to the correct ~a/100*W_final^(1-b)
     total)."""
     biomass_mgha = max(biomass_mgha, 0.01)
+    if crop.get("n_crit_lemaire"):
+        _a, _b = crop["n_crit_lemaire"]
+        return _a if biomass_mgha < NCRIT_FLOOR_MGHA else _a * (1 - _b) * biomass_mgha ** (-_b)
     if biomass_mgha < NCRIT_FLOOR_MGHA:
         return crop["n_max_conc"] * 100  # below the floor the curve is flat, so marginal = average
     return crop["n_max_conc"] * 100 * (1 - crop["n_dilution_slope"]) * biomass_mgha ** (-crop["n_dilution_slope"])
@@ -2793,6 +2976,10 @@ MINERAL_SOURCES = {
 }
 
 
+MINERAL_UREA_SHARE = {"urea": 1.0, "uan": 0.5}   # share of the applied N that is urea: UAN 32-0-0 is half urea N, a quarter ammonium N and a quarter nitrate N (the Cycles catalog lists urea as ammonium)
+VOLAT_MACNACK_PH = None   # 2026-10-27: soil pH (assumed, the engine has no pH source) that switches volatilization to Macnack, Chim and Raun 2013 at fertilizer application, in place of the continuous wind law
+
+
 def macnack_ammonia_loss_pct(soil_ph, air_temp_c, wind_speed_ms):
     """Macnack, Chim & Raun (2013), "Applied Model for Estimating Potential Ammonia Loss from
     Surface Applied Urea" (Communications in Soil Science and Plant Analysis 44:2055-2063) --
@@ -2855,11 +3042,54 @@ DENIT_SD = dict(K=0.367, kh=31.52, a=0.79, s0=0.736, sc=0.074)   # 2026-10-20: m
 DENIT_NLAYERS = 2   # layers that denitrify (Cycles' denitrification arrays are per layer; on Cycles' daily output layer 2 lifts R2 from 0.876 to 0.916, layers 3 and 4 add nothing)
 
 
+DENIT_FORM = "apex"   # 2026-10-29: "apex" (Kemanian and Williams 2011, the default), "ceres" (Godwin and Jones 1991 Eqs 15 to 18) or "soiln" (Johnsson et al. 1987 Eqs 15 and 16); published constants, nothing fitted
+
+
+def denitrification_ceres(no3_start_kg_ha, layer, theta_start, cs_mg_ha, no3_now_kg_ha, tsoil_c):
+    """CERES denitrification (Godwin and Jones 1991, Eqs 15 to 18): DNRATE = 6.0e-5 CW NO3 FW FT DLAYR kg N/ha/d, NO3 in ug N/g soil, DLAYR in cm,
+    CW = 24.5 + 0.0031 SOILC (ug water-extractable C/g soil, SOILC the stable soil carbon in ug/g), FW = 1 - (SAT - SW)/(SAT - DUL) when SW > DUL
+    (the drained upper limit is the layer's field capacity), FT = 0.1 exp(0.046 T). The carbohydrate fraction of the fresh residue that CERES adds to
+    SOILC is not included. First order in nitrate."""
+    if no3_start_kg_ha <= 0.0 or theta_start <= layer["fc"]:
+        return 0.0
+    mass = sixpool_bulk_density(layer["sat"]) * layer["thick"] * 1e7       # kg soil/ha
+    no3_ug_g = no3_start_kg_ha * 1e6 / mass
+    soilc = cs_mg_ha * 1000.0 * 1e6 / mass                                  # ug C/g soil
+    fw = min(1.0, 1.0 - (layer["sat"] - theta_start) / (layer["sat"] - layer["fc"]))
+    ft = 0.1 * math.exp(0.046 * tsoil_c)
+    flux = 6.0e-5 * (24.5 + 0.0031 * soilc) * no3_ug_g * max(fw, 0.0) * ft * (layer["thick"] * 100.0)
+    return min(max(no3_now_kg_ha, 0.0), flux)
+
+
+def denitrification_soiln(no3_start_kg_ha, layer, theta_start, no3_now_kg_ha, tsoil_c):
+    """SOILN denitrification (Johnsson et al. 1987, Eqs 15 and 16, parameter table): potential rate 0.1 g N/m2/d (1 kg N/ha/d) per layer, half-saturation
+    10 mg N/l of soil solution, soil-water effect ((theta - theta_t)/(theta_s - theta_t))^2 above a threshold 10 percent of volume below saturation
+    (air-filled pore space), times the temperature factor used for nitrification in this engine (Stockle and Campbell 1989 Eq. 11)."""
+    if no3_start_kg_ha <= 0.0 or theta_start <= 0.0:
+        return 0.0
+    th_t = layer["sat"] - 0.10
+    if theta_start <= th_t:
+        return 0.0
+    fwd = min(1.0, ((theta_start - th_t) / (layer["sat"] - th_t)) ** 2)
+    conc = no3_start_kg_ha * 0.1 / (theta_start * layer["thick"])           # mg N/l
+    flux = 1.0 * fwd * min(1.0, nitrification_temp_factor(tsoil_c)) * conc / (conc + 10.0)
+    return min(max(no3_now_kg_ha, 0.0), flux)
+
+
 def denitrification_layers(no3_start, theta_start, layers, sixpool_state, no3_now):
     """Per-layer denitrification (kg N/ha): the layer-1 law applied to each of the first DENIT_NLAYERS layers with that layer's own start-of-day
     nitrate and saturation and its own respired carbon (the six-pool profile carries respiration per layer)."""
     ml = sixpool_state.get("ml") if sixpool_state is not None else None
     out = []
+    if DENIT_FORM in ("ceres", "soiln") and sixpool_state is not None:
+        _t = sixpool_state.get("tsoil_c", 15.0)
+        for i in range(len(layers)):
+            if DENIT_FORM == "ceres":
+                _cs = ml[i]["cs"] if (ml is not None and len(ml) > i) else 0.0
+                out.append(denitrification_ceres(no3_start[i], layers[i], theta_start[i], _cs, no3_now[i], _t))
+            else:
+                out.append(denitrification_soiln(no3_start[i], layers[i], theta_start[i], no3_now[i], _t))
+        return out
     for i in range(min(DENIT_NLAYERS, len(layers))):
         r = ml[i].get("resp_mg_ha", 0.0) if (ml is not None and len(ml) > i) else (sixpool_state.get("resp_mg_ha", 0.0) if i == 0 else 0.0)
         if DENIT_APEX:
@@ -2870,7 +3100,7 @@ def denitrification_layers(no3_start, theta_start, layers, sixpool_state, no3_no
 
 
 DENIT_APEX = True   # ADOPTED 2026-10-23: per-layer denitrification as published for EPIC/APEX (Kemanian and Williams, CEAP 2011 APEX upgrades, Eqs 1 to 4); False restores the law fitted to Cycles (DENIT_SD)
-DENIT_APEX_PARAMS = dict(rmax=32e-6, half=60.0, cresp=50.0, expo=60.0, amp=2.5, half_n2o=60.0)   # amp 2.5 is NOT sourced (class C suspect; the Cycles docs name POT_DENITRIF_RATE as a calibration multiplier without a default); the other four constants are as published; kg N/kg soil/d, mg N/kg, mg C/kg/d, steepness; amp scales the whole law (1.0 = as published)
+DENIT_APEX_PARAMS = dict(rmax=32e-6, half=60.0, cresp=50.0, expo=60.0, amp=1.0, half_n2o=60.0)   # 2026-10-28: amp 1.0 = APEX as published (was 2.5, unsourced). County yields prefer it (within-site r 0.41 to 0.44, level x0.91 to x0.99), engine N2O factor 1.0% of applied N = IPCC EF1; kg N/kg soil/d, mg N/kg, mg C/kg/d, steepness
 
 
 def denitrification_apex(no3_start_kg_ha, layer, theta_start, resp_mg_ha, no3_now_kg_ha, fclay):
@@ -2947,7 +3177,7 @@ SOIL_TEMP_LAG_K = 0.15  # reuses simulate_soil_temp()'s own already-validated la
 # not air, temperature, and this engine's main day loop otherwise only ever tracks air tmean.
 
 
-NITRIF_RATIO_PARAMS = dict(k=0.2059, r0=8.2177, q=6.1948, f0=0.7952, s=0.0779)   # 2026-10-20: measured on Cycles' daily layer-1 states with the start-of-day NH4 and NO3 (previous day's end state) and the day's soil temperature and saturation (nitrif_timing_2026_10_20.py, R2 0.990; the earlier fit used end-of-day states, R2 0.83, and its constants were biased)
+NITRIF_RATIO_PARAMS = dict(k=0.2, r0=8.0, q=6.1948, f0=0.7952, s=0.0779)   # 2026-10-20: measured on Cycles' daily layer-1 states with the start-of-day NH4 and NO3 (previous day's end state) and the day's soil temperature and saturation (nitrif_timing_2026_10_20.py, R2 0.990; the earlier fit used end-of-day states, R2 0.83, and its constants were biased)
 
 
 def nitrification_temp_factor(t):
@@ -2964,15 +3194,66 @@ def nitrification_temp_factor(t):
 NITRIF_FW_DOC = False   # True: the nitrification moisture factor is Stockle and Campbell 1989 Eq. 8 instead of the fitted logistic cutoff
 
 
-def nitrification_flux_ratio(nh4_kg_ha, no3_surface_kg_ha, tsoil_c, sat_frac):
+NITRIF_SOILN_MOIST = True   # the moisture response of SOILN (Johnsson et al. 1987 Eqs 11 and 12) in place of the logistic fitted on Cycles
+NITRIF_SOILN_RATIO = True   # the ratio term as published in SOILN (Johnsson et al. 1987 Eq. 9), linear in NO3/NH4 to zero at n_q = 8
+NITRIF_CAP_FIRST_ORDER = False   # the fitted first-order law with the CERES capacity index instead of the NO3:NH4 ratio term
+NITRIF_CERES_CAPACITY = True   # with NITRIF_CERES: the CERES nitrification capacity (lag) index
+NITRIF_CERES = False   # 2026-10-27 step 9: CERES nitrification (Godwin and Jones 1991 Eqs 13 and 14): fraction per day = min(0.8, A x 40 c / (c + 90)), A = min(moisture, temperature index)
+
+
+def nitrification_flux_ratio(nh4_kg_ha, no3_surface_kg_ha, tsoil_c, sat_frac, layer0=None):
     """Daily nitrification (kg N/ha) = NH4 x k x fT(T) x fW(layer-1 saturation) / (1 + (NO3/NH4 / r0)^q). fT is the published
     Stockle and Campbell (1989) Eq. 11, which matches Cycles' temperature response in shape. Cycles' implied rate per kg NH4 is flat up to a surface
     NO3:NH4 of about 6 and collapses by 12 (no source gives this; it holds in every NH4 concentration bin and fits at R2 0.99 with start-of-day states), and drops sharply above a layer-1
     saturation of about 0.8 (no source gives the form; a logistic cutoff; Stockle and Campbell Eq. 8 tested 2026-10-22, NITRIF_FW_DOC, volatilization 1.25 to 1.91x). Parameters are measured on Cycles' own daily states."""
     if nh4_kg_ha <= 1e-9:
         return 0.0
+    if NITRIF_CERES and layer0 is not None:
+        c = nh4_kg_ha / (sixpool_bulk_density(layer0["sat"]) * layer0["thick"] * 10.0)   # ug N per g soil
+        wfd = 1.111 * sat_frac if sat_frac < 0.9 else max(0.0, 10.0 - 10.0 * sat_frac)   # Stockle and Campbell 1989 Eq. 8 as the moisture index
+        tf = min(1.0, nitrification_temp_factor(tsoil_c))
+        if NITRIF_CERES_CAPACITY:
+            # nitrification capacity index (Godwin and Jones 1991 listing): the nitrifier population grows by up to a factor 10 a day when ammonium, moisture and temperature allow
+            # (RP2 = CNI exp(2.302 min(TF, WFD, SANC)), SANC = 1 - exp(-0.01313 NH4), clipped to 0.05 to 1) and falls when ammonium is depleted
+            cni = layer0.get("_cni", 1.0)
+            sanc = 1.0 - math.exp(-0.01313 * nh4_kg_ha)
+            rp2 = min(1.0, max(0.05, cni * math.exp(2.302 * min(tf, wfd, sanc))))
+        else:
+            rp2 = 1.0
+        a = min(rp2, wfd, tf)
+        frac = min(0.8, a * 40.0 * c / (c + 90.0))
+        rn = nh4_kg_ha * min(frac, max(0.0, (c - 0.5) / c))
+        if NITRIF_CERES_CAPACITY:
+            sanc2 = 1.0 - math.exp(-0.1363 * max(0.0, nh4_kg_ha - rn))
+            xw = min(wfd, layer0.get("_wfy", wfd)); xt = max(tf, layer0.get("_tfy", tf))
+            layer0["_cni"] = max(0.05, rp2 * min(xw, xt, sanc2)); layer0["_wfy"] = wfd; layer0["_tfy"] = tf
+        return rn
+    if NITRIF_CAP_FIRST_ORDER and layer0 is not None:
+        # first-order nitrification with the CERES nitrification capacity index (Godwin and Jones 1991) in place of the NO3:NH4 ratio term fitted on Cycles
+        P = NITRIF_RATIO_PARAMS
+        fw = (1.111 * sat_frac if sat_frac < 0.9 else max(0.0, 10.0 - 10.0 * sat_frac)) if NITRIF_FW_DOC else 1.0 / (1.0 + math.exp(max(-50.0, min(50.0, (sat_frac - P["f0"]) / P["s"]))))
+        tf = min(1.0, nitrification_temp_factor(tsoil_c))
+        cni = layer0.get("_cni", 1.0)
+        sanc = 1.0 - math.exp(-0.01313 * nh4_kg_ha)
+        rp2 = min(1.0, max(0.05, cni * math.exp(2.302 * min(tf, fw, sanc))))
+        rn = nh4_kg_ha * P["k"] * tf * fw * rp2
+        sanc2 = 1.0 - math.exp(-0.1363 * max(0.0, nh4_kg_ha - rn))
+        xw = min(fw, layer0.get("_wfy", fw)); xt = max(tf, layer0.get("_tfy", tf))
+        layer0["_cni"] = max(0.05, rp2 * min(xw, xt, sanc2)); layer0["_wfy"] = fw; layer0["_tfy"] = tf
+        return rn
     P = NITRIF_RATIO_PARAMS
     r = max(no3_surface_kg_ha, 0.0) / nh4_kg_ha
+    if NITRIF_SOILN_RATIO:
+        # Johnsson et al. 1987 Eq. 9: transfer = k_n e_t e_m (NH4 - NO3 / n_q), nothing when NO3 / NH4 exceeds n_q
+        ratio_f = max(0.0, 1.0 - r / P["r0"])
+        if NITRIF_SOILN_MOIST and layer0 is not None:
+            # Johnsson et al. 1987 Eq. 11 and 12: activity rises from the wilting point over 10 percent (volumetric), is 1 in the optimal range and falls to 0.6 at saturation over the last 8 percent (m = 1)
+            ts, tw, th = layer0["sat"], layer0["pwp"], layer0["theta"]
+            tlo, tho = tw + 0.10, ts - 0.08
+            fw = 1.0 if tlo >= tho else (0.0 if th <= tw else ((th - tw) / (tlo - tw) if th < tlo else (1.0 if th <= tho else 0.6 + 0.4 * (ts - th) / (ts - tho))))
+        else:
+            fw = (1.111 * sat_frac if sat_frac < 0.9 else max(0.0, 10.0 - 10.0 * sat_frac)) if NITRIF_FW_DOC else 1.0 / (1.0 + math.exp(max(-50.0, min(50.0, (sat_frac - P["f0"]) / P["s"]))))
+        return nh4_kg_ha * P["k"] * nitrification_temp_factor(tsoil_c) * fw * ratio_f
     x = (r / P["r0"]) ** P["q"] if r < 1e3 else 1e30
     if NITRIF_FW_DOC:
         fw = 1.111 * sat_frac if sat_frac < 0.9 else max(0.0, 10.0 - 10.0 * sat_frac)   # Stockle and Campbell 1989 Eq. 8
@@ -2990,6 +3271,8 @@ VOLAT_WIND_LN_A = -11.2896
 VOLAT_WIND_B = 0.8588
 VOLAT_WIND_C = -1.4581
 VOLAT_WIND_E = 0.1456
+VOLAT_AERO_PH = 7.2   # 2026-10-27: soil pH (assumed) that switches the daily NH3 loss to the Montes 2009 thermodynamics with an aerodynamic resistance; None keeps the fitted wind law
+VOLAT_KD_L_KG = 5.6   # ammonium sorption coefficient of the soil, L water per kg soil equivalent (0 = none)
 VOLAT_PH_SLOPE = 0.0   # ln-units of flux per pH unit above 7 (0 = off, as in Cycles); chemistry gives about ln(10) = 2.3 below pKa 9.25
 
 
@@ -2997,6 +3280,18 @@ def volatilization_flux(tsoil, nh4_kg_ha, layer0, wind_ms, ph=None):
     """Daily NH3 loss (kg N/ha) from the layer-1 ammonium pool; never more than the pool."""
     if nh4_kg_ha <= 0.0 or wind_ms <= 0.0:
         return 0.0
+    if VOLAT_AERO_PH is not None:
+        # Montes, Rotz and Chaoui 2009 Eqs 4, 10, 11 (dissociation and Henry constants) with an aerodynamic transfer, flux = gas-phase NH3 at the surface / r_a, r_a = 208 / u2 (FAO-56 Eq. 4)
+        # as the paper recommends for field surfaces. TAN concentration is the ammonium of layer 1 in the soil water (no sorption unless VOLAT_KD_L_KG > 0).
+        T = tsoil + 273.15
+        ka = 10.0 ** (0.05 - 2788.0 / T)
+        frac = 1.0 / (1.0 + 10.0 ** (-VOLAT_AERO_PH) / ka)
+        kh = (0.2138 / T) * 10.0 ** (6.123 - 1825.0 / T)
+        th_a = max(0.03, layer0["theta"])
+        sol = th_a + VOLAT_KD_L_KG * sixpool_bulk_density(layer0["sat"])   # m3 of water-equivalent per m3 of soil
+        c_tan = nh4_kg_ha * 0.1 / (sol * layer0["thick"])               # g N m-3 of soil water
+        flux_g_m2_s = kh * frac * c_tan / (208.0 / wind_ms)
+        return min(nh4_kg_ha, flux_g_m2_s * 86400.0 * 10.0)
     c = nh4_kg_ha / (sixpool_bulk_density(layer0["sat"]) * layer0["thick"] * 10.0)
     th = max(0.03, layer0["theta"])
     ln_f = (VOLAT_WIND_LN_A + VOLAT_WIND_B * math.log(max(c, 1e-6)) + VOLAT_WIND_C * math.log(th)
@@ -3013,7 +3308,7 @@ def volatilization_flux(tsoil, nh4_kg_ha, layer0, wind_ms, ph=None):
 # until layer-1 saturation passes about 0.8 and then rises to 8 percent (logistic centre 0.84, R2 0.77 against 0.15 for a constant); the N2O share of
 # denitrification rises with the start-of-day layer-1 nitrate concentration (0.02 at 0 to 2 mg/kg, 0.4 above 80) and falls with saturation
 # (A c^0.385 exp(-1.53 s), R2 0.77 against 0.65 for a constant). The earlier constants (0.01, 0.10) were set on end-of-day totals.
-N2O_NIT = dict(a=0.0026, b=0.0696, s0=0.8394, w=0.0129)
+N2O_NIT = dict(a=0.004, b=0.0, s0=0.8394, w=0.0129)   # 2026-10-28: a constant 0.4 percent of nitrified N (nitrification N2O yield 0.1 to 0.5 percent, Bateman and Baggs 2005, value recalled not checked); the saturation logistic fitted to Cycles (a 0.0026, b 0.0696) is off (b 0)
 N2O_DEN = dict(A=0.1155, p=0.3849, q=1.5325)
 
 
@@ -3127,6 +3422,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             sixpool_state["n_conc_layers"] = n_conc_layers(layers, nstate["n_nh4"], no3_layers, nstate["n_no3"])
             _dn0 = len(SIXPOOL_DIAG) if SIXPOOL_DIAG is not None else 0
             _DIAG_CTX["doy"] = w["doy"]
+            sixpool_state["wx_day"] = (w["tx"], w["tn"], w["pp"])
             _smin = sixpool_step(sixpool_state, tmean, relwet, 0.0, 1.0, layers)
             if SIXPOOL_DIAG is not None and DIAG_NFLUX is not None:
                 _new = SIXPOOL_DIAG[_dn0:]
@@ -3139,9 +3435,13 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("netmin", ()):
                 _smin = _FORCE_CUR["netmin"][w["doy"]]   # diagnostic: Cycles' own net mineralization flux in the fallow windows too
             nstate["n_nh4"], nstate["n_no3"] = apply_net_min(nstate["n_nh4"], nstate["n_no3"], no3_layers, _smin, sixpool_state)
-        nit = nitrification_flux_ratio(nstate["n_nh4"], (no3_layers[0] if no3_layers is not None else nstate["n_no3"]), nstate["tsoil_lag"], layers[0]["theta"] / layers[0]["sat"])
+        if N_DEPOSITION_KG_HA_YR:
+            _dep = N_DEPOSITION_KG_HA_YR / 365.0 * 0.5
+            nstate["n_nh4"] += _dep; nstate["n_no3"] += _dep
+            if no3_layers is not None: no3_layers[0] += _dep
+        nit = nitrification_flux_ratio(nstate["n_nh4"], (no3_layers[0] if no3_layers is not None else nstate["n_no3"]), nstate["tsoil_lag"], layers[0]["theta"] / layers[0]["sat"], layers[0])
         vol = (volatilization_flux(nstate["tsoil_lag"], nstate["n_nh4"], layers[0], w["wind"], layers[0].get("ph"))
-               if model_volatilization else 0.0)
+               if model_volatilization and VOLAT_MACNACK_PH is None else 0.0)
         nstate["n_nh4"] = max(0.0, nstate["n_nh4"] - nit - vol)
         nstate["n_no3"] += nit
         if no3_layers is not None:
@@ -3215,9 +3515,9 @@ def _season_chain(weather_by_year, year_range, crop, plant_window, plant_min_soi
         kw = dict(_yp["kw_replace"]) if "kw_replace" in _yp else dict(season_kwargs)   # kw_replace: a crop path with its own kwargs (soybean has no N model)
         kw.update(_yp.get("kw", {}))
         if "wue_co2_scale" not in kw:
-            kw["wue_co2_scale"] = (CO2_PPM_BY_YEAR.get(y, CO2_REF_PPM) / CO2_REF_PPM) ** WUE_CO2_EXP
+            kw["wue_co2_scale"] = (CO2_PPM_BY_YEAR.get(y, CO2_REF_PPM) / CO2_REF_PPM) ** ycrop.get("wue_co2_exp", WUE_CO2_EXP)
         if "rue_co2_scale" not in kw:
-            kw["rue_co2_scale"] = (CO2_PPM_BY_YEAR.get(y, CO2_REF_PPM) / CO2_REF_PPM) ** RUE_CO2_EXP
+            kw["rue_co2_scale"] = (CO2_PPM_BY_YEAR.get(y, CO2_REF_PPM) / CO2_REF_PPM) ** ycrop.get("rue_co2_exp", RUE_CO2_EXP)
         if layers is None:
             layers = crop["make_layers"]()
         fallow_tot = [0.0, 0.0, 0.0]
@@ -3868,6 +4168,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 tmean_spin = (w["tx"] + w["tn"]) / 2
                 relwet_spin = ((layers[0]["theta"] - layers[0]["pwp"]) / (layers[0]["fc"] - layers[0]["pwp"])
                                 if layers[0]["fc"] > layers[0]["pwp"] else 1.0)
+                sixpool_state["wx_day"] = (w["tx"], w["tn"], w["pp"]); sixpool_state["rtz_k"] = crop.get("weps_k")
                 sixpool_step(sixpool_state, tmean_spin, relwet_spin, 0.0, 1.0, layers)
     tillage_depth_m, tillage_mixing_efficiency = None, None
     if tillage_doy == "planting":   # row 55: tillage on the first season day (the planting day), whatever that year's date is
@@ -3898,8 +4199,11 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                else None)
 
     tt_cum, biomass, ag_biomass = 0.0, 0.0, 0.0
+    gj_rl = [0.0] * len(layers)   # root length by layer, cm root per cm2 of ground (Godwin and Jones RLV x layer depth), grown from root growth
+    gj_rl_seeded = False
     biomass_ref = 0.0   # biomass of the same crop without N stress (paper Sec 2.5: new-growth N concentration is that of a crop growing without stress)
     tt_canopy, n_stress_prev = 0.0, 1.0
+    tt_sen_extra = 0.0
     _ei_state, _ttdev_prev, _xc_h = None, 0.0, 0.0   # integrated canopy state
     water_stress_prev = 1.0
     eie_prev_day = 0.0
@@ -3921,6 +4225,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         mineral_nh4_frac, mineral_no3_frac = 1.0, 0.0  # unchanged default: every mineral dose
         # lands 100% in NH4 when no real source is specified, exactly as before this parameter
         # existed -- see fertilizer_source's own docstring for why this isn't universally true.
+    if VOLAT_MACNACK_PH is not None and soil_ph is None:
+        soil_ph = VOLAT_MACNACK_PH
     volatilization_active = fert_placement_implement is not None or soil_ph is not None
     fert_mixing_efficiency = 0.0
     if fert_placement_implement is not None:
@@ -3933,7 +4239,10 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         _n_org = manure_n_kg_ha * _ms["norg_frac"]; _c_org = _n_org * _ms["c_per_norg"] / 1000.0
         _c_old = sixpool_state.get("cra", 0.0); _n_old = _c_old * 1000.0 / sixpool_state.get("cra_cn", SIXPOOL_CN_CRA)
         sixpool_state["cra_cn"] = (_c_old + _c_org) * 1000.0 / max(_n_old + _n_org, 1e-9)
+        if RES_DECAY_FORM == "ceres": fom_add(sixpool_state, _c_org)
         sixpool_state["cra"] = _c_old + _c_org
+    if RES_SPLIT and sixpool_state is not None and "cra_fs" in sixpool_state:
+        sixpool_state["cra_fs"] *= 1.0 - math.sqrt(TILLAGE_IMPLEMENTS["Planter_double_disk_opnr"][2])   # the planter pass of the Cycles operation file (mixing efficiency 0.0716) flattens its square root of the standing residue
     wx_by_doy = {w["doy"]: w for w in weather_rows} if soil_ph is not None else None
 
     def mineral_retention_for_doy(doy):
@@ -3947,11 +4256,14 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             # weather window (e.g. spinup-only doy) -- real weather just isn't available there.
             base_frac = NH3_FRAC_SYNTHETIC if w is None else macnack_ammonia_loss_pct(
                 soil_ph, (w["tx"] + w["tn"]) / 2.0, w["wind"])
+        if VOLAT_MACNACK_PH is not None and fertilizer_source is not None:
+            base_frac *= MINERAL_UREA_SHARE.get(fertilizer_source, 0.0)   # Macnack's data are surface urea: only the urea share of the product
         return 1.0 - base_frac * (1.0 - fert_mixing_efficiency)
 
     manure_retention = 1.0 - NH3_FRAC_MANURE * (1.0 - fert_mixing_efficiency) if volatilization_active else 1.0
     n_volatilized_total = 0.0 if volatilization_active else None
     applications_by_doy = {}
+    dated_landed_kg_ha = 0.0   # 2026-10-28: dated doses that actually met a weather day, so a dose that never lands is reported, not silently lost
     mineral_day0_kg_ha = 0.0  # the single-lump mineral dose landing at day 0 (net of
     # volatilization retention) -- stays 0.0 when n_applications is used instead, since mineral
     # then lands on its own scheduled days via applications_by_doy in the main loop below, not
@@ -3965,7 +4277,10 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             mineral_applied = sum(amount for _, amount in n_applications)
             total_n_input_kg_ha = 0.0
             n_pool = 0.0  # events fund the pool on their own scheduled days below, not all at once
+            _first_doy = weather_rows[0]["doy"] if weather_rows else None
             for doy, amount in n_applications:
+                if _first_doy is not None and _first_doy < 250 and 0 < _first_doy - doy <= 60:
+                    doy = _first_doy   # 2026-10-28: a dose dated before a spring crop's planting day is a preplant dose and lands on planting day (it was silently never applied)
                 r = mineral_retention_for_doy(doy)
                 retained = amount * r
                 applications_by_doy[doy] = applications_by_doy.get(doy, 0.0) + retained
@@ -4161,13 +4476,14 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 tt_dev = crop["flowering_tt"] + (crop["tt_maturity"] - crop["flowering_tt"]) * min(1.0, post_acc / _V["gf_tt"])
             else:
                 tt_dev = min(tt_cum, crop["flowering_tt"] - 1e-6)
-        _wf = water_stress_prev ** CANOPY_WATER_POW
+        _wf = water_stress_prev ** crop.get("canopy_water_pow", CANOPY_WATER_POW)
         if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("wclock", ()):
-            _wf = _FORCE_CUR["wclock"][w["doy"]] ** CANOPY_WATER_POW
+            _wf = _FORCE_CUR["wclock"][w["doy"]] ** crop.get("canopy_water_pow", CANOPY_WATER_POW)
         if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("nclock", ()):
             n_stress_prev = _FORCE_CUR["nclock"][w["doy"]]
-        _nf = n_stress_prev ** CANOPY_N_POW
+        _nf = n_stress_prev ** crop.get("canopy_n_pow", CANOPY_N_POW)
         tt_canopy += dtt * _nf * _wf
+        tt_sen_extra += dtt * crop.get("senes_k", CANOPY_SENES_STRESS_K) * (1.0 - water_stress_prev * n_stress_prev)
         _ttm_season = crop.get("season_tt_end")   # 2026-10-23: TTf as the paper defines it, plant age in thermal time over the thermal time at maturity, with the season's own maturity (winter wheat: pre-pass)
         ttf = (tt_cum / _ttm_season) if _ttm_season else tt_dev / crop["tt_maturity"]
         if ttf >= harvest_ttf:
@@ -4191,7 +4507,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             _ttdev_prev = tt_cum if _ttm_season else tt_dev
             _ei = _ei_state
         elif CANOPY_TWO_CLOCK:
-            _ei = canopy_cover_two(tt_canopy / crop["tt_maturity"], tt_dev / crop["tt_maturity"], _eix, _shape)
+            _ei = canopy_cover_two(tt_canopy / crop["tt_maturity"], (tt_dev + tt_sen_extra) / crop["tt_maturity"] - crop.get("senes_delay", CANOPY_SENES_DELAY), _eix, _shape)
         else:
             _ei = canopy_cover(tt_canopy / crop["tt_maturity"], _eix, _shape)
         eie = 0.0 if tt_cum < crop.get("tt_emergence", 0.0) else effective_canopy_cover(_ei, crop.get("plant_density_factor", 1.0))
@@ -4206,6 +4522,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         if tillage_doy is not None and w["doy"] == tillage_doy:
             mix_tilled_layers(layers, tillage_depth_m, tillage_mixing_efficiency, sixpool_profile_raw if tillage_mix_texture else None)
             tillage_dr += tillage_disturb_rating
+            if sixpool_state is not None and tillage_mixing_efficiency and "cra_fs" in sixpool_state:
+                sixpool_state["cra_fs"] *= 1.0 - math.sqrt(tillage_mixing_efficiency)   # the pass flattens sqrt(mixing efficiency) of the standing residue (Cycles input guide)
             if sixpool_state is not None and "ml" in sixpool_state and tillage_mix_texture and tillage_mixing_efficiency > 0:
                 # the per-layer carbon pools (extensive, Mg C/ha per layer) mix by the same coefficient, conserving the tilled-zone total
                 _zone = []; _d = 0.0
@@ -4278,9 +4596,13 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             # up to ~0.145/day, volatilization up to ~0.044/day observed) that this is a safe
             # explicit-Euler approximation, the same one already used for every other daily
             # rate in this engine.
-            nitrif_amt_today = nitrification_flux_ratio(n_nh4, (no3_layers[0] if no3_layers is not None else n_no3), tsoil_lag, layers[0]["theta"] / layers[0]["sat"])
+            if N_DEPOSITION_KG_HA_YR:
+                _dep = N_DEPOSITION_KG_HA_YR / 365.0 * 0.5
+                n_nh4 += _dep; n_no3 += _dep
+                if no3_layers is not None: no3_layers[0] += _dep
+            nitrif_amt_today = nitrification_flux_ratio(n_nh4, (no3_layers[0] if no3_layers is not None else n_no3), tsoil_lag, layers[0]["theta"] / layers[0]["sat"], layers[0])
             volat_amt_today = (volatilization_flux(tsoil_lag, n_nh4, layers[0], w["wind"], layers[0].get("ph"))
-                               if model_volatilization else 0.0)
+                               if model_volatilization and VOLAT_MACNACK_PH is None else 0.0)
             n_nh4 = max(0.0, n_nh4 - nitrif_amt_today - volat_amt_today)
             n_no3 += nitrif_amt_today
             n2o_total += n2o_from_nitrification(nitrif_amt_today, layers[0]["theta"] / layers[0]["sat"])
@@ -4371,6 +4693,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
 
         GT = crop["wue"] * wue_co2_scale / math.sqrt(Da) * TR_actual
         dGB_water_limited = max(0.0, min(GR, GT)) * crop_ngf(crop) / 1000 * (crop["growth_stage_c"] * (1.0 - crop["growth_stage_a"] * math.exp(-ttf / crop["growth_stage_tau"])) if "growth_stage_a" in crop else 1.0)
+        _lx0 = crop.get("late_rue_x0", LATE_RUE_X0); dGB_water_limited *= 1.0 - (1.0 - crop.get("late_rue_f", LATE_RUE_F)) * min(1.0, max(0.0, (ttf - _lx0) / max(1e-6, 1.0 - _lx0)))
         if _V is not None and flowered:
             # post-flowering temperature factor: Cycles' daily temperature_factor column is 0.99 below ~19 C mean and falls to 0.94 / 0.83 / 0.65 / 0.38 at 20.5 / 23.5 / 26.5 / 29.5 C
             # (5,376 post-flowering days, 3 sites); the disclosed TEMPERATURE_POST_FLOWERING optimum (20) and maximum (35) with 1.0 below the optimum reproduce it (0.93 / 0.77 / 0.57 / 0.37)
@@ -4393,6 +4716,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             n_pool = n_nh4 + n_no3
         if n_pool is not None:
             if w["doy"] in applications_by_doy:
+                dated_landed_kg_ha += applications_by_doy[w["doy"]]
                 if n_pool_by_layer is not None:
                     n_pool_by_layer[0] += applications_by_doy[w["doy"]]
                 elif n_nh4 is not None:
@@ -4426,6 +4750,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 sixpool_state["n_conc1"] = n_conc_layer1(layers, n_nh4 if n_nh4 is not None else 0.0, no3_layers, (n_no3 or 0.0) if n_nh4 is not None else n_pool)
                 sixpool_state["n_conc_layers"] = n_conc_layers(layers, n_nh4 if n_nh4 is not None else 0.0, no3_layers, (n_no3 or 0.0) if n_nh4 is not None else n_pool)
                 _DIAG_CTX["doy"] = w["doy"]
+                sixpool_state["wx_day"] = (w["tx"], w["tn"], w["pp"]); sixpool_state["rtz_k"] = crop.get("weps_k")
                 background_today = sixpool_step(sixpool_state, tmean, relwet_topsoil, root_c_input_today, ft_eff, layers)
                 if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("netmin", ()):
                     background_today = _FORCE_CUR["netmin"][w["doy"]]
@@ -4487,7 +4812,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 _ag_eff = ag_biomass
                 _ag_pct = (N_AG_FRACTION * canopy_n_kg_ha / (_ag_eff * 100)) if _ag_eff > 1e-6 else crop["n_max_conc"] * 100
                 _ratio = _ag_pct / n_crit_pct if n_crit_pct > 0 else 1.0
-                n_stress = 1.0 - N_STRESS_SMAX * max(0.0, min(1.0, (N_STRESS_R0 - _ratio) / (N_STRESS_R0 - N_STRESS_R1))) ** N_STRESS_Q
+                n_stress = n_stress_from_ratio(_ratio, crop)
             else:
                 _ratio = n_actual_pct / n_crit_pct if n_crit_pct > 0 else 1.0
                 n_stress = max(0.0, min(1.0, (_ratio - N_STRESS_FULL_RATIO) / (N_STRESS_ZERO_RATIO - N_STRESS_FULL_RATIO)))
@@ -4504,6 +4829,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 _reach = n_nh4 + sum(max(0.0, no3_layers[_i] - N_UPTAKE_FLOOR_MGKG * sixpool_bulk_density(layers[_i]["sat"]) * layers[_i]["thick"] * 10.0) * _acc[_i] for _i in range(len(layers)))
                 _urs = crop.get("n_uptake_rate", N_UPTAKE_RATE_PER_DAY)
                 _caps = _reach if _urs is None else _reach * _urs
+                if crop.get("n_uptake_gj", GJ_N_UPTAKE):
+                    _caps = min(_reach, gj_n_uptake_cap(layers, root_depth, no3_layers, n_nh4, max(GJ_SEED_ROOT_KG_HA, (biomass - ag_biomass) * 1e4 / (crop.get("root_retained_frac", 1.0) if GJ_ROOT_TOTAL else 1.0)), crop.get("gj_srl"), gj_rl if GJ_RLV_STATE else None))
                 _sf_s = shoot_fraction(ttf, crop["fsti"], crop["fstf"], crop.get("ttf50")); _rr_s = crop.get("root_retained_frac", 1.0)
                 _bf = (1.0 if _rr_s >= 1.0 else (_sf_s + (1.0 - _sf_s) * _rr_s))
                 _mdp = n_marginal_demand_pct((biomass_ref if crop.get("n_demand_ref", N_DEMAND_REF) else biomass) * 10, crop) * crop.get("n_demand_scale", N_DEMAND_SCALE)
@@ -4513,7 +4840,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     _U = min(_caps, _dem)
                     _agp = ag_biomass + dGB_water_limited * _sf_s
                     _ratio_s = (N_AG_FRACTION * (canopy_n_kg_ha + _U) / (_agp * 100)) / n_critical_pct((biomass + dGB_water_limited * _F * _bf) * 10, crop, crop.get("n_stress_crit_floor", N_STRESS_CRIT_FLOOR_MGHA)) if _agp > 1e-6 else 1.0
-                    _Fn = 1.0 - N_STRESS_SMAX * max(0.0, min(1.0, (N_STRESS_R0 - _ratio_s) / (N_STRESS_R0 - N_STRESS_R1))) ** N_STRESS_Q
+                    _Fn = n_stress_from_ratio(_ratio_s, crop)
                     _F = 0.5 * _F + 0.5 * _Fn
                 if N_SOLVE_DEBUG is not None: N_SOLVE_DEBUG.append((_DIAG_YEAR, w["doy"], _F, _ratio_s, _U, _dem, _caps, canopy_n_kg_ha, _agp, biomass, dGB_water_limited))
                 n_stress = _F
@@ -4561,6 +4888,8 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     reachable = NH4_UPTAKE_W * n_nh4 + reach_no3
                     _ur = crop.get("n_uptake_rate", N_UPTAKE_RATE_PER_DAY)
                     _cap = reachable if _ur is None else reachable * _ur
+                    if crop.get("n_uptake_gj", GJ_N_UPTAKE):
+                        _cap = min(reachable, gj_n_uptake_cap(layers, root_depth, no3_layers, n_nh4, max(GJ_SEED_ROOT_KG_HA, (biomass - ag_biomass) * 1e4 / (crop.get("root_retained_frac", 1.0) if GJ_ROOT_TOTAL else 1.0)), crop.get("gj_srl"), gj_rl if GJ_RLV_STATE else None))
                     n_uptake_kg_ha = min(_cap, demand_today_kg_ha)
                     if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("uptake", ()):
                         n_uptake_kg_ha = min(reachable, _FORCE_CUR["uptake"][w["doy"]])   # diagnostic: Cycles' own daily plant N uptake
@@ -4620,6 +4949,14 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         _sf_now = shoot_fraction(ttf, crop["fsti"], crop["fstf"], crop.get("ttf50"))
         _rr = crop.get("root_retained_frac", 1.0)
         biomass += dGB * (1.0 if _rr >= 1.0 else (_sf_now + (1.0 - _sf_now) * _rr))
+        if GJ_RLV_STATE and crop.get("n_uptake_gj", GJ_N_UPTAKE):
+            _fl = root_length_fraction_by_layer(layers, root_depth)
+            if not gj_rl_seeded:
+                gj_rl_seeded = True
+                _add0 = GJ_SEED_ROOT_KG_HA * 0.1 * GJ_SRL_M_PER_G * 100.0 / 1e4
+                for _i in range(len(layers)): gj_rl[_i] += _add0 * _fl[_i]
+            _add = dGB * 1e4 * (1.0 - _sf_now) * 0.1 * crop.get("gj_srl", GJ_SRL_M_PER_G) * 100.0 / 1e4   # kg/m2 -> kg/ha -> g/m2 -> cm/g -> per cm2
+            for _i in range(len(layers)): gj_rl[_i] += _add * _fl[_i]
         biomass_ref += (max(0.0, GR) * crop_ngf(crop) / 1000 if crop.get("n_demand_ref_rad") else dGB_water_limited) * (1.0 if _rr >= 1.0 else (_sf_now + (1.0 - _sf_now) * _rr))
         if DIAG_BIO is not None: DIAG_BIO.append(biomass * 10.0)
         ag_biomass += dGB * shoot_fraction(ttf, crop["fsti"], crop["fstf"], crop.get("ttf50"))
@@ -4679,7 +5016,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     biomass_mg_ha = biomass * 10
     ag_biomass_mg_ha = ag_biomass * 10
     grain_mg_ha = ag_biomass * HI * 10 * crop.get("calibration_factor", 1.0)
-    forage_mg_ha = ag_biomass_mg_ha * crop.get("forage_fraction", 0.95) * crop.get("calibration_factor", 1.0)
+    forage_mg_ha = ag_biomass_mg_ha * crop.get("forage_fraction", 0.95) * crop.get("calibration_factor", 1.0)   # 0.95 is exact in Cycles: forage_yield = 0.95 x (total - root) in every harvest.csv row, whatever RESIDUE_REMOVED and STANDING_RESIDUE_AT_HARVEST are (designed runs 2026-10-28)
     if winter_killed:
         grain_mg_ha = 0.0
         forage_mg_ha = 0.0
@@ -4706,6 +5043,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         result["n_volatilized_kg_ha"] = n_volatilized_total
     if n_volatilized_pool_total is not None:
         result["n_volatilized_pool_kg_ha"] = n_volatilized_pool_total
+        result["n_dated_unapplied_kg_ha"] = round(sum(applications_by_doy.values()) - dated_landed_kg_ha, 6)   # dated n_applications that never met a weather day (after harvest or too long before planting)
     if n_denitrified_total is not None:
         result["n_denitrified_kg_ha"] = n_denitrified_total
     if n_nh4 is not None:
@@ -4733,13 +5071,25 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         _c_new = ag_residue_mg_ha * CARBON_FRACTION_DM
         if crop.get("legume_n") and _c_new > 1e-9:
             _n_new = max(canopy_n_kg_ha * (1.0 - crop.get("grain_n_share", 0.54) - crop.get("root_n_share", 0.065)), 1e-3)   # Cycles' soybean harvest N partition (24 sites, 857 crop-years): grain 0.54, roots 0.065, above-ground residue 0.39 of plant N
+        elif crop.get("residue_grain_n") is not None and _c_new > 1e-9:
+            _n_new = max(N_AG_FRACTION * canopy_n_kg_ha * (1.0 - crop["residue_grain_n"]), 1e-3)   # grain N share of above-ground N leaves with the grain; the rest returns with the residue
         elif crop.get("residue_n_from_plant") and _c_new > 1e-9:
             _n_new = max(N_AG_FRACTION * canopy_n_kg_ha, 1e-3)
         else:
             _n_new = _c_new * 1000.0 / SIXPOOL_CN_CRA
         _c_old = sixpool_state.get("cra", 0.0); _n_old = _c_old * 1000.0 / sixpool_state.get("cra_cn", SIXPOOL_CN_CRA)
-        if (crop.get("residue_n_from_plant") or crop.get("legume_n") or "cra_cn" in sixpool_state) and _c_old + _c_new > 1e-9:
+        if (crop.get("residue_n_from_plant") or crop.get("residue_grain_n") is not None or crop.get("legume_n") or "cra_cn" in sixpool_state) and _c_old + _c_new > 1e-9:
             sixpool_state["cra_cn"] = (_c_old + _c_new) * 1000.0 / max(_n_old + _n_new, 1e-9)
+        _fs_new = crop.get("standing_at_harvest", RES_STANDING_AT_HARVEST)
+        _c_add = ag_residue_mg_ha * CARBON_FRACTION_DM
+        if _c_old + _c_add > 1e-9:
+            sixpool_state["cra_fs"] = (sixpool_state.get("cra_fs", _fs_new) * _c_old + _fs_new * _c_add) / (_c_old + _c_add)
+            sixpool_state["cra_kf"] = (sixpool_state.get("cra_kf", RES_K_FLAT) * _c_old + crop.get("res_k_flat", RES_K_FLAT) * _c_add) / (_c_old + _c_add)
+        if crop.get("weps_k") is not None and (_c_old < 1e-9 or sixpool_state.get("cra_k") is not None):
+            sixpool_state["cra_k"] = (sixpool_state.get("cra_k", crop["weps_k"]) * _c_old + crop["weps_k"] * _c_add) / max(_c_old + _c_add, 1e-12)
+        else:
+            sixpool_state["cra_k"] = None
+        if RES_DECAY_FORM == "ceres": fom_add(sixpool_state, ag_residue_mg_ha * CARBON_FRACTION_DM)
         sixpool_state["cra"] = sixpool_state.get("cra", 0.0) + ag_residue_mg_ha * CARBON_FRACTION_DM
         # Reset cra_age to 0 whenever fresh stover lands -- see CRA_MATURATION_TAU_DAYS's own
         # docstring (2026-10-02). A disclosed simplification when cra already held some

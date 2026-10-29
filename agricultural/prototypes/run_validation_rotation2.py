@@ -39,6 +39,7 @@ def make_layers():
 
 
 SOYBEAN = dict(
+    wue_co2_exp=0.38, rue_co2_exp=0.38,   # C3: FACE soybean and wheat yield +14% at 550 ppm (Ainsworth and Long 2021), (550/390)^0.38 = 1.14
     canopy_shape_faithful=(6.19, -21.11, -15.95, 15.66), eix_faithful=0.924, ngf_faithful=1.0,  # 2026-10-18 measured on Cycles' unstressed soybean days (14 sites, rms 0.0048), see CANOPY_FAITHFUL
                c1_water=True,  # 2026-10-15 c1 package (REFIT_PLAN rows 39-41)
                tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43,
@@ -87,14 +88,14 @@ WHEAT = dict(canopy_form="H",  # 2026-10-17: integrated-derivative canopy, expan
 
              kc=1.0, eix=1.0, tr_min_t=0.0, tr_threshold_t=12.0, lat_deg=LAT,
              n_simultaneous=True, n_demand_ref=True, n_stress_ag_basis=True, n_uptake_rate=0.03,  # 2026-10-19: wheat's N model (pinned demand scale 0.8746, tuned stress interplay) is worse with the simultaneous solve (MAE -0.24 / -0.40 / -0.30 at N=0/90/150), so it keeps the old order until its N model is rebuilt
-             eix_cap=0.853, net_growth_fraction=0.95, ttf50=0.32,  # 2026-10-19: ttf50 0.32 checked (best 0.34 on Cycles' wheat, corn's 0.42 is worse); growth scalar 0.95 is what Cycles' states forced give at N=150 (total biomass 1.112 at 1.057); canopy plateau 0.93 is Cycles' unstressed wheat canopy (p90 0.917, p99 0.942); was 0.86 / 1.057
+             eix_cap=0.853, standing_at_harvest=0.4, res_k_flat=0.50, net_growth_fraction=0.95, ttf50=0.32,  # 2026-10-19: ttf50 0.32 checked (best 0.34 on Cycles' wheat, corn's 0.42 is worse); growth scalar 0.95 is what Cycles' states forced give at N=150 (total biomass 1.112 at 1.057); canopy plateau 0.93 is Cycles' unstressed wheat canopy (p90 0.917, p99 0.942); was 0.86 / 1.057
                # 2026-10-17: Cycles' unstressed wheat canopy plateaus at 0.857 (engine cap was 0.99, spring canopy +0.05 to +0.12); growth conversion raised to keep the level (wheat_hi_test.py, two disjoint 16-site sets: N=0 MAE -3 to -5%, N=150 neutral)
              hi_use_thermal_time_fraction=False,  # was True (exemption); real exemption, 2026-09-30 -- see
              # rhizo_engine.py's own HI-computation docstring: the real f_G
              # (Kemanian et al. 2007) regressed wheat's correlation (0.337->0.163) even
              # though it helped corn/soybean, plausibly tied to wheat's own already-
              # documented winter-dormancy anomaly.
-             n_demand_scale=0.75,  # SUSPECT, pinned 2026-10-17: measured wheat unstressed ratio is 0.75, but at 0.75 (with or without the corn N stress law) wheat over- or under-yields because its canopy plateau 0.86 and growth conversion 1.057 were tuned under this demand; revisit with the consistent-core package
+             n_crit_lemaire=(5.3, 0.44), n_stress_n0=0.2, weps_k=0.028, wue_co2_exp=0.38, rue_co2_exp=0.38, residue_grain_n=0.75, n_uptake_gj=True, n_demand_scale=1.0,  # 2026-10-26 Lemaire et al. 2008 wheat critical curve and linear NNI growth response (was the fitted 0.75 scale)  # old note: SUSPECT, pinned 2026-10-17: measured wheat unstressed ratio is 0.75, but at 0.75 (with or without the corn N stress law) wheat over- or under-yields because its canopy plateau 0.86 and growth conversion 1.057 were tuned under this demand; revisit with the consistent-core package
              make_layers=make_layers, calibration_factor=1.0,  # 2026-10-17 harvest index law (wheat_hi_test.py): no mask. 1.1523 was 2026-10-16 row 50 re-centering (was 1.2052);
              #  # 2026-10-15 re-derived for the N-loss fit (row 46); 1.1099 before  # 2026-10-15 re-derived again (row 46; 1.1099 before the N-loss refit; was 1.1807 originally) after the stoichiometry-path N constants (row 44);  # re-derived 2026-10-02 for
              # sixpool_step()'s own per-pool real C:N fix (CN_RATIO_SOM's single flat ratio
@@ -254,7 +255,7 @@ WHEAT = dict(canopy_form="H",  # 2026-10-17: integrated-derivative canopy, expan
              # reached that late at this site -- added for completeness/documentation, not
              # because it does anything here.
 
-CORN_SILAGE = dict(tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
+CORN_SILAGE = dict(n_crit_lemaire=(3.4, 0.37), n_demand_scale=1.0, n_stress_n0=0.2, weps_k=0.01, wue_co2_exp=0.45, rue_co2_exp=0.0, n_uptake_gj=True, senes_delay=0.12, senes_k=1.0, tt_maturity=1800, flowering_tt=1000, base_t=6, opt_t=28, max_t=46,
                     rue=2.2, wue=8.7, hi_x=0.8, hi_o=0.15, hi_slope=1.0, fsti=0.45, fstf=0.95,
                     kc=1.1, eix=1.0, tr_min_t=3.0, tr_threshold_t=15.0, lat_deg=LAT,
                     make_layers=make_layers, forage_fraction=0.95, calibration_factor=1.0,  # 2026-10-16 row 50 re-centering (was 0.7625);

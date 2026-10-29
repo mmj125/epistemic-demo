@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Rhizo</title>
+<title>SPROUT</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -59,7 +59,8 @@
 <body>
 <div class="wrap">
   <div class="eyebrow">epiSTEMic</div>
-  <h1 id="modelName">Rhizo</h1>
+  <h1 id="modelName">SPROUT</h1>
+  <p id="modelTagline" class="note"></p>
 
   <div class="panel"><h2>About this model</h2><div class="body">
     <details id="aboutDetails"><summary>What it is, how it was built, and how it compares with the reference model and observations</summary>
@@ -362,10 +363,10 @@ $("dlDaily").addEventListener("click", () => {
   download("daily.csv", lines.join("\n"));
 });
 function renderAbout() {
-  document.title = INFO.name; $("modelName").textContent = INFO.name;
+  document.title = INFO.name; $("modelName").textContent = INFO.name; $("modelTagline").textContent = INFO.tagline || "";
   const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
   const tbl = (cols, rows) => `<div class="scroll"><table><tr>${cols.map((c) => `<th>${esc(c)}</th>`).join("")}</tr>${rows.map((r) => `<tr>${r.map((c, i) => `<td class="${i ? "" : "l"}">${esc(c)}</td>`).join("")}</tr>`).join("")}</table></div>`;
-  $("aboutBody").innerHTML = `<p>${esc(INFO.summary)}</p><h3>Agreement with the reference model</h3><div class="note">${esc(INFO.validation_note)}</div>${tbl(INFO.validation_columns, INFO.validation)}` +
+  $("aboutBody").innerHTML = `<p>${esc(INFO.summary)}</p><div class="note">${esc(INFO.acronym || "")}</div><h3>Agreement with the reference model</h3><div class="note">${esc(INFO.validation_note)}</div>${tbl(INFO.validation_columns, INFO.validation)}` +
     `<h3>Against observations</h3><ul>${INFO.observations.map((o) => `<li>${esc(o)}</li>`).join("")}</ul>` +
     `<h3>Sources</h3><ul>${INFO.sources.map((o) => `<li>${esc(o)}</li>`).join("")}</ul><div class="note">Version ${esc(INFO.version)}.</div>`;
 }

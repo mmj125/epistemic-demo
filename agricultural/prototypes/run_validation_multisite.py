@@ -112,7 +112,7 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     if CROPSEL=='soy':
         import run_validation_rotation2 as _r2; crop=dict(_r2.SOYBEAN); crop['lat_deg']=cell_lat
     if CROPSEL=='sorghum':   # every value below is read from the SorghumMS entry of GenericCrops.crop; everything else is the corn engine configuration
-        crop.update(tt_maturity=2050, flowering_tt=1300, rue=2.0, wue=9.6, tr_min_t=6, tr_threshold_t=18, kc=1.0, lwp_stress_onset=-1400, lwp_wilting_point=-2300, tr_max_mm_day=9, root_max_m=2.0, tt_emergence=65, threshold_temp_cold_damage=6, canopy_shape_faithful=(6.04, -20.47, -15.52, 15.08), eix_faithful=0.949, ngf_faithful=1.0)   # 2026-10-18 canopy measured on Cycles' unstressed sorghum days (rms 0.0021)
+        crop.update(n_crit_lemaire=(3.9, 0.39), residue_grain_n=0.70, senes_delay=0.0, senes_k=0.0, tt_maturity=2050, flowering_tt=1300, rue=2.0, wue=9.6, tr_min_t=6, tr_threshold_t=18, kc=1.0, lwp_stress_onset=-1400, lwp_wilting_point=-2300, tr_max_mm_day=9, root_max_m=2.0, tt_emergence=65, threshold_temp_cold_damage=6, canopy_shape_faithful=(6.04, -20.47, -15.52, 15.08), eix_faithful=0.949, ngf_faithful=1.0)   # 2026-10-18 canopy measured on Cycles' unstressed sorghum days (rms 0.0021)
     if CROPSEL=='silage':
         import run_validation_rotation2 as _r2; crop=dict(_r2.CORN_SILAGE); crop['lat_deg']=cell_lat; crop.update(n_demand_ref=True,n_stress_ag_basis=True,n_uptake_rate=0.03,root_retained_frac=0.6)
         if os.environ.get('SIL_FACTOR'): crop['calibration_factor']=float(os.environ['SIL_FACTOR'])
@@ -140,8 +140,12 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     if SOYL:
         import engine_api as _api
         crop=dict(_api._SOYBEAN_N); crop['lat_deg']=cell_lat; crop['make_layers']=ml
+        for _o in os.environ.get('CROPOVR','').split(';'):   # 2026-10-28: per-run crop overrides also apply to the legume soybean configuration
+            if _o: _k,_v=_o.split('=',1); crop[_k]=eval(_v)
     if (CROPSEL=='soy' and not SOYL) or os.environ.get('CONFIG')=='shipped': kw=dict(n_rate_kg_ha=N) if CROPSEL!='soy' else {}
     if SOYL: kw['n_rate_kg_ha']=0
+    if os.environ.get('SPLITN') and N>0 and CROPSEL!='soy':   # 2026-10-28: split application, SPLITN='doy:share,doy:share' (e.g. 110:0.5,160:0.5); engine only, Cycles keeps its single application
+        kw['n_applications']=[(int(_p.split(':')[0]),N*float(_p.split(':')[1])) for _p in os.environ['SPLITN'].split(',')]
     res={}
     carry=os.environ.get("CARRY_N","1")=="1" and (CROPSEL!='soy' or SOYL)
     lead_env=os.environ.get("LEAD_YEARS","continuous")
@@ -163,14 +167,21 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
     return res
 if __name__=="__main__":
     out={}
+    _OUT=os.environ.get("OUT_JSON") or os.path.join(P,"multisite_results.json")
+    RESUME=os.environ.get("RESUME")=="1"   # 2026-10-29: resume after a container restart: load the partial OUT_JSON, skip finished sites and N levels, write after every result (atomic rename)
+    if RESUME and os.path.exists(_OUT):
+        try: out=json.load(open(_OUT))
+        except Exception: out={}
     _only=[x for x in os.environ.get("SITES","").split(",") if x]
     for site,(lat,lon) in SITES.items():
         if _only and site not in _only: continue
+        if RESUME and all(f"{site}|N{_n}|leadin" in out for _n in N_LEVELS): continue
         wx,wd=fd.resolve_field_weather(lat,lon); soil,sd,name=fd.resolve_field_soil(lat,lon); cl=lat_of(lat,lon)
         REG_LON=lon
         fsite=site+('soy' if CROPSEL=='soy' else 'sil' if CROPSEL=='silage' else 'sor' if CROPSEL=='sorghum' else '')
         write_inputs(fsite,lat,lon,wx,soil,cl)
         for N in N_LEVELS:
+            if RESUME and f"{site}|N{N}|leadin" in out: continue
             H,A=run_cycles(fsite,N)
             for mode in ["leadin"]:
                 if os.environ.get("FORCE_UPTAKE")=="2":   # diagnostic (N=0 only, no fertilizer): uptake from Cycles' own mineral N budget, netmin - losses - change in pool
@@ -214,8 +225,10 @@ if __name__=="__main__":
                     if var in ("grain","total_biomass"): row[var]["pairs"]=[[round(x,4),round(z,4)] for x,z in zip(a,b)]   # (Cycles, engine) per year, for global re-centering in eval_big.py
                 if True:
                     for k,ek in [("leach","n_leached_kg_ha"),("volat","n_volatilized_pool_kg_ha"),("denit","n_denitrified_kg_ha"),("n2o","n2o_emitted_kg_ha")]:
-                        yy=[y for y in ys if y in A]; a=[A[y][k] for y in yy]; b=[E[y].get(ek,0.0) for y in yy]
+                        yy=[y for y in ys if y in A]; a=[A[y][k] for y in yy]; b=[E[y].get(ek,0.0) + (E[y].get("n_volatilized_kg_ha",0.0) if k=="volat" else 0.0) for y in yy]
                         row[k]=dict(real=statistics.mean(a),model=statistics.mean(b),mae=statistics.mean(abs(x-z) for x,z in zip(a,b)),corr=corr(a,b),n=len(yy))
                 out[f"{site}|N{N}|{mode}"]=dict(soil=name,soil_dist=sd,wx_dist=wd,res=row)
                 print(site,N,mode,name,{k:(round(v['real'],2),round(v['model'],2),round(v['corr'],2)) for k,v in row.items()},flush=True)
-    json.dump(out,open(os.environ.get("OUT_JSON") or os.path.join(P,"multisite_results.json"),"w"),indent=1)
+                if RESUME:
+                    json.dump(out,open(_OUT+".tmp","w"),indent=1); os.replace(_OUT+".tmp",_OUT)
+    json.dump(out,open(_OUT,"w"),indent=1)

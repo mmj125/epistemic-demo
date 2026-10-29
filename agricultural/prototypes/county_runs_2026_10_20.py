@@ -39,5 +39,14 @@ def one(site):
         except Exception as e: out[crop]={"error":str(e)[:80]}
     return site,out
 if __name__=="__main__":
-    with Pool(4) as p: R=dict(p.map(one,sorted(S)))
-    json.dump(R,open(os.environ.get('OUTRUN','/tmp/w/engine_county_runs.json'),'w')); print("sites",len(R),"errors",sum(1 for v in R.values() for c in v.values() if 'error' in c))
+    _OUT=os.environ.get('OUTRUN','/tmp/w/engine_county_runs.json'); _PART=_OUT+'.part'
+    R={}
+    if os.environ.get('RESUME')=='1' and os.path.exists(_PART):   # 2026-10-29: resumable after a container restart, one line per finished site
+        for _l in open(_PART):
+            try: _k,_v=json.loads(_l); R[_k]=_v
+            except Exception: pass
+    with Pool(4) as p:
+        for _site,_out in p.imap_unordered(one,[x for x in sorted(S) if x not in R]):
+            R[_site]=_out
+            with open(_PART,'a') as _f: _f.write(json.dumps([_site,_out])+"\n")
+    json.dump(R,open(_OUT,'w')); print("sites",len(R),"errors",sum(1 for v in R.values() for c in v.values() if 'error' in c))

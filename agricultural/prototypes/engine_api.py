@@ -16,25 +16,25 @@ import rhizo_engine as E
 API_VERSION = 1
 
 # ---- crops (the validated per-crop configurations; sorghum, silage and soybean exactly as the multi-site runner builds them) ----
-_CORN = {'root_retained_frac': 0.6, 'n_demand_ref': True, 'n_stress_ag_basis': True, 'n_uptake_rate': 0.03, 'c1_water': True, 'tt_maturity': 1800, 'flowering_tt': 1000, 'base_t': 6, 'opt_t': 28, 'max_t': 46,
+_CORN = {'n_crit_lemaire': (3.4, 0.37), 'n_demand_scale': 1.0, 'n_stress_n0': 0.2, 'n_uptake_gj': True, 'weps_k': 0.01, 'wue_co2_exp': 0.45, 'rue_co2_exp': 0.0, 'residue_grain_n': 0.70, 'senes_delay': 0.12, 'senes_k': 1.0, 'root_retained_frac': 0.6, 'n_demand_ref': True, 'n_stress_ag_basis': True, 'n_uptake_rate': 0.03, 'c1_water': True, 'tt_maturity': 1800, 'flowering_tt': 1000, 'base_t': 6, 'opt_t': 28, 'max_t': 46,
          'rue': 2.2, 'wue': 8.7, 'hi_x': 0.8, 'hi_o': 0.15, 'hi_slope': 1.3077, 'fsti': 0.45, 'fstf': 0.95, 'calibration_factor': 1.0, 'canopy_shape': (6, -20, -5.35, 4.1),
          'canopy_shape_faithful': (6.04, -20.51, -14.95, 14.57), 'eix_faithful': 0.951, 'ngf_faithful': 1.0, 'kc': 1.1, 'eix': 1.0, 'tr_min_t': 3.0, 'tr_threshold_t': 15.0, 'lat_deg': 40.6875,
          'n_max_conc': 0.055, 'n_dilution_slope': 0.4, 'legume': False, 'n_min_conc': 0.002, 'depletion_fraction': 0.55, 'tr_max_mm_day': 10, 'root_max_m': 2.0, 'tt_emergence': 65,
          'lwp_stress_onset': -1100, 'lwp_wilting_point': -2000, 'threshold_temp_cold_damage': 3}
-_SOYBEAN = {'canopy_shape_faithful': (6.19, -21.11, -15.95, 15.66), 'eix_faithful': 0.924, 'ngf_faithful': 1.0, 'c1_water': True, 'tt_maturity': 2250, 'flowering_tt': 1250, 'base_t': 5, 'opt_t': 28,
+_SOYBEAN = {'wue_co2_exp': 0.38, 'rue_co2_exp': 0.38, 'canopy_shape_faithful': (6.19, -21.11, -15.95, 15.66), 'eix_faithful': 0.924, 'ngf_faithful': 1.0, 'c1_water': True, 'tt_maturity': 2250, 'flowering_tt': 1250, 'base_t': 5, 'opt_t': 28,
             'max_t': 43, 'rue': 1.3, 'wue': 4.5, 'hi_x': 0.4, 'hi_o': 0.15, 'hi_slope': 3.4, 'fsti': 0.45, 'fstf': 0.95, 'kc': 1.0, 'eix': 1.0, 'tr_min_t': 3.0, 'tr_threshold_t': 15.0,
             'lat_deg': 40.6875, 'calibration_factor': 1.0, 'n_max_conc': 0.07, 'n_dilution_slope': 0.4, 'legume': True, 'depletion_fraction': 0.5, 'tr_max_mm_day': 8, 'root_max_m': 1.5,
             'tt_emergence': 70, 'lwp_stress_onset': -1100, 'lwp_wilting_point': -1800, 'threshold_temp_cold_damage': 2}
-_SILAGE = {'tt_maturity': 1800, 'flowering_tt': 1000, 'base_t': 6, 'opt_t': 28, 'max_t': 46, 'rue': 2.2, 'wue': 8.7, 'hi_x': 0.8, 'hi_o': 0.15, 'hi_slope': 1.0, 'fsti': 0.45, 'fstf': 0.95, 'kc': 1.1,
+_SILAGE = {'n_crit_lemaire': (3.4, 0.37), 'n_demand_scale': 1.0, 'n_stress_n0': 0.2, 'weps_k': 0.01, 'wue_co2_exp': 0.45, 'rue_co2_exp': 0.0, 'n_uptake_gj': True, 'senes_delay': 0.12, 'senes_k': 1.0, 'tt_maturity': 1800, 'flowering_tt': 1000, 'base_t': 6, 'opt_t': 28, 'max_t': 46, 'rue': 2.2, 'wue': 8.7, 'hi_x': 0.8, 'hi_o': 0.15, 'hi_slope': 1.0, 'fsti': 0.45, 'fstf': 0.95, 'kc': 1.1,
            'eix': 1.0, 'tr_min_t': 3.0, 'tr_threshold_t': 15.0, 'lat_deg': 40.6875, 'forage_fraction': 0.95, 'calibration_factor': 1.0, 'depletion_fraction': 0.55,
            'canopy_shape_faithful': (6.05, -20.56, -13.72, 13.33), 'eix_faithful': 0.946, 'ngf_faithful': 1.0, 'canopy_shape': (6, -20, -5.35, 4.1), 'tr_max_mm_day': 10, 'root_max_m': 1.55,
            'tt_emergence': 65, 'n_max_conc': 0.055, 'n_dilution_slope': 0.4, 'legume': False, 'n_min_conc': 0.002, 'lwp_stress_onset': -1100, 'lwp_wilting_point': -2000,
            'threshold_temp_cold_damage': 3, 'n_demand_ref': True, 'n_stress_ag_basis': True, 'n_uptake_rate': 0.03, 'root_retained_frac': 0.6}
-_SORGHUM_OVER = dict(tt_maturity=2050, flowering_tt=1300, rue=2.0, wue=9.6, tr_min_t=6, tr_threshold_t=18, kc=1.0, lwp_stress_onset=-1400, lwp_wilting_point=-2300, tr_max_mm_day=9, root_max_m=2.0,
+_SORGHUM_OVER = dict(n_crit_lemaire=(3.9, 0.39), residue_grain_n=0.70, senes_delay=0.0, senes_k=0.0, tt_maturity=2050, flowering_tt=1300, rue=2.0, wue=9.6, tr_min_t=6, tr_threshold_t=18, kc=1.0, lwp_stress_onset=-1400, lwp_wilting_point=-2300, tr_max_mm_day=9, root_max_m=2.0,
                      tt_emergence=65, threshold_temp_cold_damage=6, canopy_shape_faithful=(6.04, -20.47, -15.52, 15.08), eix_faithful=0.949, ngf_faithful=1.0)
 _WHEAT = {'rhizo_rr': 0.6, 'rhizo_root_n_share': 0.082, 'canopy_form': 'H', 'tt_maturity': 1800, 'flowering_tt': 1250, 'base_t': 0, 'opt_t': 20, 'max_t': 35, 'rue': 1.6, 'wue': 6.0, 'hi_x': 0.52, 'hi_o': 0.2, 'hi_slope': 2.5, 'fsti': 0.45,
-          'fstf': 0.95, 'kc': 1.0, 'eix': 1.0, 'tr_min_t': 0.0, 'tr_threshold_t': 12.0, 'lat_deg': 40.6875, 'n_simultaneous': True,'n_demand_ref': True, 'n_stress_ag_basis': True, 'n_uptake_rate': 0.03, 'eix_cap': 0.853, 'net_growth_fraction': 0.95, 'ttf50': 0.32,
-          'hi_use_thermal_time_fraction': False, 'n_demand_scale': 0.75, 'calibration_factor': 1.0, 'depletion_fraction': 0.55, 'canopy_shape': (5, -14, -15, 16), 'tr_max_mm_day': 8, 'root_max_m': 2.0, 'tt_emergence': 100, 'n_max_conc': 0.07, 'n_dilution_slope': 0.45, 'n_min_conc': 0.002, 'lwp_stress_onset': -1000,
+          'fstf': 0.95, 'kc': 1.0, 'eix': 1.0, 'tr_min_t': 0.0, 'tr_threshold_t': 12.0, 'lat_deg': 40.6875, 'n_simultaneous': True,'n_demand_ref': True, 'n_stress_ag_basis': True, 'n_uptake_rate': 0.03, 'eix_cap': 0.853, 'standing_at_harvest': 0.4, 'res_k_flat': 0.50, 'net_growth_fraction': 0.95, 'ttf50': 0.32,
+          'hi_use_thermal_time_fraction': False, 'n_crit_lemaire': (5.3, 0.44), 'n_stress_n0': 0.2, 'weps_k': 0.028, 'wue_co2_exp': 0.38, 'rue_co2_exp': 0.38, 'residue_grain_n': 0.75, 'n_uptake_gj': True, 'n_demand_scale': 1.0, 'calibration_factor': 1.0, 'depletion_fraction': 0.55, 'canopy_shape': (5, -14, -15, 16), 'tr_max_mm_day': 8, 'root_max_m': 2.0, 'tt_emergence': 100, 'n_max_conc': 0.07, 'n_dilution_slope': 0.45, 'n_min_conc': 0.002, 'lwp_stress_onset': -1000,
           'lwp_wilting_point': -2100, 'threshold_temp_cold_damage': -10}
 
 CROP_LABELS = {"corn": "Corn (grain)", "silage": "Corn (silage)", "sorghum": "Sorghum", "soybean": "Soybean", "wheat": "Winter wheat", "rotation": "Corn and soybean rotation"}
@@ -65,6 +65,7 @@ SCHEMA = {
             {"id": "n_doy1", "label": "First application, day of year", "type": "number", "default": 110, "min": 1, "max": 365, "step": 1, "show_if": {"n_timing": "split"}},
             {"id": "n_frac1", "label": "Share applied first (%)", "type": "number", "default": 50, "min": 0, "max": 100, "step": 5, "show_if": {"n_timing": "split"}},
             {"id": "n_doy2", "label": "Second application, day of year", "type": "number", "default": 160, "min": 1, "max": 365, "step": 1, "show_if": {"n_timing": "split"}},
+            {"id": "n_deposition", "label": "Atmospheric N deposition (kg N/ha per year)", "type": "number", "default": 0, "min": 0, "max": 20, "step": 1, "help": "Cycles has none. Measured wet and dry deposition in Iowa fields is about 8."},
             {"id": "manure_n", "label": "Manure N (kg N/ha per year)", "type": "number", "default": 0, "min": 0, "max": 400, "step": 10, "applies_to": ["corn", "silage", "sorghum", "rotation"]},
             {"id": "manure_source", "label": "Manure type", "type": "select", "default": "dairy", "options": [[k, k.capitalize()] for k in E.MANURE_SOURCES], "show_if": {"manure_n": "!0"}, "applies_to": ["corn", "silage", "sorghum", "rotation"]},
         ]},
@@ -120,22 +121,24 @@ _SOYBEAN_N = dict(_SOYBEAN, legume_n=True, n_demand_ref=True, n_uptake_rate=0.03
 
 # ---- what the page shows scientists about the model (single source: the page reads info(), it never hard-codes these) ----
 ENGINE_INFO = {
-    "name": "Rhizo",
-    "version": "2026-10-24",
-    "summary": "Rhizo is a daily-step crop, soil water, carbon and nitrogen model written from scratch in Python and run in your browser. Its equations come from the published Cycles paper and its supplement (Kemanian et al. 2024) and from the literature cited below; where the sources give no equation the model uses a measured relationship and says so. It is tested against the Cycles model and against observations.",
-    "validation_note": "Agreement with Cycles v1.5.20 on identical weather and soil, held-out sites, 1980 to 2016 (94 sites for spring crops, 60 for winter wheat). r is the correlation across all site-years pooled; bias and error are the model minus Cycles in grain yield. Cycles itself disagrees with its own variants by about 0.17 to 1.4 Mg/ha depending on what changes.",
+    "name": "SPROUT",
+    "tagline": "A browser-based crop and soil simulator for teaching",
+    "acronym": "SPROUT stands for Simulated Processes for Reasoning about Outcomes Under Treatments.",
+    "version": "2026-10-29",
+    "summary": "SPROUT is a daily-step crop, soil water, carbon and nitrogen model written from scratch in Python and run in your browser. Its equations come from the published Cycles paper and its supplement (Kemanian et al. 2024) and from the literature cited below; where the sources give no equation the model uses a measured relationship and says so. It is tested against the Cycles model and against observations.",
+    "validation_note": "Agreement with Cycles v1.5.20 on identical weather and soil, held-out sites, 1980 to 2016 (94 sites for spring crops, 60 for winter wheat). r is the correlation across all site-years pooled; bias and error are the model minus Cycles in grain yield. Cycles itself disagrees with its own variants by about 0.17 to 1.4 Mg/ha depending on what changes. Atmospheric nitrogen deposition is off by default, as in Cycles; the run option 'Atmospheric N deposition' adds it (about 8 kg N/ha/yr in Iowa fields).",
     "validation_columns": ["Crop", "N rate (kg N/ha)", "r", "Bias (%)", "Mean abs error (Mg/ha)"],
     "validation": [
-        ["Corn", "0 / 150 / 400", "0.96 / 0.91 / 0.96", "+6 / +5 / -1", "0.42 / 1.03 / 0.92"],
-        ["Silage corn", "0 / 150 / 400", "0.94 / 0.91 / 0.95", "+15 / +5 / +2", "0.90 / 1.67 / 1.50"],
-        ["Sorghum", "0 / 150 / 400", "0.94 / 0.87 / 0.90", "0 / 0 / -6", "0.45 / 1.12 / 1.17"],
-        ["Soybean", "none", "0.95", "+6", "0.40"],
-        ["Winter wheat", "0 / 90 / 150", "0.93 / 0.88 / 0.87", "+18 / +10 / +5", "0.38 / 0.69 / 0.75"],
+        ["Corn", "0 / 150 / 400", "0.90 / 0.89 / 0.94", "-5 / 0 / -2", "0.68 / 1.12 / 0.94"],
+        ["Silage corn", "0 / 150 / 400", "0.89 / 0.89 / 0.93", "+11 / +2 / +1", "1.20 / 1.70 / 1.62"],
+        ["Sorghum", "0 / 150 / 400", "0.88 / 0.85 / 0.89", "-6 / -8 / -6", "0.67 / 1.24 / 1.26"],
+        ["Soybean", "none", "0.94", "+10", "0.48"],
+        ["Winter wheat", "0 / 90 / 150", "0.91 / 0.85 / 0.85", "-1 / 0 / -4", "0.38 / 0.65 / 0.80"],
     ],
     "observations": [
-        "County yields (USDA NASS, 94 counties, 1982 to 2016): year-to-year agreement within a county, median r 0.43 for corn (Cycles 0.38), 0.34 soybean, 0.31 silage, 0.15 wheat; mean level 0.93 of the county corn mean.",
-        "Mead, Nebraska flux towers and measured yields: corn and soybean yields as close to the measurements as Cycles' (for example irrigated corn 12.4 modelled, 11.7 measured Mg/ha).",
-        "Corn after soybean in a rotation: 0.96 to 0.99 of Cycles' yield with no nitrogen, 0.93 to 0.95 at 150 kg N/ha.",
+        "County yields (USDA NASS, 94 counties, 1982 to 2016): year-to-year agreement within a county, median r 0.43 for corn (Cycles 0.38), 0.36 soybean (0.33), 0.39 silage (0.34), 0.23 wheat (0.23); on a held-out half of the sites the differences from Cycles are within chance except for silage. Mean level 0.98 of the county corn mean (Cycles 0.89); soybean 1.45, wheat 1.48 and silage 1.15, and Cycles is high for soybean and wheat too (1.31 and 1.45).",
+        "Mead, Nebraska flux towers and measured yields (10 site-years of grain, last run 2026-10-28): mean absolute error 1.1 Mg/ha for SPROUT against 0.9 for Cycles. Both models overestimate evapotranspiration (tower 3.3 to 3.9 mm/day, SPROUT 3.8 to 4.9, Cycles 3.8 to 5.3) because the gridded weather is warmer, drier and windier than the towers.",
+        "Drought years (east corn): 1988 observed -23%, SPROUT -35%, Cycles -43%; 2012 observed -12%, SPROUT -39%, Cycles -41%. Both models exaggerate drought losses.",
     ],
     "sources": [
         "Kemanian, A.R., Shi, Y., White, C.M., Montes, F., Stockle, C.O., Huggins, D.R., et al., 2024. The Cycles agroecosystem model: fundamentals, testing, and applications. Computers and Electronics in Agriculture 227, 109510, and its supplement (growth, partition, canopy, water, carbon and nitrogen equations).",
@@ -192,7 +195,7 @@ def _row_out(y, r, carry):
                 n_uptake=r.get("n_uptake_kg_ha"), n_leached=leach, n_denitrified=den, n_volatilized=vol, n2o=n2o, runoff=r.get("runoff_mm"),
                 n_mineral_end=r.get("n_remaining_kg_ha"), winter_killed=bool(r.get("winter_killed")),
                 cover_ag=(r.get("cover") or {}).get("ag"), cover_n_uptake=(r.get("cover") or {}).get("n_uptake"),
-                crop=r.get("_crop_label"), n_fixed=r.get("n_fixed_kg_ha"))
+                crop=r.get("_crop_label"), n_fixed=r.get("n_fixed_kg_ha"), n_unapplied=r.get("n_dated_unapplied_kg_ha"))
 
 
 def _daily_out(r):
@@ -300,7 +303,7 @@ def _wheat_chain(cfg, wx, soil, lat):
         E._DIAG_YEAR = y; E._FORCE_CUR = None
         E.run_fallow_n_window(layers, fallow, nstate, sp, lat_deg=lat, de_state=de, model_denitrification=True, model_volatilization=True)
         nstate.pop("n2o", None)
-        kw = dict(base); kw.update(initial_n_state=dict(nstate), initial_layers=layers, spinup_rows=None, wue_co2_scale=E.CO2_PPM_BY_YEAR.get(y, E.CO2_REF_PPM) / E.CO2_REF_PPM, record_history=True)
+        kw = dict(base); kw.update(initial_n_state=dict(nstate), initial_layers=layers, spinup_rows=None, wue_co2_scale=(E.CO2_PPM_BY_YEAR.get(y, E.CO2_REF_PPM) / E.CO2_REF_PPM) ** crop.get('wue_co2_exp', E.WUE_CO2_EXP), rue_co2_scale=(E.CO2_PPM_BY_YEAR.get(y, E.CO2_REF_PPM) / E.CO2_REF_PPM) ** crop.get('rue_co2_exp', E.RUE_CO2_EXP), record_history=True)
         fall_n = min(60.0, N)
         if N > 0:
             kw["n_applications"] = [(289, fall_n), (75, N - fall_n)] if N > fall_n else [(75, N)]
@@ -327,6 +330,7 @@ def _wheat_chain(cfg, wx, soil, lat):
 
 def run(config_json):
     cfg = json.loads(config_json)
+    E.N_DEPOSITION_KG_HA_YR = float(cfg.get("n_deposition", 0) or 0)   # per-run option, default 0 as in Cycles
     wx, soil, lat = _STATE["wx"], _STATE["soil"], _STATE["lat"]
     if wx is None:
         raise ValueError("No site loaded.")
@@ -345,4 +349,7 @@ def run(config_json):
     if crop_key == "wheat":
         notes.append("Wheat N losses cover the growing season only (fall planting to harvest).")
     covered = any(r.get("cover_ag") is not None for r in annual)
+    _lost = [r["year"] for r in annual if (r.get("n_unapplied") or 0) > 0.5]
+    if _lost:
+        notes.append("Part of the fertilizer was not applied in %d of %d years: a dated application fell outside the crop's season (after harvest, or more than 60 days before planting). Move it to a day inside the season." % (len(_lost), len(annual)))
     return json.dumps(dict(annual=annual, annual_columns=ANNUAL_COLUMNS + (ROTATION_COLUMNS if crop_key == "rotation" else []) + (COVER_COLUMNS if covered else []), daily=daily, daily_columns=DAILY_COLUMNS, notes=notes, api_version=API_VERSION))
