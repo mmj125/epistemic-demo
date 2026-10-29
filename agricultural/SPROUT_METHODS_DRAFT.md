@@ -25,7 +25,7 @@ The target was to leave nothing in class C or D. We have not reached it, and Sec
 
 **Adoption rule.** A documented law replaces another if, at every nitrogen rate, pooled correlation with Cycles stays above 0.8 and the grain error rises by no more than about 0.05 Mg/ha. A change fitted to Cycles must show an improvement whose paired-bootstrap 95 percent interval on held-out sites excludes zero.
 
-**Test sites.** Development used a 24-site quick set and 94 sites (`sitesets/fresh94.json`). No constant was fitted to the 94 sites, but they were used repeatedly to choose between options, so they are a development set and not a clean test. A further 100 sites (`sitesets/holdout.json`) are locked for a single final report and have not been run.
+**Test sites.** Development used a 24-site quick set and 94 sites (`sitesets/fresh94.json`). The 94 sites were used repeatedly to choose between options, and some constants measured on Cycles output came from runs on development sites, so they are a development set and not a clean test. A further 100 sites (`sitesets/holdout.json`) are locked for a single final report and have not been run.
 
 ## 3. Inputs and the reference runs
 
@@ -91,9 +91,9 @@ The six-pool structure with first-order residue decay (SI Eqs. 10 to 14), the sa
 - **Denitrification (class A form, amplitude 1.0).** The EPIC and APEX law as published (Kemanian and Williams, APEX upgrades Eqs. 1 to 4) with an amplitude of 1.0. An amplitude of 2.5 had been fitted to Cycles and was removed. At 1.0, SPROUT's denitrification is 0.3 to 0.4 times Cycles' for corn at 150 and 400 kg N. Two other published laws were tried with their constants unchanged: CERES (Godwin and Jones 1991 Eqs 15 to 18) matches Cycles' denitrification and leaching within 8 percent for corn at 150 kg N but gives 5.9 times Cycles' denitrification with no fertilizer; SOILN (Johnsson et al. 1987 Eqs 15 and 16) gives 0.3 times at high N. Neither is adopted. The Cycles documentation names POT_DENITRIF_RATE and DENITRIF_HALF_RATE only as calibration multipliers, so we could not apply the defaults.
 - **Total nitrogen lost.** For corn the sum of leaching, denitrification and volatilization (per year, N = 0 / 150 / 400) is 8.9 / 38.7 / 177.9 kg N/ha in SPROUT and 9.9 / 46.0 / 190.2 in Cycles, so SPROUT loses about 10, 16 and 6 percent less in total. The partition differs more (Section 7).
 - **Nitrous oxide (class A and class E).** The share of denitrified N is APEX Eq. 5, with no fitted constant (tested on 149,000 daily states of Cycles: ratio 0.079 against Cycles' 0.081). The share of nitrified N is a constant 0.4 percent. We could not find a published value that fixes this number, so it is an assumption (class E) that affects only the reported N2O. The emission factor at N = 150 is about 0.65 percent of applied N (IPCC default for EF1 is 1.0).
-- **Volatilization (class B form, class C pH).** Daily NH3 loss = Kh F C_TAN / r_a (Genermont and Cellier 1997, Eqs. 3 to 5 and 13; Montes, Rotz and Chaoui 2009 for Ka and Kh; r_a from FAO-56). Soil pH is the one calibrated input, as Genermont and Cellier say it must be; we set it (5.5) by comparison with Cycles' volatilization at N = 150 and 400, so it is class C.
+- **Volatilization (class B form, class C pH).** Daily NH3 loss = Kh F C_TAN / r_a (Genermont and Cellier 1997, Eqs. 3 to 5 and 13; Montes, Rotz and Chaoui 2009 for Ka and Kh; r_a from FAO-56). Soil pH is the one calibrated input, as Genermont and Cellier say it must be; the value used (7.2) was set by comparison with Cycles' volatilization, so it is class C.
 - **Nitrate transport (class B).** Godwin and Jones 1991 Eq. 1.
-- **Application losses (class B).** IPCC fractions and Macnack et al. 2013.
+- **Application losses (class B).** The IPCC 2006/2019 Tier 1 default fraction (10 percent of applied synthetic N). A weather-dependent equation after Macnack et al. 2013 is in the code but switched off.
 
 ### 4.6 Management
 
@@ -194,7 +194,7 @@ Kukal, M. S., and Irmak, S. 2020. Light interactions, use and efficiency in row 
 
 Lemaire, G., Jeuffroy, M.-H., and Gastal, F. 2008. Diagnosis tool for plant and crop N status in vegetative stage. European Journal of Agronomy 28:614 to 624.
 
-Macnack, N., et al. 2013. Nitrogen application loss factors (as used in the repository).
+Macnack, N., Chim, B. K., and Raun, W. R. 2013. Ammonia loss from surface-applied urea (equation in the code, switched off).
 
 Montes, F., Rotz, C. A., and Chaoui, H. 2009. Process modeling of ammonia volatilization from ammonium solution and manure surfaces: a review with recommended models. Transactions of the ASABE.
 
