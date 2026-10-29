@@ -2490,7 +2490,7 @@ def n_conc_layers(layers, nh4_kg_ha, no3_layers, no3_total):
 
 
 WEPS_DECAY = True      # 2026-10-27 step 5: residue decay as in WEPS (Steiner et al. 1999; WEPS Technical Documentation ch. 10): mass loss k x DD per day, DD = min(TF, MF)
-RES_DECAY_FORM = "weps"   # 2026-10-29: "weps" (Steiner et al. 1999, WEPS) or "ceres" (Godwin and Jones 1991: surface residue as carbohydrate 20, cellulose 70 and lignin 10 percent, decaying at 0.8, 0.05 and 0.0095 per day times the environmental factor, constants of Seligman and van Keulen 1981)
+RES_DECAY_FORM = "ceres"   # ADOPTED 2026-10-29 (corn 94 sites: MAE gain +0.20 / +0.42 at N=150 / 400, intervals exclude zero, cost 0.06 at N=0; silage and wheat neutral to slightly better); "weps" (Steiner et al. 1999, WEPS) or "ceres" (Godwin and Jones 1991: surface residue as carbohydrate 20, cellulose 70 and lignin 10 percent, decaying at 0.8, 0.05 and 0.0095 per day times the environmental factor, constants of Seligman and van Keulen 1981)
 FOM_FRAC = (0.2, 0.7, 0.1)
 FOM_K = (0.8, 0.05, 0.0095)
 
