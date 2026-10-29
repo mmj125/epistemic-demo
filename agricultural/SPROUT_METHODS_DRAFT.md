@@ -79,7 +79,7 @@ Three things in the implementation go beyond the printed equations, and we list 
 The six-pool structure with first-order residue decay (SI Eqs. 10 to 14), the saturation factors fH and fD (SI.12 and SI.13), the saturation capacity of soil carbon as a function of clay (Hassink and Whitmore, as in Pravia et al. 2019), the tillage speed-up of decomposition and the 2 percent per day decay of its disturbance, and the moisture response as a Hill function with half-response 0.22 and power 3 (Cycles documentation) are implemented (class A and B).
 
 - **Microbial carbon use efficiency (class A).** The SI gives 0.33 to 0.44. The engine uses 0.44 times the saturation factor fH. An earlier clay-dependent fit to Cycles was removed because it was neutral.
-- **Saturation factor fH (class C).** SI Eq. SI.12 as we read it prints an exponent of 6 and no floor. The engine uses an exponent of 12 and a floor of 0.2, which we had fitted to Cycles' humification near saturation. On the 24-site quick set, corn and silage were essentially unchanged when we used 6 and no floor (grain MAE for corn 0.58 / 1.18 / 1.05 against 0.59 / 1.18 / 1.05 at N = 0 / 150 / 400). We did not complete the test for wheat. We ask in Section 9 which is intended.
+- **Saturation factor fH (class A).** SI Eq. SI.12 as printed: exponent 6 and no floor. An earlier version used an exponent of 12 and a floor of 0.2, fitted to Cycles' humification near saturation; the printed form is neutral on the current engine (60 wheat sites MAE 0.377 / 0.654 / 0.799 against 0.379 / 0.655 / 0.797 at N = 0 / 90 / 150; corn, silage, sorghum and soybean within 0.02 Mg/ha on 94 sites).
 - **Per-source efficiency and the aging factor fA.** The SI's per-source retention fractions (fra, frt, frz, frm) are folded into a single efficiency, and fA is set to 1.0 (a placeholder, class E).
 - **Decay rates (mixed).** Surface residue decays as in CERES (Godwin and Jones 1991): 20 percent carbohydrate, 70 percent cellulose and 10 percent lignin at 0.8, 0.05 and 0.0095 per day times the environmental factor (class B). We note that the chapter's text gives 0.8 per day for carbohydrate while the Fortran listing printed in it uses 0.2; we used the text. The WEPS law of Steiner et al. 1999 is kept as an option and still governs buried root residue. The base rate of soil organic matter turnover is 0.00015 per day (Pravia et al. 2019, class B). The microbial turnover rate and the manure rate were back-calculated from Cycles output (class C), and the temperature optimum of the decomposition factor (37.5 C in the Campbell function of Stockle and Campbell 1989) was fitted to Cycles' composite factor (class C). The CERES law replaced WEPS on 2026-10-29: on 94 corn sites the paired grain error improved by 0.20 and 0.42 Mg/ha at N = 150 and 400 (intervals exclude zero) and worsened by 0.06 at N = 0, with silage and wheat neutral to slightly better. We have not yet checked the resulting residue cover against field data.
 - **Pool carbon to nitrogen ratios.** Soil organic matter and microbes use 10.0 (the Cycles guide gives 10:1 for soil organic matter; for microbes the SI gives a range, see below). The C:N ratios of roots (52), manure (30) and above-ground residue (86) were read from Cycles (class D). Residue N is the plant's above-ground N minus grain N.
@@ -90,7 +90,7 @@ The six-pool structure with first-order residue decay (SI Eqs. 10 to 14), the sa
 ### 4.5 Nitrogen losses
 
 - **Denitrification (class A form, amplitude 1.0).** The EPIC and APEX law as published (Kemanian and Williams, APEX upgrades Eqs. 1 to 4) with an amplitude of 1.0. An amplitude of 2.5 had been fitted to Cycles and was removed. At 1.0, SPROUT's denitrification is 0.3 to 0.4 times Cycles' for corn at 150 and 400 kg N. Two other published laws were tried with their constants unchanged: CERES (Godwin and Jones 1991 Eqs 15 to 18) matches Cycles' denitrification and leaching within 8 percent for corn at 150 kg N but gives 5.9 times Cycles' denitrification with no fertilizer; SOILN (Johnsson et al. 1987 Eqs 15 and 16) gives 0.3 times at high N. Neither is adopted. The Cycles documentation names POT_DENITRIF_RATE and DENITRIF_HALF_RATE only as calibration multipliers, so we could not apply the defaults.
-- **Total nitrogen lost.** For corn the sum of leaching, denitrification and volatilization (per year, N = 0 / 150 / 400) is 8.9 / 38.7 / 177.9 kg N/ha in SPROUT and 9.9 / 46.0 / 190.2 in Cycles, so SPROUT loses about 10, 16 and 6 percent less in total. The partition differs more (Section 7).
+- **Total nitrogen lost.** For corn the sum of leaching, denitrification and volatilization (per year, N = 0 / 150 / 400) is 9.1 / 39.4 / 179.6 kg N/ha in SPROUT and 9.9 / 46.0 / 190.2 in Cycles, so SPROUT loses about 8, 14 and 6 percent less in total. The partition differs more (Section 7).
 - **Nitrous oxide (class A and class E).** The share of denitrified N is APEX Eq. 5, with no fitted constant (tested on 149,000 daily states of Cycles: ratio 0.079 against Cycles' 0.081). The share of nitrified N is a constant 0.4 percent. We could not find a published value that fixes this number, so it is an assumption (class E) that affects only the reported N2O. The emission factor at N = 150 is about 0.65 percent of applied N (IPCC default for EF1 is 1.0).
 - **Volatilization (class B form, class C pH).** Daily NH3 loss = Kh F C_TAN / r_a (Genermont and Cellier 1997, Eqs. 3 to 5 and 13; Montes, Rotz and Chaoui 2009 for Ka and Kh; r_a from FAO-56). Soil pH is the one calibrated input, as Genermont and Cellier say it must be; the value used (7.2) was set by comparison with Cycles' volatilization, so it is class C.
 - **Nitrate transport (class B).** Godwin and Jones 1991 Eq. 1.
@@ -115,7 +115,7 @@ The following are differences between the printed form and what we implemented, 
 This is the complete list. Class C items use a documented or published form with parameters set from Cycles; class D items use a form and parameters set from Cycles; class E items are assumptions that were chosen with Cycles in view.
 
 - Canopy plateau per crop (C), the shoot partition mid-point TTf50 of 0.42 (O, original value from Cycles) and the retained fraction of root growth 0.6 (C).
-- The six-pool microbial turnover rate, manure decomposition rate, temperature optimum of the decomposition factor, and the fH exponent and floor (C).
+- The six-pool microbial turnover rate, manure decomposition rate, and temperature optimum of the decomposition factor (C).
 - C:N of roots, manure and above-ground residue (D).
 - Soybean root N share (C); shares of plant N in above-ground tissue (0.88) and in lost roots (C).
 - The N stress floor of 0.2 (E, chosen with Cycles in view).
@@ -132,15 +132,15 @@ On 94 sites, 38 years each, with continuous crop chains (the final engine of 202
 
 | Crop | Pooled r | Bias | Grain MAE (Mg/ha) |
 |---|---|---|---|
-| Corn | 0.900 / 0.891 / 0.943 | -5% / 0% / -2% | 0.68 / 1.12 / 0.94 |
-| Silage corn | 0.885 / 0.894 / 0.929 | +11% / +2% / +1% | 1.20 / 1.70 / 1.62 |
-| Sorghum | 0.880 / 0.846 / 0.887 | -6% / -8% / -6% | 0.67 / 1.24 / 1.26 |
+| Corn | 0.906 / 0.892 / 0.943 | -4% / 0% / -2% | 0.66 / 1.13 / 0.94 |
+| Silage corn | 0.885 / 0.894 / 0.929 | +11% / +2% / +1% | 1.21 / 1.70 / 1.62 |
+| Sorghum | 0.888 / 0.848 / 0.887 | -5% / -8% / -6% | 0.65 / 1.22 / 1.26 |
 | Soybean | 0.943 | +10% | 0.49 |
-| Winter wheat | 0.909 / 0.854 / 0.847 | -1% / 0% / -4% | 0.38 / 0.65 / 0.80 |
+| Winter wheat | 0.908 / 0.853 / 0.847 | -1% / 0% / -4% | 0.38 / 0.66 / 0.80 |
 
 Pooled correlation does not measure the response to nitrogen. On the last panel of response checks (run before the residue changes of 2026-10-29), the 0 to 150 kg response matched Cycles and the 150 to 400 kg response was 63 to 79 percent of Cycles' for corn, silage and sorghum.
 
-Nitrogen losses relative to Cycles (corn, kg N/ha per year at N = 0 / 150 / 400): leaching 4.6 vs 4.6, 15.0 vs 13.3, 107.0 vs 84.8; denitrification 0.8 vs 2.6, 6.9 vs 18.3, 21.1 vs 65.8; volatilization 3.5 vs 2.7, 16.8 vs 14.4, 49.8 vs 39.6; nitrous oxide 0.24 vs 0.50, 1.21 vs 3.56, 4.04 vs 15.74.
+Nitrogen losses relative to Cycles (corn, kg N/ha per year at N = 0 / 150 / 400): leaching 4.7 vs 4.6, 15.4 vs 13.3, 108.3 vs 84.8; denitrification 0.9 vs 2.6, 7.0 vs 18.3, 21.3 vs 65.8; volatilization 3.6 vs 2.7, 17.1 vs 14.4, 50.1 vs 39.6; nitrous oxide 0.24 vs 0.50, 1.23 vs 3.56, 4.07 vs 15.74.
 
 Against observations, on NASS county yields (94 sites, 1982 to 2016, protocol in `EVALUATION_PROTOCOL_2026_10_28.md`), the within-site correlation of detrended yield is 0.43 for corn against 0.38 for Cycles (difference +0.033, 95 percent interval -0.008 to +0.073), 0.36 against 0.33 for soybean (+0.033 [+0.009, +0.057]), 0.39 against 0.34 for silage (+0.063 [+0.014, +0.123]) and 0.23 against 0.23 for wheat (+0.032 [-0.017, +0.079]). On the odd-numbered half of the sites in the sorted list the differences are corn +0.026 [-0.034, +0.080], soybean +0.025 [-0.013, +0.065], silage +0.059 [+0.018, +0.106] and wheat +0.043 [-0.018, +0.097]. The defensible statement is that the two models are comparable, with SPROUT better only for silage. The mean level is 0.98 of the observed county corn mean (Cycles 0.89), 1.45 for soybean (Cycles 1.31), 1.48 for wheat (Cycles 1.45) and 1.15 for silage (Cycles 1.10). In extreme years (eastern corn) both models exaggerate drought: 1988 observed -23 percent, SPROUT -35, Cycles -43; 2012 observed -12, SPROUT -39, Cycles -41; neither reproduces 1993 (observed -17, SPROUT +3, Cycles +7).
 
@@ -150,7 +150,7 @@ For scale, Cycles disagrees with itself by a mean absolute grain error of 0.17 M
 
 ## 8. Where SPROUT and Cycles still differ
 
-- Denitrification and nitrous oxide are about 0.3 to 0.4 times Cycles' for corn at 150 and 400 kg N (wheat 0.2 to 0.3, soybean 0.24), leaching is 1.0 to 1.3 times and volatilization 1.2 to 1.3 times. Total N lost is 6 to 16 percent lower in SPROUT (Section 4.5).
+- Denitrification and nitrous oxide are about 0.3 to 0.4 times Cycles' for corn at 150 and 400 kg N (wheat 0.2 to 0.3, soybean 0.24), leaching is 1.0 to 1.3 times and volatilization 1.2 to 1.3 times. Total N lost is 6 to 14 percent lower in SPROUT (Section 4.5).
 - Soil water was measured on 2026-10-29 before the CERES residue law: SPROUT was wetter than Cycles in every layer and month (by 0.01 to 0.05 m3/m3), with a surface residue carbon stock 3 to 8 times Cycles', a decomposition factor 1.2 to 1.5 times and winter respiration 2.3 times. The CERES law was adopted to address the stock; water and respiration after it are not re-measured.
 - Sorghum runs 6 to 8 percent below Cycles at every N rate.
 - Winter wheat: the growth scalar of 0.95 hides a plateau growth efficiency about 14 percent high, and wheat denitrification is 0.2 to 0.3 times Cycles'.
@@ -162,11 +162,11 @@ For scale, Cycles disagrees with itself by a mean absolute grain error of 0.17 M
 ## 9. Questions that would help most
 
 1. The relation between Eq. 6 and the realised canopy interception (plateau per crop, any density term), which would settle the canopy plateaus of all five crops.
-2. The base rates for microbial turnover and manure decomposition, and the temperature optimum, in the six-pool carbon model (Pravia et al. 2019 gives kx only), and whether the exponent in SI.12 is 6 with no floor.
+2. The base rates for microbial turnover and manure decomposition, and the temperature optimum, in the six-pool carbon model (Pravia et al. 2019 gives kx only).
 3. The root nitrogen carried out of the plant with lost roots, how much of root growth is retained, and the C:N ratios used for roots, manure and residue.
 4. The intended direction of the mineral-N factor in SI.14 and the intended maximum.
 5. Whether N_MAX_CONCENTRATION is meant as a maximum curve with realised N near 0.7 to 0.76 of it (Section 4.3), why Cycles' soybean seed N is 3.9 percent, how the grain and straw N concentration fields of the crop file enter the model, and the soybean fixation rules.
-6. The defaults behind the calibration multipliers POT_DENITRIF_RATE and DENITRIF_HALF_RATE, and the carbon term of denitrification. With the published APEX law (Rmax 32e-6, half-saturation 60 mg/kg, respiration threshold 50) SPROUT's total N lost is 6 to 16 percent below Cycles' for corn, and it leaches 1.0 to 1.3 times as much and denitrifies 0.3 to 0.4 times as much.
+6. The defaults behind the calibration multipliers POT_DENITRIF_RATE and DENITRIF_HALF_RATE, and the carbon term of denitrification. With the published APEX law (Rmax 32e-6, half-saturation 60 mg/kg, respiration threshold 50) SPROUT's total N lost is 6 to 14 percent below Cycles' for corn, and it leaches 1.0 to 1.3 times as much and denitrifies 0.3 to 0.4 times as much.
 7. Confirmation of our reading of the printed forms in Section 5.
 
 ## 10. Reproducing it
