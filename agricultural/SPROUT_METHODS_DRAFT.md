@@ -10,7 +10,7 @@ Its equations come from the Cycles paper and supplement (Kemanian et al. 2024), 
 
 ## 2. The rules the build followed
 
-**Where a number came from.** Every constant and function in the engine is classified in a ledger (`agricultural/PROVENANCE_LEDGER.md`, 170 constants and 88 functions, with a script that fails if any is missing):
+**Where a number came from.** Every constant and function in the engine is classified in a ledger (`agricultural/PROVENANCE_LEDGER.md`, 213 module constants and 93 functions, with a script that fails if any is missing):
 
 - A: form and values documented in the paper, SI, Cycles documentation or a Cycles data file.
 - B: form and values from another published source.
@@ -156,4 +156,4 @@ How much disagreement is normal: Cycles disagrees with itself by a mean absolute
 
 ## 10. Reproducing it
 
-Everything is in the public repository. `rhizo_engine.py` is the engine; `engine_api.py` the interface; `agricultural/PROVENANCE_LEDGER.md` classifies every constant; `agricultural/prototypes/ENGINE_REBUILD_PLAN.md` holds the dated record of every test, including those that failed; `scorecards/` and `sitesets/` hold the results and site lists. The live simulator is at https://mmj125.github.io/epistemic-demo/agricultural/prototypes/simulator.html.
+Everything is in the public repository. `rhizo_engine.py` is the engine (the file kept the name the model had before it was called SPROUT); `engine_api.py` the interface; `agricultural/PROVENANCE_LEDGER.md` classifies every constant; `agricultural/prototypes/ENGINE_REBUILD_PLAN.md` holds the dated record of every test, including those that failed; `scorecards/` and `sitesets/` hold the results and site lists. The live simulator is at https://mmj125.github.io/epistemic-demo/agricultural/prototypes/simulator.html.

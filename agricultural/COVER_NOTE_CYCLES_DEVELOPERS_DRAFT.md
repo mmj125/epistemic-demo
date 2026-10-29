@@ -1,4 +1,4 @@
-DRAFT, 2026-10-29, for Matt to edit before sending. Attach `RHIZO_METHODS_DRAFT.md` (or its .docx).
+DRAFT, 2026-10-29, for Matt to edit before sending. Attach `SPROUT_METHODS_DRAFT.md`.
 
 Subject: An independent reimplementation of Cycles from the paper and SI, and seven questions
 
