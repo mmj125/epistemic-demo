@@ -25,7 +25,7 @@ The target was to leave nothing in class C or D. We have not reached it, and Sec
 
 **Adoption rule.** A documented law replaces another if, at every nitrogen rate, pooled correlation with Cycles stays above 0.8 and the grain error rises by no more than about 0.05 Mg/ha. A change fitted to Cycles must show an improvement whose paired-bootstrap 95 percent interval on held-out sites excludes zero.
 
-**Test sites.** Development used a 24-site quick set and 94 sites (`sitesets/fresh94.json`). The 94 sites were used repeatedly to choose between options, and some constants measured on Cycles output came from runs on development sites, so they are a development set and not a clean test. A further 100 sites (`sitesets/holdout.json`) are locked for a single final report and have not been run.
+**Test sites.** Development used a 24-site quick set and 94 sites (`sitesets/fresh94.json`). The 94 sites were used repeatedly to choose between options, and some constants measured on Cycles output came from runs on development sites, so they are a development set and not a clean test. A further 100 sites (`sitesets/holdout.json`) were locked until 2026-10-30, when they were run once on the final engine (Section 7). The engine was frozen at that commit; the only code changes made during the run were guards that let the harness skip a site where Cycles harvests no crop.
 
 **How it was built and checked.** SPROUT was developed by a single author working with an AI coding assistant (Claude Code). Several of the subject areas are outside the author's own expertise, so the process was built so that nothing was accepted on the assistant's word or on trust. Every claim in this paper was checked against code, data or a source document before it was written, and a standing rule was that a number is treated as stale until it is re-read from a run. This practice also found mistakes, which are part of the record: a stale nitrogen-loss comparison, a soybean result read from a run that had not finished, a curve adopted on a secondhand report of a paper that, when read, said the opposite, and a harvest index slope first treated as fitted that turned out to be the documented formula. Each was corrected in the repository and the paper, and each is dated in the plan.
 
@@ -154,6 +154,18 @@ On 94 sites, 38 years each, with continuous crop chains (the final engine of 202
 | Sorghum | 0.888 / 0.850 / 0.887 | -5% / -8% / -6% | 0.65 / 1.21 / 1.26 |
 | Soybean | 0.944 | +13% | 0.52 |
 | Winter wheat | 0.910 / 0.853 / 0.844 | +3% / +6% / +3% | 0.38 / 0.67 / 0.78 |
+
+**Held-out sites.** The 100 locked sites were run once on 2026-10-30 with no change to the engine. One site (b058_440_720) was left out because Cycles harvested no crop there at any nitrogen rate, so 99 sites are scored. Pooled correlation with Cycles (95 percent interval from resampling sites), bias and grain error at N = 0 / 150 / 400 (wheat 0 / 90 / 150):
+
+| Crop | Pooled r | Bias | Grain MAE (Mg/ha) |
+|---|---|---|---|
+| Corn | 0.915 / 0.907 / 0.953 | -9% / 0% / 0% | 0.54 / 0.99 / 0.84 |
+| Silage corn | 0.904 / 0.898 / 0.939 | +6% / +2% / +2% | 0.99 / 1.61 / 1.42 |
+| Sorghum | 0.919 / 0.876 / 0.900 | -5% / -7% / -3% | 0.51 / 1.10 / 1.08 |
+| Soybean | 0.952 | +14% | 0.53 |
+| Winter wheat | 0.946 / 0.871 / 0.850 | -4% / +4% / +2% | 0.28 / 0.60 / 0.76 |
+
+All pooled correlations are above 0.8, so the target holds on sites not used in development. The lowest 95 percent lower bounds are 0.803 (wheat at N = 150), 0.827 (wheat at N = 90), 0.838 (sorghum at N = 150) and 0.843 (corn at N = 0); all others are 0.852 or higher. The point values are higher than on the development sites in every case, by 0.04 or less (wheat was 60 development sites against 99 here). Corn at N = 0 is 9 percent low here against 4 percent on the development sites. The holdout is a check against Cycles, not against observations: we have not assembled county yields for these sites. Nitrogen loss ratios (engine over Cycles, mean annual leaching at N = 0 / 150 / 400) are corn 1.09 / 1.23 / 1.27, silage 1.42 / 1.59 / 1.33, sorghum 0.84 / 1.17 / 1.14, soybean 0.94, wheat 1.02 / 1.26 / 1.34.
 
 Pooled correlation does not measure the response to nitrogen. On the last panel of response checks (run before the residue changes of 2026-10-29), the 0 to 150 kg response matched Cycles and the 150 to 400 kg response was 63 to 79 percent of Cycles' for corn, silage and sorghum.
 

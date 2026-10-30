@@ -217,6 +217,8 @@ if __name__=="__main__":
                     shutil.rmtree(_od,ignore_errors=True); cev.NLAYER_FORCE=_nf
                 E=engine(site,wx,soil,cl,N,mode); cev.FORCE_SERIES=None; cev.NLAYER_FORCE=None
                 ys=sorted(set(H)&set(E))
+                if not ys:   # 2026-10-30: Cycles harvested no crop at this site and N rate (nothing to score); recorded, not dropped silently
+                    print('NOYEARS',site,N,flush=True); continue
                 row={}
                 for var,gr,ge in [("grain",lambda y:H[y]["grain"],lambda y:E[y]["forage" if CROPSEL=='silage' else "grain"]),("total_biomass",lambda y:H[y]["total"],lambda y:E[y]["total"]),
                                   ("plant_doy",lambda y:doy_of(H[y]["plant"]),lambda y:E[y]["plant_doy"])]:

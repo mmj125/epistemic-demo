@@ -113,6 +113,8 @@ def one(a):
         H=cycles_ref(fs,N)
         for tag,calib in (("calib",None),("raw",1.0)):
             R=engine_chain(wx,soil,cl,N,calib); ys=[y for y in sorted(set(H)&set(R)) if y>1981]
+            if not ys:   # 2026-10-30: Cycles harvested no crop at this site and N rate; recorded and the site left out
+                print('NOYEARS',site,N,flush=True); return site,name,None
             row={}
             for v,hk,rk in (("grain","grain","grain"),("total_biomass","total","total")):
                 x=[H[y][hk] for y in ys]; z=[R[y][rk] for y in ys]
@@ -126,6 +128,7 @@ def one(a):
 if __name__=="__main__":
     S=json.load(open(os.environ.get('SITESET','sitesets/fresh94.json'))); ks=sorted(S); n=int(os.environ.get("NSITES","30")); ks=[ks[i] for i in range(int(os.environ.get('SITEOFF','0')),len(ks),max(1,len(ks)//n))][:n]   # SITEOFF=1 or 2 gives a disjoint stride set
     with Pool(int(os.environ.get("NPROC","4"))) as p: R=p.map(one,[(k,S[k]) for k in ks])
+    R=[r for r in R if r[2] is not None]
     json.dump(R,open(os.environ.get("OUT_JSON","/tmp/w/wheat_ms.json"),"w"))
     for N in (0,90,150):
         for tag in ("calib","raw"):
