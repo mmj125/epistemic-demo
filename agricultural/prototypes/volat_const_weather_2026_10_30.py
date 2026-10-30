@@ -2,7 +2,7 @@
 import re,subprocess,shutil,csv,os,glob,numpy as np
 CY="/tmp/cycles-run15"; BASE="f001_450_1020"
 def rd(p): return [r for r in csv.DictReader(l for l in open(p) if not l.startswith('#'))]
-def run(spread=0.0,rain_every=0,T=15.0,wind=3.0,clay=10.0,sand=60.0,fc=0.25,pwp=0.10,bd=1.4,rh=70.0,solar=15.0,rain=0.0,days=14):
+def run(thick1=None,appdepth=None,spread=0.0,rain_every=0,T=15.0,wind=3.0,clay=10.0,sand=60.0,fc=0.25,pwp=0.10,bd=1.4,rh=70.0,solar=15.0,rain=0.0,days=14):
     nm="cwv"
     # weather: constant, 1980 to 1981 (leap year handled by 366/365 rows)
     rows=["LATITUDE                45.000000","ALTITUDE                0.000000","SCREENING_HEIGHT        10.0","YEAR    DOY     PP      TX      TN      SOLAR   RHX     RHN     WIND","####    ###     mm      deg C   deg C   MJ/m2   %       %       m/s"]
@@ -13,12 +13,15 @@ def run(spread=0.0,rain_every=0,T=15.0,wind=3.0,clay=10.0,sand=60.0,fc=0.25,pwp=
     names=[r for r in L if r and r[0]=="LAYER"][0]; ic,is_,ib,ifc,ipw=[names.index(c) for c in ("CLAY","SAND","BD","FC","PWP")]
     out=[]
     for r in L:
+        if r and r[0].isdigit() and thick1 is not None and r[0]=='1': r=list(r); r[1]=str(thick1)
         if r and r[0].isdigit(): r=list(r); r[ic]=str(clay); r[is_]=str(sand); r[ib]=str(bd); r[ifc]=str(fc); r[ipw]=str(pwp)
         out.append("\t".join(r))
     open(f"{CY}/input/{nm}.soil","w").write("\n".join(out))
     c=open(f"{CY}/input/{BASE}N150.ctrl").read().replace(f"{BASE}.soil",f"{nm}.soil").replace(f"{BASE}.weather",f"{nm}.weather").replace("SIMULATION_END_YEAR     2016","SIMULATION_END_YEAR     1981")
     open(f"{CY}/input/{nm}.ctrl","w").write(c)
-    shutil.copy(f"{CY}/input/{BASE}N150.operation",f"{CY}/input/{nm}.operation")
+    opt=open(f"{CY}/input/{BASE}N150.operation").read()
+    if appdepth is not None: opt=re.sub(r'(?m)^DEPTH\s+\S+',f'DEPTH                               {appdepth}',opt)
+    open(f"{CY}/input/{nm}.operation",'w').write(opt)
     c=open(f"{CY}/input/{nm}.ctrl").read().replace(f"{BASE}N150.operation",f"{nm}.operation"); open(f"{CY}/input/{nm}.ctrl","w").write(c)
     subprocess.run(["./Cycles",nm],cwd=CY,capture_output=True); d=f"{CY}/output/{nm}/"
     N=rd(d+"dailyN.csv"); Ly=rd(d+"dailySoilLayersCN.csv"); W=rd(d+"dailyWater.csv"); shutil.rmtree(d,ignore_errors=True)

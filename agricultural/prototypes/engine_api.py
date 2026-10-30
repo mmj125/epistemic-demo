@@ -173,7 +173,7 @@ def _make_layers(soil):
         for l in soil:
             h = E.saxton_rawls(l["sand"], l["clay"], l["soc"] * E.OM_FROM_SOC, l.get("fc"), l.get("pwp"), l.get("bd"))
             L.append(dict(thick=l["thick"], fc=h["fc"], pwp=h["pwp"], sat=h["sat"], theta=h["pwp"] + E.INITIAL_MOISTURE_FRACTION * (h["fc"] - h["pwp"]),
-                          ksat_mm_day=h["ksat_mm_day"], psi_e_kpa=h["psi_e_kpa"], B=h["B"]))
+                          ksat_mm_day=h["ksat_mm_day"], psi_e_kpa=h["psi_e_kpa"], B=h["B"], clay=l["clay"]))
         return L
     return ml
 

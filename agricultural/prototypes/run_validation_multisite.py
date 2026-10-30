@@ -129,7 +129,7 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
         L=[]
         for l in soil_raw:
             h=saxton_rawls(l["sand"],l["clay"],l["soc"]*OM_FROM_SOC)
-            L.append(dict(thick=l["thick"],fc=h["fc"],pwp=h["pwp"],sat=h["sat"],theta=h["pwp"]+INITIAL_MOISTURE_FRACTION*(h["fc"]-h["pwp"]),ksat_mm_day=h["ksat_mm_day"],psi_e_kpa=h["psi_e_kpa"],B=h["B"]))
+            L.append(dict(clay=l["clay"],thick=l["thick"],fc=h["fc"],pwp=h["pwp"],sat=h["sat"],theta=h["pwp"]+INITIAL_MOISTURE_FRACTION*(h["fc"]-h["pwp"]),ksat_mm_day=h["ksat_mm_day"],psi_e_kpa=h["psi_e_kpa"],B=h["B"]))
         return L
     crop["make_layers"]=ml
     for _o in os.environ.get("CROPOVR","").split(";"):   # 2026-10-16: per-run crop-dict overrides for any crop (corn or soy), NAME=VALUE;NAME=VALUE

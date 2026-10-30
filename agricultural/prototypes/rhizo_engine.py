@@ -3277,10 +3277,47 @@ VOLAT_KD_L_KG = 5.6   # ammonium sorption coefficient of the soil, L water per k
 VOLAT_PH_SLOPE = 0.0   # ln-units of flux per pH unit above 7 (0 = off, as in Cycles); chemistry gives about ln(10) = 2.3 below pKa 9.25
 
 
-def volatilization_flux(tsoil, nh4_kg_ha, layer0, wind_ms, ph=None):
+VOLAT_FORM = "physical"   # "designed": the structure read from designed Cycles runs under constant weather (2026-10-30): daily loss = NH4 x rate, rate = g(clay) / 3 x h(thickness) x wind x Arrhenius(T_eff) x BD / theta
+VOLAT_G_CLAY = ((0.5, 0.000854), (1.5, 0.000817), (3.0, 0.000766), (5.0, 0.000703), (8.0, 0.000621), (12.0, 0.000532), (16.0, 0.000461), (20.0, 0.000403), (25.0, 0.000348), (30.0, 0.000306), (40.0, 0.000250), (50.0, 0.000218), (60.0, 0.000199))   # rate x theta / BD at 15 C and 3 m/s per clay percent (layer 1 thickness 0.10 m)
+VOLAT_H_THICK = ((0.08, 1.119), (0.10, 1.0), (0.13, 0.9231), (0.15, 0.9008), (0.18, 0.8842), (0.20, 0.8781), (0.25, 0.8709), (0.30, 0.868), (0.40, 0.866), (0.66, 0.865), (1.0, 0.8648))   # relative to a 0.10 m layer 1
+VOLAT_RES_K = 0.72   # per Mg/ha of flat surface residue: designed Cycles runs with 0.03 to 2.6 Mg/ha flat residue (volat_residue_designed_2026_10_30.py) give a loss factor of about exp(-0.7 M); the standing share does not shield
+VOLAT_ARRHENIUS_K = 9641.0   # K, slope of ln(rate) against 1/T in the designed runs (Emerson dissociation 6286 K plus Hales and Drewes Henry constant 3402 K = 9688 K)
+
+
+def _flat_residue_mg_ha(sixpool_state):
+    if sixpool_state is None:
+        return 0.0
+    return max(0.0, sixpool_state.get("cra", 0.0)) * (1.0 - sixpool_state.get("cra_fs", RES_STANDING_AT_HARVEST)) / CARBON_FRACTION_DM
+
+
+def _interp(table, x):
+    if x <= table[0][0]:
+        return table[0][1]
+    for (x0, y0), (x1, y1) in zip(table, table[1:]):
+        if x <= x1:
+            return y0 + (y1 - y0) * (x - x0) / (x1 - x0)
+    return table[-1][1]
+
+
+def volatilization_designed(nh4_kg_ha, layer0, wind_ms, tmax, tmin):
+    """Daily NH3 loss from the layer-1 ammonium pool with the structure identified by designed Cycles runs (volat_const_weather_2026_10_30.py)."""
+    if nh4_kg_ha <= 0.0 or wind_ms <= 0.0:
+        return 0.0
+    t_eff = (2.0 * tmax + tmin) / 3.0 + 273.15
+    arr = math.exp(VOLAT_ARRHENIUS_K * (1.0 / 288.15 - 1.0 / t_eff))
+    g = _interp(VOLAT_G_CLAY, layer0.get("clay", 25.0)) / 3.0
+    h = _interp(VOLAT_H_THICK, layer0["thick"])
+    bd = sixpool_bulk_density(layer0["sat"])
+    th = max(0.03, layer0["theta"])
+    return min(nh4_kg_ha, nh4_kg_ha * g * h * wind_ms * arr * bd / th)
+
+
+def volatilization_flux(tsoil, nh4_kg_ha, layer0, wind_ms, ph=None, tmax=None, tmin=None, flat_residue_mg_ha=0.0):
     """Daily NH3 loss (kg N/ha) from the layer-1 ammonium pool; never more than the pool."""
     if nh4_kg_ha <= 0.0 or wind_ms <= 0.0:
         return 0.0
+    if VOLAT_FORM == "designed" and tmax is not None:
+        return volatilization_designed(nh4_kg_ha, layer0, wind_ms, tmax, tmin) * math.exp(-VOLAT_RES_K * flat_residue_mg_ha)
     if VOLAT_AERO_PH is not None:
         # Montes, Rotz and Chaoui 2009 Eqs 4, 10, 11 (dissociation and Henry constants) with an aerodynamic transfer, flux = gas-phase NH3 at the surface / r_a, r_a = 208 / u2 (FAO-56 Eq. 4)
         # as the paper recommends for field surfaces. TAN concentration is the ammonium of layer 1 in the soil water (no sorption unless VOLAT_KD_L_KG > 0).
@@ -3441,7 +3478,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             nstate["n_nh4"] += _dep; nstate["n_no3"] += _dep
             if no3_layers is not None: no3_layers[0] += _dep
         nit = nitrification_flux_ratio(nstate["n_nh4"], (no3_layers[0] if no3_layers is not None else nstate["n_no3"]), nstate["tsoil_lag"], layers[0]["theta"] / layers[0]["sat"], layers[0])
-        vol = (volatilization_flux(nstate["tsoil_lag"], nstate["n_nh4"], layers[0], w["wind"], layers[0].get("ph"))
+        vol = (volatilization_flux(nstate["tsoil_lag"], nstate["n_nh4"], layers[0], w["wind"], layers[0].get("ph"), w["tx"], w["tn"], _flat_residue_mg_ha(sixpool_state))
                if model_volatilization and VOLAT_MACNACK_PH is None else 0.0)
         nstate["n_nh4"] = max(0.0, nstate["n_nh4"] - nit - vol)
         nstate["n_no3"] += nit
@@ -4602,7 +4639,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 n_nh4 += _dep; n_no3 += _dep
                 if no3_layers is not None: no3_layers[0] += _dep
             nitrif_amt_today = nitrification_flux_ratio(n_nh4, (no3_layers[0] if no3_layers is not None else n_no3), tsoil_lag, layers[0]["theta"] / layers[0]["sat"], layers[0])
-            volat_amt_today = (volatilization_flux(tsoil_lag, n_nh4, layers[0], w["wind"], layers[0].get("ph"))
+            volat_amt_today = (volatilization_flux(tsoil_lag, n_nh4, layers[0], w["wind"], layers[0].get("ph"), w["tx"], w["tn"], _flat_residue_mg_ha(sixpool_state))
                                if model_volatilization and VOLAT_MACNACK_PH is None else 0.0)
             n_nh4 = max(0.0, n_nh4 - nitrif_amt_today - volat_amt_today)
             n_no3 += nitrif_amt_today

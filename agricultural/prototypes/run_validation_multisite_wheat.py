@@ -69,7 +69,7 @@ def engine_chain(wx,soil,cl,N,calib):
         L=[]
         for l in soil:
             h=m.saxton_rawls(l["sand"],l["clay"],l["soc"]*m.OM_FROM_SOC)
-            L.append(dict(thick=l["thick"],fc=h["fc"],pwp=h["pwp"],sat=h["sat"],theta=h["pwp"]+m.INITIAL_MOISTURE_FRACTION*(h["fc"]-h["pwp"]),ksat_mm_day=h["ksat_mm_day"],psi_e_kpa=h["psi_e_kpa"],B=h["B"]))
+            L.append(dict(clay=l["clay"],thick=l["thick"],fc=h["fc"],pwp=h["pwp"],sat=h["sat"],theta=h["pwp"]+m.INITIAL_MOISTURE_FRACTION*(h["fc"]-h["pwp"]),ksat_mm_day=h["ksat_mm_day"],psi_e_kpa=h["psi_e_kpa"],B=h["B"]))
         return L
     crop["make_layers"]=ml
     for _o in os.environ.get("CROPOVR","").split(";"):   # per-run crop overrides, NAME=VALUE;NAME=VALUE
