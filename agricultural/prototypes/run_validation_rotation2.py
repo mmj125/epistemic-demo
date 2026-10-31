@@ -40,7 +40,7 @@ def make_layers():
 
 SOYBEAN = dict(
     wue_co2_exp=0.38, rue_co2_exp=0.38,   # C3: FACE soybean and wheat yield +14% at 550 ppm (Ainsworth and Long 2021), (550/390)^0.38 = 1.14
-    canopy_shape_faithful=(6, -20, -16, 15), canopy_paper=True, canopy_form='D', canopy_water_pow=1.0, eix_faithful=0.924, ngf_faithful=1.0,  # 2026-10-18 measured on Cycles' unstressed soybean days (14 sites, rms 0.0048), see CANOPY_FAITHFUL
+    plant_window=(120, 140), canopy_shape_faithful=(6, -20, -16, 15), canopy_paper=True, canopy_form='D', canopy_water_pow=1.0, eix_faithful=0.924, ngf_faithful=1.0,  # 2026-10-18 measured on Cycles' unstressed soybean days (14 sites, rms 0.0048), see CANOPY_FAITHFUL
                c1_water=True,  # 2026-10-15 c1 package (REFIT_PLAN rows 39-41)
                tt_maturity=2250, flowering_tt=1250, base_t=5, opt_t=28, max_t=43,
                rue=1.3, wue=4.5, hi_x=0.4, hi_o=0.15, hi_slope=3.4, fsti=0.45, fstf=0.95,   # HI law fitted to Cycles' SoybeanMG.5 at 94 sites (soy_hi_fit.py, row 53); was placeholders 0.4/0.15/1.0

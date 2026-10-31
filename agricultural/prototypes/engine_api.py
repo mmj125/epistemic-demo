@@ -21,7 +21,7 @@ _CORN = {'n_crit_lemaire': (3.4, 0.37), 'n_demand_scale': 1.0, 'n_stress_n0': 0.
          'canopy_shape_faithful': (6, -20, -16, 15), 'canopy_paper': True, 'canopy_form': 'D', 'canopy_water_pow': 1.0, 'gj_seed_root': 25.0, 'eix_faithful': 0.951, 'ngf_faithful': 1.0, 'kc': 1.1, 'eix': 1.0, 'tr_min_t': 3.0, 'tr_threshold_t': 15.0, 'lat_deg': 40.6875,
          'n_max_conc': 0.055, 'n_dilution_slope': 0.4, 'legume': False, 'n_min_conc': 0.002, 'depletion_fraction': 0.55, 'tr_max_mm_day': 10, 'root_max_m': 2.0, 'tt_emergence': 65,
          'lwp_stress_onset': -1100, 'lwp_wilting_point': -2000, 'threshold_temp_cold_damage': 3}
-_SOYBEAN = {'wue_co2_exp': 0.38, 'rue_co2_exp': 0.38, 'canopy_shape_faithful': (6, -20, -16, 15), 'canopy_paper': True, 'canopy_form': 'D', 'canopy_water_pow': 1.0, 'eix_faithful': 0.924, 'ngf_faithful': 1.0, 'c1_water': True, 'tt_maturity': 2250, 'flowering_tt': 1250, 'base_t': 5, 'opt_t': 28,
+_SOYBEAN = {'wue_co2_exp': 0.38, 'rue_co2_exp': 0.38, 'plant_window': (120, 140), 'canopy_shape_faithful': (6, -20, -16, 15), 'canopy_paper': True, 'canopy_form': 'D', 'canopy_water_pow': 1.0, 'eix_faithful': 0.924, 'ngf_faithful': 1.0, 'c1_water': True, 'tt_maturity': 2250, 'flowering_tt': 1250, 'base_t': 5, 'opt_t': 28,
             'max_t': 43, 'rue': 1.3, 'wue': 4.5, 'hi_x': 0.4, 'hi_o': 0.15, 'hi_slope': 3.4, 'fsti': 0.45, 'fstf': 0.95, 'kc': 1.0, 'eix': 1.0, 'tr_min_t': 3.0, 'tr_threshold_t': 15.0,
             'lat_deg': 40.6875, 'calibration_factor': 1.0, 'n_max_conc': 0.07, 'n_dilution_slope': 0.4, 'legume': True, 'depletion_fraction': 0.5, 'tr_max_mm_day': 8, 'root_max_m': 1.5,
             'tt_emergence': 70, 'lwp_stress_onset': -1100, 'lwp_wilting_point': -1800, 'threshold_temp_cold_damage': 2}
@@ -132,7 +132,7 @@ ENGINE_INFO = {
         ["Corn", "0 / 150 / 400", "0.91 / 0.89 / 0.94", "+4 / +2 / -2", "0.62 / 1.06 / 0.91"],
         ["Silage corn", "0 / 150 / 400", "0.89 / 0.89 / 0.93", "+14 / +2 / +1", "1.14 / 1.66 / 1.52"],
         ["Sorghum", "0 / 150 / 400", "0.87 / 0.86 / 0.91", "-13 / -10 / -8", "0.72 / 1.20 / 1.16"],
-        ["Soybean", "none", "0.95", "+8", "0.40"],
+        ["Soybean", "none", "0.96", "+5", "0.36"],
         ["Winter wheat", "0 / 90 / 150", "0.91 / 0.85 / 0.84", "+3 / +6 / +3", "0.38 / 0.67 / 0.78"],
     ],
     "observations": [

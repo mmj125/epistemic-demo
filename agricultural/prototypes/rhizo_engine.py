@@ -3545,7 +3545,8 @@ def _season_chain(weather_by_year, year_range, crop, plant_window, plant_min_soi
         tsoil = simulate_soil_temp([(d[k]["tx"] + d[k]["tn"]) / 2 for k in doys], k=0.15)
         _yp = (year_plan or {}).get(y, {})   # 2026-10-23: optional per-year plan {year: dict(crop=, plant_doy=, kw={season kwargs overrides})}; None = unchanged behaviour
         ycrop = _yp.get("crop", crop)
-        plant_doy = _yp.get("plant_doy") or find_planting_doy(dict(zip(doys, tsoil)), plant_window, plant_min_soil_t)
+        _pw = ycrop.get("plant_window") if (ycrop.get("plant_window") and tuple(plant_window) == (110, 131)) else plant_window   # crop's own window from its operation file (soybean 120 to 140) unless the caller set one
+        plant_doy = _yp.get("plant_doy") or find_planting_doy(dict(zip(doys, tsoil)), _pw, plant_min_soil_t)
         rows = [d[k] for k in range(plant_doy, 300) if k in d]
         _spin0 = 1
         _cover_res = None
