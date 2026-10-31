@@ -18,7 +18,7 @@ API_VERSION = 1
 # ---- crops (the validated per-crop configurations; sorghum, silage and soybean exactly as the multi-site runner builds them) ----
 _CORN = {'n_crit_lemaire': (3.4, 0.37), 'n_demand_scale': 1.0, 'n_stress_n0': 0.2, 'n_uptake_gj': True, 'weps_k': 0.01, 'wue_co2_exp': 0.45, 'rue_co2_exp': 0.0, 'residue_grain_n': 0.70, 'senes_delay': 0.12, 'senes_k': 1.0, 'root_retained_frac': 0.6, 'n_demand_ref': True, 'n_stress_ag_basis': True, 'n_uptake_rate': 0.03, 'c1_water': True, 'tt_maturity': 1800, 'flowering_tt': 1000, 'base_t': 6, 'opt_t': 28, 'max_t': 46,
          'rue': 2.2, 'wue': 8.7, 'hi_x': 0.8, 'hi_o': 0.15, 'hi_slope': 1.3077, 'fsti': 0.45, 'fstf': 0.95, 'calibration_factor': 1.0, 'canopy_shape': (6, -20, -5.35, 4.1),
-         'canopy_shape_faithful': (6, -20, -16, 15), 'canopy_paper': True, 'canopy_form': 'D', 'canopy_water_pow': 1.0, 'eix_faithful': 0.951, 'ngf_faithful': 1.0, 'kc': 1.1, 'eix': 1.0, 'tr_min_t': 3.0, 'tr_threshold_t': 15.0, 'lat_deg': 40.6875,
+         'canopy_shape_faithful': (6, -20, -16, 15), 'canopy_paper': True, 'canopy_form': 'D', 'canopy_water_pow': 1.0, 'gj_seed_root': 25.0, 'eix_faithful': 0.951, 'ngf_faithful': 1.0, 'kc': 1.1, 'eix': 1.0, 'tr_min_t': 3.0, 'tr_threshold_t': 15.0, 'lat_deg': 40.6875,
          'n_max_conc': 0.055, 'n_dilution_slope': 0.4, 'legume': False, 'n_min_conc': 0.002, 'depletion_fraction': 0.55, 'tr_max_mm_day': 10, 'root_max_m': 2.0, 'tt_emergence': 65,
          'lwp_stress_onset': -1100, 'lwp_wilting_point': -2000, 'threshold_temp_cold_damage': 3}
 _SOYBEAN = {'wue_co2_exp': 0.38, 'rue_co2_exp': 0.38, 'canopy_shape_faithful': (6, -20, -16, 15), 'canopy_paper': True, 'canopy_form': 'D', 'canopy_water_pow': 1.0, 'eix_faithful': 0.924, 'ngf_faithful': 1.0, 'c1_water': True, 'tt_maturity': 2250, 'flowering_tt': 1250, 'base_t': 5, 'opt_t': 28,
@@ -27,7 +27,7 @@ _SOYBEAN = {'wue_co2_exp': 0.38, 'rue_co2_exp': 0.38, 'canopy_shape_faithful': (
             'tt_emergence': 70, 'lwp_stress_onset': -1100, 'lwp_wilting_point': -1800, 'threshold_temp_cold_damage': 2}
 _SILAGE = {'n_crit_lemaire': (3.4, 0.37), 'n_demand_scale': 1.0, 'n_stress_n0': 0.2, 'weps_k': 0.01, 'wue_co2_exp': 0.45, 'rue_co2_exp': 0.0, 'n_uptake_gj': True, 'senes_delay': 0.12, 'senes_k': 1.0, 'tt_maturity': 1800, 'flowering_tt': 1000, 'base_t': 6, 'opt_t': 28, 'max_t': 46, 'rue': 2.2, 'wue': 8.7, 'hi_x': 0.8, 'hi_o': 0.15, 'hi_slope': 1.0, 'fsti': 0.45, 'fstf': 0.95, 'kc': 1.1,
            'eix': 1.0, 'tr_min_t': 3.0, 'tr_threshold_t': 15.0, 'lat_deg': 40.6875, 'forage_fraction': 0.95, 'calibration_factor': 1.0, 'depletion_fraction': 0.55,
-           'canopy_shape_faithful': (6, -20, -16, 15), 'canopy_paper': True, 'canopy_form': 'D', 'canopy_water_pow': 1.0, 'eix_faithful': 0.946, 'ngf_faithful': 1.0, 'canopy_shape': (6, -20, -5.35, 4.1), 'tr_max_mm_day': 10, 'root_max_m': 1.55,
+           'canopy_shape_faithful': (6, -20, -16, 15), 'canopy_paper': True, 'canopy_form': 'D', 'canopy_water_pow': 1.0, 'gj_seed_root': 25.0, 'eix_faithful': 0.946, 'ngf_faithful': 1.0, 'canopy_shape': (6, -20, -5.35, 4.1), 'tr_max_mm_day': 10, 'root_max_m': 1.55,
            'tt_emergence': 65, 'n_max_conc': 0.055, 'n_dilution_slope': 0.4, 'legume': False, 'n_min_conc': 0.002, 'lwp_stress_onset': -1100, 'lwp_wilting_point': -2000,
            'threshold_temp_cold_damage': 3, 'n_demand_ref': True, 'n_stress_ag_basis': True, 'n_uptake_rate': 0.03, 'root_retained_frac': 0.6}
 _SORGHUM_OVER = dict(n_crit_lemaire=(3.9, 0.39), residue_grain_n=0.70, senes_delay=0.0, senes_k=0.0, tt_maturity=2050, flowering_tt=1300, rue=2.0, wue=9.6, tr_min_t=6, tr_threshold_t=18, kc=1.0, lwp_stress_onset=-1400, lwp_wilting_point=-2300, tr_max_mm_day=9, root_max_m=2.0,
@@ -129,8 +129,8 @@ ENGINE_INFO = {
     "validation_note": "Agreement with Cycles v1.5.20 on identical weather and soil, held-out sites, 1980 to 2016 (94 sites for spring crops, 60 for winter wheat). r is the correlation across all site-years pooled; bias and error are the model minus Cycles in grain yield. Cycles itself disagrees with its own variants by about 0.17 to 1.4 Mg/ha depending on what changes. Atmospheric nitrogen deposition is off by default, as in Cycles; the run option 'Atmospheric N deposition' adds it (about 8 kg N/ha/yr in Iowa fields).",
     "validation_columns": ["Crop", "N rate (kg N/ha)", "r", "Bias (%)", "Mean abs error (Mg/ha)"],
     "validation": [
-        ["Corn", "0 / 150 / 400", "0.89 / 0.89 / 0.94", "+2 / +2 / -3", "0.70 / 1.06 / 0.91"],
-        ["Silage corn", "0 / 150 / 400", "0.88 / 0.89 / 0.93", "+10 / +2 / +1", "1.18 / 1.67 / 1.52"],
+        ["Corn", "0 / 150 / 400", "0.91 / 0.89 / 0.94", "+4 / +2 / -2", "0.62 / 1.06 / 0.91"],
+        ["Silage corn", "0 / 150 / 400", "0.89 / 0.89 / 0.93", "+14 / +2 / +1", "1.14 / 1.66 / 1.52"],
         ["Sorghum", "0 / 150 / 400", "0.87 / 0.86 / 0.91", "-13 / -10 / -8", "0.72 / 1.20 / 1.16"],
         ["Soybean", "none", "0.95", "+8", "0.40"],
         ["Winter wheat", "0 / 90 / 150", "0.91 / 0.85 / 0.84", "+3 / +6 / +3", "0.38 / 0.67 / 0.78"],

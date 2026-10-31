@@ -276,7 +276,7 @@ CORN_SILAGE = dict(n_crit_lemaire=(3.4, 0.37), n_demand_scale=1.0, n_stress_n0=0
                     # water-stress mechanism (campbell_water_uptake()) -- correlation essentially
                     # unchanged from that switch (0.518 -> 0.516)
                     depletion_fraction=0.55,  # real FAO-56 Table 22 value, same crop biology as grain corn
-                    canopy_shape_faithful=(6, -20, -16, 15), canopy_paper=True, canopy_form='D', canopy_water_pow=1.0, eix_faithful=0.946, ngf_faithful=1.0,  # 2026-10-18 measured on Cycles' unstressed silage corn days (rms 0.0024), see CANOPY_FAITHFUL
+                    canopy_shape_faithful=(6, -20, -16, 15), canopy_paper=True, canopy_form='D', canopy_water_pow=1.0, gj_seed_root=25.0, eix_faithful=0.946, ngf_faithful=1.0,  # 2026-10-18 measured on Cycles' unstressed silage corn days (rms 0.0024), see CANOPY_FAITHFUL
                     canopy_shape=CORN_CANOPY_SHAPE,  # real fix (thermal time, canopy shape, harvest
                     # date, forage ratio all individually verified accurate) does NOT move correlation
                     # (0.503 -> 0.501) -- see MECHANISM_LOG.md, this is a distinct, still-open item

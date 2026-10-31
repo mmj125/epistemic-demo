@@ -4884,7 +4884,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 _urs = crop.get("n_uptake_rate", N_UPTAKE_RATE_PER_DAY)
                 _caps = _reach if _urs is None else _reach * _urs
                 if crop.get("n_uptake_gj", GJ_N_UPTAKE):
-                    _caps = min(_reach, gj_n_uptake_cap(layers, root_depth, no3_layers, n_nh4, max(GJ_SEED_ROOT_KG_HA, (biomass - ag_biomass) * 1e4 / (crop.get("root_retained_frac", 1.0) if GJ_ROOT_TOTAL else 1.0)), crop.get("gj_srl"), gj_rl if GJ_RLV_STATE else None))
+                    _caps = min(_reach, gj_n_uptake_cap(layers, root_depth, no3_layers, n_nh4, max(crop.get("gj_seed_root", GJ_SEED_ROOT_KG_HA), (biomass - ag_biomass) * 1e4 / (crop.get("root_retained_frac", 1.0) if GJ_ROOT_TOTAL else 1.0)), crop.get("gj_srl"), gj_rl if GJ_RLV_STATE else None))
                 _sf_s = shoot_fraction(ttf, crop["fsti"], crop["fstf"], crop.get("ttf50")); _rr_s = crop.get("root_retained_frac", 1.0)
                 _bf = (1.0 if _rr_s >= 1.0 else (_sf_s + (1.0 - _sf_s) * _rr_s))
                 _mdp = n_marginal_demand_pct((biomass_ref if crop.get("n_demand_ref", N_DEMAND_REF) else biomass) * 10, crop) * crop.get("n_demand_scale", N_DEMAND_SCALE)
@@ -4943,7 +4943,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     _ur = crop.get("n_uptake_rate", N_UPTAKE_RATE_PER_DAY)
                     _cap = reachable if _ur is None else reachable * _ur
                     if crop.get("n_uptake_gj", GJ_N_UPTAKE):
-                        _cap = min(reachable, gj_n_uptake_cap(layers, root_depth, no3_layers, n_nh4, max(GJ_SEED_ROOT_KG_HA, (biomass - ag_biomass) * 1e4 / (crop.get("root_retained_frac", 1.0) if GJ_ROOT_TOTAL else 1.0)), crop.get("gj_srl"), gj_rl if GJ_RLV_STATE else None))
+                        _cap = min(reachable, gj_n_uptake_cap(layers, root_depth, no3_layers, n_nh4, max(crop.get("gj_seed_root", GJ_SEED_ROOT_KG_HA), (biomass - ag_biomass) * 1e4 / (crop.get("root_retained_frac", 1.0) if GJ_ROOT_TOTAL else 1.0)), crop.get("gj_srl"), gj_rl if GJ_RLV_STATE else None))
                     n_uptake_kg_ha = min(_cap, demand_today_kg_ha)
                     if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("uptake", ()):
                         n_uptake_kg_ha = min(reachable, _FORCE_CUR["uptake"][w["doy"]])   # diagnostic: Cycles' own daily plant N uptake
@@ -5007,7 +5007,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             _fl = root_length_fraction_by_layer(layers, root_depth)
             if not gj_rl_seeded:
                 gj_rl_seeded = True
-                _add0 = GJ_SEED_ROOT_KG_HA * 0.1 * GJ_SRL_M_PER_G * 100.0 / 1e4
+                _add0 = crop.get("gj_seed_root", GJ_SEED_ROOT_KG_HA) * 0.1 * GJ_SRL_M_PER_G * 100.0 / 1e4
                 for _i in range(len(layers)): gj_rl[_i] += _add0 * _fl[_i]
             _add = dGB * 1e4 * (1.0 - _sf_now) * 0.1 * crop.get("gj_srl", GJ_SRL_M_PER_G) * 100.0 / 1e4   # kg/m2 -> kg/ha -> g/m2 -> cm/g -> per cm2
             for _i in range(len(layers)): gj_rl[_i] += _add * _fl[_i]
