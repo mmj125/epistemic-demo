@@ -4537,16 +4537,28 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             # derivative is scaled by the stress rate, the senescence part is not. D evaluates the expansion derivative at the thermal clock (corn: offline daily canopy rms 0.136 -> 0.086 on 1776 Cycles
             # site-years with Cycles' stress forced); H evaluates it at the stress-slowed clock so a stressed canopy can catch up once stress eases (winter wheat: 0.200 -> 0.159 against 0.169 for D).
             _a, _b, _c, _d = _shape
-            _x = (tt_cum / _ttm_season) if _ttm_season else tt_dev / crop["tt_maturity"]
-            if _ei_state is None:
-                _ei_state = _eix / (1 + math.exp(_a) + math.exp(_c)); _xc_h = _x
-            _dx = (max(0.0, tt_cum - _ttdev_prev) / _ttm_season) if _ttm_season else max(0.0, tt_dev - _ttdev_prev) / crop["tt_maturity"]
+            if crop.get("canopy_paper"):   # the single axis TTf = thermal time / (MATURITY_TT - emergence), derivative taken at mid-day (plan 2026-10-31)
+                _den_tt = (_ttm_season or crop["tt_maturity"]) - crop.get("tt_emergence", 0.0)
+                _x = ((tt_cum if _ttm_season else tt_dev) - 0.5 * dtt) / _den_tt
+                if _ei_state is None:
+                    _ei_state = _eix / (1 + math.exp(_a) + math.exp(_c)); _xc_h = _x
+                _dx = max(0.0, (tt_cum if _ttm_season else tt_dev) - _ttdev_prev) / _den_tt
+            else:
+                _x = (tt_cum / _ttm_season) if _ttm_season else tt_dev / crop["tt_maturity"]
+                if _ei_state is None:
+                    _ei_state = _eix / (1 + math.exp(_a) + math.exp(_c)); _xc_h = _x
+                _dx = (max(0.0, tt_cum - _ttdev_prev) / _ttm_season) if _ttm_season else max(0.0, tt_dev - _ttdev_prev) / crop["tt_maturity"]
             _xe = _xc_h if _form == "H" else _x
             _e1 = math.exp(_a + _b * _xe); _e2 = math.exp(_c + _d * _x); _den = (1 + _e1 + _e2) ** 2
             _ei_state = max(0.0, min(_eix, _ei_state + _eix * (-_b * _e1 * _nf * _wf - _d * _e2) / _den * _dx))
             _xc_h += _dx * _nf * _wf
             _ttdev_prev = tt_cum if _ttm_season else tt_dev
             _ei = _ei_state
+        elif crop.get("canopy_paper"):
+            # 2026-10-31 (designed Cycles runs, plan entry of that date): the unstressed canopy is Eq. 6 on the single axis TTf = thermal time / (MATURITY_TT - THERMAL_TIME_TO_EMERGENCE), evaluated half a day back
+            # (the reported canopy is the end-of-day value of a daily integration), with constants 6, -20, -16, 15 (the paper prints -15 and 16).
+            _span = crop["tt_maturity"] - crop.get("tt_emergence", 0.0)
+            _ei = canopy_cover_two((tt_canopy - 0.5 * dtt) / _span, (tt_dev + tt_sen_extra - 0.5 * dtt) / _span, _eix, _shape)
         elif CANOPY_TWO_CLOCK:
             _ei = canopy_cover_two(tt_canopy / crop["tt_maturity"], (tt_dev + tt_sen_extra) / crop["tt_maturity"] - crop.get("senes_delay", CANOPY_SENES_DELAY), _eix, _shape)
         else:
