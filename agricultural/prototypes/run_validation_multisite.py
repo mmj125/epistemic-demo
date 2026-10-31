@@ -129,7 +129,7 @@ def engine(site,wx,soil_raw,cell_lat,N,mode,lead_years=2):
         L=[]
         for l in soil_raw:
             h=saxton_rawls(l["sand"],l["clay"],l["soc"]*OM_FROM_SOC)
-            L.append(dict(thick=l["thick"],fc=h["fc"],pwp=h["pwp"],sat=h["sat"],theta=h["pwp"]+INITIAL_MOISTURE_FRACTION*(h["fc"]-h["pwp"]),ksat_mm_day=h["ksat_mm_day"],psi_e_kpa=h["psi_e_kpa"],B=h["B"]))
+            L.append(dict(clay=l["clay"],thick=l["thick"],fc=h["fc"],pwp=h["pwp"],sat=h["sat"],theta=h["pwp"]+INITIAL_MOISTURE_FRACTION*(h["fc"]-h["pwp"]),ksat_mm_day=h["ksat_mm_day"],psi_e_kpa=h["psi_e_kpa"],B=h["B"]))
         return L
     crop["make_layers"]=ml
     for _o in os.environ.get("CROPOVR","").split(";"):   # 2026-10-16: per-run crop-dict overrides for any crop (corn or soy), NAME=VALUE;NAME=VALUE
@@ -217,6 +217,8 @@ if __name__=="__main__":
                     shutil.rmtree(_od,ignore_errors=True); cev.NLAYER_FORCE=_nf
                 E=engine(site,wx,soil,cl,N,mode); cev.FORCE_SERIES=None; cev.NLAYER_FORCE=None
                 ys=sorted(set(H)&set(E))
+                if not ys:   # 2026-10-30: Cycles harvested no crop at this site and N rate (nothing to score); recorded, not dropped silently
+                    print('NOYEARS',site,N,flush=True); continue
                 row={}
                 for var,gr,ge in [("grain",lambda y:H[y]["grain"],lambda y:E[y]["forage" if CROPSEL=='silage' else "grain"]),("total_biomass",lambda y:H[y]["total"],lambda y:E[y]["total"]),
                                   ("plant_doy",lambda y:doy_of(H[y]["plant"]),lambda y:E[y]["plant_doy"])]:

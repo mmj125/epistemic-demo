@@ -2589,6 +2589,7 @@ def _sixpool_core(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=N
         fd = sixpool_fd(cs, csx)
         ks_use = SIXPOOL_KS
 
+    _crtz_cn = state.get("crtz_cn", SIXPOOL_CN_CRTZ)   # root residue C:N: the constant, or the season's own when the crop carries root_n_plant_share
     crtz += root_c_input_mg_ha  # the only real carbon input modeled in this v1 scope -- see
     # sixpool_init_state's own docstring for why cra/crm have no input pathway here.
 
@@ -2650,7 +2651,7 @@ def _sixpool_core(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=N
     state["cs"], state["cm"], state["cra"], state["crtz"], state["crm"] = cs, cm, cra, crtz, crm
 
     n_released = (_n_ra
-                  + decomp_rtz * 1000 / SIXPOOL_CN_CRTZ
+                  + decomp_rtz * 1000 / _crtz_cn
                   + decomp_rm * 1000 / SIXPOOL_CN_CRM
                   + cm_loss * 1000 / SIXPOOL_CN_CM
                   + cs_loss * 1000 / SIXPOOL_CN_CS)
@@ -2662,22 +2663,22 @@ def _sixpool_core(state, tmean, relwet, root_c_input_mg_ha, ft_eff=1.0, layers=N
         nm = state.get("nm")
         if nm is None:
             nm = cm0 * 1000 / SIXPOOL_CN_CM
-        _n_dec = decomp_ra / state.get("cra_cn", SIXPOOL_CN_CRA) + decomp_rtz / SIXPOOL_CN_CRTZ + decomp_rm / SIXPOOL_CN_CRM
-        cnd = gross_residue_decomp / _n_dec if _n_dec > 1e-15 else SIXPOOL_CN_CRTZ
+        _n_dec = decomp_ra / state.get("cra_cn", SIXPOOL_CN_CRA) + decomp_rtz / _crtz_cn + decomp_rm / SIXPOOL_CN_CRM
+        cnd = gross_residue_decomp / _n_dec if _n_dec > 1e-15 else _crtz_cn
         _xr = (cnd / 110.0) ** 3
         _xn = ((state.get("n_conc1") or 0.0) / 8.0) ** 3
         cn_new = 8.5 + 5.5 * (_xr / (1.0 + _xr)) * ((0.5 - 0.5 / (1.0 + _xn)) if SIXPOOL_CN_SI14_PRINTED else (0.5 / (1.0 + _xn)))
         n_in = cm_gain_from_residue * 1000 / cn_new
         if DIAG_RESN is not None and _gross_eff > 1e-15:
-            DIAG_RESN.append((decomp_ra, n_in * decomp_ra * SIXPOOL_ML_RES_SCALE_SURF / _gross_eff, _n_ra, decomp_rtz, n_in * decomp_rtz * SIXPOOL_ML_RES_SCALE_BURIED / _gross_eff, decomp_rtz * 1000 / SIXPOOL_CN_CRTZ))
+            DIAG_RESN.append((decomp_ra, n_in * decomp_ra * SIXPOOL_ML_RES_SCALE_SURF / _gross_eff, _n_ra, decomp_rtz, n_in * decomp_rtz * SIXPOOL_ML_RES_SCALE_BURIED / _gross_eff, decomp_rtz * 1000 / _crtz_cn))
         n_loss_m = nm * cm_loss / cm0 if cm0 > 1e-12 else 0.0
         state["nm"] = max(0.0, nm + n_in - n_loss_m)
-        n_released = _n_ra + decomp_rtz * 1000 / SIXPOOL_CN_CRTZ + decomp_rm * 1000 / SIXPOOL_CN_CRM + n_loss_m + cs_loss * 1000 / SIXPOOL_CN_CS
+        n_released = _n_ra + decomp_rtz * 1000 / _crtz_cn + decomp_rm * 1000 / SIXPOOL_CN_CRM + n_loss_m + cs_loss * 1000 / SIXPOOL_CN_CS
         n_immobilized = n_in + cs_gain * 1000 / SIXPOOL_CN_CS
     if ml_sub and SIXPOOL_CN_VARIABLE:
-        state["res_net_n"] = (_n_ra + decomp_rtz * 1000 / SIXPOOL_CN_CRTZ + decomp_rm * 1000 / SIXPOOL_CN_CRM) - n_in
+        state["res_net_n"] = (_n_ra + decomp_rtz * 1000 / _crtz_cn + decomp_rm * 1000 / SIXPOOL_CN_CRM) - n_in
     else:
-        state["res_net_n"] = (_n_ra + decomp_rtz * 1000 / SIXPOOL_CN_CRTZ + decomp_rm * 1000 / SIXPOOL_CN_CRM) - cm_gain_from_residue * 1000 / SIXPOOL_CN_CM
+        state["res_net_n"] = (_n_ra + decomp_rtz * 1000 / _crtz_cn + decomp_rm * 1000 / SIXPOOL_CN_CRM) - cm_gain_from_residue * 1000 / SIXPOOL_CN_CM
     state["gmin"], state["gimm"] = n_released, n_immobilized   # gross flows (kg N/ha), exposed for the ammonium and nitrate bookkeeping
     if ml_sub:
         if SIXPOOL_DIAG is not None:
@@ -2832,6 +2833,7 @@ def sixpool_ml_step(state, tmean, layers, root_c_input_mg_ha, ft_eff=1.0):
             sub["cra"], sub["crm"], sub["cra_age"] = state["cra"], state["crm"], state["cra_age"]
             sub["cra_cn"] = state.get("cra_cn", SIXPOOL_CN_CRA)
             sub["cra_fr"] = state.get("cra_fr")
+        if "crtz_cn" in state: sub["crtz_cn"] = state["crtz_cn"]
         ft = ft_eff if sub["z0"] < SIXPOOL_ML_TILL_DEPTH_M else 1.0
         if DIAG_FE is not None: DIAG_FE.append((_DIAG_YEAR, _DIAG_CTX.get("doy"), i, t_layer, relwet, sixpool_fe(t_layer, relwet, True)))
         _v = sixpool_step(sub, t_layer, relwet, root_c_input_mg_ha * wts[i] / wsum, ft)
@@ -3277,10 +3279,47 @@ VOLAT_KD_L_KG = 5.6   # ammonium sorption coefficient of the soil, L water per k
 VOLAT_PH_SLOPE = 0.0   # ln-units of flux per pH unit above 7 (0 = off, as in Cycles); chemistry gives about ln(10) = 2.3 below pKa 9.25
 
 
-def volatilization_flux(tsoil, nh4_kg_ha, layer0, wind_ms, ph=None):
+VOLAT_FORM = "physical"   # "designed": the structure read from designed Cycles runs under constant weather (2026-10-30): daily loss = NH4 x rate, rate = g(clay) / 3 x h(thickness) x wind x Arrhenius(T_eff) x BD / theta
+VOLAT_G_CLAY = ((0.5, 0.000854), (1.5, 0.000817), (3.0, 0.000766), (5.0, 0.000703), (8.0, 0.000621), (12.0, 0.000532), (16.0, 0.000461), (20.0, 0.000403), (25.0, 0.000348), (30.0, 0.000306), (40.0, 0.000250), (50.0, 0.000218), (60.0, 0.000199))   # rate x theta / BD at 15 C and 3 m/s per clay percent (layer 1 thickness 0.10 m)
+VOLAT_H_THICK = ((0.08, 1.119), (0.10, 1.0), (0.13, 0.9231), (0.15, 0.9008), (0.18, 0.8842), (0.20, 0.8781), (0.25, 0.8709), (0.30, 0.868), (0.40, 0.866), (0.66, 0.865), (1.0, 0.8648))   # relative to a 0.10 m layer 1
+VOLAT_RES_K = 0.72   # per Mg/ha of flat surface residue: designed Cycles runs with 0.03 to 2.6 Mg/ha flat residue (volat_residue_designed_2026_10_30.py) give a loss factor of about exp(-0.7 M); the standing share does not shield
+VOLAT_ARRHENIUS_K = 9641.0   # K, slope of ln(rate) against 1/T in the designed runs (Emerson dissociation 6286 K plus Hales and Drewes Henry constant 3402 K = 9688 K)
+
+
+def _flat_residue_mg_ha(sixpool_state):
+    if sixpool_state is None:
+        return 0.0
+    return max(0.0, sixpool_state.get("cra", 0.0)) * (1.0 - sixpool_state.get("cra_fs", RES_STANDING_AT_HARVEST)) / CARBON_FRACTION_DM
+
+
+def _interp(table, x):
+    if x <= table[0][0]:
+        return table[0][1]
+    for (x0, y0), (x1, y1) in zip(table, table[1:]):
+        if x <= x1:
+            return y0 + (y1 - y0) * (x - x0) / (x1 - x0)
+    return table[-1][1]
+
+
+def volatilization_designed(nh4_kg_ha, layer0, wind_ms, tmax, tmin):
+    """Daily NH3 loss from the layer-1 ammonium pool with the structure identified by designed Cycles runs (volat_const_weather_2026_10_30.py)."""
+    if nh4_kg_ha <= 0.0 or wind_ms <= 0.0:
+        return 0.0
+    t_eff = (2.0 * tmax + tmin) / 3.0 + 273.15
+    arr = math.exp(VOLAT_ARRHENIUS_K * (1.0 / 288.15 - 1.0 / t_eff))
+    g = _interp(VOLAT_G_CLAY, layer0.get("clay", 25.0)) / 3.0
+    h = _interp(VOLAT_H_THICK, layer0["thick"])
+    bd = sixpool_bulk_density(layer0["sat"])
+    th = max(0.03, layer0["theta"])
+    return min(nh4_kg_ha, nh4_kg_ha * g * h * wind_ms * arr * bd / th)
+
+
+def volatilization_flux(tsoil, nh4_kg_ha, layer0, wind_ms, ph=None, tmax=None, tmin=None, flat_residue_mg_ha=0.0):
     """Daily NH3 loss (kg N/ha) from the layer-1 ammonium pool; never more than the pool."""
     if nh4_kg_ha <= 0.0 or wind_ms <= 0.0:
         return 0.0
+    if VOLAT_FORM == "designed" and tmax is not None:
+        return volatilization_designed(nh4_kg_ha, layer0, wind_ms, tmax, tmin) * math.exp(-VOLAT_RES_K * flat_residue_mg_ha)
     if VOLAT_AERO_PH is not None:
         # Montes, Rotz and Chaoui 2009 Eqs 4, 10, 11 (dissociation and Henry constants) with an aerodynamic transfer, flux = gas-phase NH3 at the surface / r_a, r_a = 208 / u2 (FAO-56 Eq. 4)
         # as the paper recommends for field surfaces. TAN concentration is the ammonium of layer 1 in the soil water (no sorption unless VOLAT_KD_L_KG > 0).
@@ -3441,7 +3480,7 @@ def run_fallow_n_window(layers, rows, nstate, sixpool_state=None, curve_number=7
             nstate["n_nh4"] += _dep; nstate["n_no3"] += _dep
             if no3_layers is not None: no3_layers[0] += _dep
         nit = nitrification_flux_ratio(nstate["n_nh4"], (no3_layers[0] if no3_layers is not None else nstate["n_no3"]), nstate["tsoil_lag"], layers[0]["theta"] / layers[0]["sat"], layers[0])
-        vol = (volatilization_flux(nstate["tsoil_lag"], nstate["n_nh4"], layers[0], w["wind"], layers[0].get("ph"))
+        vol = (volatilization_flux(nstate["tsoil_lag"], nstate["n_nh4"], layers[0], w["wind"], layers[0].get("ph"), w["tx"], w["tn"], _flat_residue_mg_ha(sixpool_state))
                if model_volatilization and VOLAT_MACNACK_PH is None else 0.0)
         nstate["n_nh4"] = max(0.0, nstate["n_nh4"] - nit - vol)
         nstate["n_no3"] += nit
@@ -4310,6 +4349,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
     n_fixed_total = 0.0
     n_rhizo_total = 0.0
     root_hold_c = 0.0
+    root_daily_c = 0.0   # root carbon already added to the pool this season (the share that leaves the plant daily)
     # n_pool_by_layer: the real per-layer tracking n_root_limited needs (see
     # simulate_season()'s own docstring) -- None whenever n_root_limited is False (the
     # default) or nitrogen tracking is off entirely, so every existing caller is unaffected.
@@ -4602,7 +4642,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 n_nh4 += _dep; n_no3 += _dep
                 if no3_layers is not None: no3_layers[0] += _dep
             nitrif_amt_today = nitrification_flux_ratio(n_nh4, (no3_layers[0] if no3_layers is not None else n_no3), tsoil_lag, layers[0]["theta"] / layers[0]["sat"], layers[0])
-            volat_amt_today = (volatilization_flux(tsoil_lag, n_nh4, layers[0], w["wind"], layers[0].get("ph"))
+            volat_amt_today = (volatilization_flux(tsoil_lag, n_nh4, layers[0], w["wind"], layers[0].get("ph"), w["tx"], w["tn"], _flat_residue_mg_ha(sixpool_state))
                                if model_volatilization and VOLAT_MACNACK_PH is None else 0.0)
             n_nh4 = max(0.0, n_nh4 - nitrif_amt_today - volat_amt_today)
             n_no3 += nitrif_amt_today
@@ -4746,6 +4786,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     _rr_h = crop.get("root_retained_frac", 1.0)
                     root_hold_c += root_c_input_today * _rr_h
                     root_c_input_today = root_c_input_today * (1.0 - _rr_h)
+                root_daily_c += root_c_input_today
                 if DIAG_LOSTC is not None: DIAG_LOSTC.append((_DIAG_YEAR, root_c_input_today * (1.0 - 1.0 / ROOT_C_INPUT_FACTOR), root_c_input_today))
                 sixpool_state["n_min"] = ((n_nh4 or 0.0) + (n_no3 or 0.0)) if n_nh4 is not None else n_pool
                 sixpool_state["n_conc1"] = n_conc_layer1(layers, n_nh4 if n_nh4 is not None else 0.0, no3_layers, (n_no3 or 0.0) if n_nh4 is not None else n_pool)
@@ -5098,6 +5139,15 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
         # to age 0 rather than tracking a real mixed-age blend, since this pool only ever
         # receives one discrete addition per season, not a continuous trickle.
         sixpool_state["cra_age"] = 0.0
+        if crop.get("root_n_plant_share") and (root_hold_c + root_daily_c) > 1e-9:
+            # root residue C:N from the crop's own N: root N = published share of plant N (Ordonez et al. 2020 root to shoot N ratio), root C = the season's root carbon input
+            _c_pool = sum(_x["crtz"] for _x in sixpool_state["ml"]) if "ml" in sixpool_state else sixpool_state.get("crtz", 0.0)
+            _cn_old = sixpool_state.get("crtz_cn", SIXPOOL_CN_CRTZ)
+            _c_season = root_hold_c + root_daily_c
+            _n_season = max(crop["root_n_plant_share"] * canopy_n_kg_ha, 1e-3)
+            _n_old = max(_c_pool - root_daily_c, 0.0) * 1000.0 / _cn_old
+            sixpool_state["crtz_cn"] = (max(_c_pool - root_daily_c, 0.0) + _c_season) * 1000.0 / max(_n_old + _n_season, 1e-9)
+        root_daily_c = 0.0
         if root_hold_c > 0.0:
             if "ml" in sixpool_state:
                 _wts = [math.exp(-_x["zmid"] / SIXPOOL_ML_ROOT_DECAY_M) for _x in sixpool_state["ml"]]; _ws = sum(_wts)
