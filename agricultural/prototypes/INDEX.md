@@ -13,9 +13,11 @@ About 220 scripts remain here. Most are dated one-shot diagnostics (name ends in
 ## Runners against Cycles
 - `run_validation_multisite.py` (corn, soy, silage, sorghum; env `CROPSEL`, `ENGINE_OVR`, `N_LEVELS`, `YEAR_STEP`, `OUT_JSON`), `run_validation_multisite_wheat.py` (winter wheat, `FALLN=60`), `field_data.py`, `sitesets/` (`fresh94.json`, `holdout.json` locked).
 - `paired_fr_2026_10_17.py` (paired bootstrap of two runs), `scorecard.py`, `scorecard_now_2026_10_23.py` (five-crop table at current defaults plus the panel), `metrics_panel_2026_10_23.py` (concordance, Nash-Sutcliffe, within-site, N response).
+- `tools/scorecard_tables_2026_11_01.py` (generates the scorecard tables and JSON from saved run files, no hand-typed numbers; replaces hand copying from `scorecard_now_2026_10_23.py`; wheat needs a fresh `wheat_ms.json`).
 
 ## Regression guards (run after every engine change)
 - `snapshot_2026_10_20.py` (`save FILE` / `check FILE`: numbers and daily hashes), `check_parity_2026_10_19.py` (API against harness, must print WORST 0.0), `ledger_coverage_2026_10_22.py` (every constant and function is in `../PROVENANCE_LEDGER.md`).
+- `tools/config_audit_2026_11_01.py` (crop dictionaries against the Cycles crop file, planting windows against the operation files, keys inherited from corn; run beside the parity check after any change to a crop dictionary)
 
 ## Attribution and diagnostics that are still live
 - `attrib_ag_2026_10_18.py` (force Cycles' canopy, water, N stress into the engine), `canopy_gap_2026_10_19.py` (canopy by thermal-time tenth), `water_trace_2026_10_23.py` (the water stress formula on Cycles' states), `water_budget_2026_10_23.py` and `water_fallow_2026_10_23.py` (in season and bare soil water terms by month), `wheat_nbudget_2026_10_23.py`, `wheat_growth_eff_2026_10_23.py`, `wheat_clock_2026_10_23.py`, `wheat_maturity_tt_2026_10_23.py`, `rotation_scope_2026_10_23.py` and `rotation_engine_2026_10_23.py` (rotation against Cycles), `mgmt_response_2026_10_21.py` (irrigation, tillage, manure responses), `npool_force_losses_2026_10_23.py`.

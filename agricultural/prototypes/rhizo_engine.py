@@ -1914,7 +1914,8 @@ def n_stress_from_ratio(ratio, crop):
     """N stress factor from the aboveground N concentration over the critical curve (the nitrogen nutrition index when the curve is Lemaire's). `n_stress_n0` set: growth proportional to the index above a structural floor (Ingestad 1979 as cited in Lemaire et al. 2008, relative growth rate linear in plant N concentration); unset: the law fitted to Cycles' daily states."""
     n0 = crop.get("n_stress_n0")
     if n0 is not None:
-        return max(0.0, min(1.0, (ratio - n0) / (1.0 - n0)))
+        _r1 = crop.get("n_stress_r1", 1.0)   # ratio at and above which there is no stress (1.0 = the critical curve itself)
+        return max(0.0, min(1.0, (ratio - n0) / (_r1 - n0)))
     return 1.0 - N_STRESS_SMAX * max(0.0, min(1.0, (N_STRESS_R0 - ratio) / (N_STRESS_R0 - N_STRESS_R1))) ** N_STRESS_Q
 N_STRESS_GROWTH_POW = 1.0   # 2026-10-15 fit: growth uses n_stress**pow; Cycles grows ~13% more under N stress than (1-stress) x unstressed growth
 N_STRESS_ZERO_RATIO = 0.86  # was 0.62; refit 2026-10-12 with SIXPOOL_ML_N_A 76 on 28 sites (fertilized corn bias -0.36 to +0.11)
@@ -3545,7 +3546,8 @@ def _season_chain(weather_by_year, year_range, crop, plant_window, plant_min_soi
         tsoil = simulate_soil_temp([(d[k]["tx"] + d[k]["tn"]) / 2 for k in doys], k=0.15)
         _yp = (year_plan or {}).get(y, {})   # 2026-10-23: optional per-year plan {year: dict(crop=, plant_doy=, kw={season kwargs overrides})}; None = unchanged behaviour
         ycrop = _yp.get("crop", crop)
-        plant_doy = _yp.get("plant_doy") or find_planting_doy(dict(zip(doys, tsoil)), plant_window, plant_min_soil_t)
+        _pw = ycrop.get("plant_window") if (ycrop.get("plant_window") and tuple(plant_window) == (110, 131)) else plant_window   # crop's own window from its operation file (soybean 120 to 140) unless the caller set one
+        plant_doy = _yp.get("plant_doy") or find_planting_doy(dict(zip(doys, tsoil)), _pw, plant_min_soil_t)
         rows = [d[k] for k in range(plant_doy, 300) if k in d]
         _spin0 = 1
         _cover_res = None
@@ -4537,16 +4539,28 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             # derivative is scaled by the stress rate, the senescence part is not. D evaluates the expansion derivative at the thermal clock (corn: offline daily canopy rms 0.136 -> 0.086 on 1776 Cycles
             # site-years with Cycles' stress forced); H evaluates it at the stress-slowed clock so a stressed canopy can catch up once stress eases (winter wheat: 0.200 -> 0.159 against 0.169 for D).
             _a, _b, _c, _d = _shape
-            _x = (tt_cum / _ttm_season) if _ttm_season else tt_dev / crop["tt_maturity"]
-            if _ei_state is None:
-                _ei_state = _eix / (1 + math.exp(_a) + math.exp(_c)); _xc_h = _x
-            _dx = (max(0.0, tt_cum - _ttdev_prev) / _ttm_season) if _ttm_season else max(0.0, tt_dev - _ttdev_prev) / crop["tt_maturity"]
+            if crop.get("canopy_paper"):   # the single axis TTf = thermal time / (MATURITY_TT - emergence), derivative taken at mid-day (plan 2026-10-31)
+                _den_tt = (_ttm_season or crop["tt_maturity"]) - crop.get("tt_emergence", 0.0)
+                _x = ((tt_cum if _ttm_season else tt_dev) - 0.5 * dtt) / _den_tt
+                if _ei_state is None:
+                    _ei_state = _eix / (1 + math.exp(_a) + math.exp(_c)); _xc_h = _x
+                _dx = max(0.0, (tt_cum if _ttm_season else tt_dev) - _ttdev_prev) / _den_tt
+            else:
+                _x = (tt_cum / _ttm_season) if _ttm_season else tt_dev / crop["tt_maturity"]
+                if _ei_state is None:
+                    _ei_state = _eix / (1 + math.exp(_a) + math.exp(_c)); _xc_h = _x
+                _dx = (max(0.0, tt_cum - _ttdev_prev) / _ttm_season) if _ttm_season else max(0.0, tt_dev - _ttdev_prev) / crop["tt_maturity"]
             _xe = _xc_h if _form == "H" else _x
             _e1 = math.exp(_a + _b * _xe); _e2 = math.exp(_c + _d * _x); _den = (1 + _e1 + _e2) ** 2
             _ei_state = max(0.0, min(_eix, _ei_state + _eix * (-_b * _e1 * _nf * _wf - _d * _e2) / _den * _dx))
             _xc_h += _dx * _nf * _wf
             _ttdev_prev = tt_cum if _ttm_season else tt_dev
             _ei = _ei_state
+        elif crop.get("canopy_paper"):
+            # 2026-10-31 (designed Cycles runs, plan entry of that date): the unstressed canopy is Eq. 6 on the single axis TTf = thermal time / (MATURITY_TT - THERMAL_TIME_TO_EMERGENCE), evaluated half a day back
+            # (the reported canopy is the end-of-day value of a daily integration), with constants 6, -20, -16, 15 (the paper prints -15 and 16).
+            _span = crop["tt_maturity"] - crop.get("tt_emergence", 0.0)
+            _ei = canopy_cover_two((tt_canopy - 0.5 * dtt) / _span, (tt_dev + tt_sen_extra - 0.5 * dtt) / _span, _eix, _shape)
         elif CANOPY_TWO_CLOCK:
             _ei = canopy_cover_two(tt_canopy / crop["tt_maturity"], (tt_dev + tt_sen_extra) / crop["tt_maturity"] - crop.get("senes_delay", CANOPY_SENES_DELAY), _eix, _shape)
         else:
@@ -4872,7 +4886,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                 _urs = crop.get("n_uptake_rate", N_UPTAKE_RATE_PER_DAY)
                 _caps = _reach if _urs is None else _reach * _urs
                 if crop.get("n_uptake_gj", GJ_N_UPTAKE):
-                    _caps = min(_reach, gj_n_uptake_cap(layers, root_depth, no3_layers, n_nh4, max(GJ_SEED_ROOT_KG_HA, (biomass - ag_biomass) * 1e4 / (crop.get("root_retained_frac", 1.0) if GJ_ROOT_TOTAL else 1.0)), crop.get("gj_srl"), gj_rl if GJ_RLV_STATE else None))
+                    _caps = min(_reach, gj_n_uptake_cap(layers, root_depth, no3_layers, n_nh4, max(crop.get("gj_seed_root", GJ_SEED_ROOT_KG_HA), (biomass - ag_biomass) * 1e4 / (crop.get("root_retained_frac", 1.0) if GJ_ROOT_TOTAL else 1.0)), crop.get("gj_srl"), gj_rl if GJ_RLV_STATE else None))
                 _sf_s = shoot_fraction(ttf, crop["fsti"], crop["fstf"], crop.get("ttf50")); _rr_s = crop.get("root_retained_frac", 1.0)
                 _bf = (1.0 if _rr_s >= 1.0 else (_sf_s + (1.0 - _sf_s) * _rr_s))
                 _mdp = n_marginal_demand_pct((biomass_ref if crop.get("n_demand_ref", N_DEMAND_REF) else biomass) * 10, crop) * crop.get("n_demand_scale", N_DEMAND_SCALE)
@@ -4931,7 +4945,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
                     _ur = crop.get("n_uptake_rate", N_UPTAKE_RATE_PER_DAY)
                     _cap = reachable if _ur is None else reachable * _ur
                     if crop.get("n_uptake_gj", GJ_N_UPTAKE):
-                        _cap = min(reachable, gj_n_uptake_cap(layers, root_depth, no3_layers, n_nh4, max(GJ_SEED_ROOT_KG_HA, (biomass - ag_biomass) * 1e4 / (crop.get("root_retained_frac", 1.0) if GJ_ROOT_TOTAL else 1.0)), crop.get("gj_srl"), gj_rl if GJ_RLV_STATE else None))
+                        _cap = min(reachable, gj_n_uptake_cap(layers, root_depth, no3_layers, n_nh4, max(crop.get("gj_seed_root", GJ_SEED_ROOT_KG_HA), (biomass - ag_biomass) * 1e4 / (crop.get("root_retained_frac", 1.0) if GJ_ROOT_TOTAL else 1.0)), crop.get("gj_srl"), gj_rl if GJ_RLV_STATE else None))
                     n_uptake_kg_ha = min(_cap, demand_today_kg_ha)
                     if _FORCE_CUR is not None and w["doy"] in _FORCE_CUR.get("uptake", ()):
                         n_uptake_kg_ha = min(reachable, _FORCE_CUR["uptake"][w["doy"]])   # diagnostic: Cycles' own daily plant N uptake
@@ -4995,7 +5009,7 @@ def simulate_season(weather_rows, crop, root_max_m=1.4, harvest_ttf=1.0, n_rate_
             _fl = root_length_fraction_by_layer(layers, root_depth)
             if not gj_rl_seeded:
                 gj_rl_seeded = True
-                _add0 = GJ_SEED_ROOT_KG_HA * 0.1 * GJ_SRL_M_PER_G * 100.0 / 1e4
+                _add0 = crop.get("gj_seed_root", GJ_SEED_ROOT_KG_HA) * 0.1 * GJ_SRL_M_PER_G * 100.0 / 1e4
                 for _i in range(len(layers)): gj_rl[_i] += _add0 * _fl[_i]
             _add = dGB * 1e4 * (1.0 - _sf_now) * 0.1 * crop.get("gj_srl", GJ_SRL_M_PER_G) * 100.0 / 1e4   # kg/m2 -> kg/ha -> g/m2 -> cm/g -> per cm2
             for _i in range(len(layers)): gj_rl[_i] += _add * _fl[_i]
