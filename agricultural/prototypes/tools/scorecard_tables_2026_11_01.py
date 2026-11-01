@@ -36,7 +36,11 @@ def stats(S):
              within_site_r_median=float(np.median(ws)) if ws else None, cycles_mean=float(allp[:, 0].mean()), engine_mean=float(allp[:, 1].mean()))
     for q in ("leach", "denit", "volat", "n2o"):
         x = [(S[s][q]["real"], S[s][q]["model"]) for s in sites if q in S[s]]
-        if x: d["ratio_" + q] = float(np.mean([b for a, b in x]) / np.mean([a for a, b in x]))
+        if x:
+            d["ratio_" + q] = float(np.mean([b for a, b in x]) / np.mean([a for a, b in x]))
+            d["cycles_" + q] = float(np.mean([a for a, b in x])); d["engine_" + q] = float(np.mean([b for a, b in x]))
+    if all("cycles_" + q in d for q in ("leach", "denit", "volat")):   # total N lost = leaching + denitrification + volatilization, kg N/ha/yr
+        d["cycles_total_loss"] = sum(d["cycles_" + q] for q in ("leach", "denit", "volat")); d["engine_total_loss"] = sum(d["engine_" + q] for q in ("leach", "denit", "volat"))
     return d
 def response(SS, lo, hi):   # mean grain change between two N rates, engine / Cycles, on sites present at both
     c = sorted(set(SS[lo]) & set(SS[hi])); e = lambda s, n, j: np.mean(np.array(SS[n][s]["grain"]["pairs"])[:, j])
@@ -63,6 +67,10 @@ for crop, d in res.items():
         if not isinstance(s, dict): continue
         L.append(f"| {crop} | {n} | {s['n_sites']} | {s['r']:.3f} [{s['r_lo']:.3f}, {s['r_hi']:.3f}] | {s['bias_pct']:+.1f} | {s['mae']:.2f} | {f(s['within_site_r_median'])} | "
                  + " | ".join(f(s.get('ratio_' + q)) for q in ("leach", "denit", "volat", "n2o")) + " |")
+L += ["", "Absolute N losses, kg N/ha/yr, engine / Cycles (leaching, denitrification, volatilization, total of the three):"]
+for crop, d in res.items():
+    for n, s in d.items():
+        if isinstance(s, dict) and "engine_total_loss" in s: L.append(f"- {crop} N={n}: " + ", ".join(f"{q} {s['engine_'+q]:.1f}/{s['cycles_'+q]:.1f}" for q in ("leach", "denit", "volat")) + f", total {s['engine_total_loss']:.1f}/{s['cycles_total_loss']:.1f}")
 L += ["", "N response, engine as a share of Cycles' mean grain change:"]
 for crop, d in res.items():
     for k, v in d.items():
