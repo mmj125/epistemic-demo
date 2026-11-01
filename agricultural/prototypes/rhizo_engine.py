@@ -1914,7 +1914,8 @@ def n_stress_from_ratio(ratio, crop):
     """N stress factor from the aboveground N concentration over the critical curve (the nitrogen nutrition index when the curve is Lemaire's). `n_stress_n0` set: growth proportional to the index above a structural floor (Ingestad 1979 as cited in Lemaire et al. 2008, relative growth rate linear in plant N concentration); unset: the law fitted to Cycles' daily states."""
     n0 = crop.get("n_stress_n0")
     if n0 is not None:
-        return max(0.0, min(1.0, (ratio - n0) / (1.0 - n0)))
+        _r1 = crop.get("n_stress_r1", 1.0)   # ratio at and above which there is no stress (1.0 = the critical curve itself)
+        return max(0.0, min(1.0, (ratio - n0) / (_r1 - n0)))
     return 1.0 - N_STRESS_SMAX * max(0.0, min(1.0, (N_STRESS_R0 - ratio) / (N_STRESS_R0 - N_STRESS_R1))) ** N_STRESS_Q
 N_STRESS_GROWTH_POW = 1.0   # 2026-10-15 fit: growth uses n_stress**pow; Cycles grows ~13% more under N stress than (1-stress) x unstressed growth
 N_STRESS_ZERO_RATIO = 0.86  # was 0.62; refit 2026-10-12 with SIXPOOL_ML_N_A 76 on 28 sites (fertilized corn bias -0.36 to +0.11)
