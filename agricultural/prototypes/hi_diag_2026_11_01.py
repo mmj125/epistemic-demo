@@ -6,7 +6,7 @@ import numpy as np, run_validation_multisite as m
 _orig=m.cev.standard_kwargs; m.cev.standard_kwargs=lambda *a,**k: {**_orig(*a,**k),'record_history':True}
 from multiprocessing import Pool
 S=json.load(open('/tmp/w/s24.json'))
-HX,HN,HK,FLOW,CF,SUF=((0.40,0.15,3.4,1250,"SoybeanMG.5","soy") if CS=="soy" else (0.8,0.15,1.3077,1300,"SorghumMS","sor"))
+HX,HN,HK,FLOW,CF,SUF={"soy":(0.40,0.15,3.4,1250,"SoybeanMG.5","soy"),"corn":(0.8,0.15,1.3077,1000,"CornRM.90","")}.get(CS,(0.8,0.15,1.3077,1300,"SorghumMS","sor"))
 def job(site):
     N=150; lat,lon=S[site]; wx,_=m.fd.resolve_field_weather(lat,lon); soil,_,_=m.fd.resolve_field_soil(lat,lon); cl=m.lat_of(lat,lon); m.REG_LON=lon
     m.write_inputs(site,lat,lon,wx,soil,cl); nm=f"{site}{SUF}N{N}"
@@ -26,7 +26,7 @@ def job(site):
     res=m.engine(site,wx,soil,cl,N,"leadin"); rows=[]
     for y,v in hi.items():
         if y in res and res[y].get("grain") and res[y].get("ag") and y in st and v[0]>0:
-            e=res[y]; hie=e["grain"]/e["ag"]; s=np.array(st[y]); hh=e.get("history") or []; MATT={"soy":2250,"sorghum":2050}[CS]
+            e=res[y]; hie=e["grain"]/e["ag"]; s=np.array(st[y]); hh=e.get("history") or []; MATT={"soy":2250,"sorghum":2050,"corn":1800}[CS]
             ie=next((i for i,x in enumerate(hh) if (x.get("ttf") or 0)>=FLOW/MATT),None)
             agf_e=hh[ie]["ag_mg_ha"] if ie is not None else np.nan
             post=[x for x in hh if (x.get('ttf') or 0)>=FLOW/MATT]; en=np.mean([x.get('n_stress') or 0 for x in post]) if post else np.nan; ew=np.mean([x.get('water_stress') or 0 for x in post]) if post else np.nan; ec=np.mean([x.get('canopy') or 0 for x in post]) if post else np.nan; edays=len(post)

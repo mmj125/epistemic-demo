@@ -5,7 +5,7 @@ import json, glob, numpy as np
 TESTS = [("corn water exponent 2.0 vs 1.0", "v_corn_on", "v_corn_w1"), ("silage water exponent 2.0 vs 1.0", "v_sil_on", "v_sil_w1"),
          ("soybean water exponent 2.0 vs 1.0", "v_soy_on", "v_soy_w1"), ("corn seed root 25 vs 10", "v_corn_on", "v_corn_s10"),
          ("silage seed root 25 vs 10", "v_sil_on", "v_sil_s10"), ("sorghum seed root 25 vs 10", "v_sor_on", "v_sor_s10"),
-         ("sorghum N onset 0.9 vs 1.0", "v_sor_on", "v_sor_r1")]
+         ("sorghum N onset 0.9 vs 1.0", "v_sor_on", "v_sor_r1"), ("corn N onset 0.9 vs 1.0", "v_corn_r9", "v_corn_on")]
 def load(t):
     D = {}
     for f in glob.glob(f"/tmp/w/{t}_[0-3].json"): D.update(json.load(open(f)))
