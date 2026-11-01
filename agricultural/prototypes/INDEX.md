@@ -16,6 +16,7 @@ About 220 scripts remain here. Most are dated one-shot diagnostics (name ends in
 
 ## Regression guards (run after every engine change)
 - `snapshot_2026_10_20.py` (`save FILE` / `check FILE`: numbers and daily hashes), `check_parity_2026_10_19.py` (API against harness, must print WORST 0.0), `ledger_coverage_2026_10_22.py` (every constant and function is in `../PROVENANCE_LEDGER.md`).
+- `tools/config_audit_2026_11_01.py` (crop dictionaries against the Cycles crop file, planting windows against the operation files, keys inherited from corn; run beside the parity check after any change to a crop dictionary)
 
 ## Attribution and diagnostics that are still live
 - `attrib_ag_2026_10_18.py` (force Cycles' canopy, water, N stress into the engine), `canopy_gap_2026_10_19.py` (canopy by thermal-time tenth), `water_trace_2026_10_23.py` (the water stress formula on Cycles' states), `water_budget_2026_10_23.py` and `water_fallow_2026_10_23.py` (in season and bare soil water terms by month), `wheat_nbudget_2026_10_23.py`, `wheat_growth_eff_2026_10_23.py`, `wheat_clock_2026_10_23.py`, `wheat_maturity_tt_2026_10_23.py`, `rotation_scope_2026_10_23.py` and `rotation_engine_2026_10_23.py` (rotation against Cycles), `mgmt_response_2026_10_21.py` (irrigation, tillage, manure responses), `npool_force_losses_2026_10_23.py`.
