@@ -13,7 +13,7 @@ import run_validation_rotation2 as r2
 if os.environ.get("NGF"): rv.CORN["ngf_faithful"]=float(os.environ["NGF"]); r2.CORN_SILAGE["ngf_faithful"]=float(os.environ["NGF"])   # growth scalar sweep for both crops
 from multiprocessing import Pool
 NSL=[int(x) for x in os.environ.get('NS','0,150,400').split(',')]
-S=json.load(open('/tmp/w/s24.json')); KEY={'C':'canopy','W':'water','N':'nstress'}
+S=json.load(open('/tmp/w/s24.json')); KEY={'C':'canopy','W':'water','N':'nstress','U':'plantn'}   # U (2026-11-01): force the plant N content to Cycles' daily aboveground_nitrogen
 def one(a):
     site,N=a; lat,lon=S[site]; wx,_=m.fd.resolve_field_weather(lat,lon); soil,_,_=m.fd.resolve_field_soil(lat,lon); cl=m.lat_of(lat,lon); m.REG_LON=lon
     m.write_inputs(site,lat,lon,wx,soil,cl); subprocess.run(["./Cycles",f"{site}N{N}"],cwd=m.CY,capture_output=True); d=f"{m.CY}/output/{site}N{N}/"
@@ -25,13 +25,14 @@ def one(a):
     for x in D:
         if x['biomass']=='-999': continue
         dt=datetime.date.fromisoformat(x['date']); y=dt.year; doy=dt.timetuple().tm_yday
-        f=F.setdefault(y,{'canopy':{},'water':{},'nstress':{},'nclock':{},'wclock':{}})
+        f=F.setdefault(y,{'canopy':{},'water':{},'nstress':{},'nclock':{},'wclock':{},'plantn':{}})
+        f['plantn'][doy]=float(x['aboveground_nitrogen'])
         f['canopy'][doy]=float(x['radiation_interception']); f['water'][doy]=1-float(x['water_stress'])/100; f['nstress'][doy]=1-float(x['nitrogen_stress'])/100
         if x['stage'] in ('VEGETATIVE_GROWTH','REPRODUCTIVE_GROWTH','MATURITY'): lastag[y]=float(x['aboveground_biomass'])
     out={}
     for mode in MODES:
         ks=[KEY[c] for c in mode]
-        E.FORCE_SERIES={y:{k:(v if k in ks else {}) for k,v in f.items() if k in ('canopy','water','nstress')} for y,f in F.items()} if mode else None
+        E.FORCE_SERIES={y:{k:(v if k in ks else {}) for k,v in f.items() if k in ('canopy','water','nstress','plantn')} for y,f in F.items()} if mode else None
         res=m.engine(site,wx,soil,cl,N,'leadin'); E.FORCE_SERIES=None
         ys=[y for y in sorted(set(real)&set(res)) if y>1981 and real[y]>0.3 and y in lastag]
         eng=[res[y]['forage' if CS=='silage' else 'grain'] for y in ys]; agE=[res[y]['ag'] for y in ys]; r_=[real[y] for y in ys]; agC=[lastag[y] for y in ys]
