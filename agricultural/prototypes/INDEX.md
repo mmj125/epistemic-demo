@@ -13,6 +13,7 @@ About 220 scripts remain here. Most are dated one-shot diagnostics (name ends in
 ## Runners against Cycles
 - `run_validation_multisite.py` (corn, soy, silage, sorghum; env `CROPSEL`, `ENGINE_OVR`, `N_LEVELS`, `YEAR_STEP`, `OUT_JSON`), `run_validation_multisite_wheat.py` (winter wheat, `FALLN=60`), `field_data.py`, `sitesets/` (`fresh94.json`, `holdout.json` locked).
 - `paired_fr_2026_10_17.py` (paired bootstrap of two runs), `scorecard.py`, `scorecard_now_2026_10_23.py` (five-crop table at current defaults plus the panel), `metrics_panel_2026_10_23.py` (concordance, Nash-Sutcliffe, within-site, N response).
+- `tools/scorecard_tables_2026_11_01.py` (generates the scorecard tables and JSON from saved run files, no hand-typed numbers; replaces hand copying from `scorecard_now_2026_10_23.py`; wheat needs a fresh `wheat_ms.json`).
 
 ## Regression guards (run after every engine change)
 - `snapshot_2026_10_20.py` (`save FILE` / `check FILE`: numbers and daily hashes), `check_parity_2026_10_19.py` (API against harness, must print WORST 0.0), `ledger_coverage_2026_10_22.py` (every constant and function is in `../PROVENANCE_LEDGER.md`).
