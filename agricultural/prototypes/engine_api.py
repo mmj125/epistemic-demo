@@ -31,7 +31,7 @@ _SILAGE = {'n_crit_lemaire': (3.4, 0.37), 'n_demand_scale': 1.0, 'n_stress_n0': 
            'tt_emergence': 65, 'n_max_conc': 0.055, 'n_dilution_slope': 0.4, 'legume': False, 'n_min_conc': 0.002, 'lwp_stress_onset': -1100, 'lwp_wilting_point': -2000,
            'threshold_temp_cold_damage': 3, 'n_demand_ref': True, 'n_stress_ag_basis': True, 'n_uptake_rate': 0.03, 'root_retained_frac': 0.6}
 _SORGHUM_OVER = dict(n_crit_lemaire=(3.9, 0.39), residue_grain_n=0.70, senes_delay=0.0, senes_k=0.0, tt_maturity=2050, flowering_tt=1300, rue=2.0, wue=9.6, tr_min_t=6, tr_threshold_t=18, kc=1.0, lwp_stress_onset=-1400, lwp_wilting_point=-2300, tr_max_mm_day=9, root_max_m=2.0,
-                     tt_emergence=65, threshold_temp_cold_damage=6, canopy_shape_faithful=(6, -20, -16, 15), canopy_paper=True, canopy_form='D', canopy_water_pow=2.0, eix_faithful=0.949, ngf_faithful=1.0)
+                     tt_emergence=65, threshold_temp_cold_damage=6, canopy_shape_faithful=(6, -20, -16, 15), canopy_paper=True, canopy_form='D', canopy_water_pow=1.0, gj_seed_root=25.0, eix_faithful=0.949, ngf_faithful=1.0)
 _WHEAT = {'rhizo_rr': 0.6, 'rhizo_root_n_share': 0.082, 'canopy_form': 'H', 'tt_maturity': 1800, 'flowering_tt': 1250, 'base_t': 0, 'opt_t': 20, 'max_t': 35, 'rue': 1.6, 'wue': 6.0, 'hi_x': 0.52, 'hi_o': 0.2, 'hi_slope': 2.5, 'fsti': 0.45,
           'fstf': 0.95, 'kc': 1.0, 'eix': 1.0, 'tr_min_t': 0.0, 'tr_threshold_t': 12.0, 'lat_deg': 40.6875, 'n_simultaneous': True,'n_demand_ref': True, 'n_stress_ag_basis': True, 'n_uptake_rate': 0.03, 'eix_cap': 0.853, 'standing_at_harvest': 0.4, 'res_k_flat': 0.50, 'net_growth_fraction': 0.95, 'ttf50': 0.32,
           'hi_use_thermal_time_fraction': False, 'n_crit_lemaire': (5.3, 0.44), 'n_stress_n0': 0.2, 'weps_k': 0.028, 'wue_co2_exp': 0.38, 'rue_co2_exp': 0.38, 'residue_grain_n': 0.75, 'n_uptake_gj': True, 'n_demand_scale': 1.0, 'calibration_factor': 1.0, 'depletion_fraction': 0.55, 'canopy_shape': (5, -14, -15, 16), 'tr_max_mm_day': 8, 'root_max_m': 2.0, 'tt_emergence': 100, 'n_max_conc': 0.07, 'n_dilution_slope': 0.45, 'n_min_conc': 0.002, 'lwp_stress_onset': -1000,
@@ -131,7 +131,7 @@ ENGINE_INFO = {
     "validation": [
         ["Corn", "0 / 150 / 400", "0.91 / 0.89 / 0.94", "+4 / +1 / -3", "0.62 / 1.05 / 0.90"],
         ["Silage corn", "0 / 150 / 400", "0.89 / 0.90 / 0.93", "+14 / +1 / -1", "1.14 / 1.64 / 1.51"],
-        ["Sorghum", "0 / 150 / 400", "0.89 / 0.86 / 0.91", "-13 / -10 / -9", "0.64 / 1.20 / 1.17"],
+        ["Sorghum", "0 / 150 / 400", "0.89 / 0.86 / 0.90", "-13 / -9 / -8", "0.64 / 1.19 / 1.16"],
         ["Soybean", "none", "0.96", "+3", "0.34"],
         ["Winter wheat", "0 / 90 / 150", "0.91 / 0.85 / 0.84", "+3 / +6 / +3", "0.38 / 0.67 / 0.78"],
     ],
