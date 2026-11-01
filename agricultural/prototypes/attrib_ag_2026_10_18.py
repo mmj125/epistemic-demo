@@ -13,11 +13,11 @@ import run_validation_rotation2 as r2
 if os.environ.get("NGF"): rv.CORN["ngf_faithful"]=float(os.environ["NGF"]); r2.CORN_SILAGE["ngf_faithful"]=float(os.environ["NGF"])   # growth scalar sweep for both crops
 from multiprocessing import Pool
 NSL=[int(x) for x in os.environ.get('NS','0,150,400').split(',')]
-S=json.load(open('/tmp/w/s24.json')); KEY={'C':'canopy','W':'water','N':'nstress','U':'plantn'}   # U (2026-11-01): force the plant N content to Cycles' daily aboveground_nitrogen
+S=json.load(open('/tmp/w/s24.json')); KEY={'C':'canopy','W':'water','N':'nstress','U':'plantn','M':'netmin','L':'loss'}   # U (2026-11-01): force the plant N content to Cycles' daily aboveground_nitrogen
 def one(a):
     site,N=a; lat,lon=S[site]; wx,_=m.fd.resolve_field_weather(lat,lon); soil,_,_=m.fd.resolve_field_soil(lat,lon); cl=m.lat_of(lat,lon); m.REG_LON=lon
     m.write_inputs(site,lat,lon,wx,soil,cl); subprocess.run(["./Cycles",f"{site}N{N}"],cwd=m.CY,capture_output=True); d=f"{m.CY}/output/{site}N{N}/"
-    D=[r for r in csv.DictReader(open(d+f"daily{CFILE}.csv")) if r['date'][0]!='#']; HC=list(csv.reader(open(d+"harvest.csv"))); shutil.rmtree(d,ignore_errors=True)
+    D=[r for r in csv.DictReader(open(d+f"daily{CFILE}.csv")) if r['date'][0]!='#']; HC=list(csv.reader(open(d+"harvest.csv"))); NN=[r for r in csv.DictReader(l for l in open(d+"dailyN.csv") if not l.startswith('#'))]; shutil.rmtree(d,ignore_errors=True)
     hh=HC[0]; yi=hh.index('forage_yield' if CS=='silage' else 'grain_yield'); real={}
     for r in HC[2:]:
         if r and r[0][0]!='#': real[int(r[0][:4])]=float(r[yi])
@@ -29,10 +29,13 @@ def one(a):
         f['plantn'][doy]=float(x['aboveground_nitrogen'])
         f['canopy'][doy]=float(x['radiation_interception']); f['water'][doy]=1-float(x['water_stress'])/100; f['nstress'][doy]=1-float(x['nitrogen_stress'])/100
         if x['stage'] in ('VEGETATIVE_GROWTH','REPRODUCTIVE_GROWTH','MATURITY'): lastag[y]=float(x['aboveground_biomass'])
+    for r_ in NN:   # 2026-11-01: M forces Cycles' daily net mineralization (all days), L its nitrate pathway loss (leaching plus denitrification)
+        dt=datetime.date.fromisoformat(r_['date']); f=F.setdefault(dt.year,{'canopy':{},'water':{},'nstress':{},'nclock':{},'wclock':{},'plantn':{}}); k=dt.timetuple().tm_yday
+        f.setdefault('netmin',{})[k]=float(r_['net_mineralization']); f.setdefault('loss',{})[k]=float(r_['NO3_leaching'])+float(r_['denitrification'])
     out={}
     for mode in MODES:
         ks=[KEY[c] for c in mode]
-        E.FORCE_SERIES={y:{k:(v if k in ks else {}) for k,v in f.items() if k in ('canopy','water','nstress','plantn')} for y,f in F.items()} if mode else None
+        E.FORCE_SERIES={y:{k:(v if k in ks else {}) for k,v in f.items() if k in ('canopy','water','nstress','plantn','netmin','loss')} for y,f in F.items()} if mode else None
         res=m.engine(site,wx,soil,cl,N,'leadin'); E.FORCE_SERIES=None
         ys=[y for y in sorted(set(real)&set(res)) if y>1981 and real[y]>0.3 and y in lastag]
         eng=[res[y]['forage' if CS=='silage' else 'grain'] for y in ys]; agE=[res[y]['ag'] for y in ys]; r_=[real[y] for y in ys]; agC=[lastag[y] for y in ys]
